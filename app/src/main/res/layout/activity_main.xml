@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
+    android:layout_height="match_parent"
+    android:layout_gravity="fill">
+    <TextView android:id="@+id/text"
+        style="@style/TextSentence"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hello, I am a TextView"/>
     <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_space" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_e" style="@style/SacTableCell" />
@@ -10,32 +15,32 @@
         <TextView android:text="@string/symbol_r" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_d" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_u" style="@style/SacTableCell" />
-        </TableRow>
-        <TableRow style="@style/SacTableRow">
+    </TableRow>
+    <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_t" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_o" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_i" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_l" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_g" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_b" style="@style/SacTableCell" />
-        </TableRow>
-        <TableRow style="@style/SacTableRow">
+    </TableRow>
+    <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_t" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_o" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_i" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_l" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_g" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_b" style="@style/SacTableCell" />
-        </TableRow>
-        <TableRow style="@style/SacTableRow">
+    </TableRow>
+    <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_h" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_c" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_p" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_k" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_q" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_clear" style="@style/SacTableCell" />
-        </TableRow>
-        <TableRow style="@style/SacTableRow">
+    </TableRow>
+    <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_m" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_w" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_x" style="@style/SacTableCell" />
