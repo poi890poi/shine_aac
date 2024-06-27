@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">SHINE AAC</string>
+    <string name="symbol_space">SPC</string>
+    <string name="symbol_clear">CLR</string>
+    <string name="symbol_question">?</string>
+    <string name="symbol_a">A</string>
+    <string name="symbol_b">B</string>
+    <string name="symbol_c">C</string>
+    <string name="symbol_d">D</string>
+    <string name="symbol_e">E</string>
+    <string name="symbol_f">F</string>
+    <string name="symbol_g">G</string>
+    <string name="symbol_h">H</string>
+    <string name="symbol_i">I</string>
+    <string name="symbol_j">J</string>
+    <string name="symbol_k">K</string>
+    <string name="symbol_l">L</string>
+    <string name="symbol_m">M</string>
+    <string name="symbol_n">N</string>
+    <string name="symbol_o">O</string>
+    <string name="symbol_p">P</string>
+    <string name="symbol_q">Q</string>
+    <string name="symbol_r">R</string>
+    <string name="symbol_s">S</string>
+    <string name="symbol_t">T</string>
+    <string name="symbol_u">U</string>
+    <string name="symbol_v">V</string>
+    <string name="symbol_w">W</string>
+    <string name="symbol_x">X</string>
+    <string name="symbol_y">Y</string>
+    <string name="symbol_z">Z</string>
+</resources>
