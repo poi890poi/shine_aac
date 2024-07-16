@@ -2,46 +2,63 @@ package com.example.shineaac
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.shineaac.ui.theme.SHINEAACTheme
+import android.os.Handler
+import android.os.Looper
+import android.widget.TableLayout
+import android.widget.TableRow
+import android.widget.TextView
 
 class MainActivity : ComponentActivity() {
+    private val handler = Handler(Looper.getMainLooper())
+    private val scanInterval: Long = 400 // Change color every 2 seconds
+    private var sacLevel = 0
+    private var sacActive = -1
+    private var sacPrev = -1
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            SHINEAACTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+        setContentView(R.layout.activity_main)
+        startSwitchAccessScan()
+    }
+
+    private fun startSwitchAccessScan() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                switchAccessScan()
+                handler.postDelayed(this, scanInterval)
+            }
+        }, scanInterval)
+    }
+
+    private fun setRowBackgroundColor(row: TableRow, color: Int) {
+        for (j in 0 until row.childCount) {
+            val t = row.getChildAt(j)
+            if (t is TextView) {
+                t.setBackgroundColor(color)
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "SHINE $name!",
-        modifier = modifier
-    )
-}
+    private fun switchAccessScan() {
+        val sacTableLayout = findViewById<TableLayout>(R.id.sac_table_layout)
+        while (true) {
+            if (sacActive >= sacTableLayout.childCount) sacActive = 0
+            else sacActive++
+            val active = sacTableLayout.getChildAt(sacActive)
+            if (active is TableRow) {
+                setRowBackgroundColor(active, getColor(R.color.purple_200))
+                break
+            }
+        }
+        if (sacPrev >= 0) {
+            val prev = sacTableLayout.getChildAt(sacPrev)
+            if (prev is TableRow) setRowBackgroundColor(prev, getColor(R.color.ivory))
+        }
+        sacPrev = sacActive
+    }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SHINEAACTheme {
-        Greeting("AAC")
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacksAndMessages(null)
     }
 }
