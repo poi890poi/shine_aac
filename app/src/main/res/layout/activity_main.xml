@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sac_table_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_gravity="fill">
+    android:layout_gravity="fill"
+    android:visibility="visible" >
     <TextView android:id="@+id/text"
         style="@style/TextSentence"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello, I am a TextView"/>
+        android:text="Hello, I am a TextView" />
     <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_space" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_e" style="@style/SacTableCell" />
@@ -25,12 +27,12 @@
         <TextView android:text="@string/symbol_b" style="@style/SacTableCell" />
     </TableRow>
     <TableRow style="@style/SacTableRow">
-        <TextView android:text="@string/symbol_t" style="@style/SacTableCell" />
-        <TextView android:text="@string/symbol_o" style="@style/SacTableCell" />
-        <TextView android:text="@string/symbol_i" style="@style/SacTableCell" />
-        <TextView android:text="@string/symbol_l" style="@style/SacTableCell" />
-        <TextView android:text="@string/symbol_g" style="@style/SacTableCell" />
-        <TextView android:text="@string/symbol_b" style="@style/SacTableCell" />
+        <TextView android:text="@string/symbol_n" style="@style/SacTableCell" />
+        <TextView android:text="@string/symbol_s" style="@style/SacTableCell" />
+        <TextView android:text="@string/symbol_f" style="@style/SacTableCell" />
+        <TextView android:text="@string/symbol_y" style="@style/SacTableCell" />
+        <TextView android:text="@string/symbol_v" style="@style/SacTableCell" />
+        <TextView android:text="@string/symbol_j" style="@style/SacTableCell" />
     </TableRow>
     <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_h" style="@style/SacTableCell" />

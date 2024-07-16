@@ -6,6 +6,10 @@
         <item name="android:layout_weight">1</item>
         <item name="android:padding">8dp</item>
         <item name="android:gravity">center</item>
+        <item name="android:background">#FFFFF0</item>
+    </style>
+    <style name="SacTableRow.Highlighted">
+        <item name="android:background">#7B68EE</item>
     </style>
     <style name="SacTableCell" parent="SacTableRow">
         <item name="android:layout_width">0dp</item>
@@ -17,14 +21,9 @@
         <item name="android:textStyle">bold</item>
         <item name="android:background">@drawable/cell_border</item>
     </style>
-    <style name="SacTableCell.Disabled">
-        <item name="android:background">@drawable/cell_border_disabled</item>
-    </style>
     <style name="SacTableCell.Highlighted">
-        <item name="android:background">@drawable/cell_border_highlighted</item>
-    </style>
-    <style name="SacTableCell.Selected">
-        <item name="android:background">@drawable/cell_border_selected</item>
+        <item name="android:textColor">#333333</item>
+        <item name="android:background">@drawable/cell_border</item>
     </style>
     <style name="TextSentence">
         <item name="android:layout_width">match_parent</item>
