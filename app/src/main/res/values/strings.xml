@@ -2,6 +2,7 @@
     <string name="app_name">SHINE AAC</string>
     <string name="symbol_space">SPC</string>
     <string name="symbol_clear">CLR</string>
+    <string name="symbol_backspace">BAK</string>
     <string name="symbol_question">?</string>
     <string name="symbol_a">A</string>
     <string name="symbol_b">B</string>
