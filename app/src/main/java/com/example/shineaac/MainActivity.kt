@@ -1,7 +1,5 @@
 package com.example.shineaac
 
-import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
@@ -18,11 +16,17 @@ import androidx.activity.ComponentActivity
 const val TAG = "MainActivity"
 
 class MainActivity : ComponentActivity() {
-    private val handler = Handler(Looper.getMainLooper())
-    private val scanInterval: Long = 750 // Change color every 2 seconds
-    private var sacLevel = 0
-    private var sacActive = arrayOf(-1, -1, -1)
-    private var sacPrev = arrayOf(-1, -1, -1)
+    private val mHandler = Handler(Looper.getMainLooper())
+    private val mScanInterval: Long = 750
+    private val mRunnable = object : Runnable {
+        override fun run() {
+            switchAccessScan()
+            mHandler.postDelayed(this, mScanInterval)
+        }
+    }
+    private var mSacLevel = 0
+    private var mSacActive = arrayOf(-1, -1, -1)
+    private var mSacPrev = arrayOf(-1, -1, -1)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,7 +42,10 @@ class MainActivity : ComponentActivity() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     // Handle touch down event
-                    sacLevel++
+                    mHandler.removeCallbacks(mRunnable)
+                    mSacLevel++
+                    switchAccessScan()
+                    startSwitchAccessScan()
                     true
                 }
                 MotionEvent.ACTION_UP -> {
@@ -52,12 +59,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startSwitchAccessScan() {
-        handler.postDelayed(object : Runnable {
-            override fun run() {
-                switchAccessScan()
-                handler.postDelayed(this, scanInterval)
-            }
-        }, scanInterval)
+        mHandler.postDelayed(mRunnable, mScanInterval)
     }
 
     private fun setStyle(view: View,
@@ -79,10 +81,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sacInput() {
-        Log.v(TAG, "sac input " + sacActive[0] + ", " + sacActive[1])
+        Log.v(TAG, "sac input " + mSacActive[0] + ", " + mSacActive[1])
         val sacTableLayout = findViewById<TableLayout>(R.id.sac_table_layout)
-        val row = sacTableLayout.getChildAt(sacActive[0]) as TableRow
-        val cell = row.getChildAt(sacActive[1]) as TextView
+        val row = sacTableLayout.getChildAt(mSacActive[0]) as TableRow
+        val cell = row.getChildAt(mSacActive[1]) as TextView
         val sacInput = findViewById<TextView>(R.id.sac_input)
         val txt = cell.text.toString()
         when (txt) {
@@ -102,50 +104,50 @@ class MainActivity : ComponentActivity() {
                 sacInput.append(txt)
             }
         }
-        sacLevel = 0
-        sacActive[0] = -1
-        sacActive[1] = -1
+        mSacLevel = 0
+        mSacActive[0] = -1
+        mSacActive[1] = -1
     }
 
     private fun sacLvl1() {
         val sacTableLayout = findViewById<TableLayout>(R.id.sac_table_layout)
-        val row = sacTableLayout.getChildAt(sacActive[0]) as TableRow
+        val row = sacTableLayout.getChildAt(mSacActive[0]) as TableRow
         while (true) {
-            if (sacActive[1] >= row.childCount) sacActive[1] = 0
-            else sacActive[1]++
-            val cell = row.getChildAt(sacActive[1])
+            if (mSacActive[1] >= row.childCount) mSacActive[1] = 0
+            else mSacActive[1]++
+            val cell = row.getChildAt(mSacActive[1])
             if (cell is TextView) {
                 setStyle(cell, R.color.teal_700, 1, R.color.black)
                 break
             }
         }
-        if (sacPrev[1] >= 0) {
-            val prev = row.getChildAt(sacPrev[1])
+        if (mSacPrev[1] >= 0) {
+            val prev = row.getChildAt(mSacPrev[1])
             setStyle(prev, R.color.purple_200, 1, R.color.black)
         }
-        sacPrev[1] = sacActive[1]
+        mSacPrev[1] = mSacActive[1]
     }
 
     private fun sacLvl0() {
         val sacTableLayout = findViewById<TableLayout>(R.id.sac_table_layout)
         while (true) {
-            if (sacActive[0] >= sacTableLayout.childCount) sacActive[0] = 0
-            else sacActive[0]++
-            val row = sacTableLayout.getChildAt(sacActive[0])
+            if (mSacActive[0] >= sacTableLayout.childCount) mSacActive[0] = 0
+            else mSacActive[0]++
+            val row = sacTableLayout.getChildAt(mSacActive[0])
             if (row is TableRow) {
                 setRowBackgroundColor(row, R.color.purple_200)
                 break
             }
         }
-        if (sacPrev[0] >= 0) {
-            val prev = sacTableLayout.getChildAt(sacPrev[0])
+        if (mSacPrev[0] >= 0) {
+            val prev = sacTableLayout.getChildAt(mSacPrev[0])
             if (prev is TableRow) setRowBackgroundColor(prev, R.color.ivory)
         }
-        sacPrev[0] = sacActive[0]
+        mSacPrev[0] = mSacActive[0]
     }
 
     private fun switchAccessScan() {
-        when(sacLevel) {
+        when(mSacLevel) {
             0 -> sacLvl0()
             1 -> sacLvl1()
             2 -> sacInput()
@@ -154,6 +156,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacksAndMessages(null)
+        mHandler.removeCallbacksAndMessages(null)
     }
 }
