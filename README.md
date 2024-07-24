@@ -15,6 +15,9 @@ This project specially focuses on those with very limited motor functions. Peopl
 - The system must have a customizable input: device, mode of operation, number of states (signals), expected throughput (signals per minute).
 - The system must have a customizable output: number of symbols and each symbol could be cusomized.
 
+# Software Design
+![Model](https://github.com/poi890poi/shine_aac/blob/main/SHINE%20AAC.drawio.png?raw=true)
+
 # References
 - [Augmentative and alternative communication](https://en.wikipedia.org/wiki/Augmentative_and_alternative_communication)
 - [Switch access scanning](https://en.wikipedia.org/wiki/Switch_access_scanning)
