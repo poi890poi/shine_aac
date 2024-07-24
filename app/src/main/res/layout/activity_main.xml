@@ -5,11 +5,14 @@
     android:layout_height="match_parent"
     android:layout_gravity="fill"
     android:visibility="visible" >
-    <TextView android:id="@+id/sac_input"
+
+    <EditText android:id="@+id/sac_input"
         style="@style/TextSentence"
-        android:layout_width="wrap_content"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text="" />
+        android:textCursorDrawable="@drawable/text_cursor"
+        android:cursorVisible="true" />
+
     <TableRow style="@style/SacTableRow">
         <TextView android:text="@string/symbol_space" style="@style/SacTableCell" />
         <TextView android:text="@string/symbol_e" style="@style/SacTableCell" />
