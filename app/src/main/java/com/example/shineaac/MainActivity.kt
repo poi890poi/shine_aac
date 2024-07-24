@@ -1,10 +1,14 @@
 package com.example.shineaac
 
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
+import android.view.View
 import android.widget.TableLayout
 import android.widget.TableRow
 import android.widget.TextView
@@ -56,11 +60,20 @@ class MainActivity : ComponentActivity() {
         }, scanInterval)
     }
 
+    private fun setStyle(view: View,
+                         background: Int, strokeWidth: Int, strokeColor: Int) {
+        val drawable = GradientDrawable()
+        drawable.setColor(getColor(background))
+        drawable.setStroke(strokeWidth, getColor(strokeColor))
+        view.setBackground(drawable)
+    }
+
     private fun setRowBackgroundColor(row: TableRow, color: Int) {
+        setStyle(row, color, 2, R.color.black)
         for (j in 0 until row.childCount) {
             val t = row.getChildAt(j)
             if (t is TextView) {
-                t.setBackgroundColor(color)
+                setStyle(t, color, 1, R.color.black)
             }
         }
     }
@@ -102,13 +115,13 @@ class MainActivity : ComponentActivity() {
             else sacActive[1]++
             val cell = row.getChildAt(sacActive[1])
             if (cell is TextView) {
-                cell.setBackgroundColor(getColor(R.color.teal_700))
+                setStyle(cell, R.color.teal_700, 1, R.color.black)
                 break
             }
         }
         if (sacPrev[1] >= 0) {
             val prev = row.getChildAt(sacPrev[1])
-            prev.setBackgroundColor(getColor(R.color.purple_200))
+            setStyle(prev, R.color.purple_200, 1, R.color.black)
         }
         sacPrev[1] = sacActive[1]
     }
@@ -120,13 +133,13 @@ class MainActivity : ComponentActivity() {
             else sacActive[0]++
             val row = sacTableLayout.getChildAt(sacActive[0])
             if (row is TableRow) {
-                setRowBackgroundColor(row, getColor(R.color.purple_200))
+                setRowBackgroundColor(row, R.color.purple_200)
                 break
             }
         }
         if (sacPrev[0] >= 0) {
             val prev = sacTableLayout.getChildAt(sacPrev[0])
-            if (prev is TableRow) setRowBackgroundColor(prev, getColor(R.color.ivory))
+            if (prev is TableRow) setRowBackgroundColor(prev, R.color.ivory)
         }
         sacPrev[0] = sacActive[0]
     }
