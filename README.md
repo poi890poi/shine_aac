@@ -22,11 +22,75 @@ This project specially focuses on those with very limited motor functions. Peopl
 The Android app is implemented with Kotlin and Jetpack Compose. It provides:
 
 - Row/column switch scanning with a large switch input.
-- Direct-touch selection for users who can tap individual cells.
-- A message buffer with speak, delete, and clear controls.
+- Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
+- A row-to-symbol transition pause so accidental second taps do not immediately select the first or second symbol.
+- A longer first-symbol hold so column 1 is not rushed after the mode change.
+- Input-latency compensation: very early activations are treated as intended selections of the previous row or symbol.
+- A blinking message cursor so trailing spaces are visible.
+- A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
-- Adjustable scan speed.
-- A starter communication board with urgent needs, common words, letters, space, delete, speak, and clear.
+- Adjustable scan speed, transition pause, first-symbol hold, and input-latency compensation.
+- A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
+
+## Switch Scanning Design
+This app targets automatic row-column scanning for users who may have only one reliable action, such as a touch, switch, blink, or other binary signal. The communication surface intentionally avoids direct cell tapping: the same single action is used everywhere on the main board.
+
+The scan state machine has four stages:
+
+1. `Rows`: rows are highlighted in sequence.
+2. `RowSelected`: the selected row stays locked for a configurable transition pause. Switch activations during this transient state are ignored.
+3. `FirstCell`: the first symbol in the locked row is highlighted for a longer configurable hold.
+4. `Cells`: the remaining symbols in the locked row are highlighted in sequence.
+
+The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause, then `FirstCell` gives the first symbol extra dwell time before the normal symbol scan continues.
+
+The app also compensates for visual-motor latency. If an activation occurs during the first configurable latency window of a row or symbol highlight, the scanner treats it as an intended selection of the previous highlight. The default is 250 ms, which is in the range commonly used as a practical approximation for human visual reaction time; it must remain configurable because real access latency varies with vision, cognition, fatigue, switch site, switch hardware, and motor control.
+
+The message area always shows a blinking `|` cursor after the current message. This makes trailing spaces visible; without a cursor, a message ending in a space and the same message without a space look identical.
+
+Other options considered:
+
+- Slower global scan speed: simple, but it slows every symbol rather than only the risky row-to-symbol transition.
+- Require confirm-on-release or press-and-hold: useful for some switches, but harder for users whose reliable signal is only a short activation.
+- Step scanning with separate next/select actions: cognitively clear, but requires more switch actions or a second input.
+- Auditory cue before cell scanning: likely useful later, especially for low-vision users, but the visual transient pause is the first implemented safeguard.
+- Input-latency compensation: implemented now; improves throughput by forgiving late human activations without slowing the whole scan.
+- Probabilistic single-switch selection such as Nomon: promising and potentially faster, but row-column scanning is simpler and easier to explain for the first working version.
+
+## Symbol Ordering
+The default spelling area is not alphabetical. It starts with high-frequency English letters:
+
+```text
+E T A O I N S R H L D C U M F P G W Y B V K X J Q Z
+```
+
+This is intended to reduce average scan time. In row-column scanning, symbols earlier in the board require fewer scan steps. Alphabetical order is easier to inspect, but it puts common letters such as `E`, `T`, `A`, `O`, and `I` across the alphabet rather than near the beginning.
+
+The board also places high-value whole words and actions before spelling symbols because whole-word selection can save many switch activations. The default vocabulary is only a starter set; caregivers should customize it to the individual user, context, language, and communication partners.
+
+Configuration is accessed with the `Config` button in the top panel. It is intended for a fully functional user, caregiver, clinician, or developer. The main switch-scanning loop pauses while configuration is open. Configuration currently supports:
+
+- number of columns
+- switch scan speed
+- row-to-symbol transition pause
+- first-symbol hold
+- input-latency compensation window
+- custom symbols and words
+
+Symbol format is one item per line:
+
+```text
+WATCH=watch
+MOM=mom
+A
+B
+SPC=<space>
+DEL=<delete>
+SAY=<speak>
+CLR=<clear>
+```
+
+Configuration is stored on the device. The app migrates old built-in default layouts to the current frequency-ordered default, but it preserves layouts that were saved under the current config version. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, and input-latency compensation window.
 
 To build locally, install the Android SDK and either set `ANDROID_HOME` or create `local.properties` with:
 
@@ -111,3 +175,8 @@ Enable Developer Options and USB debugging on the device first.
 - [Augmentative and alternative communication](https://en.wikipedia.org/wiki/Augmentative_and_alternative_communication)
 - [Switch access scanning](https://en.wikipedia.org/wiki/Switch_access_scanning)
 - [Switch access scanning and major challenges](https://easeapps.xyz/105-switch-access-scanning-and-major-challenges/)
+- [ASHA Practice Portal: Augmentative and Alternative Communication](https://www.asha.org/practice-portal/professional-issues/augmentative-and-alternative-communication/)
+- [English Letter Frequency Counts: Mayzner Revisited, Peter Norvig](https://www.norvig.com/mayzner.html)
+- [Letter frequency](https://en.wikipedia.org/wiki/Letter_frequency)
+- [Fast and flexible selection with a single switch](https://arxiv.org/abs/0909.2450)
+- [A Performance Evaluation of Nomon: A Flexible Interface for Noisy Single-Switch Users](https://arxiv.org/abs/2204.01619)

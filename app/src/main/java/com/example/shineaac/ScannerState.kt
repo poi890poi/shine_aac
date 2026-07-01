@@ -2,6 +2,8 @@ package com.example.shineaac
 
 enum class ScanStage {
     Rows,
+    RowSelected,
+    FirstCell,
     Cells
 }
 
@@ -19,6 +21,13 @@ data class ScannerState(
                 cellIndex = 0
             )
 
+            ScanStage.RowSelected -> copy(stage = ScanStage.FirstCell, cellIndex = 0)
+
+            ScanStage.FirstCell -> {
+                val columns = columnCountForRow(rowIndex).coerceAtLeast(1)
+                copy(stage = ScanStage.Cells, cellIndex = if (columns == 1) 0 else 1)
+            }
+
             ScanStage.Cells -> {
                 val columns = columnCountForRow(rowIndex).coerceAtLeast(1)
                 copy(cellIndex = (cellIndex + 1).floorMod(columns))
@@ -33,7 +42,18 @@ data class ScannerState(
             ScanStage.Rows -> {
                 val safeRow = rowIndex.coerceIn(0, rowCount - 1)
                 ScannerConfirmation.NoSelection(
-                    copy(stage = ScanStage.Cells, rowIndex = safeRow, cellIndex = 0)
+                    copy(stage = ScanStage.RowSelected, rowIndex = safeRow, cellIndex = 0)
+                )
+            }
+
+            ScanStage.RowSelected -> ScannerConfirmation.NoSelection(this)
+
+            ScanStage.FirstCell -> {
+                val safeRow = rowIndex.coerceIn(0, rowCount - 1)
+                ScannerConfirmation.Selected(
+                    rowIndex = safeRow,
+                    cellIndex = 0,
+                    nextState = ScannerState(stage = ScanStage.Rows, rowIndex = safeRow, cellIndex = 0)
                 )
             }
 
@@ -46,6 +66,35 @@ data class ScannerState(
                     nextState = ScannerState(stage = ScanStage.Rows, rowIndex = safeRow, cellIndex = 0)
                 )
             }
+        }
+    }
+
+    fun confirmWithLatencyCompensation(
+        rowCount: Int,
+        columnCountForRow: (Int) -> Int,
+        elapsedInHighlightMs: Long,
+        compensationWindowMs: Float
+    ): ScannerConfirmation {
+        val compensatedState = if (elapsedInHighlightMs in 0 until compensationWindowMs.toLong()) {
+            previousHighlight(rowCount, columnCountForRow)
+        } else {
+            this
+        }
+
+        return compensatedState.confirm(rowCount, columnCountForRow)
+    }
+
+    private fun previousHighlight(rowCount: Int, columnCountForRow: (Int) -> Int): ScannerState {
+        if (rowCount <= 0) return this
+
+        return when (stage) {
+            ScanStage.Rows -> copy(rowIndex = (rowIndex - 1).floorMod(rowCount), cellIndex = 0)
+            ScanStage.Cells -> {
+                val columns = columnCountForRow(rowIndex).coerceAtLeast(1)
+                copy(cellIndex = (cellIndex - 1).floorMod(columns))
+            }
+            ScanStage.RowSelected,
+            ScanStage.FirstCell -> this
         }
     }
 

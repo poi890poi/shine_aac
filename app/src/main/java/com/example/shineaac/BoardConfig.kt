@@ -3,6 +3,9 @@ package com.example.shineaac
 data class BoardConfig(
     val columns: Int = DefaultColumns,
     val scanIntervalMs: Float = DefaultScanIntervalMs,
+    val transitionPauseMs: Float = DefaultTransitionPauseMs,
+    val firstCellPauseMs: Float = DefaultFirstCellPauseMs,
+    val inputLatencyCompensationMs: Float = DefaultInputLatencyCompensationMs,
     val symbols: List<CommunicationTile> = DefaultTiles
 ) {
     fun rows(): List<List<CommunicationTile>> = symbols.chunked(columns.coerceIn(2, 8))
@@ -24,8 +27,108 @@ data class CommunicationTile(
 
 const val DefaultColumns = 4
 const val DefaultScanIntervalMs = 900f
+const val DefaultTransitionPauseMs = 850f
+const val DefaultFirstCellPauseMs = 1400f
+const val DefaultInputLatencyCompensationMs = 250f
+const val CurrentConfigVersion = 4
 
 val DefaultTiles = listOf(
+    CommunicationTile("YES", "yes"),
+    CommunicationTile("NO", "no"),
+    CommunicationTile("HELP", "help"),
+    CommunicationTile("PAIN", "pain"),
+    CommunicationTile("WATER", "water"),
+    CommunicationTile("FOOD", "food"),
+    CommunicationTile("I", "I"),
+    CommunicationTile("YOU", "you"),
+    CommunicationTile("WANT", "want"),
+    CommunicationTile("NEED", "need"),
+    CommunicationTile("GO", "go"),
+    CommunicationTile("STOP", "stop"),
+    CommunicationTile("WATCH", "watch"),
+    CommunicationTile("LOOK", "look"),
+    CommunicationTile("SAY", action = TileAction.Speak),
+    CommunicationTile("DEL", action = TileAction.Backspace),
+    CommunicationTile("CLR", action = TileAction.Clear),
+    CommunicationTile("SPC", " ", TileAction.Space),
+    CommunicationTile("E"),
+    CommunicationTile("T"),
+    CommunicationTile("A"),
+    CommunicationTile("O"),
+    CommunicationTile("I"),
+    CommunicationTile("N"),
+    CommunicationTile("S"),
+    CommunicationTile("R"),
+    CommunicationTile("H"),
+    CommunicationTile("L"),
+    CommunicationTile("D"),
+    CommunicationTile("C"),
+    CommunicationTile("U"),
+    CommunicationTile("M"),
+    CommunicationTile("F"),
+    CommunicationTile("P"),
+    CommunicationTile("G"),
+    CommunicationTile("W"),
+    CommunicationTile("Y"),
+    CommunicationTile("B"),
+    CommunicationTile("V"),
+    CommunicationTile("K"),
+    CommunicationTile("X"),
+    CommunicationTile("J"),
+    CommunicationTile("Q"),
+    CommunicationTile("Z"),
+    CommunicationTile("?")
+)
+
+val LegacyFrequencyDefaultTilesV3 = listOf(
+    CommunicationTile("YES", "yes"),
+    CommunicationTile("NO", "no"),
+    CommunicationTile("HELP", "help"),
+    CommunicationTile("PAIN", "pain"),
+    CommunicationTile("WATER", "water"),
+    CommunicationTile("FOOD", "food"),
+    CommunicationTile("I", "I"),
+    CommunicationTile("YOU", "you"),
+    CommunicationTile("WANT", "want"),
+    CommunicationTile("NEED", "need"),
+    CommunicationTile("GO", "go"),
+    CommunicationTile("STOP", "stop"),
+    CommunicationTile("WATCH", "watch"),
+    CommunicationTile("LOOK", "look"),
+    CommunicationTile("SAY", action = TileAction.Speak),
+    CommunicationTile("DEL", action = TileAction.Backspace),
+    CommunicationTile("CLR", action = TileAction.Clear),
+    CommunicationTile("SPC", " ", TileAction.Space),
+    CommunicationTile("E"),
+    CommunicationTile("T"),
+    CommunicationTile("A"),
+    CommunicationTile("O"),
+    CommunicationTile("I"),
+    CommunicationTile("N"),
+    CommunicationTile("S"),
+    CommunicationTile("H"),
+    CommunicationTile("R"),
+    CommunicationTile("D"),
+    CommunicationTile("L"),
+    CommunicationTile("C"),
+    CommunicationTile("U"),
+    CommunicationTile("M"),
+    CommunicationTile("W"),
+    CommunicationTile("F"),
+    CommunicationTile("G"),
+    CommunicationTile("Y"),
+    CommunicationTile("P"),
+    CommunicationTile("B"),
+    CommunicationTile("V"),
+    CommunicationTile("K"),
+    CommunicationTile("J"),
+    CommunicationTile("X"),
+    CommunicationTile("Q"),
+    CommunicationTile("Z"),
+    CommunicationTile("?")
+)
+
+val LegacyAlphabetDefaultTiles = listOf(
     CommunicationTile("YES", "yes"),
     CommunicationTile("NO", "no"),
     CommunicationTile("HELP", "help"),
@@ -70,6 +173,18 @@ val DefaultTiles = listOf(
     CommunicationTile("SAY", action = TileAction.Speak),
     CommunicationTile("CLR", action = TileAction.Clear)
 )
+
+fun loadSymbolsForConfig(storedSymbols: String?, storedVersion: Int): List<CommunicationTile> {
+    val parsedSymbols = parseSymbols(storedSymbols ?: serializeSymbols(DefaultTiles))
+    return if (
+        storedVersion < CurrentConfigVersion &&
+        (parsedSymbols == LegacyAlphabetDefaultTiles || parsedSymbols == LegacyFrequencyDefaultTilesV3)
+    ) {
+        DefaultTiles
+    } else {
+        parsedSymbols
+    }
+}
 
 fun serializeSymbols(symbols: List<CommunicationTile>): String {
     return symbols.joinToString("\n") { tile ->

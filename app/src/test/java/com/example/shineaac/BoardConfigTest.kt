@@ -15,6 +15,58 @@ class BoardConfigTest {
     }
 
     @Test
+    fun defaultLettersStartWithCommonEnglishFrequencyOrder() {
+        val spellingStart = DefaultTiles.indexOfFirst { it.action == TileAction.Space } + 1
+        val letters = DefaultTiles.drop(spellingStart)
+            .filter { it.action == TileAction.Append && it.label.length == 1 && it.label.first().isLetter() }
+            .map { it.label }
+
+        assertEquals(listOf("E", "T", "A", "O", "I", "N", "S", "R"), letters.take(8))
+    }
+
+    @Test
+    fun legacyAlphabetDefaultMigratesToFrequencyOrder() {
+        val symbols = loadSymbolsForConfig(
+            storedSymbols = serializeSymbols(LegacyAlphabetDefaultTiles),
+            storedVersion = 1
+        )
+        val spellingStart = symbols.indexOfFirst { it.action == TileAction.Space } + 1
+        val letters = symbols.drop(spellingStart)
+            .filter { it.action == TileAction.Append && it.label.length == 1 && it.label.first().isLetter() }
+            .map { it.label }
+
+        assertEquals(listOf("E", "T", "A", "O", "I", "N", "S", "R"), letters.take(8))
+    }
+
+    @Test
+    fun currentVersionCustomAlphabetOrderDoesNotMigrate() {
+        val symbols = loadSymbolsForConfig(
+            storedSymbols = serializeSymbols(LegacyAlphabetDefaultTiles),
+            storedVersion = CurrentConfigVersion
+        )
+        val spellingStart = symbols.indexOfFirst { it.action == TileAction.Space } + 1
+        val letters = symbols.drop(spellingStart)
+            .filter { it.action == TileAction.Append && it.label.length == 1 && it.label.first().isLetter() }
+            .map { it.label }
+
+        assertEquals(listOf("A", "B", "C", "D", "E", "F", "G", "H"), letters.take(8))
+    }
+
+    @Test
+    fun previousFrequencyDefaultMigratesToCurrentFrequencyOrder() {
+        val symbols = loadSymbolsForConfig(
+            storedSymbols = serializeSymbols(LegacyFrequencyDefaultTilesV3),
+            storedVersion = 3
+        )
+        val spellingStart = symbols.indexOfFirst { it.action == TileAction.Space } + 1
+        val letters = symbols.drop(spellingStart)
+            .filter { it.action == TileAction.Append && it.label.length == 1 && it.label.first().isLetter() }
+            .map { it.label }
+
+        assertEquals(listOf("E", "T", "A", "O", "I", "N", "S", "R"), letters.take(8))
+    }
+
+    @Test
     fun parserSupportsCustomWordsAndActions() {
         val symbols = parseSymbols(
             """

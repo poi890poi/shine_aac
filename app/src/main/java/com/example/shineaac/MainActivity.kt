@@ -1,6 +1,7 @@
 package com.example.shineaac
 
 import android.os.Bundle
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -69,7 +70,16 @@ private fun ShineAacApp() {
             BoardConfig(
                 columns = prefs.getInt("columns", DefaultColumns),
                 scanIntervalMs = prefs.getFloat("scanIntervalMs", DefaultScanIntervalMs),
-                symbols = parseSymbols(prefs.getString("symbols", serializeSymbols(DefaultTiles)) ?: serializeSymbols(DefaultTiles))
+                transitionPauseMs = prefs.getFloat("transitionPauseMs", DefaultTransitionPauseMs),
+                firstCellPauseMs = prefs.getFloat("firstCellPauseMs", DefaultFirstCellPauseMs),
+                inputLatencyCompensationMs = prefs.getFloat(
+                    "inputLatencyCompensationMs",
+                    DefaultInputLatencyCompensationMs
+                ),
+                symbols = loadSymbolsForConfig(
+                    storedSymbols = prefs.getString("symbols", null),
+                    storedVersion = prefs.getInt("configVersion", 0)
+                )
             )
         )
     }
@@ -77,6 +87,7 @@ private fun ShineAacApp() {
     val board = boardConfig.rows()
     var message by rememberSaveable { mutableStateOf("") }
     var scannerState by remember { mutableStateOf(ScannerState()) }
+    var highlightStartedAtMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var showConfig by rememberSaveable { mutableStateOf(false) }
     var ttsReady by remember { mutableStateOf(false) }
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
@@ -99,9 +110,14 @@ private fun ShineAacApp() {
         prefs.edit()
             .putInt("columns", safeConfig.columns)
             .putFloat("scanIntervalMs", safeConfig.scanIntervalMs)
+            .putFloat("transitionPauseMs", safeConfig.transitionPauseMs)
+            .putFloat("firstCellPauseMs", safeConfig.firstCellPauseMs)
+            .putFloat("inputLatencyCompensationMs", safeConfig.inputLatencyCompensationMs)
             .putString("symbols", serializeSymbols(safeConfig.symbols))
+            .putInt("configVersion", CurrentConfigVersion)
             .apply()
         scannerState = ScannerState()
+        highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
     fun speak() {
@@ -116,20 +132,44 @@ private fun ShineAacApp() {
         if (tile.action == TileAction.Speak) speak()
     }
 
+    fun setScannerState(nextState: ScannerState) {
+        scannerState = nextState
+        highlightStartedAtMs = SystemClock.elapsedRealtime()
+    }
+
     fun pressSwitch() {
-        when (val confirmation = scannerState.confirm(board.size) { row -> board[row].size }) {
-            is ScannerConfirmation.NoSelection -> scannerState = confirmation.nextState
+        val elapsedInHighlightMs = SystemClock.elapsedRealtime() - highlightStartedAtMs
+        val confirmation = scannerState.confirmWithLatencyCompensation(
+            rowCount = board.size,
+            columnCountForRow = { row -> board[row].size },
+            elapsedInHighlightMs = elapsedInHighlightMs,
+            compensationWindowMs = boardConfig.inputLatencyCompensationMs
+        )
+
+        when (confirmation) {
+            is ScannerConfirmation.NoSelection -> setScannerState(confirmation.nextState)
             is ScannerConfirmation.Selected -> {
-                scannerState = confirmation.nextState
+                setScannerState(confirmation.nextState)
                 applyTile(board[confirmation.rowIndex][confirmation.cellIndex])
             }
         }
     }
 
-    LaunchedEffect(boardConfig.scanIntervalMs, scannerState, showConfig) {
+    LaunchedEffect(
+        boardConfig.scanIntervalMs,
+        boardConfig.transitionPauseMs,
+        boardConfig.firstCellPauseMs,
+        scannerState,
+        showConfig
+    ) {
         if (showConfig) return@LaunchedEffect
-        delay(boardConfig.scanIntervalMs.toLong())
-        scannerState = scannerState.advance(board.size) { row -> board[row].size }
+        val delayMs = when (scannerState.stage) {
+            ScanStage.RowSelected -> boardConfig.transitionPauseMs
+            ScanStage.FirstCell -> boardConfig.firstCellPauseMs
+            else -> boardConfig.scanIntervalMs
+        }
+        delay(delayMs.toLong())
+        setScannerState(scannerState.advance(board.size) { row -> board[row].size })
     }
 
     if (showConfig) {
@@ -164,6 +204,9 @@ private fun ShineAacApp() {
                 message = message,
                 scannerState = scannerState,
                 scanIntervalMs = boardConfig.scanIntervalMs,
+                transitionPauseMs = boardConfig.transitionPauseMs,
+                firstCellPauseMs = boardConfig.firstCellPauseMs,
+                inputLatencyCompensationMs = boardConfig.inputLatencyCompensationMs,
                 ttsReady = ttsReady,
                 onConfig = { showConfig = true }
             )
@@ -197,9 +240,21 @@ private fun MessagePanel(
     message: String,
     scannerState: ScannerState,
     scanIntervalMs: Float,
+    transitionPauseMs: Float,
+    firstCellPauseMs: Float,
+    inputLatencyCompensationMs: Float,
     ttsReady: Boolean,
     onConfig: () -> Unit
 ) {
+    var cursorVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(message) {
+        while (true) {
+            delay(500)
+            cursorVisible = !cursorVisible
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -211,7 +266,7 @@ private fun MessagePanel(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = message.ifBlank { " " },
+                text = message + if (cursorVisible) "|" else " ",
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(72.dp)
@@ -228,13 +283,18 @@ private fun MessagePanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (scannerState.stage == ScanStage.Rows) "Scan rows" else "Scan symbols",
+                    text = when (scannerState.stage) {
+                        ScanStage.Rows -> "Scan rows"
+                        ScanStage.RowSelected -> "Row locked"
+                        ScanStage.FirstCell -> "First symbol"
+                        ScanStage.Cells -> "Scan symbols"
+                    },
                     color = Color(0xFF27343B),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${(scanIntervalMs / 1000f).formatOneDecimal()}s",
+                    text = "${(scanIntervalMs / 1000f).formatOneDecimal()}s / ${(transitionPauseMs / 1000f).formatOneDecimal()}s / ${(firstCellPauseMs / 1000f).formatOneDecimal()}s / ${(inputLatencyCompensationMs / 1000f).formatOneDecimal()}s",
                     color = Color(0xFF27343B),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
@@ -272,8 +332,9 @@ private fun CommunicationBoard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 row.forEachIndexed { cellIndex, tile ->
-                    val isActiveRow = scannerState.stage == ScanStage.Rows && scannerState.rowIndex == rowIndex
-                    val isActiveCell = scannerState.stage == ScanStage.Cells &&
+                    val isActiveRow = (scannerState.stage == ScanStage.Rows || scannerState.stage == ScanStage.RowSelected) &&
+                        scannerState.rowIndex == rowIndex
+                    val isActiveCell = (scannerState.stage == ScanStage.Cells || scannerState.stage == ScanStage.FirstCell) &&
                         scannerState.rowIndex == rowIndex &&
                         scannerState.cellIndex == cellIndex
                     CommunicationTileButton(
@@ -297,6 +358,9 @@ private fun ConfigScreen(
 ) {
     var columnsText by rememberSaveable { mutableStateOf(config.columns.toString()) }
     var speed by rememberSaveable { mutableStateOf(config.scanIntervalMs) }
+    var transitionPause by rememberSaveable { mutableStateOf(config.transitionPauseMs) }
+    var firstCellPause by rememberSaveable { mutableStateOf(config.firstCellPauseMs) }
+    var inputLatencyCompensation by rememberSaveable { mutableStateOf(config.inputLatencyCompensationMs) }
     var symbolsText by rememberSaveable { mutableStateOf(serializeSymbols(config.symbols)) }
 
     Surface(
@@ -340,6 +404,42 @@ private fun ConfigScreen(
                     )
                 }
             }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Row-to-symbol pause ${(transitionPause / 1000f).formatOneDecimal()}s",
+                    fontWeight = FontWeight.Bold
+                )
+                Slider(
+                    value = transitionPause,
+                    onValueChange = { transitionPause = it },
+                    valueRange = 0f..2200f,
+                    steps = 22
+                )
+            }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "First-symbol hold ${(firstCellPause / 1000f).formatOneDecimal()}s",
+                    fontWeight = FontWeight.Bold
+                )
+                Slider(
+                    value = firstCellPause,
+                    onValueChange = { firstCellPause = it },
+                    valueRange = 600f..3200f,
+                    steps = 26
+                )
+            }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Input latency compensation ${(inputLatencyCompensation / 1000f).formatOneDecimal()}s",
+                    fontWeight = FontWeight.Bold
+                )
+                Slider(
+                    value = inputLatencyCompensation,
+                    onValueChange = { inputLatencyCompensation = it },
+                    valueRange = 0f..700f,
+                    steps = 14
+                )
+            }
             OutlinedTextField(
                 value = symbolsText,
                 onValueChange = { symbolsText = it },
@@ -353,7 +453,16 @@ private fun ConfigScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = onReset,
+                    onClick = {
+                        val defaultConfig = BoardConfig()
+                        columnsText = defaultConfig.columns.toString()
+                        speed = defaultConfig.scanIntervalMs
+                        transitionPause = defaultConfig.transitionPauseMs
+                        firstCellPause = defaultConfig.firstCellPauseMs
+                        inputLatencyCompensation = defaultConfig.inputLatencyCompensationMs
+                        symbolsText = serializeSymbols(defaultConfig.symbols)
+                        onReset()
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Reset")
@@ -370,6 +479,9 @@ private fun ConfigScreen(
                             BoardConfig(
                                 columns = columnsText.toIntOrNull()?.coerceIn(2, 8) ?: DefaultColumns,
                                 scanIntervalMs = speed,
+                                transitionPauseMs = transitionPause,
+                                firstCellPauseMs = firstCellPause,
+                                inputLatencyCompensationMs = inputLatencyCompensation,
                                 symbols = parseSymbols(symbolsText)
                             )
                         )
