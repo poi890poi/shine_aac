@@ -169,7 +169,13 @@ private fun ShineAacApp() {
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
-    LaunchedEffect(message, messageHistory, boardConfig.suggestionDictionary, boardConfig.columns) {
+    LaunchedEffect(
+        message,
+        messageHistory,
+        boardConfig.suggestionDictionary,
+        boardConfig.columns,
+        scannerState.stage
+    ) {
         if (scannerState.stage != ScanStage.Rows) return@LaunchedEffect
         val suggestionRowHasTargets = board.firstOrNull()?.selectableCount() ?: 0 > 0
         if (suggestionRowHasTargets) {
