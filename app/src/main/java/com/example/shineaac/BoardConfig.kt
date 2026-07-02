@@ -6,9 +6,15 @@ data class BoardConfig(
     val transitionPauseMs: Float = DefaultTransitionPauseMs,
     val firstCellPauseMs: Float = DefaultFirstCellPauseMs,
     val inputLatencyCompensationMs: Float = DefaultInputLatencyCompensationMs,
+    val suggestionDictionary: List<CommunicationTile> = DefaultSuggestionDictionary,
     val symbols: List<CommunicationTile> = DefaultTiles
 ) {
-    fun rows(): List<List<CommunicationTile>> = symbols.chunked(columns.coerceIn(2, 8))
+    fun rows(message: String = ""): List<List<CommunicationTile>> {
+        val safeColumns = columns.coerceIn(2, 8)
+        val suggestions = suggestTiles(message, suggestionDictionary, safeColumns)
+        val symbolRows = symbols.chunked(safeColumns)
+        return if (suggestions.isEmpty()) symbolRows else listOf(suggestions) + symbolRows
+    }
 }
 
 enum class TileAction {
@@ -30,7 +36,41 @@ const val DefaultScanIntervalMs = 900f
 const val DefaultTransitionPauseMs = 850f
 const val DefaultFirstCellPauseMs = 1400f
 const val DefaultInputLatencyCompensationMs = 250f
-const val CurrentConfigVersion = 4
+const val CurrentConfigVersion = 5
+
+val DefaultSuggestionDictionary = listOf(
+    CommunicationTile("I", "I"),
+    CommunicationTile("YOU", "you"),
+    CommunicationTile("WANT", "want"),
+    CommunicationTile("NEED", "need"),
+    CommunicationTile("HELP", "help"),
+    CommunicationTile("STOP", "stop"),
+    CommunicationTile("GO", "go"),
+    CommunicationTile("YES", "yes"),
+    CommunicationTile("NO", "no"),
+    CommunicationTile("WATER", "water"),
+    CommunicationTile("FOOD", "food"),
+    CommunicationTile("TOILET", "toilet"),
+    CommunicationTile("PAIN", "pain"),
+    CommunicationTile("HOT", "hot"),
+    CommunicationTile("COLD", "cold"),
+    CommunicationTile("TIRED", "tired"),
+    CommunicationTile("SLEEP", "sleep"),
+    CommunicationTile("MORE", "more"),
+    CommunicationTile("DONE", "done"),
+    CommunicationTile("WATCH", "watch"),
+    CommunicationTile("LOOK", "look"),
+    CommunicationTile("MOVE", "move"),
+    CommunicationTile("TURN", "turn"),
+    CommunicationTile("UP", "up"),
+    CommunicationTile("DOWN", "down"),
+    CommunicationTile("LEFT", "left"),
+    CommunicationTile("RIGHT", "right"),
+    CommunicationTile("MOM", "mom"),
+    CommunicationTile("DAD", "dad"),
+    CommunicationTile("NURSE", "nurse"),
+    CommunicationTile("DOCTOR", "doctor")
+)
 
 val DefaultTiles = listOf(
     CommunicationTile("YES", "yes"),
@@ -183,6 +223,59 @@ fun loadSymbolsForConfig(storedSymbols: String?, storedVersion: Int): List<Commu
         DefaultTiles
     } else {
         parsedSymbols
+    }
+}
+
+fun serializeDictionary(symbols: List<CommunicationTile>): String = serializeSymbols(symbols)
+
+fun parseDictionary(text: String): List<CommunicationTile> {
+    val parsed = text
+        .lineSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map(::parseSymbolLine)
+        .toList()
+
+    return parsed
+        .filter { it.action == TileAction.Append }
+        .ifEmpty { DefaultSuggestionDictionary }
+}
+
+fun suggestTiles(
+    message: String,
+    dictionary: List<CommunicationTile>,
+    maxSuggestions: Int
+): List<CommunicationTile> {
+    val safeMax = maxSuggestions.coerceAtLeast(1)
+    val text = message.lowercase()
+    val trimmed = text.trim()
+    val endsWithBoundary = message.isEmpty() || message.last().isWhitespace()
+    val currentToken = if (endsWithBoundary) "" else trimmed.substringAfterLast(' ')
+    val previousToken = if (endsWithBoundary) trimmed.substringAfterLast(' ') else trimmed.substringBeforeLast(' ', "")
+
+    val ranked = when {
+        currentToken.isNotBlank() -> dictionary.filter {
+            it.label.lowercase().startsWith(currentToken) || it.output.lowercase().startsWith(currentToken)
+        }
+        previousToken.isNotBlank() -> dictionary.sortedBy { transitionRank(previousToken, it.output.lowercase()) }
+        else -> dictionary
+    }
+
+    return ranked
+        .distinctBy { it.label.uppercase() }
+        .filterNot { it.output.isBlank() }
+        .take(safeMax)
+}
+
+private fun transitionRank(previousWord: String, candidate: String): Int {
+    val actions = setOf("want", "need", "help", "go", "stop", "watch", "look", "move", "turn")
+    val needs = setOf("water", "food", "toilet", "pain", "hot", "cold", "tired", "sleep", "more", "done")
+
+    return when (previousWord) {
+        "i", "you" -> if (candidate in actions) 0 else 2
+        "want", "need" -> if (candidate in needs) 0 else 2
+        "go", "turn", "move" -> if (candidate in setOf("up", "down", "left", "right")) 0 else 2
+        else -> 1
     }
 }
 

@@ -76,6 +76,12 @@ private fun ShineAacApp() {
                     "inputLatencyCompensationMs",
                     DefaultInputLatencyCompensationMs
                 ),
+                suggestionDictionary = parseDictionary(
+                    prefs.getString(
+                        "suggestionDictionary",
+                        serializeDictionary(DefaultSuggestionDictionary)
+                    ) ?: serializeDictionary(DefaultSuggestionDictionary)
+                ),
                 symbols = loadSymbolsForConfig(
                     storedSymbols = prefs.getString("symbols", null),
                     storedVersion = prefs.getInt("configVersion", 0)
@@ -84,8 +90,8 @@ private fun ShineAacApp() {
         )
     }
     val boardConfig = boardConfigState.value
-    val board = boardConfig.rows()
     var message by rememberSaveable { mutableStateOf("") }
+    val board = boardConfig.rows(message)
     var scannerState by remember { mutableStateOf(ScannerState()) }
     var highlightStartedAtMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var showConfig by rememberSaveable { mutableStateOf(false) }
@@ -113,6 +119,7 @@ private fun ShineAacApp() {
             .putFloat("transitionPauseMs", safeConfig.transitionPauseMs)
             .putFloat("firstCellPauseMs", safeConfig.firstCellPauseMs)
             .putFloat("inputLatencyCompensationMs", safeConfig.inputLatencyCompensationMs)
+            .putString("suggestionDictionary", serializeDictionary(safeConfig.suggestionDictionary))
             .putString("symbols", serializeSymbols(safeConfig.symbols))
             .putInt("configVersion", CurrentConfigVersion)
             .apply()
@@ -159,6 +166,8 @@ private fun ShineAacApp() {
         boardConfig.scanIntervalMs,
         boardConfig.transitionPauseMs,
         boardConfig.firstCellPauseMs,
+        boardConfig.inputLatencyCompensationMs,
+        message,
         scannerState,
         showConfig
     ) {
@@ -207,6 +216,7 @@ private fun ShineAacApp() {
                 transitionPauseMs = boardConfig.transitionPauseMs,
                 firstCellPauseMs = boardConfig.firstCellPauseMs,
                 inputLatencyCompensationMs = boardConfig.inputLatencyCompensationMs,
+                highlightStartedAtMs = highlightStartedAtMs,
                 ttsReady = ttsReady,
                 onConfig = { showConfig = true }
             )
@@ -243,10 +253,12 @@ private fun MessagePanel(
     transitionPauseMs: Float,
     firstCellPauseMs: Float,
     inputLatencyCompensationMs: Float,
+    highlightStartedAtMs: Long,
     ttsReady: Boolean,
     onConfig: () -> Unit
 ) {
     var cursorVisible by remember { mutableStateOf(true) }
+    var nowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
 
     LaunchedEffect(message) {
         while (true) {
@@ -254,6 +266,22 @@ private fun MessagePanel(
             cursorVisible = !cursorVisible
         }
     }
+
+    LaunchedEffect(scannerState, highlightStartedAtMs) {
+        while (true) {
+            nowMs = SystemClock.elapsedRealtime()
+            delay(50)
+        }
+    }
+
+    val phaseDurationMs = scanDurationForStage(
+        scannerState = scannerState,
+        scanIntervalMs = scanIntervalMs,
+        transitionPauseMs = transitionPauseMs,
+        firstCellPauseMs = firstCellPauseMs
+    )
+    val elapsedMs = (nowMs - highlightStartedAtMs).coerceAtLeast(0)
+    val progress = (elapsedMs.toFloat() / phaseDurationMs.coerceAtLeast(1f)).coerceIn(0f, 1f)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -283,26 +311,22 @@ private fun MessagePanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = when (scannerState.stage) {
-                        ScanStage.Rows -> "Scan rows"
-                        ScanStage.RowSelected -> "Row locked"
-                        ScanStage.FirstCell -> "First symbol"
-                        ScanStage.Cells -> "Scan symbols"
-                    },
+                    text = scanPhaseLabel(scannerState.stage),
                     color = Color(0xFF27343B),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "${(scanIntervalMs / 1000f).formatOneDecimal()}s / ${(transitionPauseMs / 1000f).formatOneDecimal()}s / ${(firstCellPauseMs / 1000f).formatOneDecimal()}s / ${(inputLatencyCompensationMs / 1000f).formatOneDecimal()}s",
-                    color = Color(0xFF27343B),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
+                ProgressHint(
+                    progress = progress,
+                    latencyFraction = (inputLatencyCompensationMs / phaseDurationMs.coerceAtLeast(1f)).coerceIn(0f, 1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
                 )
                 Text(
-                    text = if (ttsReady) "Voice ready" else "Voice loading",
+                    text = if (ttsReady) "Voice" else "...",
                     color = Color(0xFF27343B),
-                    fontSize = 17.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = onConfig) {
@@ -361,6 +385,7 @@ private fun ConfigScreen(
     var transitionPause by rememberSaveable { mutableStateOf(config.transitionPauseMs) }
     var firstCellPause by rememberSaveable { mutableStateOf(config.firstCellPauseMs) }
     var inputLatencyCompensation by rememberSaveable { mutableStateOf(config.inputLatencyCompensationMs) }
+    var dictionaryText by rememberSaveable { mutableStateOf(serializeDictionary(config.suggestionDictionary)) }
     var symbolsText by rememberSaveable { mutableStateOf(serializeSymbols(config.symbols)) }
 
     Surface(
@@ -441,12 +466,20 @@ private fun ConfigScreen(
                 )
             }
             OutlinedTextField(
+                value = dictionaryText,
+                onValueChange = { dictionaryText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.65f),
+                label = { Text("Suggestion dictionary, one word or LABEL=spoken text per line.") }
+            )
+            OutlinedTextField(
                 value = symbolsText,
                 onValueChange = { symbolsText = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                label = { Text("Symbols, one per line. Use LABEL=spoken text for words.") }
+                label = { Text("Board symbols, one per line. Use LABEL=spoken text for words.") }
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -460,6 +493,7 @@ private fun ConfigScreen(
                         transitionPause = defaultConfig.transitionPauseMs
                         firstCellPause = defaultConfig.firstCellPauseMs
                         inputLatencyCompensation = defaultConfig.inputLatencyCompensationMs
+                        dictionaryText = serializeDictionary(defaultConfig.suggestionDictionary)
                         symbolsText = serializeSymbols(defaultConfig.symbols)
                         onReset()
                     },
@@ -482,6 +516,7 @@ private fun ConfigScreen(
                                 transitionPauseMs = transitionPause,
                                 firstCellPauseMs = firstCellPause,
                                 inputLatencyCompensationMs = inputLatencyCompensation,
+                                suggestionDictionary = parseDictionary(dictionaryText),
                                 symbols = parseSymbols(symbolsText)
                             )
                         )
@@ -492,6 +527,55 @@ private fun ConfigScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProgressHint(
+    progress: Float,
+    latencyFraction: Float,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(14.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(Color(0xFFE1E7EA))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(latencyFraction)
+                .background(Color(0xFFF4D35E))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(progress)
+                .background(Color(0xFF1F7A8C))
+        )
+    }
+}
+
+private fun scanPhaseLabel(stage: ScanStage): String {
+    return when (stage) {
+        ScanStage.Rows -> "Rows"
+        ScanStage.RowSelected -> "Settle"
+        ScanStage.FirstCell -> "First"
+        ScanStage.Cells -> "Symbols"
+    }
+}
+
+private fun scanDurationForStage(
+    scannerState: ScannerState,
+    scanIntervalMs: Float,
+    transitionPauseMs: Float,
+    firstCellPauseMs: Float
+): Float {
+    return when (scannerState.stage) {
+        ScanStage.RowSelected -> transitionPauseMs
+        ScanStage.FirstCell -> firstCellPauseMs
+        else -> scanIntervalMs
     }
 }
 

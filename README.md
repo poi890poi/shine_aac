@@ -26,7 +26,9 @@ The Android app is implemented with Kotlin and Jetpack Compose. It provides:
 - A row-to-symbol transition pause so accidental second taps do not immediately select the first or second symbol.
 - A longer first-symbol hold so column 1 is not rushed after the mode change.
 - Input-latency compensation: very early activations are treated as intended selections of the previous row or symbol.
+- A progress hint bar: the yellow lead-in shows the latency-compensation window, and the teal fill shows current scan progress.
 - A blinking message cursor so trailing spaces are visible.
+- A dynamic suggestion row for predicted words, completions, and simple action/noun phrases.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
 - Adjustable scan speed, transition pause, first-symbol hold, and input-latency compensation.
@@ -48,6 +50,13 @@ The app also compensates for visual-motor latency. If an activation occurs durin
 
 The message area always shows a blinking `|` cursor after the current message. This makes trailing spaces visible; without a cursor, a message ending in a space and the same message without a space look identical.
 
+The progress hint under the status text is deliberately simple:
+
+- Yellow segment: the early-input latency-compensation window. Activations here are interpreted as the previous highlight.
+- Teal fill: elapsed time in the current scan phase.
+
+This gives users and helpers a visible timing cue without adding another action requirement.
+
 Other options considered:
 
 - Slower global scan speed: simple, but it slows every symbol rather than only the risky row-to-symbol transition.
@@ -68,6 +77,18 @@ This is intended to reduce average scan time. In row-column scanning, symbols ea
 
 The board also places high-value whole words and actions before spelling symbols because whole-word selection can save many switch activations. The default vocabulary is only a starter set; caregivers should customize it to the individual user, context, language, and communication partners.
 
+## Word Suggestions
+The first scan row is dynamic when suggestions are available. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
+
+Suggestions are intentionally simple and AAC-focused:
+
+- If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`.
+- If the message ends at a word boundary, suggestions favor simple grammar patterns rather than complete sentence prediction.
+- After `I` or `YOU`, action words such as `WANT`, `NEED`, `HELP`, `GO`, `STOP`, `WATCH`, `LOOK`, `MOVE`, and `TURN` rank higher.
+- After `WANT` or `NEED`, common nouns/needs such as `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, and `DONE` rank higher.
+
+The goal is not to force complete grammatical sentences. Many AAC users communicate efficiently with telegraphic phrases such as `I WANT WATER`, `PAIN`, `HELP TOILET`, or `TURN LEFT`.
+
 Configuration is accessed with the `Config` button in the top panel. It is intended for a fully functional user, caregiver, clinician, or developer. The main switch-scanning loop pauses while configuration is open. Configuration currently supports:
 
 - number of columns
@@ -75,6 +96,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - row-to-symbol transition pause
 - first-symbol hold
 - input-latency compensation window
+- suggestion dictionary
 - custom symbols and words
 
 Symbol format is one item per line:
@@ -88,6 +110,17 @@ SPC=<space>
 DEL=<delete>
 SAY=<speak>
 CLR=<clear>
+```
+
+The suggestion dictionary uses the same one-item-per-line format. Helpers can add names, routines, places, needs, favorite activities, or therapy-specific vocabulary:
+
+```text
+MOM=mom
+DAD=dad
+NURSE=nurse
+MUSIC=music
+TV=TV
+BED=bed
 ```
 
 Configuration is stored on the device. The app migrates old built-in default layouts to the current frequency-ordered default, but it preserves layouts that were saved under the current config version. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, and input-latency compensation window.

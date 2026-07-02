@@ -90,6 +90,7 @@ class BoardConfigTest {
     fun configChunksSymbolsByColumnCount() {
         val rows = BoardConfig(
             columns = 3,
+            suggestionDictionary = emptyList(),
             symbols = listOf(
                 CommunicationTile("A"),
                 CommunicationTile("B"),
@@ -101,5 +102,39 @@ class BoardConfigTest {
         assertEquals(2, rows.size)
         assertEquals(listOf("A", "B", "C"), rows[0].map { it.label })
         assertEquals(listOf("D"), rows[1].map { it.label })
+    }
+
+    @Test
+    fun suggestionsCompleteCurrentPartialWord() {
+        val suggestions = suggestTiles(
+            message = "wa",
+            dictionary = DefaultSuggestionDictionary,
+            maxSuggestions = 4
+        ).map { it.label }
+
+        assertTrue(suggestions.contains("WANT"))
+        assertTrue(suggestions.contains("WATER"))
+        assertTrue(suggestions.contains("WATCH"))
+    }
+
+    @Test
+    fun suggestionsPreferActionsAfterPronoun() {
+        val suggestions = suggestTiles(
+            message = "I ",
+            dictionary = DefaultSuggestionDictionary,
+            maxSuggestions = 4
+        ).map { it.label }
+
+        assertTrue(suggestions.contains("WANT"))
+        assertTrue(suggestions.contains("NEED"))
+    }
+
+    @Test
+    fun boardAddsSpecialSuggestionRowBeforeStaticRows() {
+        val rows = BoardConfig(columns = 4).rows("I ")
+
+        assertEquals(4, rows.first().size)
+        assertTrue(rows.first().map { it.label }.contains("WANT"))
+        assertTrue(rows.drop(1).flatten().map { it.label }.contains("SPC"))
     }
 }
