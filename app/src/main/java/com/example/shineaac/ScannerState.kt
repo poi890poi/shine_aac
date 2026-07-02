@@ -17,7 +17,7 @@ data class ScannerState(
 
         return when (stage) {
             ScanStage.Rows -> copy(
-                rowIndex = (rowIndex + 1).floorMod(rowCount),
+                rowIndex = nextSelectableRow(rowCount, columnCountForRow),
                 cellIndex = 0
             )
 
@@ -88,7 +88,7 @@ data class ScannerState(
         if (rowCount <= 0) return this
 
         return when (stage) {
-            ScanStage.Rows -> copy(rowIndex = (rowIndex - 1).floorMod(rowCount), cellIndex = 0)
+            ScanStage.Rows -> this
             ScanStage.Cells -> {
                 val columns = columnCountForRow(rowIndex).coerceAtLeast(1)
                 copy(cellIndex = (cellIndex - 1).floorMod(columns))
@@ -96,6 +96,17 @@ data class ScannerState(
             ScanStage.RowSelected,
             ScanStage.FirstCell -> this
         }
+    }
+
+    private fun nextSelectableRow(rowCount: Int, columnCountForRow: (Int) -> Int): Int {
+        if (rowCount <= 0) return rowIndex
+
+        for (offset in 1..rowCount) {
+            val candidate = (rowIndex + offset).floorMod(rowCount)
+            if (columnCountForRow(candidate) > 0) return candidate
+        }
+
+        return rowIndex
     }
 
     private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus

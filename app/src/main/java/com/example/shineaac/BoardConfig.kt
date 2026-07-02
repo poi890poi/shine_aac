@@ -11,9 +11,9 @@ data class BoardConfig(
 ) {
     fun rows(message: String = ""): List<List<CommunicationTile>> {
         val safeColumns = columns.coerceIn(2, 8)
-        val suggestions = suggestTiles(message, suggestionDictionary, safeColumns)
+        val suggestions = suggestionRow(message, suggestionDictionary, safeColumns)
         val symbolRows = symbols.chunked(safeColumns)
-        return if (suggestions.isEmpty()) symbolRows else listOf(suggestions) + symbolRows
+        return listOf(suggestions) + symbolRows
     }
 }
 
@@ -22,7 +22,8 @@ enum class TileAction {
     Space,
     Backspace,
     Clear,
-    Speak
+    Speak,
+    Noop
 }
 
 data class CommunicationTile(
@@ -36,7 +37,7 @@ const val DefaultScanIntervalMs = 900f
 const val DefaultTransitionPauseMs = 850f
 const val DefaultFirstCellPauseMs = 1400f
 const val DefaultInputLatencyCompensationMs = 250f
-const val CurrentConfigVersion = 5
+const val CurrentConfigVersion = 6
 
 val DefaultSuggestionDictionary = listOf(
     CommunicationTile("I", "I"),
@@ -255,7 +256,11 @@ fun suggestTiles(
 
     val ranked = when {
         currentToken.isNotBlank() -> dictionary.filter {
-            it.label.lowercase().startsWith(currentToken) || it.output.lowercase().startsWith(currentToken)
+            val label = it.label.lowercase()
+            val output = it.output.lowercase()
+            (label.startsWith(currentToken) || output.startsWith(currentToken)) &&
+                label != currentToken &&
+                output != currentToken
         }
         previousToken.isNotBlank() -> dictionary.sortedBy { transitionRank(previousToken, it.output.lowercase()) }
         else -> dictionary
@@ -265,6 +270,20 @@ fun suggestTiles(
         .distinctBy { it.label.uppercase() }
         .filterNot { it.output.isBlank() }
         .take(safeMax)
+}
+
+fun suggestionRow(
+    message: String,
+    dictionary: List<CommunicationTile>,
+    columns: Int
+): List<CommunicationTile> {
+    val safeColumns = columns.coerceIn(2, 8)
+    val suggestionCount = safeColumns.coerceAtMost(3)
+    val suggestions = suggestTiles(message, dictionary, suggestionCount)
+    val emptyTiles = List(safeColumns - suggestions.size) {
+        CommunicationTile(label = "", output = "", action = TileAction.Noop)
+    }
+    return suggestions + emptyTiles
 }
 
 private fun transitionRank(previousWord: String, candidate: String): Int {
@@ -280,15 +299,16 @@ private fun transitionRank(previousWord: String, candidate: String): Int {
 }
 
 fun serializeSymbols(symbols: List<CommunicationTile>): String {
-    return symbols.joinToString("\n") { tile ->
+    return symbols.mapNotNull { tile ->
         when (tile.action) {
             TileAction.Append -> if (tile.output == tile.label) tile.label else "${tile.label}=${tile.output}"
             TileAction.Space -> "SPC=<space>"
             TileAction.Backspace -> "DEL=<delete>"
             TileAction.Clear -> "CLR=<clear>"
             TileAction.Speak -> "SAY=<speak>"
+            TileAction.Noop -> null
         }
-    }
+    }.joinToString("\n")
 }
 
 fun parseSymbols(text: String): List<CommunicationTile> {
@@ -312,6 +332,7 @@ private fun parseSymbolLine(line: String): CommunicationTile {
         normalizedLabel == "DEL" || normalizedValue == "<delete>" -> CommunicationTile("DEL", action = TileAction.Backspace)
         normalizedLabel == "CLR" || normalizedValue == "<clear>" -> CommunicationTile("CLR", action = TileAction.Clear)
         normalizedLabel == "SAY" || normalizedValue == "<speak>" -> CommunicationTile("SAY", action = TileAction.Speak)
+        normalizedLabel == "<EMPTY>" || normalizedValue == "<empty>" -> CommunicationTile("", "", TileAction.Noop)
         label.isBlank() -> CommunicationTile(value)
         else -> CommunicationTile(label = label, output = value)
     }

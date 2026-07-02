@@ -111,7 +111,7 @@ class ScannerStateTest {
     }
 
     @Test
-    fun earlyRowActivationSelectsPreviousRowForLatencyCompensation() {
+    fun earlyRowActivationDoesNotSelectPreviousRowForLatencyCompensation() {
         val confirmation = ScannerState(
             stage = ScanStage.Rows,
             rowIndex = 2
@@ -125,7 +125,7 @@ class ScannerStateTest {
         assertTrue(confirmation is ScannerConfirmation.NoSelection)
         val next = (confirmation as ScannerConfirmation.NoSelection).nextState
         assertEquals(ScanStage.RowSelected, next.stage)
-        assertEquals(1, next.rowIndex)
+        assertEquals(2, next.rowIndex)
     }
 
     @Test
@@ -164,5 +164,13 @@ class ScannerStateTest {
         val selected = confirmation as ScannerConfirmation.Selected
         assertEquals(1, selected.rowIndex)
         assertEquals(2, selected.cellIndex)
+    }
+
+    @Test
+    fun rowScanningSkipsEmptyRows() {
+        val rowSizes = listOf(0, 4, 4)
+        val state = ScannerState(rowIndex = 2).advance(rowSizes.size) { rowSizes[it] }
+
+        assertEquals(1, state.rowIndex)
     }
 }

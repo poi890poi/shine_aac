@@ -99,9 +99,10 @@ class BoardConfigTest {
             )
         ).rows()
 
-        assertEquals(2, rows.size)
-        assertEquals(listOf("A", "B", "C"), rows[0].map { it.label })
-        assertEquals(listOf("D"), rows[1].map { it.label })
+        val symbolRows = rows.drop(1)
+        assertEquals(2, symbolRows.size)
+        assertEquals(listOf("A", "B", "C"), symbolRows[0].map { it.label })
+        assertEquals(listOf("D"), symbolRows[1].map { it.label })
     }
 
     @Test
@@ -136,5 +137,41 @@ class BoardConfigTest {
         assertEquals(4, rows.first().size)
         assertTrue(rows.first().map { it.label }.contains("WANT"))
         assertTrue(rows.drop(1).flatten().map { it.label }.contains("SPC"))
+    }
+
+    @Test
+    fun suggestionRowKeepsStableWidthWhenEmpty() {
+        val row = suggestionRow(
+            message = "want",
+            dictionary = DefaultSuggestionDictionary,
+            columns = 4
+        )
+
+        assertEquals(4, row.size)
+        assertTrue(row.all { it.action == TileAction.Noop })
+    }
+
+    @Test
+    fun exactCurrentWordIsNotSuggestedAgain() {
+        val suggestions = suggestTiles(
+            message = "want",
+            dictionary = DefaultSuggestionDictionary,
+            maxSuggestions = 3
+        )
+
+        assertTrue(suggestions.none { it.label == "WANT" })
+    }
+
+    @Test
+    fun suggestionsPreferNeedsAfterWantBoundary() {
+        val suggestions = suggestTiles(
+            message = "want ",
+            dictionary = DefaultSuggestionDictionary,
+            maxSuggestions = 3
+        ).map { it.label }
+
+        assertEquals(3, suggestions.size)
+        assertTrue(suggestions.contains("WATER"))
+        assertTrue(suggestions.contains("FOOD"))
     }
 }

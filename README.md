@@ -25,8 +25,8 @@ The Android app is implemented with Kotlin and Jetpack Compose. It provides:
 - Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
 - A row-to-symbol transition pause so accidental second taps do not immediately select the first or second symbol.
 - A longer first-symbol hold so column 1 is not rushed after the mode change.
-- Input-latency compensation: very early activations are treated as intended selections of the previous row or symbol.
-- A progress hint bar: the yellow lead-in shows the latency-compensation window, and the teal fill shows current scan progress.
+- Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
+- A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
 - A blinking message cursor so trailing spaces are visible.
 - A dynamic suggestion row for predicted words, completions, and simple action/noun phrases.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
@@ -46,13 +46,13 @@ The scan state machine has four stages:
 
 The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause, then `FirstCell` gives the first symbol extra dwell time before the normal symbol scan continues.
 
-The app also compensates for visual-motor latency. If an activation occurs during the first configurable latency window of a row or symbol highlight, the scanner treats it as an intended selection of the previous highlight. The default is 250 ms, which is in the range commonly used as a practical approximation for human visual reaction time; it must remain configurable because real access latency varies with vision, cognition, fatigue, switch site, switch hardware, and motor control.
+The app also compensates for visual-motor latency during symbol scanning. If an activation occurs during the first configurable latency window of a symbol highlight, the scanner treats it as an intended selection of the previous symbol in the same row. The default is 250 ms, which is in the range commonly used as a practical approximation for human visual reaction time; it must remain configurable because real access latency varies with vision, cognition, fatigue, switch site, switch hardware, and motor control. Row scanning deliberately does not remap to the previous row because selecting the same column in a previous row is surprising and rarely useful.
 
 The message area always shows a blinking `|` cursor after the current message. This makes trailing spaces visible; without a cursor, a message ending in a space and the same message without a space look identical.
 
-The progress hint under the status text is deliberately simple:
+The progress hint is drawn inside the active highlighted row or symbol so it stays close to the user’s gaze target:
 
-- Yellow segment: the early-input latency-compensation window. Activations here are interpreted as the previous highlight.
+- Yellow segment: the early-input latency-compensation window for symbol scanning. Activations here are interpreted as the previous symbol in the same row.
 - Teal fill: elapsed time in the current scan phase.
 
 This gives users and helpers a visible timing cue without adding another action requirement.
@@ -63,7 +63,7 @@ Other options considered:
 - Require confirm-on-release or press-and-hold: useful for some switches, but harder for users whose reliable signal is only a short activation.
 - Step scanning with separate next/select actions: cognitively clear, but requires more switch actions or a second input.
 - Auditory cue before cell scanning: likely useful later, especially for low-vision users, but the visual transient pause is the first implemented safeguard.
-- Input-latency compensation: implemented now; improves throughput by forgiving late human activations without slowing the whole scan.
+- Input-latency compensation: implemented within a row; improves throughput by forgiving late human activations without creating cross-row surprises.
 - Probabilistic single-switch selection such as Nomon: promising and potentially faster, but row-column scanning is simpler and easier to explain for the first working version.
 
 ## Symbol Ordering
@@ -78,11 +78,13 @@ This is intended to reduce average scan time. In row-column scanning, symbols ea
 The board also places high-value whole words and actions before spelling symbols because whole-word selection can save many switch activations. The default vocabulary is only a starter set; caregivers should customize it to the individual user, context, language, and communication partners.
 
 ## Word Suggestions
-The first scan row is dynamic when suggestions are available. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
+The first scan row is reserved for suggestions. It is always present so the rest of the board keeps a stable spatial layout. When there are no useful suggestions, the row is visually empty and skipped during scanning. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
 
 Suggestions are intentionally simple and AAC-focused:
 
+- The row shows up to three suggestions, leaving empty placeholders when fewer are available.
 - If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`.
+- If the partial word already exactly matches a dictionary item, that same word is not suggested again.
 - If the message ends at a word boundary, suggestions favor simple grammar patterns rather than complete sentence prediction.
 - After `I` or `YOU`, action words such as `WANT`, `NEED`, `HELP`, `GO`, `STOP`, `WATCH`, `LOOK`, `MOVE`, and `TURN` rank higher.
 - After `WANT` or `NEED`, common nouns/needs such as `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, and `DONE` rank higher.

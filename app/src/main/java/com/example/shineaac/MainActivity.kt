@@ -94,6 +94,7 @@ private fun ShineAacApp() {
     val board = boardConfig.rows(message)
     var scannerState by remember { mutableStateOf(ScannerState()) }
     var highlightStartedAtMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
+    var progressNowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var showConfig by rememberSaveable { mutableStateOf(false) }
     var ttsReady by remember { mutableStateOf(false) }
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
@@ -135,6 +136,7 @@ private fun ShineAacApp() {
     }
 
     fun applyTile(tile: CommunicationTile) {
+        if (tile.action == TileAction.Noop) return
         message = updateMessage(message, tile)
         if (tile.action == TileAction.Speak) speak()
     }
@@ -144,11 +146,18 @@ private fun ShineAacApp() {
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
+    LaunchedEffect(message, boardConfig.suggestionDictionary, boardConfig.columns) {
+        val currentRowIsEmpty = board.getOrNull(scannerState.rowIndex)?.selectableCount() == 0
+        if (currentRowIsEmpty) {
+            setScannerState(ScannerState(rowIndex = firstSelectableRow(board)))
+        }
+    }
+
     fun pressSwitch() {
         val elapsedInHighlightMs = SystemClock.elapsedRealtime() - highlightStartedAtMs
         val confirmation = scannerState.confirmWithLatencyCompensation(
             rowCount = board.size,
-            columnCountForRow = { row -> board[row].size },
+            columnCountForRow = { row -> board[row].selectableCount() },
             elapsedInHighlightMs = elapsedInHighlightMs,
             compensationWindowMs = boardConfig.inputLatencyCompensationMs
         )
@@ -178,7 +187,15 @@ private fun ShineAacApp() {
             else -> boardConfig.scanIntervalMs
         }
         delay(delayMs.toLong())
-        setScannerState(scannerState.advance(board.size) { row -> board[row].size })
+        setScannerState(scannerState.advance(board.size) { row -> board[row].selectableCount() })
+    }
+
+    LaunchedEffect(scannerState, highlightStartedAtMs, showConfig) {
+        if (showConfig) return@LaunchedEffect
+        while (true) {
+            progressNowMs = SystemClock.elapsedRealtime()
+            delay(50)
+        }
     }
 
     if (showConfig) {
@@ -222,7 +239,22 @@ private fun ShineAacApp() {
             )
             CommunicationBoard(
                 board = board,
-                scannerState = scannerState
+                scannerState = scannerState,
+                progress = scanProgress(
+                    scannerState = scannerState,
+                    highlightStartedAtMs = highlightStartedAtMs,
+                    nowMs = progressNowMs,
+                    scanIntervalMs = boardConfig.scanIntervalMs,
+                    transitionPauseMs = boardConfig.transitionPauseMs,
+                    firstCellPauseMs = boardConfig.firstCellPauseMs
+                ),
+                latencyFraction = latencyFraction(
+                    scannerState = scannerState,
+                    scanIntervalMs = boardConfig.scanIntervalMs,
+                    transitionPauseMs = boardConfig.transitionPauseMs,
+                    firstCellPauseMs = boardConfig.firstCellPauseMs,
+                    inputLatencyCompensationMs = boardConfig.inputLatencyCompensationMs
+                )
             )
         }
     }
@@ -235,6 +267,7 @@ private fun updateMessage(current: String, tile: CommunicationTile): String {
         TileAction.Backspace -> current.dropLast(1)
         TileAction.Clear -> ""
         TileAction.Speak -> current
+        TileAction.Noop -> current
     }
 }
 
@@ -258,30 +291,12 @@ private fun MessagePanel(
     onConfig: () -> Unit
 ) {
     var cursorVisible by remember { mutableStateOf(true) }
-    var nowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
-
     LaunchedEffect(message) {
         while (true) {
             delay(500)
             cursorVisible = !cursorVisible
         }
     }
-
-    LaunchedEffect(scannerState, highlightStartedAtMs) {
-        while (true) {
-            nowMs = SystemClock.elapsedRealtime()
-            delay(50)
-        }
-    }
-
-    val phaseDurationMs = scanDurationForStage(
-        scannerState = scannerState,
-        scanIntervalMs = scanIntervalMs,
-        transitionPauseMs = transitionPauseMs,
-        firstCellPauseMs = firstCellPauseMs
-    )
-    val elapsedMs = (nowMs - highlightStartedAtMs).coerceAtLeast(0)
-    val progress = (elapsedMs.toFloat() / phaseDurationMs.coerceAtLeast(1f)).coerceIn(0f, 1f)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -316,13 +331,6 @@ private fun MessagePanel(
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
-                ProgressHint(
-                    progress = progress,
-                    latencyFraction = (inputLatencyCompensationMs / phaseDurationMs.coerceAtLeast(1f)).coerceIn(0f, 1f),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 10.dp)
-                )
                 Text(
                     text = if (ttsReady) "Voice" else "...",
                     color = Color(0xFF27343B),
@@ -340,7 +348,9 @@ private fun MessagePanel(
 @Composable
 private fun CommunicationBoard(
     board: List<List<CommunicationTile>>,
-    scannerState: ScannerState
+    scannerState: ScannerState,
+    progress: Float,
+    latencyFraction: Float
 ) {
     Column(
         modifier = Modifier
@@ -365,6 +375,8 @@ private fun CommunicationBoard(
                         tile = tile,
                         highlighted = isActiveRow || isActiveCell,
                         selected = isActiveCell,
+                        progress = if (isActiveRow || isActiveCell) progress else 0f,
+                        latencyFraction = if (isActiveCell) latencyFraction else 0f,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -530,33 +542,6 @@ private fun ConfigScreen(
     }
 }
 
-@Composable
-private fun ProgressHint(
-    progress: Float,
-    latencyFraction: Float,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .height(14.dp)
-            .clip(RoundedCornerShape(7.dp))
-            .background(Color(0xFFE1E7EA))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(latencyFraction)
-                .background(Color(0xFFF4D35E))
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(progress)
-                .background(Color(0xFF1F7A8C))
-        )
-    }
-}
-
 private fun scanPhaseLabel(stage: ScanStage): String {
     return when (stage) {
         ScanStage.Rows -> "Rows"
@@ -564,6 +549,37 @@ private fun scanPhaseLabel(stage: ScanStage): String {
         ScanStage.FirstCell -> "First"
         ScanStage.Cells -> "Symbols"
     }
+}
+
+private fun scanProgress(
+    scannerState: ScannerState,
+    highlightStartedAtMs: Long,
+    nowMs: Long,
+    scanIntervalMs: Float,
+    transitionPauseMs: Float,
+    firstCellPauseMs: Float
+): Float {
+    val elapsedMs = (nowMs - highlightStartedAtMs).coerceAtLeast(0)
+    val durationMs = scanDurationForStage(scannerState, scanIntervalMs, transitionPauseMs, firstCellPauseMs)
+    return (elapsedMs.toFloat() / durationMs.coerceAtLeast(1f)).coerceIn(0f, 1f)
+}
+
+private fun latencyFraction(
+    scannerState: ScannerState,
+    scanIntervalMs: Float,
+    transitionPauseMs: Float,
+    firstCellPauseMs: Float,
+    inputLatencyCompensationMs: Float
+): Float {
+    if (scannerState.stage != ScanStage.Cells) return 0f
+    val durationMs = scanDurationForStage(scannerState, scanIntervalMs, transitionPauseMs, firstCellPauseMs)
+    return (inputLatencyCompensationMs / durationMs.coerceAtLeast(1f)).coerceIn(0f, 1f)
+}
+
+private fun List<CommunicationTile>.selectableCount(): Int = count { it.action != TileAction.Noop }
+
+private fun firstSelectableRow(board: List<List<CommunicationTile>>): Int {
+    return board.indexOfFirst { it.selectableCount() > 0 }.coerceAtLeast(0)
 }
 
 private fun scanDurationForStage(
@@ -584,9 +600,12 @@ private fun CommunicationTileButton(
     tile: CommunicationTile,
     highlighted: Boolean,
     selected: Boolean,
+    progress: Float,
+    latencyFraction: Float,
     modifier: Modifier = Modifier
 ) {
     val background = when {
+        tile.action == TileAction.Noop -> Color(0xFFF0F2F3)
         selected -> Color(0xFFF4D35E)
         highlighted -> Color(0xFF9BC1BC)
         tile.action != TileAction.Append -> Color(0xFFE8ECEF)
@@ -607,6 +626,24 @@ private fun CommunicationTileButton(
             .semantics { contentDescription = tile.label },
         contentAlignment = Alignment.Center
     ) {
+        if (highlighted && progress > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .background(Color(0x332D6A4F))
+                    .align(Alignment.CenterStart)
+            )
+        }
+        if (latencyFraction > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(latencyFraction)
+                    .background(Color(0x44F4D35E))
+                    .align(Alignment.CenterStart)
+            )
+        }
         Text(
             text = tile.label,
             modifier = Modifier.padding(4.dp),
