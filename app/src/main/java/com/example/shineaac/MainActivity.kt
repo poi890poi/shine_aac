@@ -96,6 +96,8 @@ private fun ShineAacApp() {
     var messageHistory by remember { mutableStateOf(emptyList<String>()) }
     val board = boardConfig.rows(message, canUndo = messageHistory.isNotEmpty())
     var scannerState by remember { mutableStateOf(ScannerState()) }
+    var lockedScanRow by remember { mutableStateOf<List<CommunicationTile>?>(null) }
+    val scanBoard = board.withLockedRow(scannerState, lockedScanRow)
     var highlightStartedAtMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var progressNowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var showConfig by rememberSaveable { mutableStateOf(false) }
@@ -128,6 +130,7 @@ private fun ShineAacApp() {
             .putInt("configVersion", CurrentConfigVersion)
             .apply()
         scannerState = ScannerState()
+        lockedScanRow = null
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
@@ -159,11 +162,15 @@ private fun ShineAacApp() {
     }
 
     fun setScannerState(nextState: ScannerState) {
+        if (nextState.stage == ScanStage.Rows) {
+            lockedScanRow = null
+        }
         scannerState = nextState
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
     LaunchedEffect(message, messageHistory, boardConfig.suggestionDictionary, boardConfig.columns) {
+        if (scannerState.stage != ScanStage.Rows) return@LaunchedEffect
         val suggestionRowHasTargets = board.firstOrNull()?.selectableCount() ?: 0 > 0
         if (suggestionRowHasTargets) {
             setScannerState(ScannerState(rowIndex = 0))
@@ -178,17 +185,22 @@ private fun ShineAacApp() {
     fun pressSwitch() {
         val elapsedInHighlightMs = SystemClock.elapsedRealtime() - highlightStartedAtMs
         val confirmation = scannerState.confirmWithLatencyCompensation(
-            rowCount = board.size,
-            columnCountForRow = { row -> board[row].selectableCount() },
+            rowCount = scanBoard.size,
+            columnCountForRow = { row -> scanBoard[row].selectableCount() },
             elapsedInHighlightMs = elapsedInHighlightMs,
             compensationWindowMs = boardConfig.inputLatencyCompensationMs
         )
 
         when (confirmation) {
-            is ScannerConfirmation.NoSelection -> setScannerState(confirmation.nextState)
+            is ScannerConfirmation.NoSelection -> {
+                if (scannerState.stage == ScanStage.Rows && confirmation.nextState.stage == ScanStage.RowSelected) {
+                    lockedScanRow = board.getOrNull(confirmation.nextState.rowIndex)
+                }
+                setScannerState(confirmation.nextState)
+            }
             is ScannerConfirmation.Selected -> {
                 setScannerState(confirmation.nextState)
-                applyTile(board[confirmation.rowIndex][confirmation.cellIndex])
+                applyTile(scanBoard[confirmation.rowIndex][confirmation.cellIndex])
             }
         }
     }
@@ -209,7 +221,7 @@ private fun ShineAacApp() {
             else -> boardConfig.scanIntervalMs
         }
         delay(delayMs.toLong())
-        setScannerState(scannerState.advance(board.size) { row -> board[row].selectableCount() })
+        setScannerState(scannerState.advance(scanBoard.size) { row -> scanBoard[row].selectableCount() })
     }
 
     LaunchedEffect(scannerState, highlightStartedAtMs, showConfig) {
@@ -255,7 +267,7 @@ private fun ShineAacApp() {
                 onConfig = { showConfig = true }
             )
             CommunicationBoard(
-                board = board,
+                board = scanBoard,
                 scannerState = scannerState,
                 progress = scanProgress(
                     scannerState = scannerState,
@@ -294,6 +306,17 @@ private fun appendToken(current: String, token: String): String {
     if (current.isBlank()) return token
     if (current.endsWith(" ")) return current + token
     return "$current $token"
+}
+
+private fun List<List<CommunicationTile>>.withLockedRow(
+    scannerState: ScannerState,
+    lockedScanRow: List<CommunicationTile>?
+): List<List<CommunicationTile>> {
+    if (lockedScanRow == null || scannerState.stage == ScanStage.Rows) return this
+    if (scannerState.rowIndex !in indices) return this
+    return mapIndexed { rowIndex, row ->
+        if (rowIndex == scannerState.rowIndex) lockedScanRow else row
+    }
 }
 
 @Composable
