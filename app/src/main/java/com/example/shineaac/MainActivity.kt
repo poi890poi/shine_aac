@@ -95,9 +95,9 @@ private fun ShineAacApp() {
     var message by rememberSaveable { mutableStateOf("") }
     var messageHistory by remember { mutableStateOf(emptyList<String>()) }
     val board = boardConfig.rows(message, canUndo = messageHistory.isNotEmpty())
-    var scannerState by remember { mutableStateOf(ScannerState()) }
-    var lockedScanRow by remember { mutableStateOf<List<CommunicationTile>?>(null) }
-    val scanBoard = board.withLockedRow(scannerState, lockedScanRow)
+    var scanSession by remember { mutableStateOf(ScanSession()) }
+    val scannerState = scanSession.scannerState
+    val scanBoard = board.withLockedRow(scannerState, scanSession.lockedRow)
     var highlightStartedAtMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var progressNowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var showConfig by rememberSaveable { mutableStateOf(false) }
@@ -129,8 +129,7 @@ private fun ShineAacApp() {
             .putString("symbols", serializeSymbols(safeConfig.symbols))
             .putInt("configVersion", CurrentConfigVersion)
             .apply()
-        scannerState = ScannerState()
-        lockedScanRow = null
+        scanSession = ScanSession()
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
@@ -161,11 +160,11 @@ private fun ShineAacApp() {
         }
     }
 
-    fun setScannerState(nextState: ScannerState) {
-        if (nextState.stage == ScanStage.Rows) {
-            lockedScanRow = null
-        }
-        scannerState = nextState
+    fun setScannerState(nextState: ScannerState, lockedRow: List<CommunicationTile>? = scanSession.lockedRow) {
+        scanSession = ScanSession(
+            scannerState = nextState,
+            lockedRow = if (nextState.stage == ScanStage.Rows) null else lockedRow
+        )
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
@@ -174,7 +173,8 @@ private fun ShineAacApp() {
         messageHistory,
         boardConfig.suggestionDictionary,
         boardConfig.columns,
-        scannerState.stage
+        scannerState.stage,
+        scannerState.rowIndex
     ) {
         if (scannerState.stage != ScanStage.Rows) return@LaunchedEffect
         val suggestionRowHasTargets = board.firstOrNull()?.selectableCount() ?: 0 > 0
@@ -199,10 +199,15 @@ private fun ShineAacApp() {
 
         when (confirmation) {
             is ScannerConfirmation.NoSelection -> {
-                if (scannerState.stage == ScanStage.Rows && confirmation.nextState.stage == ScanStage.RowSelected) {
-                    lockedScanRow = board.getOrNull(confirmation.nextState.rowIndex)
+                val lockedRow = if (
+                    scannerState.stage == ScanStage.Rows &&
+                    confirmation.nextState.stage == ScanStage.RowSelected
+                ) {
+                    board.getOrNull(confirmation.nextState.rowIndex)
+                } else {
+                    scanSession.lockedRow
                 }
-                setScannerState(confirmation.nextState)
+                setScannerState(confirmation.nextState, lockedRow)
             }
             is ScannerConfirmation.Selected -> {
                 setScannerState(confirmation.nextState)
@@ -313,6 +318,11 @@ private fun appendToken(current: String, token: String): String {
     if (current.endsWith(" ")) return current + token
     return "$current $token"
 }
+
+private data class ScanSession(
+    val scannerState: ScannerState = ScannerState(),
+    val lockedRow: List<CommunicationTile>? = null
+)
 
 private fun List<List<CommunicationTile>>.withLockedRow(
     scannerState: ScannerState,
