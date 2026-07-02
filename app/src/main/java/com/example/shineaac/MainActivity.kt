@@ -140,12 +140,25 @@ private fun ShineAacApp() {
         }
     }
 
+    fun resetRowScanAfterMessageChange(nextMessage: String, nextHistory: List<String>) {
+        val nextBoard = boardConfig.rows(nextMessage, canUndo = nextHistory.isNotEmpty())
+        val preferredRow = if ((nextBoard.firstOrNull()?.selectableCount() ?: 0) > 0) {
+            0
+        } else {
+            firstSelectableRow(nextBoard)
+        }
+        scanSession = ScanSession(scannerState = ScannerState(rowIndex = preferredRow))
+        highlightStartedAtMs = SystemClock.elapsedRealtime()
+    }
+
     fun applyTile(tile: CommunicationTile) {
         if (tile.action == TileAction.Noop) return
         if (tile.action == TileAction.Undo) {
             val previous = messageHistory.lastOrNull() ?: return
+            val nextHistory = messageHistory.dropLast(1)
             message = previous
-            messageHistory = messageHistory.dropLast(1)
+            messageHistory = nextHistory
+            resetRowScanAfterMessageChange(previous, nextHistory)
             return
         }
         if (tile.action == TileAction.Speak) {
@@ -155,8 +168,10 @@ private fun ShineAacApp() {
 
         val nextMessage = updateMessage(message, tile)
         if (nextMessage != message) {
-            messageHistory = (messageHistory + message).takeLast(24)
+            val nextHistory = (messageHistory + message).takeLast(24)
+            messageHistory = nextHistory
             message = nextMessage
+            resetRowScanAfterMessageChange(nextMessage, nextHistory)
         }
     }
 
@@ -166,26 +181,6 @@ private fun ShineAacApp() {
             lockedRow = if (nextState.stage == ScanStage.Rows) null else lockedRow
         )
         highlightStartedAtMs = SystemClock.elapsedRealtime()
-    }
-
-    LaunchedEffect(
-        message,
-        messageHistory,
-        boardConfig.suggestionDictionary,
-        boardConfig.columns,
-        scannerState.stage,
-        scannerState.rowIndex
-    ) {
-        if (scannerState.stage != ScanStage.Rows) return@LaunchedEffect
-        val suggestionRowHasTargets = board.firstOrNull()?.selectableCount() ?: 0 > 0
-        if (suggestionRowHasTargets) {
-            setScannerState(ScannerState(rowIndex = 0))
-            return@LaunchedEffect
-        }
-        val currentRowIsEmpty = board.getOrNull(scannerState.rowIndex)?.selectableCount() == 0
-        if (currentRowIsEmpty) {
-            setScannerState(ScannerState(rowIndex = firstSelectableRow(board)))
-        }
     }
 
     fun pressSwitch() {
