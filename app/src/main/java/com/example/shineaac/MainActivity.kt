@@ -140,17 +140,6 @@ private fun ShineAacApp() {
         }
     }
 
-    fun resetRowScanAfterMessageChange(nextMessage: String, nextHistory: List<String>) {
-        val nextBoard = boardConfig.rows(nextMessage, canUndo = nextHistory.isNotEmpty())
-        val preferredRow = if ((nextBoard.firstOrNull()?.selectableCount() ?: 0) > 0) {
-            0
-        } else {
-            firstSelectableRow(nextBoard)
-        }
-        scanSession = ScanSession(scannerState = ScannerState(rowIndex = preferredRow))
-        highlightStartedAtMs = SystemClock.elapsedRealtime()
-    }
-
     fun applyTile(tile: CommunicationTile) {
         if (tile.action == TileAction.Noop) return
         if (tile.action == TileAction.Undo) {
@@ -158,7 +147,6 @@ private fun ShineAacApp() {
             val nextHistory = messageHistory.dropLast(1)
             message = previous
             messageHistory = nextHistory
-            resetRowScanAfterMessageChange(previous, nextHistory)
             return
         }
         if (tile.action == TileAction.Speak) {
@@ -171,7 +159,6 @@ private fun ShineAacApp() {
             val nextHistory = (messageHistory + message).takeLast(24)
             messageHistory = nextHistory
             message = nextMessage
-            resetRowScanAfterMessageChange(nextMessage, nextHistory)
         }
     }
 
@@ -205,8 +192,9 @@ private fun ShineAacApp() {
                 setScannerState(confirmation.nextState, lockedRow)
             }
             is ScannerConfirmation.Selected -> {
+                val selectedTile = scanBoard[confirmation.rowIndex][confirmation.cellIndex]
                 setScannerState(confirmation.nextState)
-                applyTile(scanBoard[confirmation.rowIndex][confirmation.cellIndex])
+                applyTile(selectedTile)
             }
         }
     }
@@ -592,7 +580,7 @@ private fun ConfigScreen(
 private fun scanPhaseLabel(stage: ScanStage): String {
     return when (stage) {
         ScanStage.Rows -> "Rows"
-        ScanStage.RowSelected -> "Cancel"
+        ScanStage.RowSelected -> "Settle"
         ScanStage.FirstCell -> "First"
         ScanStage.Cells -> "Symbols"
     }
