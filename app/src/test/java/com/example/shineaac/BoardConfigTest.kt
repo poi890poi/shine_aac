@@ -73,17 +73,19 @@ class BoardConfigTest {
             WATCH=watch
             SPC=<space>
             DEL=<delete>
+            UNDO=<undo>
             SAY=<speak>
             CLR=<clear>
             """.trimIndent()
         )
 
-        assertEquals(5, symbols.size)
+        assertEquals(6, symbols.size)
         assertEquals(CommunicationTile("WATCH", "watch"), symbols[0])
         assertEquals(TileAction.Space, symbols[1].action)
         assertEquals(TileAction.Backspace, symbols[2].action)
-        assertEquals(TileAction.Speak, symbols[3].action)
-        assertEquals(TileAction.Clear, symbols[4].action)
+        assertEquals(TileAction.Undo, symbols[3].action)
+        assertEquals(TileAction.Speak, symbols[4].action)
+        assertEquals(TileAction.Clear, symbols[5].action)
     }
 
     @Test
@@ -140,7 +142,7 @@ class BoardConfigTest {
     }
 
     @Test
-    fun suggestionRowKeepsStableWidthWhenEmpty() {
+    fun suggestionRowKeepsStableWidthWithSpaceAndLetterFallbacks() {
         val row = suggestionRow(
             message = "want",
             dictionary = DefaultSuggestionDictionary,
@@ -148,7 +150,7 @@ class BoardConfigTest {
         )
 
         assertEquals(4, row.size)
-        assertTrue(row.all { it.action == TileAction.Noop })
+        assertEquals(listOf("SPC", "E", "T", ""), row.map { it.label })
     }
 
     @Test
@@ -173,5 +175,27 @@ class BoardConfigTest {
         assertEquals(3, suggestions.size)
         assertTrue(suggestions.contains("WATER"))
         assertTrue(suggestions.contains("FOOD"))
+    }
+
+    @Test
+    fun suggestionRowCanOfferUndoWithoutChangingWidth() {
+        val row = suggestionRow(
+            message = "wa",
+            dictionary = DefaultSuggestionDictionary,
+            columns = 4,
+            canUndo = true
+        )
+
+        assertEquals(4, row.size)
+        assertEquals("UNDO", row[0].label)
+        assertEquals(TileAction.Undo, row[0].action)
+        assertTrue(row.map { it.label }.contains("SPC"))
+    }
+
+    @Test
+    fun boardSuggestionRowCanSuggestSpaceAndFallbackLetters() {
+        val row = BoardConfig(columns = 4).rows("want").first()
+
+        assertEquals(listOf("SPC", "E", "T", ""), row.map { it.label })
     }
 }

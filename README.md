@@ -23,12 +23,12 @@ The Android app is implemented with Kotlin and Jetpack Compose. It provides:
 
 - Row/column switch scanning with a large switch input.
 - Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
-- A row-to-symbol transition pause so accidental second taps do not immediately select the first or second symbol.
+- A row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts.
 - A longer first-symbol hold so column 1 is not rushed after the mode change.
 - Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
 - A blinking message cursor so trailing spaces are visible.
-- A dynamic suggestion row for predicted words, completions, and simple action/noun phrases.
+- A dynamic suggestion row for undo, space, predicted words, completions, simple action/noun phrases, and high-frequency fallback letters.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
 - Adjustable scan speed, transition pause, first-symbol hold, and input-latency compensation.
@@ -40,15 +40,17 @@ This app targets automatic row-column scanning for users who may have only one r
 The scan state machine has four stages:
 
 1. `Rows`: rows are highlighted in sequence.
-2. `RowSelected`: the selected row stays locked for a configurable transition pause. Switch activations during this transient state are ignored.
+2. `RowSelected`: the selected row stays locked for a configurable transition pause. A switch activation during this transient state cancels the locked row and returns to row scanning.
 3. `FirstCell`: the first symbol in the locked row is highlighted for a longer configurable hold.
 4. `Cells`: the remaining symbols in the locked row are highlighted in sequence.
 
-The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause, then `FirstCell` gives the first symbol extra dwell time before the normal symbol scan continues.
+The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause. If the row was accidental, another activation cancels it. If there is no activation, `FirstCell` gives the first symbol extra dwell time before the normal symbol scan continues.
 
 The app also compensates for visual-motor latency during symbol scanning. If an activation occurs during the first configurable latency window of a symbol highlight, the scanner treats it as an intended selection of the previous symbol in the same row. The default is 250 ms, which is in the range commonly used as a practical approximation for human visual reaction time; it must remain configurable because real access latency varies with vision, cognition, fatigue, switch site, switch hardware, and motor control. Row scanning deliberately does not remap to the previous row because selecting the same column in a previous row is surprising and rarely useful.
 
 The message area always shows a blinking `|` cursor after the current message. This makes trailing spaces visible; without a cursor, a message ending in a space and the same message without a space look identical.
+
+Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, delete, clear, or space with one selection instead of requiring several corrective inputs.
 
 The progress hint is drawn inside the active highlighted row or symbol so it stays close to the user’s gaze target:
 
@@ -80,14 +82,19 @@ The board also places high-value whole words and actions before spelling symbols
 ## Word Suggestions
 The first scan row is reserved for suggestions. It is always present so the rest of the board keeps a stable spatial layout. When there are no useful suggestions, the row is visually empty and skipped during scanning. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
 
+When the recommendation row contains targets and the message changes, scanning starts again from that row. This reduces time to reach the most context-relevant repair or next-expression targets while keeping the static board rows in fixed positions.
+
 Suggestions are intentionally simple and AAC-focused:
 
-- The row shows up to three suggestions, leaving empty placeholders when fewer are available.
+- The row shows up to three active targets, leaving empty placeholders when fewer are available.
+- `UNDO` appears first when a previous message state exists.
+- `SPC` appears when the message has text and does not already end in a space.
 - If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`.
 - If the partial word already exactly matches a dictionary item, that same word is not suggested again.
 - If the message ends at a word boundary, suggestions favor simple grammar patterns rather than complete sentence prediction.
 - After `I` or `YOU`, action words such as `WANT`, `NEED`, `HELP`, `GO`, `STOP`, `WATCH`, `LOOK`, `MOVE`, and `TURN` rank higher.
 - After `WANT` or `NEED`, common nouns/needs such as `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, and `DONE` rank higher.
+- If there are not enough word candidates, the row fills with high-frequency spelling letters such as `E` and `T` instead of forcing the user to scan down to the static alphabet.
 
 The goal is not to force complete grammatical sentences. Many AAC users communicate efficiently with telegraphic phrases such as `I WANT WATER`, `PAIN`, `HELP TOILET`, or `TURN LEFT`.
 
@@ -112,6 +119,7 @@ SPC=<space>
 DEL=<delete>
 SAY=<speak>
 CLR=<clear>
+UNDO=<undo>
 ```
 
 The suggestion dictionary uses the same one-item-per-line format. Helpers can add names, routines, places, needs, favorite activities, or therapy-specific vocabulary:

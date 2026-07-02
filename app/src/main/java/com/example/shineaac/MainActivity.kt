@@ -91,7 +91,8 @@ private fun ShineAacApp() {
     }
     val boardConfig = boardConfigState.value
     var message by rememberSaveable { mutableStateOf("") }
-    val board = boardConfig.rows(message)
+    var messageHistory by remember { mutableStateOf(emptyList<String>()) }
+    val board = boardConfig.rows(message, canUndo = messageHistory.isNotEmpty())
     var scannerState by remember { mutableStateOf(ScannerState()) }
     var highlightStartedAtMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
     var progressNowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
@@ -137,8 +138,22 @@ private fun ShineAacApp() {
 
     fun applyTile(tile: CommunicationTile) {
         if (tile.action == TileAction.Noop) return
-        message = updateMessage(message, tile)
-        if (tile.action == TileAction.Speak) speak()
+        if (tile.action == TileAction.Undo) {
+            val previous = messageHistory.lastOrNull() ?: return
+            message = previous
+            messageHistory = messageHistory.dropLast(1)
+            return
+        }
+        if (tile.action == TileAction.Speak) {
+            speak()
+            return
+        }
+
+        val nextMessage = updateMessage(message, tile)
+        if (nextMessage != message) {
+            messageHistory = (messageHistory + message).takeLast(24)
+            message = nextMessage
+        }
     }
 
     fun setScannerState(nextState: ScannerState) {
@@ -146,7 +161,12 @@ private fun ShineAacApp() {
         highlightStartedAtMs = SystemClock.elapsedRealtime()
     }
 
-    LaunchedEffect(message, boardConfig.suggestionDictionary, boardConfig.columns) {
+    LaunchedEffect(message, messageHistory, boardConfig.suggestionDictionary, boardConfig.columns) {
+        val suggestionRowHasTargets = board.firstOrNull()?.selectableCount() ?: 0 > 0
+        if (suggestionRowHasTargets) {
+            setScannerState(ScannerState(rowIndex = 0))
+            return@LaunchedEffect
+        }
         val currentRowIsEmpty = board.getOrNull(scannerState.rowIndex)?.selectableCount() == 0
         if (currentRowIsEmpty) {
             setScannerState(ScannerState(rowIndex = firstSelectableRow(board)))
@@ -229,11 +249,6 @@ private fun ShineAacApp() {
             MessagePanel(
                 message = message,
                 scannerState = scannerState,
-                scanIntervalMs = boardConfig.scanIntervalMs,
-                transitionPauseMs = boardConfig.transitionPauseMs,
-                firstCellPauseMs = boardConfig.firstCellPauseMs,
-                inputLatencyCompensationMs = boardConfig.inputLatencyCompensationMs,
-                highlightStartedAtMs = highlightStartedAtMs,
                 ttsReady = ttsReady,
                 onConfig = { showConfig = true }
             )
@@ -266,6 +281,7 @@ private fun updateMessage(current: String, tile: CommunicationTile): String {
         TileAction.Space -> current.trimEnd() + " "
         TileAction.Backspace -> current.dropLast(1)
         TileAction.Clear -> ""
+        TileAction.Undo -> current
         TileAction.Speak -> current
         TileAction.Noop -> current
     }
@@ -282,11 +298,6 @@ private fun appendToken(current: String, token: String): String {
 private fun MessagePanel(
     message: String,
     scannerState: ScannerState,
-    scanIntervalMs: Float,
-    transitionPauseMs: Float,
-    firstCellPauseMs: Float,
-    inputLatencyCompensationMs: Float,
-    highlightStartedAtMs: Long,
     ttsReady: Boolean,
     onConfig: () -> Unit
 ) {
@@ -545,7 +556,7 @@ private fun ConfigScreen(
 private fun scanPhaseLabel(stage: ScanStage): String {
     return when (stage) {
         ScanStage.Rows -> "Rows"
-        ScanStage.RowSelected -> "Settle"
+        ScanStage.RowSelected -> "Cancel"
         ScanStage.FirstCell -> "First"
         ScanStage.Cells -> "Symbols"
     }

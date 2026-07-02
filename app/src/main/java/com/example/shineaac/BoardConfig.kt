@@ -9,9 +9,9 @@ data class BoardConfig(
     val suggestionDictionary: List<CommunicationTile> = DefaultSuggestionDictionary,
     val symbols: List<CommunicationTile> = DefaultTiles
 ) {
-    fun rows(message: String = ""): List<List<CommunicationTile>> {
+    fun rows(message: String = "", canUndo: Boolean = false): List<List<CommunicationTile>> {
         val safeColumns = columns.coerceIn(2, 8)
-        val suggestions = suggestionRow(message, suggestionDictionary, safeColumns)
+        val suggestions = suggestionRow(message, suggestionDictionary, safeColumns, canUndo)
         val symbolRows = symbols.chunked(safeColumns)
         return listOf(suggestions) + symbolRows
     }
@@ -22,6 +22,7 @@ enum class TileAction {
     Space,
     Backspace,
     Clear,
+    Undo,
     Speak,
     Noop
 }
@@ -215,6 +216,14 @@ val LegacyAlphabetDefaultTiles = listOf(
     CommunicationTile("CLR", action = TileAction.Clear)
 )
 
+val SuggestionFallbackLetters = listOf("E", "T", "A", "O", "I", "N", "S", "R").map {
+    CommunicationTile(it, it.lowercase())
+}
+
+val SpaceSuggestionTile = CommunicationTile("SPC", " ", TileAction.Space)
+
+val UndoSuggestionTile = CommunicationTile("UNDO", action = TileAction.Undo)
+
 fun loadSymbolsForConfig(storedSymbols: String?, storedVersion: Int): List<CommunicationTile> {
     val parsedSymbols = parseSymbols(storedSymbols ?: serializeSymbols(DefaultTiles))
     return if (
@@ -275,11 +284,19 @@ fun suggestTiles(
 fun suggestionRow(
     message: String,
     dictionary: List<CommunicationTile>,
-    columns: Int
+    columns: Int,
+    canUndo: Boolean = false
 ): List<CommunicationTile> {
     val safeColumns = columns.coerceIn(2, 8)
     val suggestionCount = safeColumns.coerceAtMost(3)
-    val suggestions = suggestTiles(message, dictionary, suggestionCount)
+    val commandSuggestions = buildList {
+        if (canUndo) add(UndoSuggestionTile)
+        if (message.isNotBlank() && !message.last().isWhitespace()) add(SpaceSuggestionTile)
+    }
+    val wordSuggestions = suggestTiles(message, dictionary, suggestionCount)
+    val suggestions = (commandSuggestions + wordSuggestions + SuggestionFallbackLetters)
+        .distinctBy { it.label.uppercase() }
+        .take(suggestionCount)
     val emptyTiles = List(safeColumns - suggestions.size) {
         CommunicationTile(label = "", output = "", action = TileAction.Noop)
     }
@@ -305,6 +322,7 @@ fun serializeSymbols(symbols: List<CommunicationTile>): String {
             TileAction.Space -> "SPC=<space>"
             TileAction.Backspace -> "DEL=<delete>"
             TileAction.Clear -> "CLR=<clear>"
+            TileAction.Undo -> "UNDO=<undo>"
             TileAction.Speak -> "SAY=<speak>"
             TileAction.Noop -> null
         }
@@ -331,6 +349,7 @@ private fun parseSymbolLine(line: String): CommunicationTile {
         normalizedLabel == "SPC" || normalizedValue == "<space>" -> CommunicationTile("SPC", " ", TileAction.Space)
         normalizedLabel == "DEL" || normalizedValue == "<delete>" -> CommunicationTile("DEL", action = TileAction.Backspace)
         normalizedLabel == "CLR" || normalizedValue == "<clear>" -> CommunicationTile("CLR", action = TileAction.Clear)
+        normalizedLabel == "UNDO" || normalizedValue == "<undo>" -> CommunicationTile("UNDO", action = TileAction.Undo)
         normalizedLabel == "SAY" || normalizedValue == "<speak>" -> CommunicationTile("SAY", action = TileAction.Speak)
         normalizedLabel == "<EMPTY>" || normalizedValue == "<empty>" -> CommunicationTile("", "", TileAction.Noop)
         label.isBlank() -> CommunicationTile(value)
