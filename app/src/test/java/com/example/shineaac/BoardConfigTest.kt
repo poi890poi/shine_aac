@@ -121,6 +121,17 @@ class BoardConfigTest {
     }
 
     @Test
+    fun suggestionsIncludeExpandedDefaultVocabulary() {
+        val suggestions = suggestTiles(
+            message = "movi",
+            dictionary = DefaultSuggestionDictionary,
+            maxSuggestions = 3
+        ).map { it.label }
+
+        assertTrue(suggestions.contains("MOVIE"))
+    }
+
+    @Test
     fun suggestionsPreferActionsAfterPronoun() {
         val suggestions = suggestTiles(
             message = "I ",
@@ -197,5 +208,46 @@ class BoardConfigTest {
         val row = BoardConfig(columns = 4).rows("want").first()
 
         assertEquals(listOf("SPC", "E", "T", ""), row.map { it.label })
+    }
+
+    @Test
+    fun legacyDefaultSuggestionDictionaryMigratesToExpandedVocabulary() {
+        val dictionary = loadSuggestionDictionaryForConfig(
+            storedDictionary = serializeDictionary(LegacySuggestionDictionaryV6),
+            storedVersion = 6
+        )
+
+        assertTrue(dictionary.map { it.label }.contains("MOVIE"))
+    }
+
+    @Test
+    fun customSuggestionDictionaryIsPreservedDuringMigration() {
+        val customDictionary = listOf(CommunicationTile("CUSTOM", "custom"))
+        val dictionary = loadSuggestionDictionaryForConfig(
+            storedDictionary = serializeDictionary(customDictionary),
+            storedVersion = 6
+        )
+
+        assertEquals(customDictionary, dictionary)
+    }
+
+    @Test
+    fun legacyDefaultFirstCellHoldMigratesToNormalScanSpeed() {
+        val pause = loadFirstCellPauseForConfig(
+            storedPauseMs = LegacyFirstCellPauseMsV6,
+            storedVersion = 6
+        )
+
+        assertEquals(DefaultScanIntervalMs, pause)
+    }
+
+    @Test
+    fun customFirstCellHoldIsPreservedDuringMigration() {
+        val pause = loadFirstCellPauseForConfig(
+            storedPauseMs = 1800f,
+            storedVersion = 6
+        )
+
+        assertEquals(1800f, pause)
     }
 }

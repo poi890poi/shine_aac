@@ -66,25 +66,27 @@ private fun ShineAacApp() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("shine_aac_config", android.content.Context.MODE_PRIVATE) }
     val boardConfigState = remember {
+        val storedVersion = prefs.getInt("configVersion", 0)
         mutableStateOf(
             BoardConfig(
                 columns = prefs.getInt("columns", DefaultColumns),
                 scanIntervalMs = prefs.getFloat("scanIntervalMs", DefaultScanIntervalMs),
                 transitionPauseMs = prefs.getFloat("transitionPauseMs", DefaultTransitionPauseMs),
-                firstCellPauseMs = prefs.getFloat("firstCellPauseMs", DefaultFirstCellPauseMs),
+                firstCellPauseMs = loadFirstCellPauseForConfig(
+                    storedPauseMs = prefs.getFloat("firstCellPauseMs", DefaultFirstCellPauseMs),
+                    storedVersion = storedVersion
+                ),
                 inputLatencyCompensationMs = prefs.getFloat(
                     "inputLatencyCompensationMs",
                     DefaultInputLatencyCompensationMs
                 ),
-                suggestionDictionary = parseDictionary(
-                    prefs.getString(
-                        "suggestionDictionary",
-                        serializeDictionary(DefaultSuggestionDictionary)
-                    ) ?: serializeDictionary(DefaultSuggestionDictionary)
+                suggestionDictionary = loadSuggestionDictionaryForConfig(
+                    storedDictionary = prefs.getString("suggestionDictionary", null),
+                    storedVersion = storedVersion
                 ),
                 symbols = loadSymbolsForConfig(
                     storedSymbols = prefs.getString("symbols", null),
-                    storedVersion = prefs.getInt("configVersion", 0)
+                    storedVersion = storedVersion
                 )
             )
         )

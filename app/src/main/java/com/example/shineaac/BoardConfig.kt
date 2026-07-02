@@ -36,11 +36,12 @@ data class CommunicationTile(
 const val DefaultColumns = 4
 const val DefaultScanIntervalMs = 900f
 const val DefaultTransitionPauseMs = 850f
-const val DefaultFirstCellPauseMs = 1400f
+const val DefaultFirstCellPauseMs = 900f
+const val LegacyFirstCellPauseMsV6 = 1400f
 const val DefaultInputLatencyCompensationMs = 250f
-const val CurrentConfigVersion = 6
+const val CurrentConfigVersion = 7
 
-val DefaultSuggestionDictionary = listOf(
+val LegacySuggestionDictionaryV6 = listOf(
     CommunicationTile("I", "I"),
     CommunicationTile("YOU", "you"),
     CommunicationTile("WANT", "want"),
@@ -72,6 +73,30 @@ val DefaultSuggestionDictionary = listOf(
     CommunicationTile("DAD", "dad"),
     CommunicationTile("NURSE", "nurse"),
     CommunicationTile("DOCTOR", "doctor")
+)
+
+val DefaultSuggestionDictionary = LegacySuggestionDictionaryV6 + listOf(
+    CommunicationTile("MOVIE", "movie"),
+    CommunicationTile("MUSIC", "music"),
+    CommunicationTile("TV", "TV"),
+    CommunicationTile("VIDEO", "video"),
+    CommunicationTile("GAME", "game"),
+    CommunicationTile("BOOK", "book"),
+    CommunicationTile("PHONE", "phone"),
+    CommunicationTile("TABLET", "tablet"),
+    CommunicationTile("HOME", "home"),
+    CommunicationTile("BED", "bed"),
+    CommunicationTile("CHAIR", "chair"),
+    CommunicationTile("ROOM", "room"),
+    CommunicationTile("LIGHT", "light"),
+    CommunicationTile("FAN", "fan"),
+    CommunicationTile("OPEN", "open"),
+    CommunicationTile("CLOSE", "close"),
+    CommunicationTile("CHANGE", "change"),
+    CommunicationTile("AGAIN", "again"),
+    CommunicationTile("WAIT", "wait"),
+    CommunicationTile("SORRY", "sorry"),
+    CommunicationTile("THANKS", "thanks")
 )
 
 val DefaultTiles = listOf(
@@ -233,6 +258,23 @@ fun loadSymbolsForConfig(storedSymbols: String?, storedVersion: Int): List<Commu
         DefaultTiles
     } else {
         parsedSymbols
+    }
+}
+
+fun loadSuggestionDictionaryForConfig(storedDictionary: String?, storedVersion: Int): List<CommunicationTile> {
+    val parsedDictionary = parseDictionary(storedDictionary ?: serializeDictionary(DefaultSuggestionDictionary))
+    return if (storedVersion < CurrentConfigVersion && parsedDictionary == LegacySuggestionDictionaryV6) {
+        DefaultSuggestionDictionary
+    } else {
+        parsedDictionary
+    }
+}
+
+fun loadFirstCellPauseForConfig(storedPauseMs: Float, storedVersion: Int): Float {
+    return if (storedVersion < CurrentConfigVersion && storedPauseMs == LegacyFirstCellPauseMsV6) {
+        DefaultFirstCellPauseMs
+    } else {
+        storedPauseMs
     }
 }
 

@@ -24,7 +24,7 @@ The Android app is implemented with Kotlin and Jetpack Compose. It provides:
 - Row/column switch scanning with a large switch input.
 - Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
 - A row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts.
-- A longer first-symbol hold so column 1 is not rushed after the mode change.
+- A configurable first-symbol hold. By default it matches the normal scan speed; helpers can slow it only when a user needs extra time on column 1.
 - Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
 - A blinking message cursor so trailing spaces are visible.
@@ -41,10 +41,10 @@ The scan state machine has four stages:
 
 1. `Rows`: rows are highlighted in sequence.
 2. `RowSelected`: the selected row stays locked for a configurable transition pause. A switch activation during this transient state cancels the locked row and returns to row scanning.
-3. `FirstCell`: the first symbol in the locked row is highlighted for a longer configurable hold.
+3. `FirstCell`: the first symbol in the locked row is highlighted with its own configurable hold.
 4. `Cells`: the remaining symbols in the locked row are highlighted in sequence.
 
-The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause. If the row was accidental, another activation cancels it. If there is no activation, `FirstCell` gives the first symbol extra dwell time before the normal symbol scan continues.
+The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause. If the row was accidental, another activation cancels it. If there is no activation, `FirstCell` begins at column 1. Its default hold matches the normal scan speed because the cancel pause already provides the row-to-column transition protection.
 
 The app also compensates for visual-motor latency during symbol scanning. If an activation occurs during the first configurable latency window of a symbol highlight, the scanner treats it as an intended selection of the previous symbol in the same row. The default is 250 ms, which is in the range commonly used as a practical approximation for human visual reaction time; it must remain configurable because real access latency varies with vision, cognition, fatigue, switch site, switch hardware, and motor control. Row scanning deliberately does not remap to the previous row because selecting the same column in a previous row is surprising and rarely useful.
 
@@ -89,7 +89,7 @@ Suggestions are intentionally simple and AAC-focused:
 - The row shows up to three active targets, leaving empty placeholders when fewer are available.
 - `UNDO` appears first when a previous message state exists.
 - `SPC` appears when the message has text and does not already end in a space.
-- If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`.
+- If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`; `movi` can produce `MOVIE`.
 - If the partial word already exactly matches a dictionary item, that same word is not suggested again.
 - If the message ends at a word boundary, suggestions favor simple grammar patterns rather than complete sentence prediction.
 - After `I` or `YOU`, action words such as `WANT`, `NEED`, `HELP`, `GO`, `STOP`, `WATCH`, `LOOK`, `MOVE`, and `TURN` rank higher.
@@ -122,7 +122,7 @@ CLR=<clear>
 UNDO=<undo>
 ```
 
-The suggestion dictionary uses the same one-item-per-line format. Helpers can add names, routines, places, needs, favorite activities, or therapy-specific vocabulary:
+The suggestion dictionary uses the same one-item-per-line format. Helpers can add names, routines, places, needs, favorite activities, or therapy-specific vocabulary. The built-in starter dictionary includes a small set of needs, actions, people, directions, and leisure/context words such as `MOVIE`, `MUSIC`, `TV`, `BOOK`, and `PHONE`.
 
 ```text
 MOM=mom
@@ -130,10 +130,11 @@ DAD=dad
 NURSE=nurse
 MUSIC=music
 TV=TV
+MOVIE=movie
 BED=bed
 ```
 
-Configuration is stored on the device. The app migrates old built-in default layouts to the current frequency-ordered default, but it preserves layouts that were saved under the current config version. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, and input-latency compensation window.
+Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, and input-latency compensation window.
 
 To build locally, install the Android SDK and either set `ANDROID_HOME` or create `local.properties` with:
 
