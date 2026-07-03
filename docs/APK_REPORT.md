@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8744366 bytes
+8744726 bytes
 ```
 
 ## What This APK Is
@@ -76,7 +76,7 @@ Public download check:
 
 ```text
 HTTP 200
-Content-Length: 8744366
+Content-Length: 8744726
 Content-Type: application/octet-stream
 ```
 

@@ -1,6 +1,7 @@
 import {
   DefaultSuggestionDictionary,
   DefaultTiles,
+  LanguageProfiles,
   ScanStage,
   TileAction,
   advanceSession,
@@ -18,7 +19,7 @@ import {
 } from "../../../packages/aac-core/src/index.js";
 
 const storageKey = "shine-aac-web-config-v1";
-const webConfigVersion = 3;
+const webConfigVersion = 4;
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
 const InputIntent = Object.freeze({
@@ -56,6 +57,7 @@ function loadConfig() {
     if (!stored) return defaults;
     const storedVersion = Number(stored.configVersion) || 0;
     return createBoardConfig({
+      profileId: stored.profileId,
       columns: numberOrDefault(stored.columns, defaults.columns),
       scanIntervalMs: numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
       transitionPauseMs: storedVersion >= 2
@@ -120,6 +122,7 @@ function loadNativeConfig(defaults) {
     if (!raw) return null;
     const stored = JSON.parse(raw);
     return createBoardConfig({
+      profileId: stored.profileId,
       columns: numberOrDefault(stored.columns, defaults.columns),
       scanIntervalMs: numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
       transitionPauseMs: numberOrDefault(stored.transitionPauseMs, defaults.transitionPauseMs),
@@ -137,6 +140,7 @@ function loadNativeConfig(defaults) {
 function saveConfig(config) {
   localStorage.setItem(storageKey, JSON.stringify({
     configVersion: webConfigVersion,
+    profileId: config.profileId,
     columns: config.columns,
     scanIntervalMs: config.scanIntervalMs,
     transitionPauseMs: config.transitionPauseMs,
@@ -225,15 +229,20 @@ function speak(text) {
 }
 
 function speakText(text) {
+  const spoken = text.trim();
+  if (!spoken) return;
   if (globalThis.ShineAacAndroid?.speak) {
-    globalThis.ShineAacAndroid.speak(text.trim());
+    if (globalThis.ShineAacAndroid.setSpeechLocale) {
+      globalThis.ShineAacAndroid.setSpeechLocale(session.config.speechLocale);
+    }
+    globalThis.ShineAacAndroid.speak(spoken);
     return;
   }
   if (!("speechSynthesis" in window)) return;
-  const spoken = text.trim();
-  if (!spoken) return;
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(spoken));
+  const utterance = new SpeechSynthesisUtterance(spoken);
+  utterance.lang = session.config.speechLocale;
+  window.speechSynthesis.speak(utterance);
 }
 
 function speakFeedback(text) {
@@ -269,6 +278,13 @@ function announceCurrentScanTarget() {
 }
 
 function labelForSpeech(tile) {
+  if (session.config.profileId === "zh-TW") {
+    if (tile.action === TileAction.Space) return "空格";
+    if (tile.action === TileAction.Backspace) return "刪除";
+    if (tile.action === TileAction.Clear) return "清除";
+    if (tile.action === TileAction.Undo) return "復原";
+    if (tile.action === TileAction.Speak) return "說出";
+  }
   if (tile.action === TileAction.Space) return "space";
   if (tile.action === TileAction.Backspace) return "delete";
   if (tile.action === TileAction.Clear) return "clear";
@@ -456,6 +472,11 @@ function renderConfig() {
   const form = document.createElement("form");
   form.innerHTML = `
     <div class="config-grid">
+      <label class="field wide">Language
+        <select name="profileId">
+          ${profileOptionsHtml(session.config.profileId)}
+        </select>
+      </label>
       <label class="field">Columns
         <input name="columns" type="number" min="2" max="8" step="1" value="${session.config.columns}">
       </label>
@@ -501,6 +522,18 @@ function renderConfig() {
     </div>
   `;
 
+  const profileSelect = form.elements.profileId;
+  profileSelect.addEventListener("change", () => {
+    const profile = LanguageProfiles[profileSelect.value] ?? LanguageProfiles["en-US"];
+    form.elements.columns.value = String(profile.columns);
+    form.elements.scanIntervalMs.value = String(profile.scanIntervalMs);
+    form.elements.transitionPauseMs.value = String(profile.transitionPauseMs);
+    form.elements.firstCellPauseMs.value = String(profile.firstCellPauseMs);
+    form.elements.inputLatencyCompensationMs.value = String(profile.inputLatencyCompensationMs);
+    form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
+    form.elements.symbols.value = serializeSymbols(profile.symbols);
+  });
+
   form.addEventListener("click", (event) => {
     const action = event.target?.dataset?.action;
     if (action === "cancel") closeConfig();
@@ -517,6 +550,7 @@ function renderConfig() {
     event.preventDefault();
     const data = new FormData(form);
     const config = createBoardConfig({
+      profileId: String(data.get("profileId") ?? "en-US"),
       columns: clamp(Number(data.get("columns")), 2, 8),
       scanIntervalMs: clamp(Number(data.get("scanIntervalMs")), 300, 5000),
       transitionPauseMs: clamp(Number(data.get("transitionPauseMs")), 0, 4000),
@@ -540,6 +574,15 @@ function renderConfig() {
   panel.append(title, form);
   backdrop.append(panel);
   app.append(backdrop);
+}
+
+function profileOptionsHtml(selectedProfileId) {
+  return Object.values(LanguageProfiles)
+    .map((profile) => {
+      const selected = profile.id === selectedProfileId ? " selected" : "";
+      return `<option value="${escapeHtml(profile.id)}"${selected}>${escapeHtml(profile.displayName)}</option>`;
+    })
+    .join("");
 }
 
 function escapeHtml(value) {

@@ -134,6 +134,15 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
+        fun setSpeechLocale(languageTag: String) {
+            if (!ttsReady || languageTag.isBlank()) return
+            val locale = Locale.forLanguageTag(languageTag)
+            runOnUiThread {
+                tts?.setLanguage(locale)
+            }
+        }
+
+        @JavascriptInterface
         fun isE2E(): Boolean {
             return getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
                 .getBoolean("e2eEnabled", false)
@@ -146,6 +155,7 @@ class MainActivity : ComponentActivity() {
 
             return JSONObject()
                 .put("columns", prefs.getInt("columns", 4))
+                .put("profileId", prefs.getString("profileId", "en-US"))
                 .put("scanIntervalMs", prefs.getFloat("scanIntervalMs", 900f).toDouble())
                 .put("transitionPauseMs", prefs.getFloat("transitionPauseMs", 0f).toDouble())
                 .put("firstCellPauseMs", prefs.getFloat("firstCellPauseMs", 900f).toDouble())

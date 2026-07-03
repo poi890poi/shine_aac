@@ -15,7 +15,7 @@ npm run test:core
 Latest result:
 
 ```text
-40 tests passed
+45 tests passed
 0 tests failed
 ```
 
@@ -52,6 +52,10 @@ Latest result:
 - expanded vocabulary suggests `DRINK` after `I want `
 - the default board no longer spends a row on a single `?`
 - old built-in suggestion dictionaries migrate, custom dictionaries remain
+- English remains the default language profile and keeps word auto-spacing
+- `zh-TW` has an independent phrase-first board and dictionary
+- `zh-TW` appends selected words and phrases without automatic spaces
+- language profile defaults do not share mutable arrays
 
 ### Human-Like Input Sequences
 

@@ -22,6 +22,11 @@ export const DefaultFirstCellPauseMs = 900;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
 export const CurrentConfigVersion = 8;
+export const DefaultProfileId = "en-US";
+export const AutoSpaceMode = Object.freeze({
+  Word: "word",
+  None: "none"
+});
 
 export function tile(label, output = label, action = TileAction.Append) {
   return { label, output, action };
@@ -229,23 +234,119 @@ export const SuggestionFallbackLetters = Object.freeze(
 export const SpaceSuggestionTile = Object.freeze(tile("SPC", " ", TileAction.Space));
 export const UndoSuggestionTile = Object.freeze(tile("UNDO", "UNDO", TileAction.Undo));
 
-export function createBoardConfig(overrides = {}) {
-  return {
+export const ZhTwTiles = Object.freeze([
+  tile("是"),
+  tile("不是"),
+  tile("要"),
+  tile("不要"),
+  tile("我"),
+  tile("你"),
+  tile("幫忙"),
+  tile("痛"),
+  tile("喝水"),
+  tile("吃飯"),
+  tile("廁所"),
+  tile("休息"),
+  tile("熱"),
+  tile("冷"),
+  tile("累"),
+  tile("睡覺"),
+  tile("上"),
+  tile("下"),
+  tile("左"),
+  tile("右"),
+  tile("請"),
+  tile("謝謝"),
+  tile("等一下"),
+  tile("好了"),
+  tile("說", "SAY", TileAction.Speak),
+  tile("刪", "DEL", TileAction.Backspace),
+  tile("清除", "CLR", TileAction.Clear),
+  tile("。")
+]);
+
+export const ZhTwSuggestionDictionary = Object.freeze([
+  ...ZhTwTiles.filter((candidate) => candidate.action === TileAction.Append),
+  tile("我要喝水"),
+  tile("我要吃飯"),
+  tile("我要上廁所"),
+  tile("我需要幫忙"),
+  tile("我很痛"),
+  tile("我很熱"),
+  tile("我很冷"),
+  tile("我很累"),
+  tile("我要休息"),
+  tile("我要睡覺"),
+  tile("請幫我"),
+  tile("請等一下"),
+  tile("請叫家人"),
+  tile("請叫護理師"),
+  tile("請調整姿勢"),
+  tile("可以"),
+  tile("不可以"),
+  tile("媽媽"),
+  tile("爸爸"),
+  tile("護理師"),
+  tile("醫生")
+]);
+
+export const LanguageProfiles = Object.freeze({
+  "en-US": Object.freeze({
+    id: "en-US",
+    displayName: "English",
+    writingSystem: "latin",
     columns: DefaultColumns,
     scanIntervalMs: DefaultScanIntervalMs,
     transitionPauseMs: DefaultTransitionPauseMs,
     firstCellPauseMs: DefaultFirstCellPauseMs,
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
+    autoSpace: AutoSpaceMode.Word,
+    speechLocale: "en-US",
     suggestionDictionary: DefaultSuggestionDictionary,
-    symbols: DefaultTiles,
-    ...overrides
+    symbols: DefaultTiles
+  }),
+  "zh-TW": Object.freeze({
+    id: "zh-TW",
+    displayName: "繁體中文（台灣）",
+    writingSystem: "traditional-chinese",
+    columns: 4,
+    scanIntervalMs: DefaultScanIntervalMs,
+    transitionPauseMs: DefaultTransitionPauseMs,
+    firstCellPauseMs: DefaultFirstCellPauseMs,
+    inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
+    autoSpace: AutoSpaceMode.None,
+    speechLocale: "zh-TW",
+    suggestionDictionary: ZhTwSuggestionDictionary,
+    symbols: ZhTwTiles
+  })
+});
+
+export function languageProfileForId(profileId = DefaultProfileId) {
+  return LanguageProfiles[profileId] ?? LanguageProfiles[DefaultProfileId];
+}
+
+export function createBoardConfig(overrides = {}) {
+  const profile = languageProfileForId(overrides.profileId);
+  const { profileId: _profileId, ...safeOverrides } = overrides;
+  return {
+    profileId: profile.id,
+    autoSpace: profile.autoSpace,
+    speechLocale: profile.speechLocale,
+    columns: profile.columns,
+    scanIntervalMs: profile.scanIntervalMs,
+    transitionPauseMs: profile.transitionPauseMs,
+    firstCellPauseMs: profile.firstCellPauseMs,
+    inputLatencyCompensationMs: profile.inputLatencyCompensationMs,
+    suggestionDictionary: profile.suggestionDictionary,
+    symbols: profile.symbols,
+    ...safeOverrides
   };
 }
 
 export function boardRows(config = createBoardConfig(), message = "", canUndo = false) {
   const normalized = createBoardConfig(config);
   const safeColumns = clampInt(normalized.columns, 2, 8);
-  const suggestions = suggestionRow(message, normalized.suggestionDictionary, safeColumns, canUndo);
+  const suggestions = suggestionRow(message, normalized.suggestionDictionary, safeColumns, canUndo, normalized);
   return [suggestions, ...chunk(normalized.symbols, safeColumns)];
 }
 
@@ -323,8 +424,12 @@ export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
   return storedPauseMs;
 }
 
-export function suggestTiles(message, dictionary, maxSuggestions) {
+export function suggestTiles(message, dictionary, maxSuggestions, options = {}) {
   const safeMax = Math.max(1, Math.trunc(maxSuggestions));
+  if (options.autoSpace === AutoSpaceMode.None) {
+    return suggestTilesWithoutSpaces(message, dictionary, safeMax);
+  }
+
   const text = message.toLowerCase();
   const trimmed = text.trim();
   const endsWithBoundary = message.length === 0 || /\s$/.test(message);
@@ -357,18 +462,39 @@ export function suggestTiles(message, dictionary, maxSuggestions) {
     .slice(0, safeMax);
 }
 
-export function suggestionRow(message, dictionary, columns, canUndo = false) {
+function suggestTilesWithoutSpaces(message, dictionary, maxSuggestions) {
+  const currentText = message.replace(/\s+/g, "");
+  const ranked = currentText
+    ? dictionary
+      .filter((candidate) => {
+        const label = candidate.label.replace(/\s+/g, "");
+        const output = candidate.output.replace(/\s+/g, "");
+        return (label.startsWith(currentText) || output.startsWith(currentText)) &&
+          label !== currentText &&
+          output !== currentText;
+      })
+      .sort((left, right) => left.output.length - right.output.length)
+    : dictionary;
+
+  return distinctBy(ranked.length > 0 ? ranked : dictionary, (candidate) => candidate.label)
+    .filter((candidate) => candidate.output.trim().length > 0)
+    .slice(0, maxSuggestions);
+}
+
+export function suggestionRow(message, dictionary, columns, canUndo = false, options = {}) {
   const safeColumns = clampInt(columns, 2, 8);
   const suggestionCount = Math.min(safeColumns, 4);
   const commandSuggestions = [];
   if (canUndo) commandSuggestions.push(UndoSuggestionTile);
-  if (message.trim().length > 0 && !/\s$/.test(message)) commandSuggestions.push(SpaceSuggestionTile);
+  if (options.autoSpace !== AutoSpaceMode.None && message.trim().length > 0 && !/\s$/.test(message)) {
+    commandSuggestions.push(SpaceSuggestionTile);
+  }
 
   const suggestions = distinctBy(
     [
       ...commandSuggestions,
-      ...suggestTiles(message, dictionary, suggestionCount),
-      ...SuggestionFallbackLetters
+      ...suggestTiles(message, dictionary, suggestionCount, options),
+      ...(options.autoSpace === AutoSpaceMode.None ? [] : SuggestionFallbackLetters)
     ],
     (candidate) => candidate.label.toUpperCase()
   ).slice(0, suggestionCount);
@@ -460,10 +586,10 @@ export function confirmWithLatencyCompensation(state, rowCount, columnCountForRo
   return confirmScanner(compensatedState, rowCount, columnCountForRow);
 }
 
-export function updateMessage(current, selectedTile) {
+export function updateMessage(current, selectedTile, options = {}) {
   switch (selectedTile.action) {
     case TileAction.Append:
-      return appendToken(current, selectedTile);
+      return appendToken(current, selectedTile, options);
     case TileAction.Space:
       return current.trimEnd() + " ";
     case TileAction.Backspace:
@@ -478,8 +604,10 @@ export function updateMessage(current, selectedTile) {
   }
 }
 
-export function appendToken(current, selectedTile) {
+export function appendToken(current, selectedTile, options = {}) {
   const token = selectedTile.output;
+  if (options.autoSpace === AutoSpaceMode.None) return current + token;
+
   const isSpellingLetter = token.length === 1 &&
     selectedTile.label.length === 1 &&
     selectedTile.output === selectedTile.label.toLowerCase() &&
@@ -568,7 +696,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
   }
 
   const selectedTile = rows[confirmation.rowIndex][confirmation.cellIndex];
-  const applied = applyTile(session.message, session.messageHistory, selectedTile);
+  const applied = applyTile(session.message, session.messageHistory, selectedTile, session.config);
   return {
     ...session,
     message: applied.message,
@@ -584,7 +712,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
   };
 }
 
-export function applyTile(message, messageHistory, selectedTile) {
+export function applyTile(message, messageHistory, selectedTile, config = createBoardConfig()) {
   if (selectedTile.action === TileAction.Noop) {
     return { message, messageHistory, effect: "none" };
   }
@@ -597,7 +725,7 @@ export function applyTile(message, messageHistory, selectedTile) {
     return { message, messageHistory, effect: "speak" };
   }
 
-  const nextMessage = updateMessage(message, selectedTile);
+  const nextMessage = updateMessage(message, selectedTile, config);
   if (nextMessage === message) return { message, messageHistory, effect: "none" };
   return {
     message: nextMessage,

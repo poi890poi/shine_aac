@@ -5,6 +5,7 @@ import {
   DefaultScanIntervalMs,
   DefaultSuggestionDictionary,
   DefaultTiles,
+  LanguageProfiles,
   LegacyAlphabetDefaultTiles,
   LegacyFirstCellPauseMsV6,
   LegacyFrequencyDefaultTilesV3,
@@ -20,7 +21,8 @@ import {
   serializeSymbols,
   suggestTiles,
   suggestionRow,
-  tile
+  tile,
+  updateMessage
 } from "../src/index.js";
 
 test("default tiles include the full alphabet", () => {
@@ -153,4 +155,46 @@ test("legacy suggestion dictionary migrates but custom dictionary is preserved",
 test("first-cell hold migration preserves custom values", () => {
   assert.equal(loadFirstCellPauseForConfig(LegacyFirstCellPauseMsV6, 6), DefaultScanIntervalMs);
   assert.equal(loadFirstCellPauseForConfig(1800, 6), 1800);
+});
+
+test("English profile remains the default and auto-spaces words", () => {
+  const config = createBoardConfig();
+
+  assert.equal(config.profileId, "en-US");
+  assert.equal(updateMessage("", tile("YES", "yes"), config), "yes ");
+  assert.equal(updateMessage("yes ", tile("WATER", "water"), config), "yes water ");
+});
+
+test("zh-TW profile uses an independent phrase board", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const labels = boardRows(config)[1].map((candidate) => candidate.label);
+
+  assert.equal(config.profileId, "zh-TW");
+  assert.equal(config.speechLocale, "zh-TW");
+  assert.deepEqual(labels, ["是", "不是", "要", "不要"]);
+});
+
+test("zh-TW profile appends without automatic spaces", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+
+  assert.equal(updateMessage("", tile("我"), config), "我");
+  assert.equal(updateMessage("我", tile("要"), config), "我要");
+  assert.equal(updateMessage("我要", tile("喝水"), config), "我要喝水");
+});
+
+test("zh-TW suggestions complete Mandarin phrases without a space tile", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+
+  const initialRow = suggestionRow("", config.suggestionDictionary, config.columns, false, config);
+  assert.deepEqual(initialRow.map((candidate) => candidate.label), ["是", "不是", "要", "不要"]);
+
+  const phraseRow = suggestionRow("我要", config.suggestionDictionary, config.columns, false, config);
+  assert.equal(phraseRow.some((candidate) => candidate.label === "SPC"), false);
+  assert.equal(phraseRow.some((candidate) => candidate.label === "我要喝水"), true);
+});
+
+test("language profiles do not share mutable default arrays", () => {
+  assert.notEqual(LanguageProfiles["en-US"].symbols, LanguageProfiles["zh-TW"].symbols);
+  assert.notEqual(LanguageProfiles["en-US"].suggestionDictionary, LanguageProfiles["zh-TW"].suggestionDictionary);
+  assert.throws(() => LanguageProfiles["zh-TW"].symbols.push(tile("測試")));
 });
