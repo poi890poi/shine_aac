@@ -284,12 +284,22 @@ function labelForSpeech(tile) {
     if (tile.action === TileAction.Clear) return "清除";
     if (tile.action === TileAction.Undo) return "復原";
     if (tile.action === TileAction.Speak) return "說出";
+    if (tile.action === TileAction.EnterMode) return "注音";
+    if (tile.action === TileAction.ExitMode) return "返回";
+    if (tile.action === TileAction.ZhuyinContinue) return "續音";
+    if (tile.action === TileAction.ZhuyinClear) return "清除注音";
+    if (tile.action === TileAction.CommitCandidate) return tile.output.trim() || tile.label;
   }
   if (tile.action === TileAction.Space) return "space";
   if (tile.action === TileAction.Backspace) return "delete";
   if (tile.action === TileAction.Clear) return "clear";
   if (tile.action === TileAction.Undo) return "undo";
   if (tile.action === TileAction.Speak) return "speak";
+  if (tile.action === TileAction.EnterMode) return "enter mode";
+  if (tile.action === TileAction.ExitMode) return "exit mode";
+  if (tile.action === TileAction.ZhuyinContinue) return "continue";
+  if (tile.action === TileAction.ZhuyinClear) return "clear composition";
+  if (tile.action === TileAction.CommitCandidate) return tile.output.trim() || tile.label;
   return tile.output.trim() || tile.label;
 }
 

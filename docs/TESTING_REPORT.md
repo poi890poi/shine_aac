@@ -15,7 +15,7 @@ npm run test:core
 Latest result:
 
 ```text
-45 tests passed
+47 tests passed
 0 tests failed
 ```
 
@@ -55,6 +55,8 @@ Latest result:
 - English remains the default language profile and keeps word auto-spacing
 - `zh-TW` has an independent phrase-first board and dictionary
 - `zh-TW` appends selected words and phrases without automatic spaces
+- `zh-TW` exposes a separate `注音` composition mode instead of replacing the phrase board
+- Zhuyin composition can build `ㄨㄛˇㄧㄠˋ` and commit a phrase candidate such as `我要喝水`
 - language profile defaults do not share mutable arrays
 
 ### Human-Like Input Sequences

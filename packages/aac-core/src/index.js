@@ -12,6 +12,13 @@ export const TileAction = Object.freeze({
   Clear: "clear",
   Undo: "undo",
   Speak: "speak",
+  EnterMode: "enter-mode",
+  ExitMode: "exit-mode",
+  ZhuyinGroup: "zhuyin-group",
+  ZhuyinSymbol: "zhuyin-symbol",
+  ZhuyinContinue: "zhuyin-continue",
+  ZhuyinClear: "zhuyin-clear",
+  CommitCandidate: "commit-candidate",
   Noop: "noop"
 });
 
@@ -234,6 +241,62 @@ export const SuggestionFallbackLetters = Object.freeze(
 export const SpaceSuggestionTile = Object.freeze(tile("SPC", " ", TileAction.Space));
 export const UndoSuggestionTile = Object.freeze(tile("UNDO", "UNDO", TileAction.Undo));
 
+const boardModeTile = (label = "返回") => tile(label, "board", TileAction.ExitMode);
+const zhuyinModeTile = (label = "注音") => tile(label, "zhuyin", TileAction.EnterMode);
+const zhuyinGroupTile = (label, groupId) => tile(label, groupId, TileAction.ZhuyinGroup);
+const zhuyinSymbolTile = (label, output, kind) => ({ label, output, action: TileAction.ZhuyinSymbol, zhuyinKind: kind });
+const zhuyinContinueTile = Object.freeze(tile("續音", "continue", TileAction.ZhuyinContinue));
+const zhuyinClearTile = Object.freeze(tile("清音", "clear", TileAction.ZhuyinClear));
+
+export const ZhuyinInitialGroups = Object.freeze([
+  Object.freeze({ id: "labial", label: "ㄅㄆㄇㄈ", symbols: Object.freeze(["ㄅ", "ㄆ", "ㄇ", "ㄈ"]) }),
+  Object.freeze({ id: "alveolar", label: "ㄉㄊㄋㄌ", symbols: Object.freeze(["ㄉ", "ㄊ", "ㄋ", "ㄌ"]) }),
+  Object.freeze({ id: "velar", label: "ㄍㄎㄏ", symbols: Object.freeze(["ㄍ", "ㄎ", "ㄏ"]) }),
+  Object.freeze({ id: "palatal", label: "ㄐㄑㄒ", symbols: Object.freeze(["ㄐ", "ㄑ", "ㄒ"]) }),
+  Object.freeze({ id: "retroflex", label: "ㄓㄔㄕㄖ", symbols: Object.freeze(["ㄓ", "ㄔ", "ㄕ", "ㄖ"]) }),
+  Object.freeze({ id: "dental", label: "ㄗㄘㄙ", symbols: Object.freeze(["ㄗ", "ㄘ", "ㄙ"]) }),
+  Object.freeze({ id: "zero", label: "無聲母", symbols: Object.freeze([]) })
+]);
+
+const ZhuyinFinals = Object.freeze([
+  "ㄚ", "ㄛ", "ㄜ", "ㄝ",
+  "ㄞ", "ㄟ", "ㄠ", "ㄡ",
+  "ㄢ", "ㄣ", "ㄤ", "ㄥ",
+  "ㄧ", "ㄨ", "ㄩ", "ㄦ",
+  "ㄧㄚ", "ㄧㄝ", "ㄧㄠ", "ㄧㄡ",
+  "ㄧㄢ", "ㄧㄣ", "ㄧㄤ", "ㄧㄥ",
+  "ㄨㄚ", "ㄨㄛ", "ㄨㄞ", "ㄨㄟ",
+  "ㄨㄢ", "ㄨㄣ", "ㄨㄤ", "ㄨㄥ",
+  "ㄩㄝ", "ㄩㄢ", "ㄩㄣ", "ㄩㄥ"
+]);
+
+const ZhuyinTones = Object.freeze([
+  Object.freeze({ label: "一聲", mark: "ˉ" }),
+  Object.freeze({ label: "二聲", mark: "ˊ" }),
+  Object.freeze({ label: "三聲", mark: "ˇ" }),
+  Object.freeze({ label: "四聲", mark: "ˋ" }),
+  Object.freeze({ label: "輕聲", mark: "˙" })
+]);
+
+export const ZhuyinCandidateDictionary = Object.freeze([
+  Object.freeze({ zhuyin: "ㄕˋ", candidates: Object.freeze(["是"]) }),
+  Object.freeze({ zhuyin: "ㄅㄨˊ", candidates: Object.freeze(["不"]) }),
+  Object.freeze({ zhuyin: "ㄧㄠˋ", candidates: Object.freeze(["要"]) }),
+  Object.freeze({ zhuyin: "ㄨㄛˇ", candidates: Object.freeze(["我"]) }),
+  Object.freeze({ zhuyin: "ㄋㄧˇ", candidates: Object.freeze(["你"]) }),
+  Object.freeze({ zhuyin: "ㄅㄤˉㄇㄤˊ", candidates: Object.freeze(["幫忙"]) }),
+  Object.freeze({ zhuyin: "ㄊㄨㄥˋ", candidates: Object.freeze(["痛"]) }),
+  Object.freeze({ zhuyin: "ㄏㄜˉㄕㄨㄟˇ", candidates: Object.freeze(["喝水"]) }),
+  Object.freeze({ zhuyin: "ㄔˉㄈㄢˋ", candidates: Object.freeze(["吃飯"]) }),
+  Object.freeze({ zhuyin: "ㄘㄜˋㄙㄨㄛˇ", candidates: Object.freeze(["廁所"]) }),
+  Object.freeze({ zhuyin: "ㄒㄧㄡˉㄒㄧˊ", candidates: Object.freeze(["休息"]) }),
+  Object.freeze({ zhuyin: "ㄨㄛˇㄧㄠˋ", candidates: Object.freeze(["我要喝水", "我要吃飯", "我要上廁所", "我要休息"]) }),
+  Object.freeze({ zhuyin: "ㄨㄛˇㄒㄩˉㄧㄠˋ", candidates: Object.freeze(["我需要幫忙"]) }),
+  Object.freeze({ zhuyin: "ㄑㄧㄥˇ", candidates: Object.freeze(["請"]) }),
+  Object.freeze({ zhuyin: "ㄑㄧㄥˇㄅㄤˉ", candidates: Object.freeze(["請幫我"]) }),
+  Object.freeze({ zhuyin: "ㄑㄧㄥˇㄉㄥˇ", candidates: Object.freeze(["請等一下"]) })
+]);
+
 export const ZhTwTiles = Object.freeze([
   tile("是"),
   tile("不是"),
@@ -259,6 +322,7 @@ export const ZhTwTiles = Object.freeze([
   tile("謝謝"),
   tile("等一下"),
   tile("好了"),
+  zhuyinModeTile(),
   tile("說", "SAY", TileAction.Speak),
   tile("刪", "DEL", TileAction.Backspace),
   tile("清除", "CLR", TileAction.Clear),
@@ -343,9 +407,13 @@ export function createBoardConfig(overrides = {}) {
   };
 }
 
-export function boardRows(config = createBoardConfig(), message = "", canUndo = false) {
+export function boardRows(config = createBoardConfig(), message = "", canUndo = false, inputState = {}) {
   const normalized = createBoardConfig(config);
   const safeColumns = clampInt(normalized.columns, 2, 8);
+  if (normalized.profileId === "zh-TW" && inputState.inputMode === "zhuyin") {
+    return zhuyinRows(inputState, safeColumns);
+  }
+
   const suggestions = suggestionRow(message, normalized.suggestionDictionary, safeColumns, canUndo, normalized);
   return [suggestions, ...chunk(normalized.symbols, safeColumns)];
 }
@@ -385,6 +453,10 @@ export function serializeSymbols(symbols) {
           return "UNDO=<undo>";
         case TileAction.Speak:
           return "SAY=<speak>";
+        case TileAction.EnterMode:
+          return `${candidate.label}=<mode:${candidate.output}>`;
+        case TileAction.ExitMode:
+          return `${candidate.label}=<mode:board>`;
         case TileAction.Noop:
           return null;
         default:
@@ -503,6 +575,58 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
     ...suggestions,
     ...Array.from({ length: safeColumns - suggestions.length }, () => tile("", "", TileAction.Noop))
   ];
+}
+
+function zhuyinRows(inputState, columns) {
+  const state = normalizeZhuyinState(inputState);
+  const commandRow = zhuyinCommandRow(state, columns);
+  const bodyRows = state.zhuyinStage === "initialGroup"
+    ? zhuyinInitialGroupRows(columns)
+    : state.zhuyinStage === "initial"
+      ? zhuyinInitialRows(state.zhuyinGroup, columns)
+      : state.zhuyinStage === "final"
+        ? chunk(ZhuyinFinals.map((candidate) => zhuyinSymbolTile(candidate, candidate, "final")), columns)
+        : state.zhuyinStage === "tone"
+          ? chunk(ZhuyinTones.map((candidate) => zhuyinSymbolTile(candidate.label, candidate.mark, "tone")), columns)
+          : zhuyinCandidateRows(state.zhuyinBuffer, columns);
+
+  return [commandRow, ...bodyRows];
+}
+
+function zhuyinCommandRow(state, columns) {
+  const label = state.zhuyinBuffer ? `注音 ${state.zhuyinBuffer}` : "注音";
+  const row = state.zhuyinStage === "candidate"
+    ? [zhuyinContinueTile, zhuyinClearTile, boardModeTile(), tile(label, label, TileAction.Noop)]
+    : [zhuyinClearTile, boardModeTile(), tile(label, label, TileAction.Noop)];
+  return paddedRow(row.slice(0, columns), columns);
+}
+
+function zhuyinInitialGroupRows(columns) {
+  return chunk(ZhuyinInitialGroups.map((group) => zhuyinGroupTile(group.label, group.id)), columns);
+}
+
+function zhuyinInitialRows(groupId, columns) {
+  const group = ZhuyinInitialGroups.find((candidate) => candidate.id === groupId) ?? ZhuyinInitialGroups[0];
+  const symbols = group.id === "zero"
+    ? [zhuyinSymbolTile("無聲母", "", "zeroInitial")]
+    : group.symbols.map((candidate) => zhuyinSymbolTile(candidate, candidate, "initial"));
+  return chunk([boardModeTile("返回"), ...symbols], columns);
+}
+
+function zhuyinCandidateRows(zhuyinBuffer, columns) {
+  const candidates = candidatesForZhuyin(zhuyinBuffer)
+    .map((candidate) => tile(candidate, candidate, TileAction.CommitCandidate));
+  return chunk(candidates.length > 0 ? candidates : [zhuyinContinueTile, zhuyinClearTile], columns);
+}
+
+function candidatesForZhuyin(zhuyinBuffer) {
+  const exact = ZhuyinCandidateDictionary.find((entry) => entry.zhuyin === zhuyinBuffer);
+  if (exact) return [...exact.candidates];
+
+  return ZhuyinCandidateDictionary
+    .filter((entry) => entry.zhuyin.startsWith(zhuyinBuffer))
+    .flatMap((entry) => entry.candidates)
+    .slice(0, 8);
 }
 
 export function createScannerState(overrides = {}) {
@@ -635,6 +759,10 @@ export function createSession(overrides = {}) {
     config: createBoardConfig(),
     message: "",
     messageHistory: [],
+    inputMode: "board",
+    zhuyinBuffer: "",
+    zhuyinStage: "initialGroup",
+    zhuyinGroup: null,
     scannerState: createScannerState(),
     lockedRow: null,
     lastSelection: null,
@@ -643,7 +771,7 @@ export function createSession(overrides = {}) {
 }
 
 export function visibleBoard(session) {
-  const rows = boardRows(session.config, session.message, session.messageHistory.length > 0);
+  const rows = boardRows(session.config, session.message, session.messageHistory.length > 0, session);
   return withLockedRow(rows, session.scannerState, session.lockedRow);
 }
 
@@ -672,7 +800,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     const isLockingRow =
       session.scannerState.stage === ScanStage.Rows &&
       confirmation.nextState.stage === ScanStage.RowSelected;
-    const freshRows = boardRows(session.config, session.message, session.messageHistory.length > 0);
+    const freshRows = boardRows(session.config, session.message, session.messageHistory.length > 0, session);
     if (isLockingRow && session.config.transitionPauseMs <= 0) {
       const lockedRow = freshRows[confirmation.nextState.rowIndex];
       const nextState = advanceScanner(confirmation.nextState, rows.length, (row) => selectableCount(row === confirmation.nextState.rowIndex ? lockedRow : rows[row]));
@@ -696,11 +824,15 @@ export function pressSwitch(session, elapsedInHighlightMs) {
   }
 
   const selectedTile = rows[confirmation.rowIndex][confirmation.cellIndex];
-  const applied = applyTile(session.message, session.messageHistory, selectedTile, session.config);
+  const applied = applyTile(session.message, session.messageHistory, selectedTile, session.config, session);
   return {
     ...session,
     message: applied.message,
     messageHistory: applied.messageHistory,
+    inputMode: applied.inputMode ?? session.inputMode,
+    zhuyinBuffer: applied.zhuyinBuffer ?? session.zhuyinBuffer,
+    zhuyinStage: applied.zhuyinStage ?? session.zhuyinStage,
+    zhuyinGroup: applied.zhuyinGroup ?? session.zhuyinGroup,
     scannerState: confirmation.nextState,
     lockedRow: null,
     lastSelection: {
@@ -712,9 +844,77 @@ export function pressSwitch(session, elapsedInHighlightMs) {
   };
 }
 
-export function applyTile(message, messageHistory, selectedTile, config = createBoardConfig()) {
+export function applyTile(message, messageHistory, selectedTile, config = createBoardConfig(), inputState = {}) {
   if (selectedTile.action === TileAction.Noop) {
     return { message, messageHistory, effect: "none" };
+  }
+  if (selectedTile.action === TileAction.EnterMode) {
+    return {
+      message,
+      messageHistory,
+      effect: "mode",
+      inputMode: selectedTile.output,
+      ...emptyZhuyinState()
+    };
+  }
+  if (selectedTile.action === TileAction.ExitMode) {
+    return {
+      message,
+      messageHistory,
+      effect: "mode",
+      inputMode: "board",
+      ...emptyZhuyinState()
+    };
+  }
+  if (selectedTile.action === TileAction.ZhuyinGroup) {
+    return {
+      message,
+      messageHistory,
+      effect: "zhuyin",
+      inputMode: "zhuyin",
+      zhuyinBuffer: normalizeZhuyinState(inputState).zhuyinBuffer,
+      zhuyinStage: "initial",
+      zhuyinGroup: selectedTile.output
+    };
+  }
+  if (selectedTile.action === TileAction.ZhuyinSymbol) {
+    return {
+      message,
+      messageHistory,
+      effect: "zhuyin",
+      inputMode: "zhuyin",
+      ...nextZhuyinState(inputState, selectedTile)
+    };
+  }
+  if (selectedTile.action === TileAction.ZhuyinContinue) {
+    return {
+      message,
+      messageHistory,
+      effect: "zhuyin",
+      inputMode: "zhuyin",
+      zhuyinBuffer: normalizeZhuyinState(inputState).zhuyinBuffer,
+      zhuyinStage: "initialGroup",
+      zhuyinGroup: null
+    };
+  }
+  if (selectedTile.action === TileAction.ZhuyinClear) {
+    return {
+      message,
+      messageHistory,
+      effect: "zhuyin",
+      inputMode: "zhuyin",
+      ...emptyZhuyinState()
+    };
+  }
+  if (selectedTile.action === TileAction.CommitCandidate) {
+    const nextMessage = appendToken(message, selectedTile, config);
+    return {
+      message: nextMessage,
+      messageHistory: nextMessage === message ? messageHistory : [...messageHistory, message].slice(-24),
+      effect: nextMessage === message ? "none" : "message",
+      inputMode: "board",
+      ...emptyZhuyinState()
+    };
   }
   if (selectedTile.action === TileAction.Undo) {
     const previous = messageHistory.at(-1);
@@ -768,6 +968,8 @@ function parseSymbolLine(line) {
   if (normalizedLabel === "CLR" || normalizedValue === "<clear>") return tile("CLR", "CLR", TileAction.Clear);
   if (normalizedLabel === "UNDO" || normalizedValue === "<undo>") return tile("UNDO", "UNDO", TileAction.Undo);
   if (normalizedLabel === "SAY" || normalizedValue === "<speak>") return tile("SAY", "SAY", TileAction.Speak);
+  if (normalizedValue === "<mode:zhuyin>") return tile(label || "注音", "zhuyin", TileAction.EnterMode);
+  if (normalizedValue === "<mode:board>") return tile(label || "返回", "board", TileAction.ExitMode);
   if (normalizedLabel === "<EMPTY>" || normalizedValue === "<empty>") return tile("", "", TileAction.Noop);
   if (!label) return tile(value);
   return tile(label, value);
@@ -778,6 +980,61 @@ function previousHighlight(state, rowCount, columnCountForRow) {
   if (state.stage !== ScanStage.Cells) return state;
   const columns = Math.max(1, columnCountForRow(state.rowIndex));
   return { ...state, cellIndex: floorMod(state.cellIndex - 1, columns) };
+}
+
+function emptyZhuyinState() {
+  return {
+    zhuyinBuffer: "",
+    zhuyinStage: "initialGroup",
+    zhuyinGroup: null
+  };
+}
+
+function normalizeZhuyinState(state = {}) {
+  return {
+    zhuyinBuffer: typeof state.zhuyinBuffer === "string" ? state.zhuyinBuffer : "",
+    zhuyinStage: typeof state.zhuyinStage === "string" ? state.zhuyinStage : "initialGroup",
+    zhuyinGroup: typeof state.zhuyinGroup === "string" ? state.zhuyinGroup : null
+  };
+}
+
+function nextZhuyinState(inputState, selectedTile) {
+  const state = normalizeZhuyinState(inputState);
+  switch (selectedTile.zhuyinKind) {
+    case "initial":
+      return {
+        zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
+        zhuyinStage: "final",
+        zhuyinGroup: null
+      };
+    case "zeroInitial":
+      return {
+        zhuyinBuffer: state.zhuyinBuffer,
+        zhuyinStage: "final",
+        zhuyinGroup: null
+      };
+    case "final":
+      return {
+        zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
+        zhuyinStage: "tone",
+        zhuyinGroup: null
+      };
+    case "tone":
+      return {
+        zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
+        zhuyinStage: "candidate",
+        zhuyinGroup: null
+      };
+    default:
+      return state;
+  }
+}
+
+function paddedRow(row, columns) {
+  return [
+    ...row,
+    ...Array.from({ length: Math.max(0, columns - row.length) }, () => tile("", "", TileAction.Noop))
+  ];
 }
 
 function nextSelectableRow(rowIndex, rowCount, columnCountForRow) {

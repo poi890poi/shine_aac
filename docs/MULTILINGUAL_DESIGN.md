@@ -101,6 +101,21 @@ Therefore each profile can have:
 
 ## Taiwan Mandarin Profile
 
+### AAC Guidance Anchor
+
+The `zh-TW` profile should be judged as an AAC language system, not as a translated keyboard. ASHA's AAC Practice Portal describes AAC systems as integrated combinations of symbols, access methods, strategies, and speech-generating output, and emphasizes that systems should be flexible as a person's language and physical needs change over time:
+
+```text
+https://www.asha.org/practice-portal/professional-issues/augmentative-and-alternative-communication/
+```
+
+Two ASHA points are especially relevant for Taiwan Mandarin:
+
+- AAC assessment and intervention should be culturally and linguistically relevant. A Taiwan Mandarin user needs vocabulary, speech output, and literacy access that fit the language used at home and in the community, otherwise carryover and participation are limited.
+- AAC systems may use alphabet-based methods with word or phrase prediction, single-meaning messages, semantic compaction, or combinations of these. For `zh-TW`, this supports a hybrid design: high-value phrase/core vocabulary for speed, plus Zhuyin/Bopomofo composition for novel text.
+
+Thanks to ASHA for maintaining public clinical guidance that helps keep this design centered on functional communication rather than just software mechanics.
+
 Recommended first Taiwan Mandarin profile:
 
 - Display text: Traditional Chinese.
@@ -152,6 +167,34 @@ Possible text-entry strategies:
 - Hybrid phrase + Zhuyin: likely best long-term, but only after phrase AAC is stable.
 
 Do not start with full Zhuyin input unless a real user needs open-ended Mandarin spelling. The AAC goal is communication throughput, not reproducing a phone keyboard.
+
+### Hybrid Phrase + Zhuyin Design
+
+The practical `zh-TW` text-entry path should keep the first screen phrase-first and add a separate `注音` mode for novel text. This keeps urgent communication fast while still giving literate users a way to say words that are not on the board.
+
+Recommended staged flow:
+
+```text
+Phrase board
+  -> 注音
+  -> initial group
+  -> initial, or 無聲母
+  -> final/rime
+  -> tone
+  -> candidate characters / words / phrases
+  -> commit candidate and return to phrase board
+```
+
+Candidate ranking should prefer useful AAC phrases over isolated characters when the Zhuyin buffer matches a common communicative intent. For example, a buffer for `ㄨㄛˇㄧㄠˋ` should suggest phrases such as `我要喝水`, `我要吃飯`, `我要上廁所`, and `我要休息` before forcing character-by-character output.
+
+Design constraints:
+
+- The main phrase board remains the emergency surface.
+- `注音` mode is opt-in and easy to leave.
+- Common phrase/core targets keep stable positions.
+- Mandarin output does not insert automatic spaces.
+- The composition buffer is separate from committed message text until a candidate is selected.
+- Prediction dictionaries belong to the `zh-TW` profile, not to English defaults.
 
 ## Graphical Symbols Profile
 

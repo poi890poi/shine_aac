@@ -11,6 +11,7 @@ import {
   LegacyFrequencyDefaultTilesV3,
   LegacySuggestionDictionaryV6,
   TileAction,
+  applyTile,
   boardRows,
   createBoardConfig,
   loadFirstCellPauseForConfig,
@@ -24,6 +25,12 @@ import {
   tile,
   updateMessage
 } from "../src/index.js";
+
+function findTile(rows, label) {
+  const candidate = rows.flat().find((item) => item.label === label);
+  assert.ok(candidate, `missing tile ${label}`);
+  return candidate;
+}
 
 test("default tiles include the full alphabet", () => {
   const labels = new Set(DefaultTiles.map((candidate) => candidate.label));
@@ -191,6 +198,41 @@ test("zh-TW suggestions complete Mandarin phrases without a space tile", () => {
   const phraseRow = suggestionRow("我要", config.suggestionDictionary, config.columns, false, config);
   assert.equal(phraseRow.some((candidate) => candidate.label === "SPC"), false);
   assert.equal(phraseRow.some((candidate) => candidate.label === "我要喝水"), true);
+});
+
+test("zh-TW profile exposes a separate Zhuyin composition mode", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const labels = boardRows(config).flat().map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("注音"), true);
+  assert.equal(findTile(boardRows(config), "注音").action, TileAction.EnterMode);
+});
+
+test("zh-TW Zhuyin composition can commit a phrase candidate", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  let result = applyTile("", [], findTile(boardRows(config), "注音"), config, {});
+
+  assert.equal(result.inputMode, "zhuyin");
+  assert.deepEqual(boardRows(config, "", false, result)[1].map((candidate) => candidate.label), ["ㄅㄆㄇㄈ", "ㄉㄊㄋㄌ", "ㄍㄎㄏ", "ㄐㄑㄒ"]);
+
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "ㄨㄛ"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "三聲"), config, result);
+  assert.equal(result.zhuyinBuffer, "ㄨㄛˇ");
+  assert.equal(findTile(boardRows(config, "", false, result), "我").action, TileAction.CommitCandidate);
+
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "續音"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "ㄧㄠ"), config, result);
+  result = applyTile("", [], findTile(boardRows(config, "", false, result), "四聲"), config, result);
+
+  const candidate = findTile(boardRows(config, "", false, result), "我要喝水");
+  result = applyTile("", [], candidate, config, result);
+  assert.equal(result.message, "我要喝水");
+  assert.equal(result.inputMode, "board");
+  assert.equal(result.zhuyinBuffer, "");
 });
 
 test("language profiles do not share mutable default arrays", () => {
