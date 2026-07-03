@@ -18,12 +18,44 @@ This project specially focuses on those with very limited motor functions. Peopl
 # Software Design
 ![Model](https://github.com/poi890poi/shine_aac/blob/main/SHINE%20AAC.drawio.png?raw=true)
 
+# Architecture Direction
+The project is moving toward a platform-independent AAC core plus thin platform shells. Business rules that can be tested without a screen or device belong in `packages/aac-core`, where they can be verified quickly on Windows and reused by a browser UI, Android package, or future iOS package.
+
+Useful docs:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
+- [AAC Core](packages/aac-core/README.md)
+- [Testing Report](docs/TESTING_REPORT.md)
+- [Windows/Browser App Report](docs/WINDOWS_APP_REPORT.md)
+- [APK Report](docs/APK_REPORT.md)
+
+Run core tests without Android:
+
+```powershell
+npm run test:core
+```
+
+Run the Windows/browser app:
+
+```powershell
+.\run-web.bat
+```
+
+Then open `http://127.0.0.1:5173/apps/web/`. Use mouse click, touch, `Space`, or `Enter` as the single switch input.
+
+Run browser E2E against the Windows/browser app:
+
+```powershell
+.\e2e-web.bat
+```
+
 # Current Android App
-The Android app is implemented with Kotlin and Jetpack Compose. It provides:
+The Android app is now a thin Kotlin WebView shell that packages the shared Windows/browser app and `packages/aac-core` logic. It provides:
 
 - Row/column switch scanning with a large switch input.
 - Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
-- A row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts.
+- An optional row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts. The MVP default is `0 ms`, which skips this state entirely because the current transition/escape interaction was hurting basic use.
 - A configurable first-symbol hold. By default it matches the normal scan speed; helpers can slow it only when a user needs extra time on column 1.
 - Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
@@ -31,6 +63,7 @@ The Android app is implemented with Kotlin and Jetpack Compose. It provides:
 - A dynamic suggestion row for undo, space, predicted words, completions, simple action/noun phrases, and high-frequency fallback letters.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
+- Different visual styles for text-entry targets, space, speak, and repair functions such as `CLR`, `UNDO`, and `DEL`.
 - Adjustable scan speed, transition pause, first-symbol hold, and input-latency compensation.
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
 
@@ -40,11 +73,11 @@ This app targets automatic row-column scanning for users who may have only one r
 The scan state machine has four stages:
 
 1. `Rows`: rows are highlighted in sequence.
-2. `RowSelected`: the selected row stays locked for a configurable transition pause. A switch activation during this transient state cancels the locked row and returns to row scanning.
+2. `RowSelected`: when enabled, the selected row stays locked for a configurable transition pause. A switch activation during this transient state cancels the locked row and returns to row scanning.
 3. `FirstCell`: the first symbol in the locked row is highlighted with its own configurable hold.
 4. `Cells`: the remaining symbols in the locked row are highlighted in sequence.
 
-The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. The selected row remains highlighted during the pause. If the row was accidental, another activation cancels it. If there is no activation, `FirstCell` begins at column 1. Its default hold matches the normal scan speed because the cancel pause already provides the row-to-column transition protection.
+The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. However, this extra state was confusing in current MVP testing, so the built-in default transition pause is `0 ms`. When the value is `0`, the code skips `RowSelected` completely and goes straight to `FirstCell`. Helpers can enable the pause later by setting a positive transition time.
 
 The app also compensates for visual-motor latency during symbol scanning. If an activation occurs during the first configurable latency window of a symbol highlight, the scanner treats it as an intended selection of the previous symbol in the same row. The default is 250 ms, which is in the range commonly used as a practical approximation for human visual reaction time; it must remain configurable because real access latency varies with vision, cognition, fatigue, switch site, switch hardware, and motor control. Row scanning deliberately does not remap to the previous row because selecting the same column in a previous row is surprising and rarely useful.
 
@@ -52,7 +85,7 @@ The message area always shows a blinking `|` cursor after the current message. T
 
 Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, delete, clear, or space with one selection instead of requiring several corrective inputs.
 
-The progress hint is drawn inside the active highlighted row or symbol so it stays close to the user’s gaze target:
+The progress hint is drawn inside the active highlighted row or symbol so it stays close to the user's gaze target:
 
 - Yellow segment: the early-input latency-compensation window for symbol scanning. Activations here are interpreted as the previous symbol in the same row.
 - Teal fill: elapsed time in the current scan phase.
@@ -80,23 +113,25 @@ This is intended to reduce average scan time. In row-column scanning, symbols ea
 The board also places high-value whole words and actions before spelling symbols because whole-word selection can save many switch activations. The default vocabulary is only a starter set; caregivers should customize it to the individual user, context, language, and communication partners.
 
 ## Word Suggestions
-The first scan row is reserved for suggestions. It is always present so the rest of the board keeps a stable spatial layout. When there are no useful suggestions, the row is visually empty and skipped during scanning. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
+The first scan row is reserved for suggestions. It is always present so the rest of the board keeps a stable spatial layout. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
 
-When the recommendation row contains targets and the message changes, scanning starts again from that row. This reduces time to reach the most context-relevant repair or next-expression targets while keeping the static board rows in fixed positions.
+The suggestion row stays in a fixed position at the top. It can be selected like any other row, and the selected row content is locked during column scanning so a dynamic suggestion update cannot swap the tile being selected.
 
 Suggestions are intentionally simple and AAC-focused:
 
-- The row shows up to three active targets, leaving empty placeholders when fewer are available.
+- The row shows up to four targets on the default four-column board.
 - `UNDO` appears first when a previous message state exists.
 - `SPC` appears when the message has text and does not already end in a space.
 - If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`; `movi` can produce `MOVIE`.
 - If the partial word already exactly matches a dictionary item, that same word is not suggested again.
 - If the message ends at a word boundary, suggestions favor simple grammar patterns rather than complete sentence prediction.
 - After `I` or `YOU`, action words such as `WANT`, `NEED`, `HELP`, `GO`, `STOP`, `WATCH`, `LOOK`, `MOVE`, and `TURN` rank higher.
-- After `WANT` or `NEED`, common nouns/needs such as `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, and `DONE` rank higher.
-- If there are not enough word candidates, the row fills with high-frequency spelling letters such as `E` and `T` instead of forcing the user to scan down to the static alphabet.
+- After `WANT` or `NEED`, common nouns/needs such as `DRINK`, `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, `MEDICINE`, `BATHROOM`, and `DONE` rank higher.
+- If there are not enough word candidates, the row fills with useful targets such as `SPC` and high-frequency spelling letters instead of leaving dead empty cells or forcing the user to scan down to the static alphabet.
 
-The goal is not to force complete grammatical sentences. Many AAC users communicate efficiently with telegraphic phrases such as `I WANT WATER`, `PAIN`, `HELP TOILET`, or `TURN LEFT`.
+The goal is not to force complete grammatical sentences. Many AAC users communicate efficiently with telegraphic phrases such as `I WANT WATER`, `I NEED DRINK`, `PAIN`, `HELP TOILET`, or `TURN LEFT`.
+
+The board no longer includes a single `?` row. A one-column row can be useful for very high-frequency symbols because it reduces selection to one level, but it should be introduced deliberately for a specific user rather than consuming scarce default board space.
 
 Configuration is accessed with the `Config` button in the top panel. It is intended for a fully functional user, caregiver, clinician, or developer. The main switch-scanning loop pauses while configuration is open. Configuration currently supports:
 
@@ -207,6 +242,14 @@ Useful variants:
 .\run-apk.bat -ColdBoot
 ```
 
+For a basic real-APK regression check, run the one-switch E2E test:
+
+```powershell
+.\e2e-switch-test.bat -SdkDir E:\Android\Sdk
+```
+
+It builds the debug APK, installs it on the emulator, clears app data, enables a test-only WebView render-state bridge, drives the row/column scanner with real ADB touch taps, enters `I want water`, and verifies the final message from the same render pass that updates the display. Screenshots and test artifacts are saved under `e2e-artifacts\`.
+
 To test on a physical Android device instead:
 
 ```powershell
@@ -220,6 +263,7 @@ Enable Developer Options and USB debugging on the device first.
 - [Switch access scanning](https://en.wikipedia.org/wiki/Switch_access_scanning)
 - [Switch access scanning and major challenges](https://easeapps.xyz/105-switch-access-scanning-and-major-challenges/)
 - [ASHA Practice Portal: Augmentative and Alternative Communication](https://www.asha.org/practice-portal/professional-issues/augmentative-and-alternative-communication/)
+- [Semantic compaction](https://en.wikipedia.org/wiki/Semantic_compaction)
 - [English Letter Frequency Counts: Mayzner Revisited, Peter Norvig](https://www.norvig.com/mayzner.html)
 - [Letter frequency](https://en.wikipedia.org/wiki/Letter_frequency)
 - [Fast and flexible selection with a single switch](https://arxiv.org/abs/0909.2450)

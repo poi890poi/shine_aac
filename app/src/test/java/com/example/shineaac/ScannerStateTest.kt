@@ -41,7 +41,7 @@ class ScannerStateTest {
     }
 
     @Test
-    fun confirmingDuringTransitionPauseDoesNotSelectFirstCell() {
+    fun confirmingDuringTransitionPauseCancelsLockedRow() {
         val confirmation = ScannerState(
             stage = ScanStage.RowSelected,
             rowIndex = 1,
@@ -50,7 +50,7 @@ class ScannerStateTest {
 
         assertTrue(confirmation is ScannerConfirmation.NoSelection)
         val next = (confirmation as ScannerConfirmation.NoSelection).nextState
-        assertEquals(ScanStage.RowSelected, next.stage)
+        assertEquals(ScanStage.Rows, next.stage)
         assertEquals(1, next.rowIndex)
         assertEquals(0, next.cellIndex)
     }

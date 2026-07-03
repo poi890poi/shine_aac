@@ -3,6 +3,11 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+val syncWebAssets by tasks.registering(Exec::class) {
+    workingDir = rootProject.projectDir
+    commandLine("node", "scripts/build-webview-assets.mjs")
+}
+
 android {
     namespace = "com.example.shineaac"
     compileSdk = 34
@@ -39,6 +44,11 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(layout.buildDirectory.dir("generated/assets/shineWeb"))
+        }
+    }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
     }
@@ -66,4 +76,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+tasks.named("preBuild") {
+    dependsOn(syncWebAssets)
 }

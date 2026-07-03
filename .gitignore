@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+.share/
+/tools/cloudflared.exe
+/e2e-artifacts/

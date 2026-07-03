@@ -46,7 +46,12 @@ data class ScannerState(
                 )
             }
 
-            ScanStage.RowSelected -> ScannerConfirmation.NoSelection(this)
+            ScanStage.RowSelected -> {
+                val safeRow = rowIndex.coerceIn(0, rowCount - 1)
+                ScannerConfirmation.NoSelection(
+                    ScannerState(stage = ScanStage.Rows, rowIndex = safeRow, cellIndex = 0)
+                )
+            }
 
             ScanStage.FirstCell -> {
                 val safeRow = rowIndex.coerceIn(0, rowCount - 1)
