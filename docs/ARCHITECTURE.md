@@ -70,6 +70,21 @@ The early demonstration MVP should stay simple and robust:
 - Input source is a platform adapter. The core should receive intent events such as `activate`, `next`, `previous`, or `pause`; camera, voice, keyboard, switch, and OS accessibility details belong in platform code.
 - Language is a profile, not a translation table. Each language or symbol set can own its own board, timing defaults, tokenizer, message composition rules, suggestion provider, and speech locale.
 
+## Profile Isolation
+
+Language and symbol-set profiles are allowed to differ deeply. `en-US`, `zh-TW`, and `symbols-basic` may have different rows, columns, scan speed, first-cell hold, spacing rules, dictionaries, and speech locales.
+
+Rules:
+
+- Shared core may load profiles, validate profile data, and run the scanner.
+- Profiles own their default symbols, dictionaries, suggestion ranking, tokenizer, and message composition.
+- Profile data must be immutable or copied before customization.
+- Caregiver customizations must be stored per profile.
+- Switching profiles must never silently overwrite another profile's custom layout.
+- A profile can reuse shared helpers, but must not import another profile's mutable defaults.
+
+The safest implementation path is to extract the current English behavior into an `en-US` profile first, then add `zh-TW` as a separate profile. This makes the English regression tests the guardrail while Mandarin is developed.
+
 ## Portability Rule
 
 If a rule could be tested without a screen, operating system, or hardware device, it belongs in `packages/aac-core`. Platform code may call it, but should not quietly fork it.

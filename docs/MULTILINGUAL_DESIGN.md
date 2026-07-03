@@ -21,6 +21,67 @@ LanguageProfile
 
 The core should continue to expose platform-independent scanner and message rules, but those rules need profile hooks where languages differ.
 
+The first version should be easy to switch in helper configuration: a `Language/Profile` selector should choose the active profile and load its board, suggestions, message-composition rules, and speech locale. The selector should not require a helper to manually paste layout text unless they want advanced customization.
+
+## Isolation Rule
+
+Languages must be developed as independent profiles. A change to Taiwan Mandarin must not mutate English defaults, and a change to graphical symbols must not mutate either text language.
+
+Recommended source layout:
+
+```text
+packages/aac-core/src/
+  scanner.js                 shared row/column scanning
+  board.js                   shared board chunking and validation
+  message.js                 shared message history, undo, delete, clear
+  profiles/
+    en-US/
+      profile.js             English config and composition
+      symbols.js             English board symbols
+      dictionary.js          English suggestions
+      tests.js               English profile tests
+    zh-TW/
+      profile.js             Taiwan Mandarin config and composition
+      symbols.js             Taiwan Mandarin board symbols
+      dictionary.js          Taiwan Mandarin suggestions
+      tests.js               Taiwan Mandarin profile tests
+    symbols-basic/
+      profile.js             graphical symbol profile config
+      symbols.js             symbol metadata
+      tests.js               symbol profile tests
+```
+
+Current code is not split this way yet. When implementing language support, first extract the current English defaults into an `en-US` profile, then add `zh-TW` beside it. Do not add Mandarin words to the English dictionary as an interim shortcut.
+
+## Shared Core Versus Profile Code
+
+Shared core should own:
+
+- scan state machine
+- row/column traversal
+- selected-row locking
+- input latency compensation
+- history, undo, delete, clear
+- generic board validation
+- generic config migration shell
+- profile loading and profile selection
+
+Profile code should own:
+
+- default rows and columns
+- default scan timing if the language/profile needs it
+- tile labels, output text, and spoken text
+- tokenizer
+- message composition rules
+- spacing or no-spacing behavior
+- suggestion dictionary
+- suggestion ranking
+- punctuation rules
+- speech locale
+- symbol assets and category metadata
+
+If a function needs to know whether spaces are inserted between words, it belongs in the profile layer. If a function only knows that a selected tile produced a message update, it can stay shared.
+
 ## Why Profiles Need Independent Row/Column/Speed
 
 Row/column scanning cost depends on symbol frequency and message strategy. English, Taiwan Mandarin, and graphical symbols have different units:
@@ -55,6 +116,42 @@ Recommended first Taiwan Mandarin profile:
   - caregiver-editable personal vocabulary
 
 Open design question: whether spelling should start with Zhuyin symbols, frequent Chinese characters, or phrase/category selection. For a motor-limited AAC user, phrase/category selection likely gives higher throughput than character-by-character input.
+
+### Low-Effort First Version
+
+The first `zh-TW` version should not try to solve full Chinese text entry. It should be a usable AAC phrase/word board:
+
+- no auto-space
+- 4 columns by default, unless testing shows Mandarin phrase labels need fewer columns
+- same scanner mechanics as English
+- same input adapters as English
+- `zh-TW` TTS locale where available
+- phrase-first suggestions
+- caregiver-editable dictionary
+
+Starter rows should prioritize communication value over linguistic completeness:
+
+```text
+是 / 不是 / 要 / 不要
+我 / 你 / 幫忙 / 痛
+喝水 / 吃飯 / 廁所 / 休息
+熱 / 冷 / 累 / 睡覺
+上 / 下 / 左 / 右
+說 / 刪 / 清除 / 空格-or-punctuation
+```
+
+This starter board is intentionally not a translation of the English board. For example, `喝水` may be more useful than separate `喝` and `水` for a first scanning profile.
+
+### Later Mandarin Text Entry Options
+
+Possible text-entry strategies:
+
+- Phrase board only: fastest first version, lowest cognitive and motor burden.
+- High-frequency Chinese characters: compact but can be ambiguous and slow for real messages.
+- Zhuyin/Bopomofo rows: familiar in Taiwan, but many selections per character.
+- Hybrid phrase + Zhuyin: likely best long-term, but only after phrase AAC is stable.
+
+Do not start with full Zhuyin input unless a real user needs open-ended Mandarin spelling. The AAC goal is communication throughput, not reproducing a phone keyboard.
 
 ## Graphical Symbols Profile
 
@@ -96,19 +193,63 @@ Move from one global `symbols` text area toward profile files:
 
 For compatibility, the existing custom text areas can remain as an advanced editor for the active profile.
 
+Profile file requirements:
+
+- Profiles must be serializable JSON-compatible data plus small pure functions.
+- A profile must not import another profile's mutable arrays.
+- Shared helpers may be imported from common core modules.
+- Tests must assert that loading one profile does not modify another.
+- Profile migration must preserve caregiver customizations for that profile only.
+
+Example profile shape:
+
+```js
+export const zhTwProfile = {
+  id: "zh-TW",
+  displayName: "Taiwan Mandarin",
+  writingSystem: "traditional-chinese",
+  columns: 4,
+  scanIntervalMs: 900,
+  firstCellPauseMs: 900,
+  autoSpace: "none",
+  speechLocale: "zh-TW",
+  composeMessage,
+  suggestTiles,
+  symbols,
+  dictionary
+};
+```
+
 ## Implementation Plan
 
-1. Add profile fields to `createBoardConfig`.
-2. Extract message composition into profile-aware functions: English auto-space, Mandarin no-space, symbol output rules.
-3. Replace `DefaultSuggestionDictionary` with profile dictionaries.
-4. Add profile selector in helper configuration.
-5. Add `en-US`, `zh-TW`, and `symbols-basic` starter profiles.
-6. Add tests for each profile:
+1. Extract the current English defaults into an `en-US` profile without changing behavior.
+2. Add profile fields to `createBoardConfig`.
+3. Add a helper configuration selector for the active profile.
+4. Extract message composition into profile-aware functions: English auto-space, Mandarin no-space, symbol output rules.
+5. Replace `DefaultSuggestionDictionary` with active-profile dictionaries.
+6. Add `zh-TW` as an independent phrase-first profile.
+7. Add `symbols-basic` as an independent graphical-symbol profile.
+8. Add tests for each profile:
    - row/column layout is stable
    - auto-spacing differs by language
    - suggestions use the active profile
    - speech locale is passed to the platform shell
+   - switching profiles does not mutate another profile
+   - caregiver customizations are scoped to the active profile
+
+## Required Tests Before Any Language PR Is Accepted
+
+Each language/profile change must include:
+
+- `en-US` regression test proving English still auto-spaces words.
+- `zh-TW` test proving Mandarin does not auto-space words.
+- profile switch test proving config can switch profile without manual layout paste.
+- isolation test proving profile arrays are not shared by mutable reference.
+- browser E2E or screenshot check if the labels are longer/wider than English.
+- APK smoke test if native speech locale or Android storage is touched.
 
 ## AI Agent Warning
 
 Do not implement Mandarin by simply adding Chinese words to the English suggestion dictionary. Do not implement graphical symbols by only adding emoji-like labels. Profiles must own composition, prediction, layout, and speech behavior.
+
+When unsure, preserve English behavior and add a new profile-specific test before changing shared code.

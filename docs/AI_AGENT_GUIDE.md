@@ -16,6 +16,22 @@ Business logic belongs in `packages/aac-core` first:
 
 Add or update core tests before changing a platform UI. If the behavior cannot be expressed as a core test, explain why in the commit or handoff.
 
+## Language/Profile Work
+
+Do not add a new language by editing English defaults in place. Language support must be profile-based.
+
+Before adding `zh-TW`, graphical symbols, or another language:
+
+1. Read `docs/MULTILINGUAL_DESIGN.md`.
+2. Preserve current `en-US` behavior with tests.
+3. Add or modify profile-specific files.
+4. Add isolation tests proving profiles do not share mutable layout or dictionary arrays.
+5. Add message-composition tests for spacing/no-spacing behavior.
+
+Shared core may own scanning, board validation, history, input latency compensation, and profile loading. Profile code owns symbols, dictionary, suggestion ranking, tokenizer, auto-spacing/no-spacing, speech locale, and layout defaults.
+
+Never implement Mandarin by adding Chinese words to `DefaultSuggestionDictionary`. Never implement graphical symbols by only adding emoji-like text labels to the English board.
+
 ## Do Not Trust Hidden Debug Output
 
 For UI claims, verify the rendered UI. A log line, broadcast receiver, hidden semantics value, or test-only state dump is not enough to prove that the user can see or activate the result.
@@ -37,6 +53,7 @@ The main board should expose one communication action: activate the current scan
 - Suggestion cells should prefer useful fallback targets over dead empty cells when the row is active.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.
+- Switching language/profile must not mutate another profile's layout, dictionary, timing, or composition rules.
 
 ## Error Recovery Is Part Of Throughput
 
@@ -62,3 +79,10 @@ npm run test:core
 ```
 
 Add browser or packaged-app E2E tests as those shells are introduced. Avoid spending time in Android emulator debugging before the core and desktop UI tests are green.
+
+For language/profile work, also include targeted tests for:
+
+- `en-US` auto-space remains unchanged
+- `zh-TW` has no automatic spaces
+- profile selector loads the selected profile
+- profile customizations are scoped per profile

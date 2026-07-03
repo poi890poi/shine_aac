@@ -23,6 +23,7 @@ The project is moving toward a platform-independent AAC core plus thin platform 
 
 Useful docs:
 
+- [Agent Onboarding](docs/AGENT_ONBOARDING.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
 - [AAC Core](packages/aac-core/README.md)
