@@ -73,6 +73,11 @@ try {
       firstCellPauseMs: 220,
       inputLatencyCompensationMs: 0
     }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
     location.reload();
   `);
   await waitForUi();
@@ -111,23 +116,19 @@ try {
 async function scenarioPhraseAndUndo() {
   await assertMessage("");
   await selectLabel("I", { rowIndex: 0 });
-  await assertMessage("I");
-  await selectLabel("SPC", { rowIndex: 0 });
   await assertMessage("I ");
   await assertSuggestionLabels(["UNDO", "WANT", "NEED", "HELP"]);
   await selectLabel("WANT", { rowIndex: 0 });
-  await assertMessage("I want");
-  await selectLabel("SPC", { rowIndex: 0 });
   await assertMessage("I want ");
   await assertSuggestionLabels(["UNDO", "DRINK", "WATER", "FOOD"]);
   await selectLabel("WATER", { rowIndex: 0 });
-  await assertMessage("I want water");
-  steps.push(pass("phrase", "entered I want water through visible row/column scanning"));
+  await assertMessage("I want water ");
+  steps.push(pass("phrase", "entered I want water with automatic trailing space through visible row/column scanning"));
 
   await selectLabel("UNDO", { rowIndex: 0 });
   await assertMessage("I want ");
   await selectLabel("FOOD", { rowIndex: 0 });
-  await assertMessage("I want food");
+  await assertMessage("I want food ");
   steps.push(pass("undo-correction", "undid WATER and selected FOOD"));
 }
 
@@ -142,12 +143,12 @@ async function scenarioClearAndMovie() {
   await assertMessage("movi");
   await assertSuggestionLabels(["UNDO", "SPC", "MOVIE", "E"]);
   await selectLabel("MOVIE", { rowIndex: 0 });
-  await assertMessage("movie");
-  steps.push(pass("completion", "typed movi and completed to movie"));
+  await assertMessage("movie ");
+  steps.push(pass("completion", "typed movi and completed to movie with automatic trailing space"));
 
   await selectLabel("DEL");
-  await assertMessage("movi");
-  steps.push(pass("delete", "selected DEL and removed the final character"));
+  await assertMessage("movie");
+  steps.push(pass("delete", "selected DEL and removed the automatic trailing space"));
 }
 
 async function selectLabel(label, options = {}) {
@@ -158,7 +159,11 @@ async function selectLabel(label, options = {}) {
 async function selectCell(rowIndex, cellIndex) {
   const rowSnapshot = await waitForActive(({ activeRow }) => activeRow?.rowIndex === rowIndex, `row ${rowIndex}`);
   await clickTarget(rowSnapshot.activeRow);
-  const cellSnapshot = await waitForActive(({ activeCell }) => activeCell?.rowIndex === rowIndex && activeCell?.cellIndex === cellIndex, `cell ${rowIndex}:${cellIndex}`);
+  const cellSnapshot = await waitForActive(
+    ({ activeCell }) => activeCell?.rowIndex === rowIndex && activeCell?.cellIndex === cellIndex,
+    `cell ${rowIndex}:${cellIndex}`,
+    cellIndex === 0 ? 16000 : 8000
+  );
   await clickTarget(cellSnapshot.activeCell);
 }
 
@@ -177,8 +182,8 @@ async function findLabel(label, { rowIndex, occurrence = 0 } = {}) {
   return match;
 }
 
-async function waitForActive(predicate, description) {
-  const deadline = Date.now() + 8000;
+async function waitForActive(predicate, description, timeoutMs = 8000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getSnapshot();
     if (predicate(snapshot)) return snapshot;

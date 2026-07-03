@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8742851 bytes
+8742995 bytes
 ```
 
 ## What This APK Is
@@ -38,6 +38,7 @@ The Android shell provides:
 - JavaScript enabled
 - browser local storage
 - native Android Text-to-Speech bridge for `SAY`
+- native Android Text-to-Speech bridge for scan and activation feedback
 
 ## Verified
 
@@ -58,9 +59,10 @@ Emulator smoke check:
 - WebView rendered the AAC board
 - full board fits on the emulator display without scrolling
 - action targets have distinct function styling, and the message area shows a visible cursor
+- spaces are visible in the message area as dot markers
 - logcat no longer shows the previous `file:///android_asset` ES module CORS error
-- latest screenshot saved at `e2e-artifacts/shine-mvp-fit.png`
-- real-touch E2E entered `I want water` through packaged APK switch taps
+- latest screenshot saved at `e2e-artifacts/shine-audio-spacing-fit.png`
+- real-touch E2E entered `I want water ` through packaged APK switch taps
 - real-touch E2E final screenshot saved at `e2e-artifacts/real-touch-final.png`
 
 Browser E2E also includes a Pixel 4a 5G-sized layout check:
@@ -73,7 +75,7 @@ Public download check:
 
 ```text
 HTTP 200
-Content-Length: 8742851
+Content-Length: 8742995
 Content-Type: application/octet-stream
 ```
 

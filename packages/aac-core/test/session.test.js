@@ -29,23 +29,15 @@ test("complete phrase can be entered through one-switch session transitions", ()
 
   assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["I", "YOU", "WANT", "NEED"]);
   session = selectSuggestionCell(session, 0);
-  assert.equal(session.message, "I");
-
-  assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["UNDO", "SPC", "E", "T"]);
-  session = selectSuggestionCell(session, 1);
   assert.equal(session.message, "I ");
 
   assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "HELP"]);
-  session = selectSuggestionCell(session, 1);
-  assert.equal(session.message, "I want");
-
-  assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["UNDO", "SPC", "E", "T"]);
   session = selectSuggestionCell(session, 1);
   assert.equal(session.message, "I want ");
 
   assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["UNDO", "DRINK", "WATER", "FOOD"]);
   session = selectSuggestionCell(session, 2);
-  assert.equal(session.message, "I want water");
+  assert.equal(session.message, "I want water ");
 });
 
 test("locked suggestion row does not change while selecting a cell", () => {

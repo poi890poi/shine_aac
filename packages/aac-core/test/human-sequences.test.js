@@ -75,7 +75,7 @@ function selectLabel(session, label, options = {}) {
 test("SPC does not create confusing duplicate spaces", () => {
   let session = createSession({ message: "I", messageHistory: [""] });
 
-  assert.deepEqual(labelsForRow(session), ["UNDO", "SPC", "E", "T"]);
+  assert.deepEqual(labelsForRow(session).slice(0, 2), ["UNDO", "SPC"]);
   session = selectLabel(session, "SPC", { rowIndex: 0 });
   assert.equal(session.message, "I ");
   assert.equal(session.messageHistory.at(-1), "I");
@@ -116,26 +116,24 @@ test("partial-word suggestion completes the current token instead of appending a
   assert.deepEqual(labelsForRow(session), ["UNDO", "SPC", "MOVIE", "E"]);
 
   session = selectLabel(session, "MOVIE", { rowIndex: 0 });
-  assert.equal(session.message, "movie");
+  assert.equal(session.message, "movie ");
 });
 
 test("human correction sequence: wrong need word, undo, then choose the intended need", () => {
   let session = createSession();
 
   session = selectLabel(session, "I", { rowIndex: 0 });
-  session = selectLabel(session, "SPC", { rowIndex: 0 });
   session = selectLabel(session, "WANT", { rowIndex: 0 });
-  session = selectLabel(session, "SPC", { rowIndex: 0 });
   assert.deepEqual(labelsForRow(session), ["UNDO", "DRINK", "WATER", "FOOD"]);
 
   session = selectLabel(session, "DRINK", { rowIndex: 0 });
-  assert.equal(session.message, "I want drink");
+  assert.equal(session.message, "I want drink ");
 
   session = selectLabel(session, "UNDO", { rowIndex: 0 });
   assert.equal(session.message, "I want ");
 
   session = selectLabel(session, "FOOD", { rowIndex: 0 });
-  assert.equal(session.message, "I want food");
+  assert.equal(session.message, "I want food ");
 });
 
 test("accidental row activation can be cancelled before any symbol is entered", () => {
@@ -158,13 +156,11 @@ test("drink is available as an offline suggestion and need word", () => {
   let session = createSession();
 
   session = selectLabel(session, "I", { rowIndex: 0 });
-  session = selectLabel(session, "SPC", { rowIndex: 0 });
   session = selectLabel(session, "WANT", { rowIndex: 0 });
-  session = selectLabel(session, "SPC", { rowIndex: 0 });
   assert.ok(labelsForRow(session).includes("DRINK"));
 
   session = selectLabel(session, "DRINK", { rowIndex: 0 });
-  assert.equal(session.message, "I want drink");
+  assert.equal(session.message, "I want drink ");
 });
 
 test("question mark no longer consumes a singleton row in the default board", () => {
@@ -188,7 +184,7 @@ test("early symbol activation compensates to the previous symbol in the selected
 
   session = pressSwitch(session, 120);
   assert.equal(session.lastSelection.tile.label, "NEED");
-  assert.equal(session.message, "need");
+  assert.equal(session.message, "need ");
 });
 
 test("suggestion row fills unused slots with reachable helpers instead of empty traps", () => {

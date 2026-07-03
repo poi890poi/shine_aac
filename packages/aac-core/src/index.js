@@ -21,7 +21,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 900;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 7;
+export const CurrentConfigVersion = 8;
 
 export function tile(label, output = label, action = TileAction.Append) {
   return { label, output, action };
@@ -62,7 +62,7 @@ export const LegacySuggestionDictionaryV6 = Object.freeze([
   tile("DOCTOR", "doctor")
 ]);
 
-export const DefaultSuggestionDictionary = Object.freeze([
+export const LegacySuggestionDictionaryV7 = Object.freeze([
   ...LegacySuggestionDictionaryV6,
   tile("MOVIE", "movie"),
   tile("MUSIC", "music"),
@@ -109,6 +109,50 @@ export const DefaultSuggestionDictionary = Object.freeze([
   tile("WHY", "why"),
   tile("HOW", "how")
 ]);
+
+export const AacCoreVocabularyWords = Object.freeze([
+  "I", "you", "we", "they", "he", "she", "it", "me", "my", "your", "mine", "this", "that", "here", "there",
+  "want", "need", "help", "stop", "go", "come", "look", "watch", "turn", "move", "give", "get", "make", "put",
+  "take", "open", "close", "eat", "drink", "sleep", "feel", "know", "think", "like", "don't", "can", "do", "is",
+  "yes", "no", "not", "more", "all", "some", "again", "done", "now", "later", "good", "bad", "big", "little",
+  "hot", "cold", "up", "down", "in", "out", "on", "off", "with", "without", "and", "or", "because", "what",
+  "where", "when", "why", "how", "please", "thanks"
+]);
+
+export const CommonEnglishServiceWords = Object.freeze([
+  "the", "be", "to", "of", "and", "a", "in", "have", "it", "for", "not", "on", "with", "as", "at", "by",
+  "from", "but", "about", "into", "over", "after", "before", "between", "through", "during", "under", "around",
+  "time", "person", "year", "way", "day", "thing", "man", "woman", "child", "world", "life", "hand", "eye",
+  "place", "work", "week", "case", "point", "problem", "fact", "home", "room", "bed", "chair", "door", "phone",
+  "water", "food", "medicine", "bathroom", "toilet", "pain", "family", "friend", "doctor", "nurse", "name",
+  "question", "answer", "people", "school", "house", "car", "money", "book", "music", "movie", "game", "TV",
+  "light", "fan", "blanket", "pillow", "clothes", "shirt", "pants", "shoes", "shower", "breakfast", "lunch",
+  "dinner", "snack", "coffee", "tea", "milk", "juice", "left", "right", "front", "back", "side", "first", "last",
+  "new", "old", "long", "short", "great", "small", "different", "same", "high", "low", "early", "young", "important",
+  "public", "able", "own", "other", "right", "wrong", "ready", "busy", "tired", "sick", "happy", "sad", "angry",
+  "scared", "sorry", "funny", "nice", "hard", "easy", "fast", "slow", "safe", "hurt", "clean", "dirty", "dry", "wet",
+  "say", "tell", "ask", "use", "find", "try", "call", "leave", "keep", "let", "begin", "start", "finish", "wait",
+  "change", "show", "hear", "listen", "read", "write", "sit", "stand", "walk", "run", "play", "rest", "wash", "wear",
+  "bring", "buy", "choose", "remember", "forget", "live", "stay", "talk", "work", "happen", "seem", "become"
+]);
+
+export const AacFringeStarterWords = Object.freeze([
+  "mom", "dad", "parent", "sister", "brother", "caregiver", "teacher", "therapist", "tablet", "video", "internet",
+  "homework", "hospital", "clinic", "kitchen", "outside", "inside", "morning", "afternoon", "night", "today",
+  "tomorrow", "yesterday", "wheelchair", "switch", "charger", "battery", "volume", "voice"
+]);
+
+export const DefaultSuggestionDictionary = Object.freeze(
+  distinctBy(
+    [
+      ...LegacySuggestionDictionaryV7,
+      ...wordTiles(AacCoreVocabularyWords),
+      ...wordTiles(CommonEnglishServiceWords),
+      ...wordTiles(AacFringeStarterWords)
+    ],
+    (candidate) => candidate.label.toUpperCase()
+  )
+);
 
 const frequencyLetters = ["E", "T", "A", "O", "I", "N", "S", "R", "H", "L", "D", "C", "U", "M", "F", "P", "G", "W", "Y", "B", "V", "K", "X", "J", "Q", "Z"];
 const letterTile = (label) => tile(label, label.toLowerCase());
@@ -263,7 +307,10 @@ export function loadSymbolsForConfig(storedSymbols, storedVersion) {
 
 export function loadSuggestionDictionaryForConfig(storedDictionary, storedVersion) {
   const parsedDictionary = parseDictionary(storedDictionary ?? serializeDictionary(DefaultSuggestionDictionary));
-  if (storedVersion < CurrentConfigVersion && sameTiles(parsedDictionary, LegacySuggestionDictionaryV6)) {
+  if (
+    storedVersion < CurrentConfigVersion &&
+    (sameTiles(parsedDictionary, LegacySuggestionDictionaryV6) || sameTiles(parsedDictionary, LegacySuggestionDictionaryV7))
+  ) {
     return DefaultSuggestionDictionary;
   }
   return parsedDictionary;
@@ -416,7 +463,7 @@ export function confirmWithLatencyCompensation(state, rowCount, columnCountForRo
 export function updateMessage(current, selectedTile) {
   switch (selectedTile.action) {
     case TileAction.Append:
-      return appendToken(current, selectedTile.output);
+      return appendToken(current, selectedTile);
     case TileAction.Space:
       return current.trimEnd() + " ";
     case TileAction.Backspace:
@@ -431,7 +478,14 @@ export function updateMessage(current, selectedTile) {
   }
 }
 
-export function appendToken(current, token) {
+export function appendToken(current, selectedTile) {
+  const token = selectedTile.output;
+  const isSpellingLetter = token.length === 1 &&
+    selectedTile.label.length === 1 &&
+    selectedTile.output === selectedTile.label.toLowerCase() &&
+    /\p{L}/u.test(token);
+  if (isSpellingLetter) return current + token;
+
   if (token.length > 1 && current.length > 0 && !/\s$/.test(current)) {
     const currentTokenStart = current.lastIndexOf(" ") + 1;
     const currentToken = current.slice(currentTokenStart);
@@ -440,13 +494,12 @@ export function appendToken(current, token) {
       token.toLowerCase().startsWith(currentToken.toLowerCase()) &&
       token.toLowerCase() !== currentToken.toLowerCase()
     ) {
-      return current.slice(0, currentTokenStart) + token;
+      return `${current.slice(0, currentTokenStart)}${token} `;
     }
   }
-  if (token.length === 1 && /\p{L}/u.test(token)) return current + token;
-  if (current.trim().length === 0) return token;
-  if (current.endsWith(" ")) return current + token;
-  return `${current} ${token}`;
+  if (current.trim().length === 0) return `${token} `;
+  if (current.endsWith(" ")) return `${current}${token} `;
+  return `${current.trimEnd()} ${token} `;
 }
 
 export function createSession(overrides = {}) {
@@ -620,8 +673,24 @@ function transitionRank(previousWord, candidate) {
 
 function completionRank(currentToken, candidate) {
   const output = candidate.output.toLowerCase();
-  return output.length - currentToken.length;
+  return aacPriorityWords.has(output) ? 0 : 1;
 }
+
+function wordTiles(words) {
+  return words.map((word) => tile(labelForWord(word), word));
+}
+
+function labelForWord(word) {
+  if (word === "I") return "I";
+  if (word === "TV") return "TV";
+  return word.toUpperCase();
+}
+
+const aacPriorityWords = new Set([
+  ...LegacySuggestionDictionaryV7.map((candidate) => candidate.output.toLowerCase()),
+  ...AacCoreVocabularyWords.map((word) => word.toLowerCase()),
+  ...AacFringeStarterWords.map((word) => word.toLowerCase())
+]);
 
 function distinctBy(items, keyForItem) {
   const seen = new Set();

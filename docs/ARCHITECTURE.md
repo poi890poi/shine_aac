@@ -54,16 +54,20 @@ Hidden debug channels must not be treated as proof of user-visible behavior. Aut
 - The progress hint belongs near the active row or symbol, because that is where the user's gaze already is.
 - The message display must make trailing spaces visible with a cursor.
 - Throughput matters, but explainability matters too. Frequency-ordered letters and high-value whole words reduce scan time while remaining understandable to helpers.
+- Word selections auto-add a trailing space. Letter selections do not. This reduces routine `SPC` selections while preserving spelling.
+- After a successful input, the UI should restart scanning at the top by default so updated suggestions are reachable immediately. Keep this configurable because some users may prefer local row repetition for spelling.
+- Auditory feedback is part of access. Platform shells may speak the current scan target and the activated target, with a way for helpers to disable it for users who find it distracting.
 - Configuration is caregiver/developer territory. Runtime communication should stay simple and predictable for the AAC user.
 
 ## MVP Notes
 
 The early demonstration MVP should stay simple and robust:
 
-- Offline suggestion backend first. The current backend is a small dictionary plus prefix completion and simple transition ranking. It should remain swappable, but the app must work without network access.
+- Offline suggestion backend first. The current backend combines AAC core vocabulary, common English service words, starter fringe words, prefix completion, and simple transition ranking. It should remain swappable, but the app must work without network access.
 - Prioritize high-impact throughput improvements: high-value whole words, frequency-ordered letters, cheap `UNDO`, visible spaces, and stable suggestions.
 - Avoid adding complex behaviors until they can be verified in `packages/aac-core` without Android.
 - A one-column row can be useful for extremely common symbols, but the default board should not spend limited space on low-value singleton rows.
+- Input source is a platform adapter. The core should receive intent events such as `activate`, `next`, `previous`, or `pause`; camera, voice, keyboard, switch, and OS accessibility details belong in platform code.
 
 ## Portability Rule
 

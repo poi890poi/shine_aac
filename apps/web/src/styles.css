@@ -157,11 +157,12 @@ textarea {
 }
 
 .tile.command {
-  background: #e9edf0;
+  background: #f1f3f5;
+  border-color: #9aa4ae;
 }
 
 .tile.noop {
-  background: #e9edf0;
+  background: #f1f3f5;
   color: transparent;
 }
 
@@ -170,20 +171,6 @@ textarea {
 .tile.action-undo {
   background: #f4e4e1;
   border-color: #b77970;
-}
-
-.tile.action-space {
-  background: #e7edf8;
-  border-color: #8fa5c8;
-}
-
-.tile.action-speak {
-  background: #e5efe9;
-  border-color: #7aa082;
-}
-
-.tile.action-append:not(.noop) {
-  background: #ffffff;
 }
 
 .tile.active-row {
@@ -198,20 +185,12 @@ textarea {
   background: #f4d35e;
 }
 
-.progress-fill,
-.latency-fill {
+.progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0%;
   pointer-events: none;
-}
-
-.progress-fill {
-  background: rgba(45, 106, 79, 0.22);
-}
-
-.latency-fill {
-  background: rgba(244, 211, 94, 0.36);
+  background: rgba(31, 122, 140, 0.28);
 }
 
 .tile-label {
@@ -239,7 +218,7 @@ textarea {
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(10, 14, 18, 0.36);
+  background: #f6f4ee;
 }
 
 .config-panel {
@@ -285,6 +264,17 @@ textarea {
   font-family: Consolas, "Courier New", monospace;
   font-size: 14px;
   font-weight: 400;
+}
+
+.check-field {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  min-height: 42px;
+}
+
+.check-field input {
+  width: 22px;
+  height: 22px;
 }
 
 .wide {

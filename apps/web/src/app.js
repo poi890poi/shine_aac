@@ -6,6 +6,8 @@ import {
   advanceSession,
   createBoardConfig,
   createSession,
+  loadSuggestionDictionaryForConfig,
+  loadSymbolsForConfig,
   parseDictionary,
   parseSymbols,
   pressSwitch,
@@ -16,14 +18,22 @@ import {
 } from "../../../packages/aac-core/src/index.js";
 
 const storageKey = "shine-aac-web-config-v1";
-const webConfigVersion = 2;
+const webConfigVersion = 3;
 const app = document.querySelector("#app");
+const uiStorageKey = "shine-aac-web-ui-v1";
+const defaultUiConfig = Object.freeze({
+  scanVoice: true,
+  activationVoice: true,
+  restartScanFromTop: true
+});
 
 let session = createSession({ config: loadConfig() });
+let uiConfig = loadUiConfig();
 let highlightStartedAt = performance.now();
 let timerId = 0;
 let animationFrameId = 0;
 let configOpen = false;
+let lastScanAnnouncementKey = "";
 
 function loadConfig() {
   const defaults = createBoardConfig();
@@ -45,12 +55,41 @@ function loadConfig() {
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
       ),
-      suggestionDictionary: parseDictionary(stored.suggestionDictionary ?? serializeDictionary(DefaultSuggestionDictionary)),
-      symbols: parseSymbols(stored.symbols ?? serializeSymbols(DefaultTiles))
+      suggestionDictionary: loadSuggestionDictionaryForConfig(
+        stored.suggestionDictionary ?? serializeDictionary(DefaultSuggestionDictionary),
+        storedVersion
+      ),
+      symbols: loadSymbolsForConfig(stored.symbols ?? serializeSymbols(DefaultTiles), storedVersion)
     });
   } catch {
     return defaults;
   }
+}
+
+function loadUiConfig() {
+  const nativeConfig = loadNativeUiConfig();
+  if (nativeConfig) return nativeConfig;
+
+  try {
+    return { ...defaultUiConfig, ...JSON.parse(localStorage.getItem(uiStorageKey) ?? "null") };
+  } catch {
+    return defaultUiConfig;
+  }
+}
+
+function loadNativeUiConfig() {
+  if (!globalThis.ShineAacAndroid?.getInitialUiConfigJson) return null;
+  try {
+    const raw = globalThis.ShineAacAndroid.getInitialUiConfigJson();
+    if (!raw) return null;
+    return { ...defaultUiConfig, ...JSON.parse(raw) };
+  } catch {
+    return null;
+  }
+}
+
+function saveUiConfig(config) {
+  localStorage.setItem(uiStorageKey, JSON.stringify(config));
 }
 
 function loadNativeConfig(defaults) {
@@ -89,6 +128,7 @@ function saveConfig(config) {
 
 function resetClock() {
   highlightStartedAt = performance.now();
+  lastScanAnnouncementKey = "";
 }
 
 function setSession(nextSession) {
@@ -96,6 +136,7 @@ function setSession(nextSession) {
   resetClock();
   render();
   scheduleScan();
+  announceCurrentScanTarget();
 }
 
 function activateSwitch() {
@@ -103,13 +144,19 @@ function activateSwitch() {
   const elapsed = performance.now() - highlightStartedAt;
   const nextSession = pressSwitch(session, elapsed);
   const selection = nextSession.lastSelection;
-  session = nextSession;
+  session = uiConfig.restartScanFromTop && selection
+    ? { ...nextSession, scannerState: { ...nextSession.scannerState, rowIndex: 0 } }
+    : nextSession;
   resetClock();
   render();
   scheduleScan();
 
   if (selection?.effect === "speak") {
     speak(session.message);
+  } else if (selection) {
+    speakActivation(selection.tile);
+  } else {
+    announceCurrentScanTarget();
   }
 }
 
@@ -138,6 +185,10 @@ function updateProgress() {
 }
 
 function speak(text) {
+  speakText(text);
+}
+
+function speakText(text) {
   if (globalThis.ShineAacAndroid?.speak) {
     globalThis.ShineAacAndroid.speak(text.trim());
     return;
@@ -147,6 +198,47 @@ function speak(text) {
   if (!spoken) return;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(spoken));
+}
+
+function speakFeedback(text) {
+  const spoken = text.trim();
+  if (!spoken) return;
+  speakText(spoken);
+}
+
+function speakActivation(tile) {
+  if (!uiConfig.activationVoice) return;
+  speakFeedback(labelForSpeech(tile));
+}
+
+function announceCurrentScanTarget() {
+  if (!uiConfig.scanVoice || configOpen) return;
+  const board = visibleBoard(session);
+  const scanner = session.scannerState;
+  const key = `${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}`;
+  if (key === lastScanAnnouncementKey) return;
+  lastScanAnnouncementKey = key;
+
+  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
+    const labels = (board[scanner.rowIndex] ?? [])
+      .filter((candidate) => candidate.action !== TileAction.Noop)
+      .map(labelForSpeech)
+      .filter(Boolean);
+    speakFeedback(labels.join(", "));
+    return;
+  }
+
+  const tile = board[scanner.rowIndex]?.[scanner.cellIndex];
+  if (tile) speakFeedback(labelForSpeech(tile));
+}
+
+function labelForSpeech(tile) {
+  if (tile.action === TileAction.Space) return "space";
+  if (tile.action === TileAction.Backspace) return "delete";
+  if (tile.action === TileAction.Clear) return "clear";
+  if (tile.action === TileAction.Undo) return "undo";
+  if (tile.action === TileAction.Speak) return "speak";
+  return tile.output.trim() || tile.label;
 }
 
 function render() {
@@ -180,7 +272,7 @@ function render() {
 
   const voice = document.createElement("div");
   voice.className = "voice";
-  voice.textContent = "Voice";
+  voice.textContent = uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
 
   const configButton = document.createElement("button");
   configButton.className = "config-button";
@@ -220,13 +312,6 @@ function render() {
       tile.setAttribute("role", "button");
       tile.setAttribute("aria-label", candidate.label || "empty");
 
-      const latencyFill = document.createElement("div");
-      latencyFill.className = "latency-fill";
-      if (activeCell && scanner.stage === ScanStage.Cells) {
-        const duration = scanDurationForStage(scanner, session.config);
-        latencyFill.style.width = `${Math.min(1, session.config.inputLatencyCompensationMs / duration) * 100}%`;
-      }
-
       const progressFill = document.createElement("div");
       progressFill.className = "progress-fill";
 
@@ -234,7 +319,7 @@ function render() {
       label.className = "tile-label";
       label.textContent = candidate.label;
 
-      tile.append(latencyFill, progressFill, label);
+      tile.append(progressFill, label);
       rowElement.append(tile);
     });
 
@@ -317,6 +402,8 @@ function closeConfig() {
 }
 
 function renderConfig() {
+  app.innerHTML = "";
+
   const backdrop = document.createElement("div");
   backdrop.className = "config-backdrop";
   backdrop.addEventListener("click", closeConfig);
@@ -346,6 +433,18 @@ function renderConfig() {
       <label class="field">Latency compensation ms
         <input name="inputLatencyCompensationMs" type="number" min="0" max="1200" step="25" value="${session.config.inputLatencyCompensationMs}">
       </label>
+      <label class="field check-field">
+        <input name="scanVoice" type="checkbox" ${uiConfig.scanVoice ? "checked" : ""}>
+        Voice while scanning
+      </label>
+      <label class="field check-field">
+        <input name="activationVoice" type="checkbox" ${uiConfig.activationVoice ? "checked" : ""}>
+        Voice on activation
+      </label>
+      <label class="field check-field">
+        <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
+        Restart scan at top after input
+      </label>
       <label class="field wide">Suggestion dictionary
         <textarea name="suggestionDictionary">${escapeHtml(serializeDictionary(session.config.suggestionDictionary))}</textarea>
       </label>
@@ -365,7 +464,9 @@ function renderConfig() {
     if (action === "cancel") closeConfig();
     if (action === "reset") {
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(uiStorageKey);
       session = createSession({ config: createBoardConfig() });
+      uiConfig = defaultUiConfig;
       closeConfig();
     }
   });
@@ -383,6 +484,12 @@ function renderConfig() {
       symbols: parseSymbols(String(data.get("symbols") ?? ""))
     });
     saveConfig(config);
+    uiConfig = {
+      scanVoice: data.get("scanVoice") === "on",
+      activationVoice: data.get("activationVoice") === "on",
+      restartScanFromTop: data.get("restartScanFromTop") === "on"
+    };
+    saveUiConfig(uiConfig);
     session = createSession({ config });
     closeConfig();
   });
@@ -420,3 +527,4 @@ document.addEventListener("keydown", (event) => {
 
 render();
 scheduleScan();
+announceCurrentScanTarget();

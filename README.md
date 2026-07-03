@@ -29,6 +29,7 @@ Useful docs:
 - [Testing Report](docs/TESTING_REPORT.md)
 - [Windows/Browser App Report](docs/WINDOWS_APP_REPORT.md)
 - [APK Report](docs/APK_REPORT.md)
+- [Alternative Input Survey](docs/ALTERNATIVE_INPUT_SURVEY.md)
 
 Run core tests without Android:
 
@@ -63,6 +64,7 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - A dynamic suggestion row for undo, space, predicted words, completions, simple action/noun phrases, and high-frequency fallback letters.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
+- Voice feedback for scanning targets and activated targets, configurable by a helper.
 - Different visual styles for text-entry targets, space, speak, and repair functions such as `CLR`, `UNDO`, and `DEL`.
 - Adjustable scan speed, transition pause, first-symbol hold, and input-latency compensation.
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
@@ -83,11 +85,13 @@ The app also compensates for visual-motor latency during symbol scanning. If an 
 
 The message area always shows a blinking `|` cursor after the current message. This makes trailing spaces visible; without a cursor, a message ending in a space and the same message without a space look identical.
 
+Word selections automatically add a trailing space. Letter selections do not. This removes routine `SPC` selections after words while keeping letter-by-letter spelling predictable. If the user completes a partial word such as `movi` with `MOVIE`, the message becomes `movie `.
+
 Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, delete, clear, or space with one selection instead of requiring several corrective inputs.
 
-The progress hint is drawn inside the active highlighted row or symbol so it stays close to the user's gaze target:
+The progress hint is drawn as a full-height fill inside the active highlighted row or symbol so it stays close to the user's gaze target and is easy to see:
 
-- Yellow segment: the early-input latency-compensation window for symbol scanning. Activations here are interpreted as the previous symbol in the same row.
+- Full-box highlight: the current row or symbol.
 - Teal fill: elapsed time in the current scan phase.
 
 This gives users and helpers a visible timing cue without adding another action requirement.
@@ -129,6 +133,14 @@ Suggestions are intentionally simple and AAC-focused:
 - After `WANT` or `NEED`, common nouns/needs such as `DRINK`, `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, `MEDICINE`, `BATHROOM`, and `DONE` rank higher.
 - If there are not enough word candidates, the row fills with useful targets such as `SPC` and high-frequency spelling letters instead of leaving dead empty cells or forcing the user to scan down to the static alphabet.
 
+The built-in suggestion dictionary is no longer a handful of patched words. It is assembled from ranked source lists:
+
+- AAC core vocabulary for flexible everyday messages.
+- Common English service words inspired by frequency-list resources such as the General Service List and Oxford English Corpus summaries.
+- Starter fringe vocabulary for common needs, people, places, routines, and device words.
+
+Helpers can still replace or extend this dictionary in configuration. The backend is intentionally simple and offline, but the code keeps it isolated so a maintained package, downloaded language model, or online predictor could replace it later.
+
 The goal is not to force complete grammatical sentences. Many AAC users communicate efficiently with telegraphic phrases such as `I WANT WATER`, `I NEED DRINK`, `PAIN`, `HELP TOILET`, or `TURN LEFT`.
 
 The board no longer includes a single `?` row. A one-column row can be useful for very high-frequency symbols because it reduces selection to one level, but it should be introduced deliberately for a specific user rather than consuming scarce default board space.
@@ -142,6 +154,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - input-latency compensation window
 - suggestion dictionary
 - custom symbols and words
+- scan voice feedback, activation voice feedback, and restart-from-top behavior
 
 Symbol format is one item per line:
 
@@ -248,7 +261,7 @@ For a basic real-APK regression check, run the one-switch E2E test:
 .\e2e-switch-test.bat -SdkDir E:\Android\Sdk
 ```
 
-It builds the debug APK, installs it on the emulator, clears app data, enables a test-only WebView render-state bridge, drives the row/column scanner with real ADB touch taps, enters `I want water`, and verifies the final message from the same render pass that updates the display. Screenshots and test artifacts are saved under `e2e-artifacts\`.
+It builds the debug APK, installs it on the emulator, clears app data, enables a test-only WebView render-state bridge, drives the row/column scanner with real ADB touch taps, enters `I want water `, and verifies the final message from the same render pass that updates the display. Screenshots and test artifacts are saved under `e2e-artifacts\`.
 
 To test on a physical Android device instead:
 
@@ -264,7 +277,12 @@ Enable Developer Options and USB debugging on the device first.
 - [Switch access scanning and major challenges](https://easeapps.xyz/105-switch-access-scanning-and-major-challenges/)
 - [ASHA Practice Portal: Augmentative and Alternative Communication](https://www.asha.org/practice-portal/professional-issues/augmentative-and-alternative-communication/)
 - [Semantic compaction](https://en.wikipedia.org/wiki/Semantic_compaction)
+- [General Service List](https://en.wikipedia.org/wiki/General_Service_List)
+- [Most common words in English](https://en.wikipedia.org/wiki/Most_common_words_in_English)
 - [English Letter Frequency Counts: Mayzner Revisited, Peter Norvig](https://www.norvig.com/mayzner.html)
 - [Letter frequency](https://en.wikipedia.org/wiki/Letter_frequency)
+- [Android Switch Access](https://support.google.com/accessibility/android/answer/6122836)
+- [Android Camera Switches](https://support.google.com/accessibility/android/answer/11150722)
+- [Android Voice Access](https://support.google.com/accessibility/android/answer/6151848)
 - [Fast and flexible selection with a single switch](https://arxiv.org/abs/0909.2450)
 - [A Performance Evaluation of Nomon: A Flexible Interface for Noisy Single-Switch Users](https://arxiv.org/abs/2204.01619)

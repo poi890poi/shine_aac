@@ -90,8 +90,11 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="7" />
+    <int name="configVersion" value="8" />
     <boolean name="e2eEnabled" value="true" />
+    <boolean name="scanVoice" value="false" />
+    <boolean name="activationVoice" value="false" />
+    <boolean name="restartScanFromTop" value="true" />
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
@@ -229,13 +232,11 @@ Start-Sleep -Milliseconds 300
 
 Write-Step "Entering complete phrase with real touch input"
 Select-SuggestionCell 0 "I"
-Select-SuggestionCell 1 "SPC"
 Select-SuggestionCell 1 "WANT"
-Select-SuggestionCell 1 "SPC"
 Select-SuggestionCell 2 "WATER"
 
 Start-Sleep -Milliseconds 800
-Wait-LoggedMessage "I want water"
+Wait-LoggedMessage "I want water "
 
 $screenshotDevicePath = "/sdcard/shine-real-touch-final.png"
 $screenshotHostPath = Join-Path $artifactDir "real-touch-final.png"
@@ -243,5 +244,5 @@ Invoke-AdbQuiet shell screencap -p $screenshotDevicePath
 Invoke-AdbQuiet pull $screenshotDevicePath $screenshotHostPath
 
 Write-Host ""
-Write-Host "E2E PASS: real touch input entered 'I want water'." -ForegroundColor Green
+Write-Host "E2E PASS: real touch input entered 'I want water '." -ForegroundColor Green
 Write-Host "Artifacts: $artifactDir"

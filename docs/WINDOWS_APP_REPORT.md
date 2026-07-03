@@ -90,7 +90,7 @@ http://127.0.0.1:5173/packages/aac-core/src/index.js 200
 
 Use the web app manually on Windows and focus on:
 
-- Can you enter `I want water`?
+- Can you enter `I want water ` with the automatic trailing space?
 - Is the first column still rushed?
 - Is the progress hint easy to follow?
 - Is `UNDO` reachable and predictable?

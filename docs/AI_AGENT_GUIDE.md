@@ -34,7 +34,7 @@ The main board should expose one communication action: activate the current scan
 ## Preserve Stability
 
 - The suggestion row stays in the same position.
-- Empty suggestion cells remain as placeholders.
+- Suggestion cells should prefer useful fallback targets over dead empty cells when the row is active.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.
 
@@ -45,7 +45,11 @@ Optimizing input speed is not only about fewer scan steps. It also means reducin
 - activation during `RowSelected` cancels the locked row
 - `UNDO` appears when history exists
 - trailing spaces are visible
+- word selections add a trailing space automatically
+- scanning restarts at the suggestion row after input by default
 - latency compensation is limited to symbols in the same selected row
+- progress hints are full-height fills inside the active target; do not add extra latency bars unless user testing clearly calls for them
+- auditory scan and activation feedback are useful access features, but tests may disable them for determinism
 
 ## Testing Order
 
@@ -53,6 +57,7 @@ Use this order unless the user explicitly asks for a platform-only task:
 
 ```powershell
 npm run test:core
+.\e2e-web.bat
 .\build-test.bat -SdkDir E:\Android\Sdk
 ```
 

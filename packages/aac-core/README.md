@@ -10,6 +10,8 @@ It has no Android, browser, React, Compose, Capacitor, or Flutter dependency. Th
 - symbol and dictionary parsing/serialization
 - suggestion row generation
 - message editing, undo, delete, space, clear, and speak effects
+- automatic trailing spaces for word selections
+- ranked offline suggestion vocabulary lists
 - one-switch row/column scanner state transitions
 - optional row-to-symbol cancel pause
 - first-cell hold

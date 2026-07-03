@@ -94,6 +94,13 @@ test("suggestions complete current partial words", () => {
   assert.equal(suggestions.includes("WATCH"), true);
 });
 
+test("default suggestion dictionary is sourced from broad ranked vocabulary lists", () => {
+  assert.ok(DefaultSuggestionDictionary.length > 150);
+  for (const label of ["THE", "TIME", "PEOPLE", "BATHROOM", "VOICE"]) {
+    assert.equal(DefaultSuggestionDictionary.some((candidate) => candidate.label === label), true);
+  }
+});
+
 test("expanded default vocabulary includes movie", () => {
   const suggestions = suggestTiles("movi", DefaultSuggestionDictionary, 3).map((candidate) => candidate.label);
   assert.equal(suggestions.includes("MOVIE"), true);

@@ -15,7 +15,7 @@ npm run test:core
 Latest result:
 
 ```text
-39 tests passed
+40 tests passed
 0 tests failed
 ```
 
@@ -41,6 +41,7 @@ Latest result:
 - custom current-version layouts are preserved
 - custom symbols/actions parse correctly
 - board rows chunk by configured column count
+- default suggestion dictionary is built from broad ranked vocabulary lists
 - partial words suggest completions such as `wa` -> `WANT`, `WATER`, `WATCH`
 - expanded vocabulary suggests `MOVIE` for `movi`
 - exact current word is not suggested again
@@ -54,10 +55,11 @@ Latest result:
 
 ### Human-Like Input Sequences
 
-- enter `I want water` through one-switch row/column transitions
+- enter `I want water ` through one-switch row/column transitions
+- word selections automatically add trailing spaces, while letter selections do not
 - use `SPC` without creating duplicate spaces
 - use `DEL`, `SPC`, `CLR`, and repeated `UNDO` to repair text
-- type `movi`, select `MOVIE`, and get `movie` rather than `movi movie`
+- type `movi`, select `MOVIE`, and get `movie ` rather than `movi movie`
 - accidentally choose `DRINK`, use `UNDO`, then choose `FOOD`
 - accidentally activate a row, cancel during transition pause, and keep the message unchanged
 - activate very early on a symbol and select the previous symbol by latency compensation
@@ -68,10 +70,10 @@ Latest result:
 - launches the Windows/browser app in Microsoft Edge with a clean temporary profile
 - verifies the board and message panel render
 - drives visible row/column scanning through browser input events
-- enters `I want water`
+- enters `I want water `
 - uses `UNDO` to repair `WATER`, then selects `FOOD`
 - uses `CLR`
-- types `movi`, completes it to `movie`, then uses `DEL`
+- types `movi`, completes it to `movie `, then uses `DEL`
 - verifies a Pixel 4a 5G-sized viewport fits without scrolling
 - writes `docs/WEB_E2E_REPORT.md`
 - writes `e2e-artifacts/web-e2e-final.png`
@@ -82,7 +84,7 @@ Latest result:
 - enables a WebView test bridge through app-private preferences
 - drives the app with real ADB touch taps, not direct state mutation
 - synchronizes on fresh render-state logs before each row and cell tap
-- enters `I want water` through the packaged scanner
+- enters `I want water ` through the packaged scanner
 - captures `e2e-artifacts/real-touch-final.png`
 
 ## Important Design Assertions
@@ -93,6 +95,7 @@ Latest result:
 - Static board positions remain stable while dynamic suggestions update.
 - A selected suggestion row is locked until selection completes or is cancelled.
 - The default transition pause is `0 ms`, so the row-selected escape state is skipped unless a helper enables it.
+- Browser and packaged-app E2E disable audio feedback in test settings for deterministic automation; the app default remains audio-on.
 - Hidden debug output is not accepted as proof of rendered UI behavior.
 
 ## Remaining Gaps

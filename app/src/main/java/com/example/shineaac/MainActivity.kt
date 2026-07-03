@@ -95,6 +95,18 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
+        fun getInitialUiConfigJson(): String {
+            val prefs = getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("e2eEnabled", false)) return ""
+
+            return JSONObject()
+                .put("scanVoice", prefs.getBoolean("scanVoice", true))
+                .put("activationVoice", prefs.getBoolean("activationVoice", true))
+                .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
+                .toString()
+        }
+
+        @JavascriptInterface
         fun onRender(stateJson: String) {
             if (isE2E()) {
                 Log.i("ShineAacE2E", "SHINE_AAC_E2E_STATE $stateJson")
