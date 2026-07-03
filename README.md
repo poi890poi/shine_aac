@@ -30,6 +30,8 @@ Useful docs:
 - [Windows/Browser App Report](docs/WINDOWS_APP_REPORT.md)
 - [APK Report](docs/APK_REPORT.md)
 - [Alternative Input Survey](docs/ALTERNATIVE_INPUT_SURVEY.md)
+- [Input Adapters](docs/INPUT_ADAPTERS.md)
+- [Multilingual Design](docs/MULTILINGUAL_DESIGN.md)
 
 Run core tests without Android:
 
@@ -155,6 +157,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - suggestion dictionary
 - custom symbols and words
 - scan voice feedback, activation voice feedback, and restart-from-top behavior
+- phone/external hardware button activation
 
 Symbol format is one item per line:
 
@@ -261,7 +264,7 @@ For a basic real-APK regression check, run the one-switch E2E test:
 .\e2e-switch-test.bat -SdkDir E:\Android\Sdk
 ```
 
-It builds the debug APK, installs it on the emulator, clears app data, enables a test-only WebView render-state bridge, drives the row/column scanner with real ADB touch taps, enters `I want water `, and verifies the final message from the same render pass that updates the display. Screenshots and test artifacts are saved under `e2e-artifacts\`.
+It builds the debug APK, installs it on the emulator, clears app data, enables a test-only WebView render-state bridge, drives the row/column scanner with Android hardware key events, enters `I want water `, and verifies the final message from the same render pass that updates the display. Screenshots and test artifacts are saved under `e2e-artifacts\`.
 
 To test on a physical Android device instead:
 

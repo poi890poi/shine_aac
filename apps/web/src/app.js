@@ -21,10 +21,17 @@ const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = 3;
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
+const InputIntent = Object.freeze({
+  Activate: "activate",
+  Next: "next",
+  Previous: "previous",
+  Pause: "pause"
+});
 const defaultUiConfig = Object.freeze({
   scanVoice: true,
   activationVoice: true,
-  restartScanFromTop: true
+  restartScanFromTop: true,
+  hardwareButtons: true
 });
 
 let session = createSession({ config: loadConfig() });
@@ -34,6 +41,10 @@ let timerId = 0;
 let animationFrameId = 0;
 let configOpen = false;
 let lastScanAnnouncementKey = "";
+
+globalThis.ShineAacInput = {
+  receive: handleInputEvent
+};
 
 function loadConfig() {
   const defaults = createBoardConfig();
@@ -90,6 +101,16 @@ function loadNativeUiConfig() {
 
 function saveUiConfig(config) {
   localStorage.setItem(uiStorageKey, JSON.stringify(config));
+  syncNativeUiConfig(config);
+}
+
+function syncNativeUiConfig(config) {
+  if (!globalThis.ShineAacAndroid?.setUiConfigJson) return;
+  try {
+    globalThis.ShineAacAndroid.setUiConfigJson(JSON.stringify(config));
+  } catch {
+    // Native sync is best effort; browser builds do not provide it.
+  }
 }
 
 function loadNativeConfig(defaults) {
@@ -137,6 +158,21 @@ function setSession(nextSession) {
   render();
   scheduleScan();
   announceCurrentScanTarget();
+}
+
+function handleInputEvent(inputEvent = {}) {
+  const intent = inputEvent.intent ?? InputIntent.Activate;
+  if (intent !== InputIntent.Activate) return false;
+  if (isHardwareInput(inputEvent.source) && !uiConfig.hardwareButtons) return false;
+  activateSwitch();
+  return true;
+}
+
+function isHardwareInput(source = "") {
+  const normalized = String(source);
+  return normalized.startsWith("android-hardware") ||
+    normalized.startsWith("android-volume") ||
+    normalized.startsWith("android-media");
 }
 
 function activateSwitch() {
@@ -248,7 +284,9 @@ function render() {
 
   const shell = document.createElement("section");
   shell.className = "shell";
-  shell.addEventListener("click", activateSwitch);
+  shell.addEventListener("click", () => {
+    handleInputEvent({ intent: InputIntent.Activate, source: "touch" });
+  });
 
   const topPanel = document.createElement("header");
   topPanel.className = "top-panel";
@@ -445,6 +483,10 @@ function renderConfig() {
         <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
         Restart scan at top after input
       </label>
+      <label class="field check-field">
+        <input name="hardwareButtons" type="checkbox" ${uiConfig.hardwareButtons ? "checked" : ""}>
+        Phone/external buttons activate switch
+      </label>
       <label class="field wide">Suggestion dictionary
         <textarea name="suggestionDictionary">${escapeHtml(serializeDictionary(session.config.suggestionDictionary))}</textarea>
       </label>
@@ -487,7 +529,8 @@ function renderConfig() {
     uiConfig = {
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
-      restartScanFromTop: data.get("restartScanFromTop") === "on"
+      restartScanFromTop: data.get("restartScanFromTop") === "on",
+      hardwareButtons: data.get("hardwareButtons") === "on"
     };
     saveUiConfig(uiConfig);
     session = createSession({ config });
@@ -522,9 +565,10 @@ document.addEventListener("keydown", (event) => {
   const tagName = document.activeElement?.tagName;
   if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "BUTTON") return;
   event.preventDefault();
-  activateSwitch();
+  handleInputEvent({ intent: InputIntent.Activate, source: "keyboard", key: event.key });
 });
 
 render();
 scheduleScan();
+syncNativeUiConfig(uiConfig);
 announceCurrentScanTarget();

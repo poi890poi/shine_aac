@@ -82,10 +82,11 @@ Latest result:
 
 - builds and installs the packaged debug APK
 - enables a WebView test bridge through app-private preferences
-- drives the app with real ADB touch taps, not direct state mutation
-- synchronizes on fresh render-state logs before each row and cell tap
+- drives the app with Android hardware key events, not direct state mutation
+- verifies the phone-button input adapter path with `keyevent 24`
+- synchronizes on fresh render-state logs before each row and cell activation
 - enters `I want water ` through the packaged scanner
-- captures `e2e-artifacts/real-touch-final.png`
+- captures `e2e-artifacts/hardware-button-final.png`
 
 ## Important Design Assertions
 

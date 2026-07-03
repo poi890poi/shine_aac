@@ -15,8 +15,7 @@ New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
 $scanIntervalMs = 750
 $transitionPauseMs = 0
 $firstCellPauseMs = 750
-$tapX = 540
-$tapY = 1200
+$activationKeyCode = 24
 
 function Write-Step($Message) {
     Write-Host ""
@@ -95,6 +94,7 @@ function Write-TestPreferences {
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="false" />
     <boolean name="restartScanFromTop" value="true" />
+    <boolean name="hardwareButtons" value="true" />
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
@@ -170,14 +170,14 @@ function Wait-LoggedMessage([string]$ExpectedMessage, [int]$TimeoutMs = 10000) {
     throw "Timed out waiting for message '$ExpectedMessage'."
 }
 
-function Switch-Tap([string]$Label) {
-    Invoke-AdbQuiet shell input tap $tapX $tapY
-    Write-Host "tap $Label"
+function Switch-Activate([string]$Label) {
+    Invoke-AdbQuiet shell input keyevent $activationKeyCode
+    Write-Host "keyevent $activationKeyCode $Label"
 }
 
 function Select-SuggestionCell([int]$CellIndex, [string]$ExpectedLabel) {
     Wait-RenderState "suggestion row for $ExpectedLabel" @('"stage":"Rows"', '"rowIndex":0')
-    Switch-Tap "suggestion row for $ExpectedLabel"
+    Switch-Activate "suggestion row for $ExpectedLabel"
 
     if ($CellIndex -eq 0) {
         Wait-RenderState "suggestion cell 0 ($ExpectedLabel)" @('"rowIndex":0', '"cellIndex":0')
@@ -186,7 +186,7 @@ function Select-SuggestionCell([int]$CellIndex, [string]$ExpectedLabel) {
         Wait-RenderState "suggestion cell $CellIndex ($ExpectedLabel)" @('"stage":"Cells"', '"rowIndex":0', ('"cellIndex":' + $CellIndex))
         Start-Sleep -Milliseconds 300
     }
-    Switch-Tap "suggestion cell $CellIndex ($ExpectedLabel)"
+    Switch-Activate "suggestion cell $CellIndex ($ExpectedLabel)"
     Start-Sleep -Milliseconds 350
 }
 
@@ -222,7 +222,7 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Step "Resetting app data for deterministic real-touch E2E"
+Write-Step "Resetting app data for deterministic hardware-button E2E"
 Invoke-AdbQuiet shell pm clear com.example.shineaac
 Invoke-AdbQuiet logcat -c
 Write-TestPreferences
@@ -230,7 +230,7 @@ Invoke-AdbQuiet shell am start -W -n com.example.shineaac/.MainActivity
 Wait-E2EReady
 Start-Sleep -Milliseconds 300
 
-Write-Step "Entering complete phrase with real touch input"
+Write-Step "Entering complete phrase with Android hardware-button input"
 Select-SuggestionCell 0 "I"
 Select-SuggestionCell 1 "WANT"
 Select-SuggestionCell 2 "WATER"
@@ -238,11 +238,11 @@ Select-SuggestionCell 2 "WATER"
 Start-Sleep -Milliseconds 800
 Wait-LoggedMessage "I want water "
 
-$screenshotDevicePath = "/sdcard/shine-real-touch-final.png"
-$screenshotHostPath = Join-Path $artifactDir "real-touch-final.png"
+$screenshotDevicePath = "/sdcard/shine-hardware-button-final.png"
+$screenshotHostPath = Join-Path $artifactDir "hardware-button-final.png"
 Invoke-AdbQuiet shell screencap -p $screenshotDevicePath
 Invoke-AdbQuiet pull $screenshotDevicePath $screenshotHostPath
 
 Write-Host ""
-Write-Host "E2E PASS: real touch input entered 'I want water '." -ForegroundColor Green
+Write-Host "E2E PASS: Android hardware-button input entered 'I want water '." -ForegroundColor Green
 Write-Host "Artifacts: $artifactDir"

@@ -68,6 +68,7 @@ The early demonstration MVP should stay simple and robust:
 - Avoid adding complex behaviors until they can be verified in `packages/aac-core` without Android.
 - A one-column row can be useful for extremely common symbols, but the default board should not spend limited space on low-value singleton rows.
 - Input source is a platform adapter. The core should receive intent events such as `activate`, `next`, `previous`, or `pause`; camera, voice, keyboard, switch, and OS accessibility details belong in platform code.
+- Language is a profile, not a translation table. Each language or symbol set can own its own board, timing defaults, tokenizer, message composition rules, suggestion provider, and speech locale.
 
 ## Portability Rule
 
