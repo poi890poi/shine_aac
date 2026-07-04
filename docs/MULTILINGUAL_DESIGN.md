@@ -171,6 +171,7 @@ The current `zh-TW` version should not behave like a separate Chinese input meth
 - dictionary-backed starting Zhuyin symbols on the static board
 - valid following Zhuyin symbols in suggestion rows
 - no second-layer or third-layer Zhuyin pages
+- common Zhuyin continuations may come from phonetic validity as well as current dictionary entries, so a valid path such as `ㄨ` -> `ㄟ` remains available before every glyph is imported
 
 Static rows expose visible input symbols and controls. They should not expose standalone finals that have no dictionary-backed first-symbol entries:
 
@@ -266,6 +267,8 @@ then 更多 when the capped next page is useful
 ```
 
 For example, `ㄧㄡ` should not show only `右`; it should keep `右` near the front while also offering useful targets such as `有`, `又`, `有沒有`, and broader high-value choices. Likewise, phrase-initial shortcuts such as `ㄅㄧ` should surface `不要` without requiring the user to fully spell `ㄅㄨㄧㄠ`.
+
+Typed-buffer suggestions should not show redundant question phrases such as `是不是` or `要不要`; the static board already has `是` / `不是` / `要` / `不要`, and the user can express approximate intent with lower effort.
 
 Candidate ranking should prefer useful AAC words and compact phrase targets over isolated characters when the Zhuyin prefix matches a common communicative intent. For example, after a `ㄨ` path, candidates such as `我`, `喝水`, `吃飯`, and `廁所` are more useful than a large homophone list.
 

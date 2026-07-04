@@ -76,7 +76,8 @@ try {
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       scanVoice: false,
       activationVoice: false,
-      restartScanFromTop: true
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -85,6 +86,7 @@ try {
 
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
+  await scenarioReviewHold();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
@@ -152,6 +154,57 @@ async function scenarioClearAndMovie() {
   await selectLabel("DEL");
   await assertMessage("movie");
   steps.push(pass("delete", "selected DEL and removed the automatic trailing space"));
+}
+
+async function scenarioReviewHold() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: 500,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 500,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: true
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+  await selectLabel("I", { rowIndex: 0 });
+  await assertMessage("I ");
+
+  let snapshot = await getSnapshot();
+  if (!snapshot.reviewHold) throw new Error("Review hold should be active after suggestion-changing input");
+  if (snapshot.phase !== "Review") throw new Error(`Expected Review phase during hold, got ${snapshot.phase}`);
+  if ((snapshot.activeProgress ?? 0) < 99) throw new Error(`Expected held progress fill, got ${snapshot.activeProgress}`);
+  const heldRow = snapshot.activeRow?.rowIndex;
+  await delay(700);
+  snapshot = await getSnapshot();
+  if (snapshot.activeRow?.rowIndex !== heldRow) {
+    throw new Error("Review hold should not advance scanning before the next activation");
+  }
+
+  await clickTarget(snapshot.activeRow);
+  await delay(40);
+  snapshot = await getSnapshot();
+  if (snapshot.reviewHold) throw new Error("Review hold should release on activation without selecting a tile");
+  if (snapshot.message !== "I ") throw new Error(`Review release should not change message, got ${snapshot.message}`);
+  steps.push(pass("review-hold", "optional hold pauses after suggestion changes and resumes on next activation"));
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    location.reload();
+  `);
+  await waitForUi();
 }
 
 async function scenarioZhTwLayoutMigration() {
@@ -276,7 +329,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       };
     })()
   `);
-  if (stored.configVersion < 13 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 14 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
   if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("更多=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {
@@ -478,6 +531,8 @@ async function getSnapshot() {
             action: tile.dataset.action ?? "",
             activeRow: tile.classList.contains("active-row"),
             activeCell: tile.classList.contains("active-cell"),
+            reviewHold: tile.classList.contains("review-hold"),
+            progress: Number.parseFloat(tile.querySelector(".progress-fill")?.style.width || "0"),
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2
           };
@@ -487,7 +542,17 @@ async function getSnapshot() {
       const activeCell = rows.flat().find((tile) => tile.activeCell) ?? null;
       const messageNode = document.querySelector('[data-testid="message"]');
       const message = messageNode?.dataset.rawMessage ?? null;
-      return { message, rows, activeRow, activeCell };
+      const phase = document.querySelector(".phase")?.textContent ?? "";
+      const current = activeCell ?? activeRow;
+      return {
+        message,
+        rows,
+        activeRow,
+        activeCell,
+        phase,
+        reviewHold: rows.flat().some((tile) => tile.reviewHold),
+        activeProgress: current?.progress ?? 0
+      };
     })()
   `);
 }

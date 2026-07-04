@@ -452,6 +452,31 @@ test("zh-TW typed buffers avoid unrelated prefix and global backfill", () => {
   assert.equal(labels.includes("不要"), false);
 });
 
+test("zh-TW continuation suggestions include common Zhuyin finals beyond current dictionary prefixes", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const afterWu = boardRows(config, "ㄨ", false, {}).slice(0, 4).flat().map((candidate) => candidate.label);
+  const afterWei = boardRows(config, "ㄨㄟ", false, {}).slice(0, 4).flat().map((candidate) => candidate.label);
+
+  assert.equal(afterWu.includes("ㄟ"), true);
+  assert.equal(afterWei[0], "未");
+  assert.equal(afterWei.includes("味"), true);
+});
+
+test("zh-TW suppresses redundant yes-no question phrases from suggestions", () => {
+  const config = createBoardConfig({
+    profileId: "zh-TW",
+    suggestionDictionary: [
+      tile("是不是"),
+      tile("要不要"),
+      tile("幫忙")
+    ]
+  });
+  const labels = boardRows(config).slice(0, 4).flat().map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("是不是"), false);
+  assert.equal(labels.includes("要不要"), false);
+});
+
 test("zh-TW Zhuyin voice feedback uses Mandarin-readable names instead of raw symbols", () => {
   assert.equal(speechLabelForTile(findActionTile(boardRows(createBoardConfig({ profileId: "zh-TW" })), "ㄅ", TileAction.Append), "zh-TW"), "玻");
   assert.equal(speechLabelForTile({ label: "ㄨ", output: "ㄨ", action: TileAction.Append }, "zh-TW"), "烏");

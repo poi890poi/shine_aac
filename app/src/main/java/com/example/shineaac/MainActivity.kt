@@ -174,6 +174,7 @@ class MainActivity : ComponentActivity() {
                 .put("activationVoice", prefs.getBoolean("activationVoice", true))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
+                .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", false))
                 .toString()
         }
 

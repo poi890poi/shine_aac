@@ -15,7 +15,7 @@ npm --prefix packages/aac-core test
 Latest result:
 
 ```text
-69 tests passed
+71 tests passed
 0 tests failed
 ```
 
@@ -72,6 +72,8 @@ Latest result:
 - `zh-TW` phrase-initial Zhuyin shortcuts such as `ㄅㄧ` surface useful phrases such as `不要`
 - sparse Zhuyin buffers such as `ㄧㄡ` provide relevant exact suggestions such as `有`, `又`, and `有沒有`
 - typed Zhuyin buffers such as `ㄇㄟ` avoid unrelated prefix/global filler such as `慢`, `門`, `媽媽`, `要`, and `不要`
+- valid Zhuyin continuation suggestions include common paths such as `ㄨ` -> `ㄟ`, and `ㄨㄟ` surfaces exact glyphs such as `未` and `味`
+- redundant yes/no question phrases such as `是不是` and `要不要` are suppressed from dynamic suggestions
 - `zh-TW` Zhuyin voice feedback uses Mandarin-readable names such as `玻` and `烏` instead of raw Bopomofo symbols
 - `zh-TW` static Zhuyin symbols all have exact dictionary-backed suggestions
 - every full `zh-TW` dictionary key is discoverable through suggestion pages
@@ -103,6 +105,7 @@ Latest result:
 - uses `UNDO` to repair `WATER`, then selects `FOOD`
 - uses `CLR`
 - types `movi`, completes it to `movie `, then uses `DEL`
+- verifies optional suggestion-review hold pauses scanning after a suggestion-changing input and resumes on the next activation
 - verifies a Pixel 4a 5G-sized viewport fits without scrolling
 - seeds an old stored `zh-TW` layout and verifies it migrates to direct Zhuyin symbols
 - verifies reset restores the packaged `zh-TW` defaults and persists direct Zhuyin symbols instead of stale user layout text

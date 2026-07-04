@@ -30,7 +30,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 13;
+export const CurrentConfigVersion = 14;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
@@ -369,6 +369,7 @@ const ZhTwCoreResponseTiles = Object.freeze([
   tile("要"),
   tile("不要")
 ]);
+const ZhTwSuppressedSuggestionLabels = new Set(["是不是", "要不要"]);
 
 export const ZhuyinInitialGroups = Object.freeze([
   Object.freeze({ id: "labial", label: "ㄅㄆㄇㄈ", symbols: Object.freeze(["ㄅ", "ㄆ", "ㄇ", "ㄈ"]) }),
@@ -394,6 +395,11 @@ export const ZhuyinInputSymbols = Object.freeze([
 ]);
 
 const ZhuyinInputSymbolSet = new Set(ZhuyinInputSymbols);
+const ZhuyinContinuationSymbols = Object.freeze({
+  "ㄧ": Object.freeze(["ㄚ", "ㄝ", "ㄠ", "ㄡ", "ㄢ", "ㄣ", "ㄤ", "ㄥ"]),
+  "ㄨ": Object.freeze(["ㄚ", "ㄛ", "ㄞ", "ㄟ", "ㄢ", "ㄣ", "ㄤ", "ㄥ"]),
+  "ㄩ": Object.freeze(["ㄝ", "ㄢ", "ㄣ"])
+});
 
 export const ZhuyinLookupDictionary = Object.freeze([
   zhuyinEntry("我", "我", "ㄨㄛ"),
@@ -597,6 +603,22 @@ export const ZhuyinLookupDictionary = Object.freeze([
   zhuyinEntry("問", "問", "ㄨㄣ"),
   zhuyinEntry("溫度", "溫度", "ㄨㄣㄉㄨ"),
   zhuyinEntry("無法", "無法", "ㄨㄈㄚ"),
+  zhuyinEntry("未", "未", "ㄨㄟ"),
+  zhuyinEntry("味", "味", "ㄨㄟ"),
+  zhuyinEntry("位", "位", "ㄨㄟ"),
+  zhuyinEntry("為", "為", "ㄨㄟ"),
+  zhuyinEntry("胃", "胃", "ㄨㄟ"),
+  zhuyinEntry("餵", "餵", "ㄨㄟ"),
+  zhuyinEntry("衛", "衛", "ㄨㄟ"),
+  zhuyinEntry("微", "微", "ㄨㄟ"),
+  zhuyinEntry("危", "危", "ㄨㄟ"),
+  zhuyinEntry("委", "委", "ㄨㄟ"),
+  zhuyinEntry("尾", "尾", "ㄨㄟ"),
+  zhuyinEntry("維", "維", "ㄨㄟ"),
+  zhuyinEntry("圍", "圍", "ㄨㄟ"),
+  zhuyinEntry("威", "威", "ㄨㄟ"),
+  zhuyinEntry("偉", "偉", "ㄨㄟ"),
+  zhuyinEntry("違", "違", "ㄨㄟ"),
   zhuyinEntry("暈", "暈", "ㄩㄣ"),
   zhuyinEntry("遠", "遠", "ㄩㄢ"),
   zhuyinEntry("浴室", "浴室", "ㄩㄕ"),
@@ -949,7 +971,7 @@ function shouldMigrateBuiltInZhTwDictionary(dictionary, storedVersion) {
 
   const previousSeedSignals = ["沒有", "媽媽", "慢", "門", "有沒有", "有需要"]
     .filter((label) => labels.has(label)).length;
-  return previousSeedSignals >= 4 && !labels.has("沒") && !labels.has("每") && !labels.has("由");
+  return previousSeedSignals >= 4 && (!labels.has("沒") || !labels.has("每") || !labels.has("由") || !labels.has("未"));
 }
 
 export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
@@ -1082,7 +1104,8 @@ function zhTwSuggestionTiles(message, targetCount = DefaultColumns * ZhTwSuggest
     : ZhTwFrequencyDictionary
       .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
 
-  return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`);
+  return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`)
+    .filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label));
 }
 
 function zhTwBufferedSuggestionTiles(buffer, targetCount) {
@@ -1113,11 +1136,14 @@ function zhTwCandidateForBuffer(entry, buffer) {
 
 function zhTwNextSymbolTiles(buffer) {
   return distinctBy(
-    ZhTwFrequencyDictionary
+    [
+      ...(ZhuyinContinuationSymbols[buffer] ?? []),
+      ...ZhTwFrequencyDictionary
       .flatMap((entry) => entryKeys(entry))
       .filter((key) => key.startsWith(buffer) && key.length > buffer.length)
       .map((key) => key.at(buffer.length))
-      .filter((symbol) => ZhuyinInputSymbolSet.has(symbol)),
+      .filter((symbol) => ZhuyinInputSymbolSet.has(symbol))
+    ],
     (symbol) => symbol
   )
     .sort((left, right) => zhuyinFollowingSymbolRank(left) - zhuyinFollowingSymbolRank(right))

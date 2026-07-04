@@ -35,7 +35,8 @@ const defaultUiConfig = Object.freeze({
   scanVoice: true,
   activationVoice: true,
   restartScanFromTop: true,
-  hardwareButtons: true
+  hardwareButtons: true,
+  holdAfterSuggestionChange: false
 });
 
 let session = createSession({ config: loadConfig() });
@@ -45,6 +46,7 @@ let timerId = 0;
 let animationFrameId = 0;
 let configOpen = false;
 let lastScanAnnouncementKey = "";
+let reviewHoldActive = false;
 
 globalThis.ShineAacInput = {
   receive: handleInputEvent
@@ -186,6 +188,7 @@ function resetClock() {
 
 function setSession(nextSession) {
   session = nextSession;
+  reviewHoldActive = false;
   resetClock();
   render();
   scheduleScan();
@@ -209,12 +212,21 @@ function isHardwareInput(source = "") {
 
 function activateSwitch() {
   if (configOpen) return;
+  if (reviewHoldActive) {
+    reviewHoldActive = false;
+    resetClock();
+    render();
+    scheduleScan();
+    announceCurrentScanTarget();
+    return;
+  }
   const elapsed = performance.now() - highlightStartedAt;
   const nextSession = pressSwitch(session, elapsed);
   const selection = nextSession.lastSelection;
   session = uiConfig.restartScanFromTop && selection
     ? { ...nextSession, scannerState: { ...nextSession.scannerState, rowIndex: 0 } }
     : nextSession;
+  reviewHoldActive = shouldHoldForSuggestionReview(selection);
   resetClock();
   render();
   scheduleScan();
@@ -237,6 +249,10 @@ function scheduleScan() {
   window.clearTimeout(timerId);
   window.cancelAnimationFrame(animationFrameId);
   if (configOpen) return;
+  if (reviewHoldActive) {
+    updateProgress();
+    return;
+  }
 
   const duration = scanDurationForStage(session.scannerState, session.config);
   timerId = window.setTimeout(advanceScan, duration);
@@ -246,10 +262,17 @@ function scheduleScan() {
 function updateProgress() {
   const duration = scanDurationForStage(session.scannerState, session.config);
   const elapsed = Math.max(0, performance.now() - highlightStartedAt);
-  const progress = Math.min(1, elapsed / Math.max(1, duration));
+  const progress = reviewHoldActive ? 1 : Math.min(1, elapsed / Math.max(1, duration));
   const progressFill = app.querySelector(".tile.is-current .progress-fill");
   if (progressFill) progressFill.style.width = `${progress * 100}%`;
+  if (reviewHoldActive) return;
   animationFrameId = window.requestAnimationFrame(updateProgress);
+}
+
+function shouldHoldForSuggestionReview(selection) {
+  return uiConfig.holdAfterSuggestionChange &&
+    selection &&
+    ["message", "undo", "suggestion-page"].includes(selection.effect);
 }
 
 function speak(text) {
@@ -338,7 +361,7 @@ function render() {
 
   const phase = document.createElement("div");
   phase.className = "phase";
-  phase.textContent = phaseLabel(scanner.stage);
+  phase.textContent = reviewHoldActive ? "Review" : phaseLabel(scanner.stage);
 
   const voice = document.createElement("div");
   voice.className = "voice";
@@ -376,7 +399,8 @@ function render() {
         scanner.cellIndex === cellIndex;
 
       const tile = document.createElement("div");
-      tile.className = tileClass(candidate, activeRow, activeCell);
+      const reviewHold = reviewHoldActive && (activeRow || activeCell);
+      tile.className = tileClass(candidate, activeRow, activeCell, reviewHold);
       tile.setAttribute("data-label", candidate.label);
       tile.setAttribute("data-action", candidate.action);
       tile.setAttribute("role", "button");
@@ -416,7 +440,7 @@ function emitRenderState(board) {
   }
 }
 
-function tileClass(candidate, activeRow, activeCell) {
+function tileClass(candidate, activeRow, activeCell, reviewHold = false) {
   const classes = ["tile"];
   classes.push(`action-${candidate.action}`);
   if (candidate.action !== TileAction.Append) classes.push("command");
@@ -424,6 +448,7 @@ function tileClass(candidate, activeRow, activeCell) {
   if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");
+  if (reviewHold) classes.push("review-hold");
   if (candidate.label.length >= 6) classes.push("tiny");
   else if (candidate.label.length >= 4) classes.push("small");
   return classes.join(" ");
@@ -460,6 +485,7 @@ function phaseLabel(stage) {
 
 function openConfig() {
   configOpen = true;
+  reviewHoldActive = false;
   window.clearTimeout(timerId);
   window.cancelAnimationFrame(animationFrameId);
   renderConfig();
@@ -467,6 +493,7 @@ function openConfig() {
 
 function closeConfig() {
   configOpen = false;
+  reviewHoldActive = false;
   render();
   resetClock();
   scheduleScan();
@@ -524,6 +551,10 @@ function renderConfig() {
       <label class="field check-field">
         <input name="hardwareButtons" type="checkbox" ${uiConfig.hardwareButtons ? "checked" : ""}>
         Phone/external buttons activate switch
+      </label>
+      <label class="field check-field">
+        <input name="holdAfterSuggestionChange" type="checkbox" ${uiConfig.holdAfterSuggestionChange ? "checked" : ""}>
+        Hold after suggestion changes
       </label>
       <label class="field wide">Suggestion dictionary
         <textarea name="suggestionDictionary">${escapeHtml(serializeDictionary(session.config.suggestionDictionary))}</textarea>
@@ -583,7 +614,8 @@ function renderConfig() {
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
       restartScanFromTop: data.get("restartScanFromTop") === "on",
-      hardwareButtons: data.get("hardwareButtons") === "on"
+      hardwareButtons: data.get("hardwareButtons") === "on",
+      holdAfterSuggestionChange: data.get("holdAfterSuggestionChange") === "on"
     };
     saveUiConfig(uiConfig);
     session = createSession({ config });
