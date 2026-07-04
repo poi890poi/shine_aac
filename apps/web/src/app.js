@@ -8,6 +8,9 @@ import {
   createSession,
   loadProfileSuggestionDictionaryForConfig,
   loadProfileSymbolsForConfig,
+  loadScanIntervalForConfig,
+  loadTransitionPauseForConfig,
+  loadFirstCellPauseForConfig,
   parseDictionary,
   parseSymbols,
   pressSwitch,
@@ -60,11 +63,20 @@ function loadConfig() {
     return createBoardConfig({
       profileId: stored.profileId,
       columns: numberOrDefault(stored.columns, defaults.columns),
-      scanIntervalMs: numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
+      scanIntervalMs: loadScanIntervalForConfig(
+        numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
+        storedVersion
+      ),
       transitionPauseMs: storedVersion >= 2
-        ? numberOrDefault(stored.transitionPauseMs, defaults.transitionPauseMs)
+        ? loadTransitionPauseForConfig(
+          numberOrDefault(stored.transitionPauseMs, defaults.transitionPauseMs),
+          storedVersion
+        )
         : defaults.transitionPauseMs,
-      firstCellPauseMs: numberOrDefault(stored.firstCellPauseMs, defaults.firstCellPauseMs),
+      firstCellPauseMs: loadFirstCellPauseForConfig(
+        numberOrDefault(stored.firstCellPauseMs, defaults.firstCellPauseMs),
+        storedVersion
+      ),
       inputLatencyCompensationMs: numberOrDefault(
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
@@ -127,12 +139,22 @@ function loadNativeConfig(defaults) {
     const raw = globalThis.ShineAacAndroid.getInitialConfigJson();
     if (!raw) return null;
     const stored = JSON.parse(raw);
+    const storedVersion = Number(stored.configVersion) || 0;
     return createBoardConfig({
       profileId: stored.profileId,
       columns: numberOrDefault(stored.columns, defaults.columns),
-      scanIntervalMs: numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
-      transitionPauseMs: numberOrDefault(stored.transitionPauseMs, defaults.transitionPauseMs),
-      firstCellPauseMs: numberOrDefault(stored.firstCellPauseMs, defaults.firstCellPauseMs),
+      scanIntervalMs: loadScanIntervalForConfig(
+        numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
+        storedVersion
+      ),
+      transitionPauseMs: loadTransitionPauseForConfig(
+        numberOrDefault(stored.transitionPauseMs, defaults.transitionPauseMs),
+        storedVersion
+      ),
+      firstCellPauseMs: loadFirstCellPauseForConfig(
+        numberOrDefault(stored.firstCellPauseMs, defaults.firstCellPauseMs),
+        storedVersion
+      ),
       inputLatencyCompensationMs: numberOrDefault(
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs

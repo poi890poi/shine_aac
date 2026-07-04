@@ -232,13 +232,23 @@ class BoardConfigTest {
     }
 
     @Test
-    fun legacyDefaultFirstCellHoldMigratesToNormalScanSpeed() {
+    fun legacyDefaultFirstCellHoldMigratesToSlowerFirstCellHold() {
         val pause = loadFirstCellPauseForConfig(
             storedPauseMs = LegacyFirstCellPauseMsV6,
             storedVersion = 6
         )
 
-        assertEquals(DefaultScanIntervalMs, pause)
+        assertEquals(DefaultFirstCellPauseMs, pause)
+    }
+
+    @Test
+    fun oldDefaultFirstCellHoldMigratesToSlowerFirstCellHold() {
+        val pause = loadFirstCellPauseForConfig(
+            storedPauseMs = 900f,
+            storedVersion = 10
+        )
+
+        assertEquals(DefaultFirstCellPauseMs, pause)
     }
 
     @Test

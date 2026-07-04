@@ -1,6 +1,6 @@
 # SHINE AAC APK Report
 
-Generated: 2026-07-03
+Generated: 2026-07-04
 
 ## Download
 
@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8744726 bytes
+8768585 bytes
 ```
 
 ## What This APK Is
@@ -64,7 +64,8 @@ Emulator smoke check:
 - logcat no longer shows the previous `file:///android_asset` ES module CORS error
 - latest screenshot saved at `e2e-artifacts/shine-audio-spacing-fit.png`
 - hardware-button E2E entered `I want water ` through packaged APK key events
-- hardware-button E2E verified packaged `zh-TW` dictionary-backed Zhuyin symbols `ㄅ`, `ㄧ`, `ㄩ`, and `MORE`
+- hardware-button E2E verified packaged `zh-TW` dictionary-backed Zhuyin symbols `ㄅ`, `ㄧ`, `ㄩ`, and `更多`
+- web E2E verified localized `zh-TW` function labels including `復原` and `更多`
 - hardware-button E2E final screenshot saved at `e2e-artifacts/hardware-button-final.png`
 
 Browser E2E also includes a Pixel 4a 5G-sized layout check:
@@ -78,7 +79,7 @@ Public download check:
 
 ```text
 HTTP 200
-Local shared APK size: 8744726 bytes
+Local shared APK size: 8768585 bytes
 ```
 
 ## Notes

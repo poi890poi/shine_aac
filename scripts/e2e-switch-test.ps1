@@ -89,7 +89,7 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="10" />
+    <int name="configVersion" value="11" />
     <boolean name="e2eEnabled" value="true" />
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="false" />
@@ -112,7 +112,7 @@ function Write-ZhTwTestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="10" />
+    <int name="configVersion" value="11" />
     <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="scanVoice" value="false" />
@@ -275,7 +275,8 @@ Invoke-AdbQuiet shell am start -W -n com.example.shineaac/.MainActivity
 $zhuyinBo = -join ([char]0x3105)
 $zhuyinYi = -join ([char]0x3127)
 $zhuyinYu = -join ([char]0x3129)
-Wait-RenderState "zh-TW direct Zhuyin board and MORE" @($zhuyinBo, $zhuyinYi, $zhuyinYu, "MORE")
+$zhTwMore = -join ([char]0x66F4, [char]0x591A)
+Wait-RenderState "zh-TW direct Zhuyin board and 更多" @($zhuyinBo, $zhuyinYi, $zhuyinYu, $zhTwMore)
 
 Write-Host ""
 Write-Host "E2E PASS: Android hardware-button input entered 'I want water ' and zh-TW direct Zhuyin render state was verified." -ForegroundColor Green

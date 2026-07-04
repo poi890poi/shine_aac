@@ -154,11 +154,12 @@ class MainActivity : ComponentActivity() {
             if (!prefs.getBoolean("e2eEnabled", false)) return ""
 
             return JSONObject()
+                .put("configVersion", prefs.getInt("configVersion", CurrentConfigVersion))
                 .put("columns", prefs.getInt("columns", 4))
                 .put("profileId", prefs.getString("profileId", "en-US"))
-                .put("scanIntervalMs", prefs.getFloat("scanIntervalMs", 900f).toDouble())
-                .put("transitionPauseMs", prefs.getFloat("transitionPauseMs", 0f).toDouble())
-                .put("firstCellPauseMs", prefs.getFloat("firstCellPauseMs", 900f).toDouble())
+                .put("scanIntervalMs", prefs.getFloat("scanIntervalMs", DefaultScanIntervalMs).toDouble())
+                .put("transitionPauseMs", prefs.getFloat("transitionPauseMs", DefaultTransitionPauseMs).toDouble())
+                .put("firstCellPauseMs", prefs.getFloat("firstCellPauseMs", DefaultFirstCellPauseMs).toDouble())
                 .put("inputLatencyCompensationMs", prefs.getFloat("inputLatencyCompensationMs", 250f).toDouble())
                 .toString()
         }

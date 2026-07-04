@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CurrentConfigVersion,
+  DefaultFirstCellPauseMs,
   DefaultScanIntervalMs,
   DefaultSuggestionDictionary,
   DefaultTiles,
+  DefaultTransitionPauseMs,
   LanguageProfiles,
   LegacyAlphabetDefaultTiles,
   LegacyFirstCellPauseMsV6,
@@ -20,8 +22,10 @@ import {
   loadFirstCellPauseForConfig,
   loadProfileSuggestionDictionaryForConfig,
   loadProfileSymbolsForConfig,
+  loadScanIntervalForConfig,
   loadSuggestionDictionaryForConfig,
   loadSymbolsForConfig,
+  loadTransitionPauseForConfig,
   parseSymbols,
   serializeDictionary,
   serializeSymbols,
@@ -225,7 +229,7 @@ test("old built-in zh-TW board migrates to direct static Zhuyin symbols", () => 
   assert.equal(labels.includes("ㄅ"), true);
   assert.equal(labels.includes("ㄧ"), true);
   assert.equal(labels.includes("ㄩ"), true);
-  assert.equal(labels.includes("MORE"), true);
+  assert.equal(labels.includes("更多"), true);
   assert.equal(labels.includes("ㄡ"), false);
   assert.equal(labels.includes("注音"), false);
   assert.equal(labels.includes("喝水"), false);
@@ -254,8 +258,22 @@ test("old built-in zh-TW dictionary migrates to short AAC labels", () => {
   assert.equal(labels.includes("我要喝水"), false);
 });
 
-test("first-cell hold migration preserves custom values", () => {
-  assert.equal(loadFirstCellPauseForConfig(LegacyFirstCellPauseMsV6, 6), DefaultScanIntervalMs);
+test("default scanning timing favors slower low-fatigue access", () => {
+  const config = createBoardConfig();
+
+  assert.equal(config.scanIntervalMs, 1300);
+  assert.equal(config.transitionPauseMs, 450);
+  assert.equal(config.firstCellPauseMs, 1700);
+  assert.equal(config.firstCellPauseMs > config.scanIntervalMs, true);
+});
+
+test("legacy default scan timing migrates while custom values are preserved", () => {
+  assert.equal(loadScanIntervalForConfig(900, 10), DefaultScanIntervalMs);
+  assert.equal(loadTransitionPauseForConfig(0, 10), DefaultTransitionPauseMs);
+  assert.equal(loadFirstCellPauseForConfig(900, 10), DefaultFirstCellPauseMs);
+  assert.equal(loadFirstCellPauseForConfig(LegacyFirstCellPauseMsV6, 6), DefaultFirstCellPauseMs);
+  assert.equal(loadScanIntervalForConfig(1800, 10), 1800);
+  assert.equal(loadTransitionPauseForConfig(850, 10), 850);
   assert.equal(loadFirstCellPauseForConfig(1800, 6), 1800);
 });
 
@@ -276,7 +294,7 @@ test("zh-TW profile uses an independent direct Zhuyin board", () => {
   assert.equal(labels.includes("ㄅ"), true);
   assert.equal(labels.includes("ㄧ"), true);
   assert.equal(labels.includes("ㄩ"), true);
-  assert.equal(labels.includes("MORE"), true);
+  assert.equal(labels.includes("更多"), true);
   assert.equal(labels.includes("ㄦ"), false);
   assert.equal(labels.includes("注音"), false);
 });
@@ -302,6 +320,30 @@ test("zh-TW suggestions use three rows without a space tile", () => {
   assert.equal(phraseRows.flat().some((candidate) => candidate.label === "喝水"), true);
 });
 
+test("zh-TW function labels are localized in runtime rows and persisted defaults", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rowsWithUndo = boardRows(config, "ㄅ", true).slice(0, 3).flat();
+
+  assert.equal(rowsWithUndo.some((candidate) => candidate.label === "\u5fa9\u539f" && candidate.action === TileAction.Undo), true);
+  assert.equal(rowsWithUndo.some((candidate) => candidate.label === "UNDO"), false);
+
+  const serializedSymbols = serializeSymbols(config.symbols);
+  assert.equal(serializedSymbols.includes("\u66f4\u591a=<more>"), true);
+  assert.equal(serializedSymbols.includes("MORE=<more>"), false);
+});
+
+test("zh-TW MVP board with English MORE migrates to localized function label", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const oldMvpSymbols = config.symbols.map((candidate) =>
+    candidate.action === TileAction.MoreSuggestions ? { ...candidate, label: "MORE" } : candidate
+  );
+  const migrated = loadProfileSymbolsForConfig(serializeSymbols(oldMvpSymbols), 10, "zh-TW");
+  const labels = migrated.map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("\u66f4\u591a"), true);
+  assert.equal(labels.includes("MORE"), false);
+});
+
 test("zh-TW default board keeps direct Zhuyin symbols available without old pages", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const labels = boardRows(config).flat().map((candidate) => candidate.label);
@@ -309,7 +351,7 @@ test("zh-TW default board keeps direct Zhuyin symbols available without old page
   assert.equal(labels.includes("ㄅ"), true);
   assert.equal(labels.includes("ㄧ"), true);
   assert.equal(labels.includes("ㄩ"), true);
-  assert.equal(labels.includes("MORE"), true);
+  assert.equal(labels.includes("更多"), true);
   assert.equal(labels.includes("ㄡ"), false);
   assert.equal(labels.includes("ㄅㄆㄇㄈ"), false);
   assert.equal(labels.includes("注音"), false);
@@ -400,10 +442,10 @@ test("zh-TW Zhuyin voice feedback uses Mandarin-readable names instead of raw sy
   assert.equal(speechLabelForTile({ label: "ㄅㄆㄇㄈ", output: "labial", action: TileAction.ZhuyinGroup }, "zh-TW"), "玻 坡 摸 佛");
 });
 
-test("zh-TW MORE pages only turn suggestion rows", () => {
+test("zh-TW 更多 pages only turn suggestion rows", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const firstPage = boardRows(config, "", false, {});
-  const more = findActionTile(firstPage, "MORE", TileAction.MoreSuggestions);
+  const more = findActionTile(firstPage, "更多", TileAction.MoreSuggestions);
   const result = applyTile("", [], more, config, { suggestionPage: 0 });
   const secondPage = boardRows(config, "", false, result);
 
@@ -418,7 +460,7 @@ test("zh-TW MORE pages only turn suggestion rows", () => {
   );
 });
 
-test("zh-TW MORE preserves phonetic-buffer context instead of resetting to defaults", () => {
+test("zh-TW 更多 preserves phonetic-buffer context instead of resetting to defaults", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const messages = ["ㄅ", "ㄅㄧ", "ㄧ", "ㄧㄡ", "ㄕ"];
 
@@ -436,7 +478,7 @@ test("zh-TW MORE preserves phonetic-buffer context instead of resetting to defau
     assert.equal(suggestions.some((candidate) => candidate.action === TileAction.CommitCandidate && candidate.matchType === "base"), false);
     for (const candidate of suggestions.filter((candidate) => candidate.action === TileAction.CommitCandidate)) {
       assert.equal(candidate.replaceLength, message.length, `${candidate.label} should replace ${message}, not reset to defaults`);
-      assert.notEqual(candidate.matchType, "base", `${message} MORE should not show base candidate ${candidate.label}`);
+      assert.notEqual(candidate.matchType, "base", `${message} 更多 should not show base candidate ${candidate.label}`);
     }
   }
 });

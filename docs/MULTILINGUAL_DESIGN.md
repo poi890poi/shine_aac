@@ -124,7 +124,7 @@ Recommended first Taiwan Mandarin profile:
 - Board strategy:
   - static board exposes dictionary-backed starting Zhuyin/Bopomofo symbols and a few essential controls
   - Chinese glyphs and phrases are selected from suggestion rows, not hidden pages
-  - `MORE` pages the suggestion rows only
+  - `更多` pages the suggestion rows only
 - Suggestions:
   - 4 columns by 3 rows for `zh-TW` candidates
   - candidates come from the `zh-TW` frequency dictionary and include Zhuyin readings
@@ -132,6 +132,31 @@ Recommended first Taiwan Mandarin profile:
   - candidate tiles may replace the typed Zhuyin suffix before inserting the glyph or phrase
 
 The default `zh-TW` board should be intentionally minimalist, but it still needs a learnable route to words that are not visible on the first page. AAC output does not need to be perfectly grammatical or lexically exact to be successful. A user may choose an approximate word, a body-position word, or a nearby need word to communicate intent. The design should optimize for fast, high-information selections and predictable recovery from missing vocabulary.
+
+### Dictionary Source Direction
+
+The `zh-TW` dictionary should be expanded by importing better sources, not by hand-promoting or hand-removing individual phrases for specific Zhuyin keys. Per-symbol tuning is too likely to overfit the developer's examples and create new sparse or irrelevant pages elsewhere.
+
+Preferred source direction:
+
+- Use Taiwan Ministry of Education Mandarin dictionary data as the Taiwan-localized source for Traditional Chinese entries and pronunciations where licensing permits: https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/index.html
+- Use a separate frequency/ranking source to trim suggestions to bounded AAC rows. Dictionary membership and AAC ranking should remain separate decisions.
+- Treat CC-CEDICT as a broad fallback source only after license and attribution requirements are satisfied; it is useful and downloadable, but it is not Taiwan-specific and uses Pinyin rather than Zhuyin: https://cc-cedict.org/wiki/
+- Generate Zhuyin keys mechanically from source pronunciations, then run systematic coverage tests over all imported keys instead of spot-testing examples.
+
+### Scanning Timing
+
+Default scanning should be conservative for disability access. ASHA describes AAC systems as combinations of symbols, selection techniques, and strategies that must fit an individual's physical, visual, cognitive, language, and communication needs. In row/column switch scanning, speed is not just a preference: it affects fatigue, timing errors, and whether the first cell in a selected row feels reachable.
+
+Default timing:
+
+```text
+scan interval: 1300 ms
+row-selected transition pause: 450 ms
+first-cell hold: 1700 ms
+```
+
+Helpers can still customize faster timing for a specific user. The default should favor lower effort, lower timing precision, and stamina over maximum throughput.
 
 ### Current Simple Version
 
@@ -155,9 +180,8 @@ Static rows expose visible input symbols and controls. They should not expose st
 ㄉ / ㄊ / ㄋ / ㄌ
 ...
 ㄗ / ㄘ / ㄙ / ㄧ
-ㄨ / ㄩ / MORE / 說
+ㄨ / ㄩ / 更多 / 說
 刪 / 清除
-清除
 ```
 
 Suggestion rows show ranked glyphs and phrases:
@@ -167,7 +191,7 @@ input: ㄅ
 suggestions: 不要 / 幫忙 / ㄧ / ㄨ / ㄚ / ...
 
 input: ㄅㄧ
-suggestions: 不要 / 不要動 / ... / MORE
+suggestions: 不要 / 不要動 / ... / 更多
 select 不要 -> delete ㄅㄧ invisibly, then insert 不要
 message: 不要
 ```
@@ -178,18 +202,18 @@ Labels should be short words or compact phrases, not full polite sentences. For 
 
 Punctuation such as `。` is deliberately omitted from the default board because it consumes scan time without adding much communicative value.
 
-### Suggestion Rows And MORE
+### Suggestion Rows And More
 
 The `zh-TW` board uses suggestion rows as the expansion area. It does not open category pages or a separate `注音` mode.
 
 ```text
 row 1: ranked candidates
 row 2: ranked candidates
-row 3: ranked candidates, with MORE in the last cell when another page exists
+row 3: ranked candidates, with 更多 in the last cell when another page exists
 static board rows: unchanged Zhuyin symbols and controls
 ```
 
-`MORE` advances only the suggestion rows. It must not change the message, scanner mechanics, static board, or input mode. Page count is capped so scanning remains bounded.
+`更多` advances only the suggestion rows. It must not change the message, scanner mechanics, static board, or input mode. Page count is capped so scanning remains bounded.
 
 Candidate commit rule:
 
@@ -238,7 +262,7 @@ The display should favor:
 ```text
 matching candidates first
 then broader useful backfill candidates
-then MORE when the capped next page is useful
+then 更多 when the capped next page is useful
 ```
 
 For example, `ㄧㄡ` should not show only `右`; it should keep `右` near the front while also offering useful targets such as `有`, `又`, `有沒有`, and broader high-value choices. Likewise, phrase-initial shortcuts such as `ㄅㄧ` should surface `不要` without requiring the user to fully spell `ㄅㄨㄧㄠ`.
@@ -285,7 +309,7 @@ Move from one global `symbols` text area toward profile files:
   "id": "zh-TW",
   "displayName": "Taiwan Mandarin",
   "columns": 4,
-  "scanIntervalMs": 900,
+  "scanIntervalMs": 1300,
   "autoSpace": "none",
   "speechLocale": "zh-TW",
   "symbols": [],
@@ -311,8 +335,8 @@ export const zhTwProfile = {
   displayName: "Taiwan Mandarin",
   writingSystem: "traditional-chinese",
   columns: 4,
-  scanIntervalMs: 900,
-  firstCellPauseMs: 900,
+  scanIntervalMs: 1300,
+  firstCellPauseMs: 1700,
   autoSpace: "none",
   speechLocale: "zh-TW",
   composeMessage,

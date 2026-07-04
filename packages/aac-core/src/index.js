@@ -25,12 +25,15 @@ export const TileAction = Object.freeze({
 });
 
 export const DefaultColumns = 4;
-export const DefaultScanIntervalMs = 900;
-export const DefaultTransitionPauseMs = 0;
-export const DefaultFirstCellPauseMs = 900;
+export const DefaultScanIntervalMs = 1300;
+export const DefaultTransitionPauseMs = 450;
+export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 10;
+export const CurrentConfigVersion = 11;
+const PreviousDefaultScanIntervalMs = 900;
+const PreviousDefaultTransitionPauseMs = 0;
+const PreviousDefaultFirstCellPauseMs = 900;
 export const DefaultProfileId = "en-US";
 export const AutoSpaceMode = Object.freeze({
   Word: "word",
@@ -327,6 +330,8 @@ export const SuggestionFallbackLetters = Object.freeze(
 export const SpaceSuggestionTile = Object.freeze(tile("SPC", " ", TileAction.Space));
 export const UndoSuggestionTile = Object.freeze(tile("UNDO", "UNDO", TileAction.Undo));
 export const MoreSuggestionsTile = Object.freeze(tile("MORE", "MORE", TileAction.MoreSuggestions));
+const zhTwUndoSuggestionTile = Object.freeze(tile("復原", "UNDO", TileAction.Undo));
+const zhTwMoreSuggestionsTile = Object.freeze(tile("更多", "MORE", TileAction.MoreSuggestions));
 
 const boardModeTile = (label = "返回") => tile(label, "board", TileAction.ExitMode);
 const zhuyinModeTile = (label = "注音") => tile(label, "zhuyin", TileAction.EnterMode);
@@ -678,7 +683,7 @@ export const ZhTwPhraseCategories = Object.freeze({
 export const ZhTwTiles = Object.freeze([
   ...ZhTwCoreResponseTiles,
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
-  MoreSuggestionsTile,
+  zhTwMoreSuggestionsTile,
   tile("說", "SAY", TileAction.Speak),
   tile("刪", "DEL", TileAction.Backspace),
   tile("清除", "CLR", TileAction.Clear)
@@ -826,7 +831,7 @@ export function serializeSymbols(symbols) {
         case TileAction.CommitCandidate:
           return candidate.output === candidate.label ? candidate.label : `${candidate.label}=${candidate.output}`;
         case TileAction.MoreSuggestions:
-          return "MORE=<more>";
+          return `${candidate.label || "MORE"}=<more>`;
         case TileAction.Noop:
           return null;
         default:
@@ -888,11 +893,12 @@ function migrateSuggestionDictionaryForConfig(parsedDictionary, storedVersion, p
 function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
   if (storedVersion >= CurrentConfigVersion) return false;
   const labels = new Set(symbols.map((candidate) => candidate.label));
-  const hasCurrentDirectBoard = ZhuyinStaticInputSymbols.every((symbol) => labels.has(symbol)) &&
-    labels.has("MORE") &&
+  const hasDirectZhuyinBoard = ZhuyinStaticInputSymbols.every((symbol) => labels.has(symbol)) &&
     !labels.has("注音") &&
     !labels.has("ㄅㄆㄇㄈ");
+  const hasCurrentDirectBoard = hasDirectZhuyinBoard && labels.has("\u66f4\u591a");
   if (hasCurrentDirectBoard) return false;
+  if (hasDirectZhuyinBoard && labels.has("MORE")) return true;
 
   const oldDefaultSignals = [
     "我", "你", "喝水", "吃飯", "廁所", "休息", "睡覺", "護理師", "醫生", "藥", "謝謝", "。"
@@ -911,8 +917,25 @@ function shouldMigrateBuiltInZhTwDictionary(dictionary, storedVersion) {
 }
 
 export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
-  if (storedVersion < CurrentConfigVersion && storedPauseMs === LegacyFirstCellPauseMsV6) {
+  if (
+    storedVersion < CurrentConfigVersion &&
+    (storedPauseMs === LegacyFirstCellPauseMsV6 || storedPauseMs === PreviousDefaultFirstCellPauseMs)
+  ) {
     return DefaultFirstCellPauseMs;
+  }
+  return storedPauseMs;
+}
+
+export function loadScanIntervalForConfig(storedScanMs, storedVersion) {
+  if (storedVersion < CurrentConfigVersion && storedScanMs === PreviousDefaultScanIntervalMs) {
+    return DefaultScanIntervalMs;
+  }
+  return storedScanMs;
+}
+
+export function loadTransitionPauseForConfig(storedPauseMs, storedVersion) {
+  if (storedVersion < CurrentConfigVersion && storedPauseMs === PreviousDefaultTransitionPauseMs) {
+    return DefaultTransitionPauseMs;
   }
   return storedPauseMs;
 }
@@ -1002,7 +1025,7 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const allSuggestions = zhTwSuggestionTiles(message);
-  const commandSuggestions = canUndo ? [UndoSuggestionTile] : [];
+  const commandSuggestions = canUndo ? [zhTwUndoSuggestionTile] : [];
   const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
@@ -1010,7 +1033,7 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   const usablePageSize = needsMore ? pageSize - 1 : pageSize;
   const pageSuggestions = totalSuggestions.slice(page * usablePageSize, page * usablePageSize + usablePageSize);
   const visibleSuggestions = needsMore
-    ? [...pageSuggestions, MoreSuggestionsTile]
+    ? [...pageSuggestions, zhTwMoreSuggestionsTile]
     : pageSuggestions;
 
   return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);

@@ -34,12 +34,13 @@ data class CommunicationTile(
 )
 
 const val DefaultColumns = 4
-const val DefaultScanIntervalMs = 900f
-const val DefaultTransitionPauseMs = 850f
-const val DefaultFirstCellPauseMs = 900f
+const val DefaultScanIntervalMs = 1300f
+const val DefaultTransitionPauseMs = 450f
+const val DefaultFirstCellPauseMs = 1700f
 const val LegacyFirstCellPauseMsV6 = 1400f
+private const val PreviousDefaultFirstCellPauseMs = 900f
 const val DefaultInputLatencyCompensationMs = 250f
-const val CurrentConfigVersion = 7
+const val CurrentConfigVersion = 11
 
 val LegacySuggestionDictionaryV6 = listOf(
     CommunicationTile("I", "I"),
@@ -273,7 +274,10 @@ fun loadSuggestionDictionaryForConfig(storedDictionary: String?, storedVersion: 
 }
 
 fun loadFirstCellPauseForConfig(storedPauseMs: Float, storedVersion: Int): Float {
-    return if (storedVersion < CurrentConfigVersion && storedPauseMs == LegacyFirstCellPauseMsV6) {
+    return if (
+        storedVersion < CurrentConfigVersion &&
+        (storedPauseMs == LegacyFirstCellPauseMsV6 || storedPauseMs == PreviousDefaultFirstCellPauseMs)
+    ) {
         DefaultFirstCellPauseMs
     } else {
         storedPauseMs

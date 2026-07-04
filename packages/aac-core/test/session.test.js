@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ScanStage,
   advanceSession,
+  createBoardConfig,
   createSession,
   pressSwitch,
   visibleBoard
@@ -43,6 +44,10 @@ test("complete phrase can be entered through one-switch session transitions", ()
 test("locked suggestion row does not change while selecting a cell", () => {
   let session = createSession({ message: "I ", messageHistory: [""] });
   session = pressSwitch(session, 1000);
+  assert.equal(session.scannerState.stage, ScanStage.RowSelected);
+  assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "HELP"]);
+
+  session = advanceSession(session);
   assert.equal(session.scannerState.stage, ScanStage.FirstCell);
   assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "HELP"]);
 
@@ -55,7 +60,7 @@ test("locked suggestion row does not change while selecting a cell", () => {
 });
 
 test("zero transition pause skips row-selected escape state", () => {
-  const session = pressSwitch(createSession(), 1000);
+  const session = pressSwitch(createSession({ config: createBoardConfig({ transitionPauseMs: 0 }) }), 1000);
 
   assert.equal(session.scannerState.stage, ScanStage.FirstCell);
   assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["I", "YOU", "WANT", "NEED"]);

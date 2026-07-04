@@ -202,22 +202,24 @@ async function scenarioZhTwLayoutMigration() {
     }));
     location.reload();
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "MORE"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "更多"]);
 
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
   assertArrayEqual(snapshot.rows[3].map((tile) => tile.label), ["是", "不是", "要", "不要"], "zh-TW static core response row");
-  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "MORE", "說", "刪", "清除"]) {
+  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
   }
   for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW layout should not include ${rejected}`);
   }
-  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "MORE", "不要"]);
+  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "更多", "不要"]);
 
   await selectLabel("ㄅ");
   snapshot = await getSnapshot();
   labels = snapshot.rows.flat().map((tile) => tile.label);
+  if (!labels.includes("復原")) throw new Error("zh-TW undo suggestion should be localized as 復原");
+  if (labels.includes("UNDO")) throw new Error("zh-TW undo suggestion should not render as UNDO");
   if (!labels.includes("ㄚ")) throw new Error("zh-TW following Zhuyin suggestion missing ㄚ after ㄅ");
   await selectLabel("ㄧ");
   await assertMessage("ㄅㄧ");
@@ -239,10 +241,10 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       document.querySelector('[data-action="reset"]')?.click();
     })()
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "MORE"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "更多"]);
   const snapshot = await getSnapshot();
   const labels = snapshot.rows.flat().map((tile) => tile.label);
-  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "MORE", "說", "刪", "清除"]) {
+  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW reset layout missing ${expected}`);
   }
   for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
@@ -259,10 +261,10 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       };
     })()
   `);
-  if (stored.configVersion < 10 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 11 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
-  if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("MORE=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {
+  if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("更多=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {
     throw new Error(`zh-TW reset did not persist packaged direct Zhuyin board: ${stored.symbols}`);
   }
   if (stored.suggestionDictionary.includes("我要喝水")) {
