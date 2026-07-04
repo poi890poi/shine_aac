@@ -122,79 +122,138 @@ Recommended first Taiwan Mandarin profile:
 - Speech: Android TTS locale `zh-TW` where available.
 - Message composition: no automatic spaces between Chinese words.
 - Board strategy:
-  - first rows: urgent needs, pronouns, actions, common care phrases
-  - next rows: high-value Mandarin words/phrases
-  - optional spelling/input rows: Zhuyin/Bopomofo or high-frequency Chinese characters
+  - static board exposes dictionary-backed starting Zhuyin/Bopomofo symbols and a few essential controls
+  - Chinese glyphs and phrases are selected from suggestion rows, not hidden pages
+  - `MORE` pages the suggestion rows only
 - Suggestions:
-  - phrase completion rather than English-style word completion
-  - common AAC phrases such as needs, pain, position, yes/no, caregiver calls
-  - caregiver-editable personal vocabulary
+  - 4 columns by 3 rows for `zh-TW` candidates
+  - candidates come from the `zh-TW` frequency dictionary and include Zhuyin readings
+  - exact phonetic matches appear before broader ranked backfill
+  - candidate tiles may replace the typed Zhuyin suffix before inserting the glyph or phrase
 
-Open design question: whether spelling should start with Zhuyin symbols, frequent Chinese characters, or phrase/category selection. For a motor-limited AAC user, phrase/category selection likely gives higher throughput than character-by-character input.
+The default `zh-TW` board should be intentionally minimalist, but it still needs a learnable route to words that are not visible on the first page. AAC output does not need to be perfectly grammatical or lexically exact to be successful. A user may choose an approximate word, a body-position word, or a nearby need word to communicate intent. The design should optimize for fast, high-information selections and predictable recovery from missing vocabulary.
 
-### Low-Effort First Version
+### Current Simple Version
 
-The first `zh-TW` version should not try to solve full Chinese text entry. It should be a usable AAC phrase/word board:
+The current `zh-TW` version should not behave like a separate Chinese input method. It should keep the same mental model as English:
 
 - no auto-space
-- 4 columns by default, unless testing shows Mandarin phrase labels need fewer columns
+- 4 columns by default; add rows before adding columns so labels remain readable and cell selection stays predictable
 - same scanner mechanics as English
 - same input adapters as English
 - `zh-TW` TTS locale where available
-- phrase-first suggestions
-- caregiver-editable dictionary
+- three suggestion rows for ranked glyph/phrase candidates
+- dictionary-backed starting Zhuyin symbols on the static board
+- valid following Zhuyin symbols in suggestion rows
+- no second-layer or third-layer Zhuyin pages
 
-Starter rows should prioritize communication value over linguistic completeness:
+Static rows expose visible input symbols and controls. They should not expose standalone finals that have no dictionary-backed first-symbol entries:
 
 ```text
 是 / 不是 / 要 / 不要
-我 / 你 / 幫忙 / 痛
-喝水 / 吃飯 / 廁所 / 休息
-熱 / 冷 / 累 / 睡覺
-上 / 下 / 左 / 右
-說 / 刪 / 清除 / 空格-or-punctuation
+ㄅ / ㄆ / ㄇ / ㄈ
+ㄉ / ㄊ / ㄋ / ㄌ
+...
+ㄗ / ㄘ / ㄙ / ㄧ
+ㄨ / ㄩ / MORE / 說
+刪 / 清除
+清除
 ```
 
-This starter board is intentionally not a translation of the English board. For example, `喝水` may be more useful than separate `喝` and `水` for a first scanning profile.
-
-### Later Mandarin Text Entry Options
-
-Possible text-entry strategies:
-
-- Phrase board only: fastest first version, lowest cognitive and motor burden.
-- High-frequency Chinese characters: compact but can be ambiguous and slow for real messages.
-- Zhuyin/Bopomofo rows: familiar in Taiwan, but many selections per character.
-- Hybrid phrase + Zhuyin: likely best long-term, but only after phrase AAC is stable.
-
-Do not start with full Zhuyin input unless a real user needs open-ended Mandarin spelling. The AAC goal is communication throughput, not reproducing a phone keyboard.
-
-### Hybrid Phrase + Zhuyin Design
-
-The practical `zh-TW` text-entry path should keep the first screen phrase-first and add a separate `注音` mode for novel text. This keeps urgent communication fast while still giving literate users a way to say words that are not on the board.
-
-Recommended staged flow:
+Suggestion rows show ranked glyphs and phrases:
 
 ```text
-Phrase board
-  -> 注音
-  -> initial group
-  -> initial, or 無聲母
-  -> final/rime
-  -> tone
-  -> candidate characters / words / phrases
-  -> commit candidate and return to phrase board
+input: ㄅ
+suggestions: 不要 / 幫忙 / ㄧ / ㄨ / ㄚ / ...
+
+input: ㄅㄧ
+suggestions: 不要 / 不要動 / ... / MORE
+select 不要 -> delete ㄅㄧ invisibly, then insert 不要
+message: 不要
 ```
 
-Candidate ranking should prefer useful AAC phrases over isolated characters when the Zhuyin buffer matches a common communicative intent. For example, a buffer for `ㄨㄛˇㄧㄠˋ` should suggest phrases such as `我要喝水`, `我要吃飯`, `我要上廁所`, and `我要休息` before forcing character-by-character output.
+The hidden delete behavior is data on the candidate tile, not a visible symbol. Replacement suggestions should have distinct styling so helpers understand that they will replace the typed Zhuyin suffix.
+
+Labels should be short words or compact phrases, not full polite sentences. For example, `喝水` is usually a better tile label than `我要喝水`; the user can still communicate intent without spending display space and scan time on `我要`.
+
+Punctuation such as `。` is deliberately omitted from the default board because it consumes scan time without adding much communicative value.
+
+### Suggestion Rows And MORE
+
+The `zh-TW` board uses suggestion rows as the expansion area. It does not open category pages or a separate `注音` mode.
+
+```text
+row 1: ranked candidates
+row 2: ranked candidates
+row 3: ranked candidates, with MORE in the last cell when another page exists
+static board rows: unchanged Zhuyin symbols and controls
+```
+
+`MORE` advances only the suggestion rows. It must not change the message, scanner mechanics, static board, or input mode. Page count is capped so scanning remains bounded.
+
+Candidate commit rule:
+
+```text
+ㄅ selected -> message ㄅ
+ㄧ selected -> message ㄅㄧ
+不要 selected -> replace last 2 Zhuyin symbols, message 不要
+```
+
+This keeps one consistent behavior: every visible input symbol appends to the message, and every suggestion commits text. Chinese suggestions are special only because they may carry an invisible replacement length.
+
+### Dictionary Requirements
+
+The `zh-TW` dictionary must not be an ad hoc list of UI phrases. Each glyph or phrase entry needs:
+
+```text
+label
+output
+one or more Zhuyin keys
+frequency or frequency rank
+```
+
+Ranking should use an existing solid Traditional Chinese/Taiwan Mandarin source where available, then AAC-specific ordering only as a transparent profile layer. The starter implementation keeps the existing phrase set but wraps it in ranked metadata and readings; the next data pass should replace the seed with an imported corpus-backed dictionary rather than hand-editing phrase additions.
+
+### Zhuyin Suggestion Design
+
+Zhuyin/Bopomofo is still the right literacy bridge for Taiwan Mandarin because it is used to teach pronunciation and as a common phonetic input method in Taiwan. However, a phone-style or textbook-style Zhuyin input method is not automatically a good AAC access method. The first implementation failed because it required too many abstract steps and exposed confusing controls such as `清音`; it also showed candidates that did not match the entered sound well enough.
+
+The practical `zh-TW` path is direct visible input plus prediction:
+
+```text
+choose ㄅ
+  -> message contains ㄅ
+  -> suggestion rows show common ㄅ candidates, e.g. 幫忙 / 不是 / 不要
+choose ㄧ
+  -> message contains ㄅㄧ
+  -> suggestion rows show matching phrase shortcuts, e.g. 不要
+choose 不要
+  -> message becomes 不要
+```
+
+The user is not asked to fully spell arbitrary Mandarin. Zhuyin acts as a predictable index into a small, high-value vocabulary. Tones and full finals are not mandatory. Candidate lists must be filtered by the current trailing Zhuyin buffer, with exact or shorter matching readings first.
+
+The display should favor:
+
+```text
+matching candidates first
+then broader useful backfill candidates
+then MORE when the capped next page is useful
+```
+
+For example, `ㄧㄡ` should not show only `右`; it should keep `右` near the front while also offering useful targets such as `有`, `又`, `有沒有`, and broader high-value choices. Likewise, phrase-initial shortcuts such as `ㄅㄧ` should surface `不要` without requiring the user to fully spell `ㄅㄨㄧㄠ`.
+
+Candidate ranking should prefer useful AAC words and compact phrase targets over isolated characters when the Zhuyin prefix matches a common communicative intent. For example, after a `ㄨ` path, candidates such as `我`, `喝水`, `吃飯`, and `廁所` are more useful than a large homophone list.
 
 Design constraints:
 
 - The main phrase board remains the emergency surface.
-- `注音` mode is opt-in and easy to leave.
-- Common phrase/core targets keep stable positions.
+- Common static symbols keep stable positions.
+- Suggestion rows must not become empty dead ends. Each trailing Zhuyin buffer should expose useful candidates or ranked backfill before adding blank space.
 - Mandarin output does not insert automatic spaces.
-- The composition buffer is separate from committed message text until a candidate is selected.
+- The phonetic prefix is visible message text until a candidate replaces it.
 - Prediction dictionaries belong to the `zh-TW` profile, not to English defaults.
+- Inexact expression is acceptable. A small board that lets the user communicate roughly is better than a complete input method that is too slow to use.
 
 ## Graphical Symbols Profile
 

@@ -7,7 +7,7 @@ Generated: 2026-07-03
 Debug APK:
 
 ```text
-https://gaps-golf-henry-escape.trycloudflare.com/app-debug.apk
+https://juvenile-sport-pregnant-immigration.trycloudflare.com/app-debug.apk
 ```
 
 Local file:
@@ -64,20 +64,21 @@ Emulator smoke check:
 - logcat no longer shows the previous `file:///android_asset` ES module CORS error
 - latest screenshot saved at `e2e-artifacts/shine-audio-spacing-fit.png`
 - hardware-button E2E entered `I want water ` through packaged APK key events
+- hardware-button E2E verified packaged `zh-TW` dictionary-backed Zhuyin symbols `ㄅ`, `ㄧ`, `ㄩ`, and `MORE`
 - hardware-button E2E final screenshot saved at `e2e-artifacts/hardware-button-final.png`
 
 Browser E2E also includes a Pixel 4a 5G-sized layout check:
 
 ```text
 pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
+zh-tw-pixel-4a-5g-layout: PASS, fits 11 rows in 851px viewport without scrolling
 ```
 
 Public download check:
 
 ```text
 HTTP 200
-Content-Length: 8744726
-Content-Type: application/octet-stream
+Local shared APK size: 8744726 bytes
 ```
 
 ## Notes

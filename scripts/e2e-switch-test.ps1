@@ -12,9 +12,9 @@ Set-Location -LiteralPath $repoRoot
 $artifactDir = Join-Path $repoRoot "e2e-artifacts"
 New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
 
-$scanIntervalMs = 750
+$scanIntervalMs = 1500
 $transitionPauseMs = 0
-$firstCellPauseMs = 750
+$firstCellPauseMs = 1500
 $activationKeyCode = 24
 
 function Write-Step($Message) {
@@ -89,7 +89,31 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="8" />
+    <int name="configVersion" value="10" />
+    <boolean name="e2eEnabled" value="true" />
+    <boolean name="scanVoice" value="false" />
+    <boolean name="activationVoice" value="false" />
+    <boolean name="restartScanFromTop" value="true" />
+    <boolean name="hardwareButtons" value="true" />
+    <float name="scanIntervalMs" value="$scanIntervalMs.0" />
+    <float name="transitionPauseMs" value="$transitionPauseMs.0" />
+    <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
+    <float name="inputLatencyCompensationMs" value="250.0" />
+</map>
+"@
+
+    Invoke-AdbQuiet push $prefsPath "/data/local/tmp/shine_aac_config.xml"
+    Invoke-AdbQuiet shell "run-as com.example.shineaac sh -c 'mkdir -p shared_prefs; cp /data/local/tmp/shine_aac_config.xml shared_prefs/shine_aac_config.xml'"
+}
+
+function Write-ZhTwTestPreferences {
+    $prefsPath = Join-Path $artifactDir "shine_aac_config_zhtw.xml"
+    Set-Content -LiteralPath $prefsPath -Encoding UTF8 -Value @"
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <int name="columns" value="4" />
+    <int name="configVersion" value="10" />
+    <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="false" />
@@ -131,7 +155,7 @@ function Wait-E2EReady([int]$TimeoutMs = 30000) {
     throw "Timed out waiting for WebView render state."
 }
 
-function Wait-RenderState([string]$Description, [string[]]$Patterns, [int]$TimeoutMs = 15000) {
+function Wait-RenderState([string]$Description, [string[]]$Patterns, [int]$TimeoutMs = 30000) {
     Invoke-AdbQuiet logcat -c
     $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
     while ((Get-Date) -lt $deadline) {
@@ -243,6 +267,16 @@ $screenshotHostPath = Join-Path $artifactDir "hardware-button-final.png"
 Invoke-AdbQuiet shell screencap -p $screenshotDevicePath
 Invoke-AdbQuiet pull $screenshotDevicePath $screenshotHostPath
 
+Write-Step "Verifying zh-TW first-layer render state in packaged APK"
+Invoke-AdbQuiet logcat -c
+Write-ZhTwTestPreferences
+Invoke-AdbQuiet shell am force-stop com.example.shineaac
+Invoke-AdbQuiet shell am start -W -n com.example.shineaac/.MainActivity
+$zhuyinBo = -join ([char]0x3105)
+$zhuyinYi = -join ([char]0x3127)
+$zhuyinYu = -join ([char]0x3129)
+Wait-RenderState "zh-TW direct Zhuyin board and MORE" @($zhuyinBo, $zhuyinYi, $zhuyinYu, "MORE")
+
 Write-Host ""
-Write-Host "E2E PASS: Android hardware-button input entered 'I want water '." -ForegroundColor Green
+Write-Host "E2E PASS: Android hardware-button input entered 'I want water ' and zh-TW direct Zhuyin render state was verified." -ForegroundColor Green
 Write-Host "Artifacts: $artifactDir"

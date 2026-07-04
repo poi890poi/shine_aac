@@ -11,15 +11,21 @@ import {
   LegacyFrequencyDefaultTilesV3,
   LegacySuggestionDictionaryV6,
   TileAction,
+  ZhuyinInputSymbols,
+  ZhuyinStaticInputSymbols,
+  ZhTwFrequencyDictionary,
   applyTile,
   boardRows,
   createBoardConfig,
   loadFirstCellPauseForConfig,
+  loadProfileSuggestionDictionaryForConfig,
+  loadProfileSymbolsForConfig,
   loadSuggestionDictionaryForConfig,
   loadSymbolsForConfig,
   parseSymbols,
   serializeDictionary,
   serializeSymbols,
+  speechLabelForTile,
   suggestTiles,
   suggestionRow,
   tile,
@@ -29,6 +35,12 @@ import {
 function findTile(rows, label) {
   const candidate = rows.flat().find((item) => item.label === label);
   assert.ok(candidate, `missing tile ${label}`);
+  return candidate;
+}
+
+function findActionTile(rows, label, action) {
+  const candidate = rows.flat().find((item) => item.label === label && item.action === action);
+  assert.ok(candidate, `missing ${action} tile ${label}`);
   return candidate;
 }
 
@@ -69,8 +81,8 @@ test("current-version custom layout is preserved", () => {
 
 test("parser supports custom words and actions", () => {
   const symbols = parseSymbols(`
-    WATCH=watch
-    SPC=<space>
+WATCH=watch
+SPC=<space>
     DEL=<delete>
     UNDO=<undo>
     SAY=<speak>
@@ -83,6 +95,25 @@ test("parser supports custom words and actions", () => {
   assert.equal(symbols[3].action, TileAction.Undo);
   assert.equal(symbols[4].action, TileAction.Speak);
   assert.equal(symbols[5].action, TileAction.Clear);
+});
+
+test("parser preserves category and Zhuyin group actions for editable layouts", () => {
+  const symbols = parseSymbols(`
+需要=<category:needs>
+ㄅㄆㄇㄈ=<zhuyin-group:labial>
+ㄅ=<zhuyin-symbol:ㄅ>
+  `);
+
+  assert.equal(symbols[0].action, TileAction.OpenCategory);
+  assert.equal(symbols[1].action, TileAction.ZhuyinGroup);
+  assert.equal(symbols[1].output, "labial");
+  assert.equal(symbols[2].action, TileAction.ZhuyinSymbol);
+  assert.equal(symbols[2].output, "ㄅ");
+  assert.equal(serializeSymbols(symbols), [
+    "需要=<category:needs>",
+    "ㄅㄆㄇㄈ=<zhuyin-group:labial>",
+    "ㄅ=<zhuyin-symbol:ㄅ>"
+  ].join("\n"));
 });
 
 test("board chunks symbols by column count after the fixed suggestion row", () => {
@@ -159,6 +190,70 @@ test("legacy suggestion dictionary migrates but custom dictionary is preserved",
   assert.deepEqual(loadSuggestionDictionaryForConfig(serializeDictionary(custom), 6), custom);
 });
 
+test("old built-in zh-TW board migrates to direct static Zhuyin symbols", () => {
+  const oldZhTwBoard = [
+    tile("是"),
+    tile("不是"),
+    tile("要"),
+    tile("不要"),
+    tile("我"),
+    tile("你"),
+    tile("幫忙"),
+    tile("痛"),
+    tile("喝水"),
+    tile("吃飯"),
+    tile("廁所"),
+    tile("休息"),
+    tile("熱"),
+    tile("冷"),
+    tile("累"),
+    tile("睡覺"),
+    tile("家人"),
+    tile("護理師"),
+    tile("醫生"),
+    tile("藥"),
+    tile("停"),
+    tile("注音", "zhuyin", TileAction.EnterMode),
+    tile("說", "SAY", TileAction.Speak),
+    tile("刪", "DEL", TileAction.Backspace),
+    tile("清除", "CLR", TileAction.Clear)
+  ];
+
+  const migrated = loadProfileSymbolsForConfig(serializeSymbols(oldZhTwBoard), 8, "zh-TW");
+  const labels = migrated.map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("ㄅ"), true);
+  assert.equal(labels.includes("ㄧ"), true);
+  assert.equal(labels.includes("ㄩ"), true);
+  assert.equal(labels.includes("MORE"), true);
+  assert.equal(labels.includes("ㄡ"), false);
+  assert.equal(labels.includes("注音"), false);
+  assert.equal(labels.includes("喝水"), false);
+});
+
+test("custom zh-TW board symbols are preserved during migration", () => {
+  const custom = [tile("自訂"), tile("注音", "zhuyin", TileAction.EnterMode)];
+
+  assert.deepEqual(loadProfileSymbolsForConfig(serializeSymbols(custom), 8, "zh-TW"), custom);
+});
+
+test("old built-in zh-TW dictionary migrates to short AAC labels", () => {
+  const oldDictionary = [
+    tile("我要喝水"),
+    tile("我要吃飯"),
+    tile("我要上廁所"),
+    tile("我需要幫忙"),
+    tile("我很痛"),
+    tile("叫護理師")
+  ];
+  const migrated = loadProfileSuggestionDictionaryForConfig(serializeDictionary(oldDictionary), 8, "zh-TW");
+  const labels = migrated.map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("喝水"), true);
+  assert.equal(labels.includes("廁所"), true);
+  assert.equal(labels.includes("我要喝水"), false);
+});
+
 test("first-cell hold migration preserves custom values", () => {
   assert.equal(loadFirstCellPauseForConfig(LegacyFirstCellPauseMsV6, 6), DefaultScanIntervalMs);
   assert.equal(loadFirstCellPauseForConfig(1800, 6), 1800);
@@ -172,13 +267,18 @@ test("English profile remains the default and auto-spaces words", () => {
   assert.equal(updateMessage("yes ", tile("WATER", "water"), config), "yes water ");
 });
 
-test("zh-TW profile uses an independent phrase board", () => {
+test("zh-TW profile uses an independent direct Zhuyin board", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const labels = boardRows(config)[1].map((candidate) => candidate.label);
+  const labels = config.symbols.map((candidate) => candidate.label);
 
   assert.equal(config.profileId, "zh-TW");
   assert.equal(config.speechLocale, "zh-TW");
-  assert.deepEqual(labels, ["是", "不是", "要", "不要"]);
+  assert.equal(labels.includes("ㄅ"), true);
+  assert.equal(labels.includes("ㄧ"), true);
+  assert.equal(labels.includes("ㄩ"), true);
+  assert.equal(labels.includes("MORE"), true);
+  assert.equal(labels.includes("ㄦ"), false);
+  assert.equal(labels.includes("注音"), false);
 });
 
 test("zh-TW profile appends without automatic spaces", () => {
@@ -189,50 +289,230 @@ test("zh-TW profile appends without automatic spaces", () => {
   assert.equal(updateMessage("我要", tile("喝水"), config), "我要喝水");
 });
 
-test("zh-TW suggestions complete Mandarin phrases without a space tile", () => {
+test("zh-TW suggestions use three rows without a space tile", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
 
-  const initialRow = suggestionRow("", config.suggestionDictionary, config.columns, false, config);
-  assert.deepEqual(initialRow.map((candidate) => candidate.label), ["是", "不是", "要", "不要"]);
+  const initialRows = boardRows(config).slice(0, 3);
+  assert.equal(initialRows.length, 3);
+  assert.equal(initialRows.flat().some((candidate) => candidate.label === "SPC"), false);
+  assert.equal(initialRows.flat().some((candidate) => candidate.label === "不要"), true);
 
-  const phraseRow = suggestionRow("我要", config.suggestionDictionary, config.columns, false, config);
-  assert.equal(phraseRow.some((candidate) => candidate.label === "SPC"), false);
-  assert.equal(phraseRow.some((candidate) => candidate.label === "我要喝水"), true);
+  const phraseRows = boardRows(config, "ㄏ", false, {}).slice(0, 3);
+  assert.equal(phraseRows.flat().some((candidate) => candidate.label === "SPC"), false);
+  assert.equal(phraseRows.flat().some((candidate) => candidate.label === "喝水"), true);
 });
 
-test("zh-TW profile exposes a separate Zhuyin composition mode", () => {
+test("zh-TW default board keeps direct Zhuyin symbols available without old pages", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const labels = boardRows(config).flat().map((candidate) => candidate.label);
 
-  assert.equal(labels.includes("注音"), true);
-  assert.equal(findTile(boardRows(config), "注音").action, TileAction.EnterMode);
+  assert.equal(labels.includes("ㄅ"), true);
+  assert.equal(labels.includes("ㄧ"), true);
+  assert.equal(labels.includes("ㄩ"), true);
+  assert.equal(labels.includes("MORE"), true);
+  assert.equal(labels.includes("ㄡ"), false);
+  assert.equal(labels.includes("ㄅㄆㄇㄈ"), false);
+  assert.equal(labels.includes("注音"), false);
+  assert.equal(labels.includes("。"), false);
+  assert.equal(labels.includes("謝謝"), false);
 });
 
-test("zh-TW Zhuyin composition can commit a phrase candidate", () => {
+test("zh-TW direct Zhuyin input appends symbols, then replacement suggestions commit glyphs", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  let result = applyTile("", [], findTile(boardRows(config), "注音"), config, {});
+  let result = applyTile("", [], findActionTile(boardRows(config), "ㄅ", TileAction.Append), config, {});
+  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "ㄧ", TileAction.Append), config, result);
 
-  assert.equal(result.inputMode, "zhuyin");
-  assert.deepEqual(boardRows(config, "", false, result)[1].map((candidate) => candidate.label), ["ㄅㄆㄇㄈ", "ㄉㄊㄋㄌ", "ㄍㄎㄏ", "ㄐㄑㄒ"]);
+  assert.equal(result.message, "ㄅㄧ");
 
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "ㄨㄛ"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "三聲"), config, result);
-  assert.equal(result.zhuyinBuffer, "ㄨㄛˇ");
-  assert.equal(findTile(boardRows(config, "", false, result), "我").action, TileAction.CommitCandidate);
+  const candidate = findActionTile(boardRows(config, result.message, true, result), "不要", TileAction.CommitCandidate);
+  assert.equal(candidate.replaceLength, 2);
 
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "續音"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "無聲母"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "ㄧㄠ"), config, result);
-  result = applyTile("", [], findTile(boardRows(config, "", false, result), "四聲"), config, result);
+  result = applyTile(result.message, result.messageHistory, candidate, config, result);
+  assert.equal(result.message, "不要");
+  assert.deepEqual(result.messageHistory, ["", "ㄅ", "ㄅㄧ"]);
+});
 
-  const candidate = findTile(boardRows(config, "", false, result), "我要喝水");
-  result = applyTile("", [], candidate, config, result);
-  assert.equal(result.message, "我要喝水");
-  assert.equal(result.inputMode, "board");
-  assert.equal(result.zhuyinBuffer, "");
+test("zh-TW suggestion rows offer valid following Zhuyin symbols", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config, "ㄅ", true, {});
+  const following = findActionTile(rows, "ㄚ", TileAction.Append);
+  let result = applyTile("ㄅ", [""], following, config, {});
+
+  assert.equal(result.message, "ㄅㄚ");
+
+  const candidate = findActionTile(boardRows(config, result.message, true, result), "爸爸", TileAction.CommitCandidate);
+  assert.equal(candidate.replaceLength, 2);
+  assert.equal(candidate.zhuyinKey.startsWith("ㄅㄚ"), true);
+});
+
+test("zh-TW standalone finals are not exposed as first-layer dead-end symbols", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const labels = boardRows(config).flat().map((candidate) => candidate.label);
+  const exactlessFinals = ZhuyinInputSymbols.filter((symbol) =>
+    !ZhTwFrequencyDictionary.some((entry) => entry.keys.some((key) => key.startsWith(symbol)))
+  );
+
+  assert.ok(exactlessFinals.length > 0);
+  for (const symbol of exactlessFinals) {
+    assert.equal(labels.includes(symbol), false, `${symbol} should appear only as a valid follow-up suggestion`);
+  }
+});
+
+test("zh-TW initial-only and partial-Zhuyin suggestions include ranked phrases", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const candidates = boardRows(config, "ㄅ", false, {}).slice(0, 3).flat();
+  const labels = candidates.map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("幫忙"), true);
+  assert.equal(labels.includes("不要"), true);
+  assert.equal(labels.includes("ㄚ"), true);
+  assert.equal(candidates.find((candidate) => candidate.label === "幫忙").replaceLength, 1);
+});
+
+test("zh-TW phrase-initial shortcuts such as ㄅㄧ suggest 不要", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config, "ㄅㄧ", false, {});
+  const labels = rows.slice(0, 3).flat().map((candidate) => candidate.label);
+  const candidate = findActionTile(rows, "不要", TileAction.CommitCandidate);
+
+  assert.equal(labels.includes("不要"), true);
+  assert.equal(labels.includes("不要動"), true);
+  assert.equal(candidate.replaceLength, 2);
+});
+
+test("zh-TW sparse phonetic buffers backfill suggestion rows with useful replacements", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const visibleTargets = boardRows(config, "ㄧㄡ", false, {}).slice(0, 3).flat().filter((candidate) => candidate.action !== TileAction.Noop);
+  const candidates = visibleTargets.filter((candidate) => candidate.action === TileAction.CommitCandidate);
+  const labels = candidates.map((candidate) => candidate.label);
+
+  assert.ok(visibleTargets.length >= 11);
+  assert.equal(candidates.every((candidate) => candidate.replaceLength === 2), true);
+  assert.equal(labels.includes("右"), true);
+  assert.equal(labels.includes("有"), true);
+  assert.equal(labels.includes("又"), true);
+  assert.equal(labels.includes("有沒有"), true);
+});
+
+test("zh-TW Zhuyin voice feedback uses Mandarin-readable names instead of raw symbols", () => {
+  assert.equal(speechLabelForTile(findActionTile(boardRows(createBoardConfig({ profileId: "zh-TW" })), "ㄅ", TileAction.Append), "zh-TW"), "玻");
+  assert.equal(speechLabelForTile({ label: "ㄨ", output: "ㄨ", action: TileAction.Append }, "zh-TW"), "烏");
+  assert.equal(speechLabelForTile({ label: "ㄅㄆㄇㄈ", output: "labial", action: TileAction.ZhuyinGroup }, "zh-TW"), "玻 坡 摸 佛");
+});
+
+test("zh-TW MORE pages only turn suggestion rows", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const firstPage = boardRows(config, "", false, {});
+  const more = findActionTile(firstPage, "MORE", TileAction.MoreSuggestions);
+  const result = applyTile("", [], more, config, { suggestionPage: 0 });
+  const secondPage = boardRows(config, "", false, result);
+
+  assert.equal(result.suggestionPage, 1);
+  assert.notDeepEqual(
+    firstPage.slice(0, 3).flat().map((candidate) => candidate.label),
+    secondPage.slice(0, 3).flat().map((candidate) => candidate.label)
+  );
+  assert.deepEqual(
+    firstPage.slice(3).flat().map((candidate) => candidate.label),
+    secondPage.slice(3).flat().map((candidate) => candidate.label)
+  );
+});
+
+test("zh-TW MORE preserves phonetic-buffer context instead of resetting to defaults", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const messages = ["ㄅ", "ㄅㄧ", "ㄧ", "ㄧㄡ", "ㄕ"];
+
+  for (const message of messages) {
+    const firstPage = boardRows(config, message, true, { suggestionPage: 0 });
+    const more = firstPage.slice(0, 3).flat().find((candidate) => candidate.action === TileAction.MoreSuggestions);
+    if (!more) continue;
+
+    const result = applyTile(message, [""], more, config, { suggestionPage: 0 });
+    const secondPage = boardRows(config, message, true, result);
+    const suggestions = secondPage.slice(0, 3).flat().filter((candidate) => candidate.action !== TileAction.Noop);
+
+    assert.equal(result.message, message);
+    assert.equal(result.suggestionPage, 1);
+    assert.equal(suggestions.some((candidate) => candidate.action === TileAction.CommitCandidate && candidate.matchType === "base"), false);
+    for (const candidate of suggestions.filter((candidate) => candidate.action === TileAction.CommitCandidate)) {
+      assert.equal(candidate.replaceLength, message.length, `${candidate.label} should replace ${message}, not reset to defaults`);
+      assert.notEqual(candidate.matchType, "base", `${message} MORE should not show base candidate ${candidate.label}`);
+    }
+  }
+});
+
+test("zh-TW frequency dictionary entries all provide Zhuyin and ranked metadata", () => {
+  assert.ok(ZhTwFrequencyDictionary.length > 0);
+  for (const entry of ZhTwFrequencyDictionary) {
+    assert.ok(entry.keys.length > 0, `${entry.label} should include at least one Zhuyin key`);
+    assert.equal(typeof entry.frequencyRank, "number");
+    assert.equal(typeof entry.frequency, "number");
+  }
+});
+
+test("zh-TW static Zhuyin symbols all have exact dictionary-backed suggestions", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  for (const symbol of ZhuyinStaticInputSymbols) {
+    const targets = boardRows(config, symbol, false, {})
+      .slice(0, 3)
+      .flat()
+      .filter((candidate) => candidate.action === TileAction.CommitCandidate && candidate.zhuyinKey.startsWith(symbol));
+    assert.ok(targets.length > 0, `${symbol} should have at least one exact dictionary-backed candidate`);
+  }
+});
+
+test("zh-TW dictionary full keys are discoverable through suggestion pages", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+
+  for (const entry of ZhTwFrequencyDictionary) {
+    for (const key of entry.keys) {
+      const labels = suggestionLabelsAcrossPages(config, key);
+      assert.equal(labels.includes(entry.label), true, `${entry.label} should be discoverable from ${key}`);
+    }
+  }
+});
+
+test("zh-TW dictionary keys are progressively navigable by visible symbols and suggestions", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const baseLabels = new Set(boardRows(config).flat().filter((candidate) => candidate.action === TileAction.Append).map((candidate) => candidate.label));
+
+  for (const entry of ZhTwFrequencyDictionary) {
+    for (const key of entry.keys) {
+      assert.equal(baseLabels.has(key.at(0)), true, `${entry.label}:${key} first symbol ${key.at(0)} should be on the static board`);
+
+      for (let length = 1; length < key.length; length += 1) {
+        const prefix = key.slice(0, length);
+        const nextSymbol = key.at(length);
+        const visible = suggestionTilesAcrossPages(config, prefix, true);
+        const canContinue = visible.some((candidate) =>
+          candidate.action === TileAction.Append &&
+          candidate.output === nextSymbol
+        );
+        const canAlreadyCommit = visible.some((candidate) =>
+          candidate.action === TileAction.CommitCandidate &&
+          candidate.label === entry.label &&
+          candidate.replaceLength === prefix.length
+        );
+
+        assert.equal(
+          canContinue || canAlreadyCommit,
+          true,
+          `${entry.label}:${key} should offer next symbol ${nextSymbol} or candidate after ${prefix}`
+        );
+      }
+    }
+  }
+});
+
+test("zh-TW suggestion rows do not show unrelated replacement backfill for unsupported standalone finals", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config, "ㄚ", true, {});
+  const replacements = rows
+    .slice(0, 3)
+    .flat()
+    .filter((candidate) => candidate.action === TileAction.CommitCandidate);
+
+  assert.deepEqual(replacements, []);
 });
 
 test("language profiles do not share mutable default arrays", () => {
@@ -240,3 +520,20 @@ test("language profiles do not share mutable default arrays", () => {
   assert.notEqual(LanguageProfiles["en-US"].suggestionDictionary, LanguageProfiles["zh-TW"].suggestionDictionary);
   assert.throws(() => LanguageProfiles["zh-TW"].symbols.push(tile("測試")));
 });
+
+function suggestionLabelsAcrossPages(config, message) {
+  return suggestionTilesAcrossPages(config, message, false).map((candidate) => candidate.label);
+}
+
+function suggestionTilesAcrossPages(config, message, canUndo = false) {
+  let state = { suggestionPage: 0 };
+  const tiles = [];
+  for (let page = 0; page < 3; page += 1) {
+    const rows = boardRows(config, message, canUndo, state).slice(0, 3).flat();
+    tiles.push(...rows);
+    const more = rows.find((candidate) => candidate.action === TileAction.MoreSuggestions);
+    if (!more) break;
+    state = applyTile(message, canUndo ? [""] : [], more, config, state);
+  }
+  return tiles;
+}

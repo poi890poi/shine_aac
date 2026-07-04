@@ -14,11 +14,13 @@ export const TileAction = Object.freeze({
   Speak: "speak",
   EnterMode: "enter-mode",
   ExitMode: "exit-mode",
+  OpenCategory: "open-category",
+  CloseCategory: "close-category",
   ZhuyinGroup: "zhuyin-group",
   ZhuyinSymbol: "zhuyin-symbol",
-  ZhuyinContinue: "zhuyin-continue",
   ZhuyinClear: "zhuyin-clear",
   CommitCandidate: "commit-candidate",
+  MoreSuggestions: "more-suggestions",
   Noop: "noop"
 });
 
@@ -28,7 +30,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 900;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 8;
+export const CurrentConfigVersion = 10;
 export const DefaultProfileId = "en-US";
 export const AutoSpaceMode = Object.freeze({
   Word: "word",
@@ -37,6 +39,90 @@ export const AutoSpaceMode = Object.freeze({
 
 export function tile(label, output = label, action = TileAction.Append) {
   return { label, output, action };
+}
+
+export const ZhuyinSpeechNames = Object.freeze({
+  "ㄅ": "玻",
+  "ㄆ": "坡",
+  "ㄇ": "摸",
+  "ㄈ": "佛",
+  "ㄉ": "得",
+  "ㄊ": "特",
+  "ㄋ": "呢",
+  "ㄌ": "勒",
+  "ㄍ": "哥",
+  "ㄎ": "科",
+  "ㄏ": "喝",
+  "ㄐ": "基",
+  "ㄑ": "七",
+  "ㄒ": "西",
+  "ㄓ": "知",
+  "ㄔ": "吃",
+  "ㄕ": "詩",
+  "ㄖ": "日",
+  "ㄗ": "資",
+  "ㄘ": "疵",
+  "ㄙ": "思",
+  "ㄧ": "衣",
+  "ㄨ": "烏",
+  "ㄩ": "迂",
+  "ㄚ": "啊",
+  "ㄛ": "喔",
+  "ㄜ": "鵝",
+  "ㄝ": "欸",
+  "ㄞ": "唉",
+  "ㄟ": "欸",
+  "ㄠ": "凹",
+  "ㄡ": "歐",
+  "ㄢ": "安",
+  "ㄣ": "恩",
+  "ㄤ": "昂",
+  "ㄥ": "ㄥ"
+});
+
+export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
+  if (profileId === "zh-TW") {
+    if (candidate.action === TileAction.Space) return "空格";
+    if (candidate.action === TileAction.Backspace) return "刪除";
+    if (candidate.action === TileAction.Clear) return "清除";
+    if (candidate.action === TileAction.Undo) return "復原";
+    if (candidate.action === TileAction.Speak) return "說出";
+    if (candidate.action === TileAction.EnterMode) return "用注音找字";
+    if (candidate.action === TileAction.ExitMode) return "返回";
+    if (candidate.action === TileAction.OpenCategory) return candidate.label;
+    if (candidate.action === TileAction.CloseCategory) return "返回";
+    if (candidate.action === TileAction.ZhuyinGroup || candidate.action === TileAction.ZhuyinSymbol) {
+      return zhuyinSpeech(candidate.label || candidate.output);
+    }
+    if (candidate.action === TileAction.ZhuyinClear) return "重選";
+    if (candidate.action === TileAction.CommitCandidate) return candidate.output.trim() || candidate.label;
+    if (candidate.action === TileAction.MoreSuggestions) return "更多";
+    if (isZhuyinLabel(candidate.label || candidate.output)) return zhuyinSpeech(candidate.label || candidate.output);
+  }
+  if (candidate.action === TileAction.Space) return "space";
+  if (candidate.action === TileAction.Backspace) return "delete";
+  if (candidate.action === TileAction.Clear) return "clear";
+  if (candidate.action === TileAction.Undo) return "undo";
+  if (candidate.action === TileAction.Speak) return "speak";
+  if (candidate.action === TileAction.EnterMode) return "enter mode";
+  if (candidate.action === TileAction.ExitMode) return "exit mode";
+  if (candidate.action === TileAction.OpenCategory) return candidate.label;
+  if (candidate.action === TileAction.CloseCategory) return "close category";
+  if (candidate.action === TileAction.ZhuyinClear) return "clear composition";
+  if (candidate.action === TileAction.CommitCandidate) return candidate.output.trim() || candidate.label;
+  if (candidate.action === TileAction.MoreSuggestions) return "more";
+  return candidate.output.trim() || candidate.label;
+}
+
+function zhuyinSpeech(label) {
+  const symbols = Array.from(label).filter((character) => ZhuyinSpeechNames[character]);
+  if (symbols.length === 0) return label;
+  return symbols.map((symbol) => ZhuyinSpeechNames[symbol]).join(" ");
+}
+
+function isZhuyinLabel(label) {
+  const symbols = Array.from(label);
+  return symbols.length > 0 && symbols.every((character) => ZhuyinSpeechNames[character]);
 }
 
 export const LegacySuggestionDictionaryV6 = Object.freeze([
@@ -240,13 +326,44 @@ export const SuggestionFallbackLetters = Object.freeze(
 );
 export const SpaceSuggestionTile = Object.freeze(tile("SPC", " ", TileAction.Space));
 export const UndoSuggestionTile = Object.freeze(tile("UNDO", "UNDO", TileAction.Undo));
+export const MoreSuggestionsTile = Object.freeze(tile("MORE", "MORE", TileAction.MoreSuggestions));
 
 const boardModeTile = (label = "返回") => tile(label, "board", TileAction.ExitMode);
 const zhuyinModeTile = (label = "注音") => tile(label, "zhuyin", TileAction.EnterMode);
+const categoryTile = (label, categoryId) => tile(label, categoryId, TileAction.OpenCategory);
 const zhuyinGroupTile = (label, groupId) => tile(label, groupId, TileAction.ZhuyinGroup);
 const zhuyinSymbolTile = (label, output, kind) => ({ label, output, action: TileAction.ZhuyinSymbol, zhuyinKind: kind });
-const zhuyinContinueTile = Object.freeze(tile("續音", "continue", TileAction.ZhuyinContinue));
-const zhuyinClearTile = Object.freeze(tile("清音", "clear", TileAction.ZhuyinClear));
+const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.CloseCategory));
+const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
+const ZhTwSuggestionRowCount = 3;
+const MaxZhTwSuggestionPages = 3;
+const ZhTwImmediateCandidateCountBeforeNextSymbols = 2;
+const ZhuyinFollowingSymbolOrder = Object.freeze([
+  "ㄧ", "ㄨ", "ㄩ",
+  "ㄚ", "ㄛ", "ㄜ", "ㄝ",
+  "ㄞ", "ㄟ", "ㄠ", "ㄡ",
+  "ㄢ", "ㄣ", "ㄤ", "ㄥ", "ㄦ",
+  "ㄅ", "ㄆ", "ㄇ", "ㄈ",
+  "ㄉ", "ㄊ", "ㄋ", "ㄌ",
+  "ㄍ", "ㄎ", "ㄏ",
+  "ㄐ", "ㄑ", "ㄒ",
+  "ㄓ", "ㄔ", "ㄕ", "ㄖ",
+  "ㄗ", "ㄘ", "ㄙ"
+]);
+const zhuyinEntry = (label, output, key, ...aliases) => Object.freeze({
+  label,
+  output,
+  key,
+  keys: Object.freeze([key, ...aliases])
+});
+const MinZhuyinTargets = 8;
+const MaxZhuyinCandidateTargets = 20;
+const ZhTwCoreResponseTiles = Object.freeze([
+  tile("是"),
+  tile("不是"),
+  tile("要"),
+  tile("不要")
+]);
 
 export const ZhuyinInitialGroups = Object.freeze([
   Object.freeze({ id: "labial", label: "ㄅㄆㄇㄈ", symbols: Object.freeze(["ㄅ", "ㄆ", "ㄇ", "ㄈ"]) }),
@@ -255,103 +372,341 @@ export const ZhuyinInitialGroups = Object.freeze([
   Object.freeze({ id: "palatal", label: "ㄐㄑㄒ", symbols: Object.freeze(["ㄐ", "ㄑ", "ㄒ"]) }),
   Object.freeze({ id: "retroflex", label: "ㄓㄔㄕㄖ", symbols: Object.freeze(["ㄓ", "ㄔ", "ㄕ", "ㄖ"]) }),
   Object.freeze({ id: "dental", label: "ㄗㄘㄙ", symbols: Object.freeze(["ㄗ", "ㄘ", "ㄙ"]) }),
-  Object.freeze({ id: "zero", label: "無聲母", symbols: Object.freeze([]) })
+  Object.freeze({ id: "zero", label: "ㄧㄨㄩ", symbols: Object.freeze(["ㄧ", "ㄨ", "ㄩ"]) })
 ]);
 
-const ZhuyinFinals = Object.freeze([
+export const ZhuyinInputSymbols = Object.freeze([
+  "ㄅ", "ㄆ", "ㄇ", "ㄈ",
+  "ㄉ", "ㄊ", "ㄋ", "ㄌ",
+  "ㄍ", "ㄎ", "ㄏ",
+  "ㄐ", "ㄑ", "ㄒ",
+  "ㄓ", "ㄔ", "ㄕ", "ㄖ",
+  "ㄗ", "ㄘ", "ㄙ",
+  "ㄧ", "ㄨ", "ㄩ",
   "ㄚ", "ㄛ", "ㄜ", "ㄝ",
   "ㄞ", "ㄟ", "ㄠ", "ㄡ",
-  "ㄢ", "ㄣ", "ㄤ", "ㄥ",
-  "ㄧ", "ㄨ", "ㄩ", "ㄦ",
-  "ㄧㄚ", "ㄧㄝ", "ㄧㄠ", "ㄧㄡ",
-  "ㄧㄢ", "ㄧㄣ", "ㄧㄤ", "ㄧㄥ",
-  "ㄨㄚ", "ㄨㄛ", "ㄨㄞ", "ㄨㄟ",
-  "ㄨㄢ", "ㄨㄣ", "ㄨㄤ", "ㄨㄥ",
-  "ㄩㄝ", "ㄩㄢ", "ㄩㄣ", "ㄩㄥ"
+  "ㄢ", "ㄣ", "ㄤ", "ㄥ", "ㄦ"
 ]);
 
-const ZhuyinTones = Object.freeze([
-  Object.freeze({ label: "一聲", mark: "ˉ" }),
-  Object.freeze({ label: "二聲", mark: "ˊ" }),
-  Object.freeze({ label: "三聲", mark: "ˇ" }),
-  Object.freeze({ label: "四聲", mark: "ˋ" }),
-  Object.freeze({ label: "輕聲", mark: "˙" })
+const ZhuyinInputSymbolSet = new Set(ZhuyinInputSymbols);
+
+export const ZhuyinLookupDictionary = Object.freeze([
+  zhuyinEntry("我", "我", "ㄨㄛ"),
+  zhuyinEntry("你", "你", "ㄋㄧ"),
+  zhuyinEntry("要", "要", "ㄧㄠ"),
+  zhuyinEntry("不要", "不要", "ㄅㄨㄧㄠ", "ㄅㄧ"),
+  zhuyinEntry("是", "是", "ㄕ"),
+  zhuyinEntry("不是", "不是", "ㄅㄨㄕ"),
+  zhuyinEntry("幫忙", "幫忙", "ㄅㄤㄇㄤ", "ㄅㄇ"),
+  zhuyinEntry("痛", "痛", "ㄊㄨㄥ"),
+  zhuyinEntry("喝水", "喝水", "ㄏㄜㄕㄨㄟ", "ㄏㄕ"),
+  zhuyinEntry("吃飯", "吃飯", "ㄔㄈㄢ", "ㄔㄈ"),
+  zhuyinEntry("廁所", "廁所", "ㄘㄜㄙㄨㄛ", "ㄘㄙ"),
+  zhuyinEntry("休息", "休息", "ㄒㄧㄡㄒㄧ", "ㄒㄒ"),
+  zhuyinEntry("熱", "熱", "ㄖㄜ"),
+  zhuyinEntry("冷", "冷", "ㄌㄥ"),
+  zhuyinEntry("累", "累", "ㄌㄟ"),
+  zhuyinEntry("睡覺", "睡覺", "ㄕㄨㄟㄐㄧㄠ", "ㄕㄐ"),
+  zhuyinEntry("家人", "家人", "ㄐㄧㄚㄖㄣ", "ㄐㄖ"),
+  zhuyinEntry("護理師", "護理師", "ㄏㄨㄌㄧㄕ", "ㄏㄌㄕ"),
+  zhuyinEntry("醫生", "醫生", "ㄧㄕㄥ", "ㄧㄕ"),
+  zhuyinEntry("藥", "藥", "ㄧㄠ"),
+  zhuyinEntry("停", "停", "ㄊㄧㄥ"),
+  zhuyinEntry("上", "上", "ㄕㄤ"),
+  zhuyinEntry("下", "下", "ㄒㄧㄚ"),
+  zhuyinEntry("左", "左", "ㄗㄨㄛ"),
+  zhuyinEntry("右", "右", "ㄧㄡ"),
+  zhuyinEntry("喝水", "喝水", "ㄨㄛㄧㄠㄏㄜㄕㄨㄟ", "ㄨㄧㄏㄕ"),
+  zhuyinEntry("吃飯", "吃飯", "ㄨㄛㄧㄠㄔㄈㄢ", "ㄨㄧㄔㄈ"),
+  zhuyinEntry("廁所", "廁所", "ㄨㄛㄧㄠㄘㄜㄙㄨㄛ", "ㄨㄧㄘㄙ"),
+  zhuyinEntry("痛", "痛", "ㄨㄛㄏㄣㄊㄨㄥ", "ㄨㄏㄊ"),
+  zhuyinEntry("家人", "家人", "ㄐㄧㄠㄐㄧㄚㄖㄣ", "ㄐㄐㄖ"),
+  zhuyinEntry("護理師", "護理師", "ㄐㄧㄠㄏㄨㄌㄧㄕ", "ㄐㄏㄌㄕ"),
+  zhuyinEntry("不舒服", "不舒服", "ㄅㄨㄕㄨㄈㄨ", "ㄅㄕㄈ"),
+  zhuyinEntry("被子", "被子", "ㄅㄟㄗ"),
+  zhuyinEntry("幫我", "幫我", "ㄅㄤㄨㄛ", "ㄅㄨ"),
+  zhuyinEntry("不要動", "不要動", "ㄅㄨㄧㄠㄉㄨㄥ", "ㄅㄧㄉ"),
+  zhuyinEntry("抱", "抱", "ㄅㄠ"),
+  zhuyinEntry("爸爸", "爸爸", "ㄅㄚㄅㄚ"),
+  zhuyinEntry("怕", "怕", "ㄆㄚ"),
+  zhuyinEntry("朋友", "朋友", "ㄆㄥㄧㄡ"),
+  zhuyinEntry("陪我", "陪我", "ㄆㄟㄨㄛ"),
+  zhuyinEntry("旁邊", "旁邊", "ㄆㄤㄅㄧㄢ"),
+  zhuyinEntry("平躺", "平躺", "ㄆㄧㄥㄊㄤ"),
+  zhuyinEntry("拍照", "拍照", "ㄆㄞㄓㄠ"),
+  zhuyinEntry("媽媽", "媽媽", "ㄇㄚㄇㄚ"),
+  zhuyinEntry("沒有", "沒有", "ㄇㄟㄧㄡ"),
+  zhuyinEntry("慢", "慢", "ㄇㄢ"),
+  zhuyinEntry("門", "門", "ㄇㄣ"),
+  zhuyinEntry("毛巾", "毛巾", "ㄇㄠㄐㄧㄣ"),
+  zhuyinEntry("明白", "明白", "ㄇㄧㄥㄅㄞ"),
+  zhuyinEntry("飯", "飯", "ㄈㄢ"),
+  zhuyinEntry("翻身", "翻身", "ㄈㄢㄕㄣ"),
+  zhuyinEntry("風扇", "風扇", "ㄈㄥㄕㄢ"),
+  zhuyinEntry("放下", "放下", "ㄈㄤㄒㄧㄚ"),
+  zhuyinEntry("發燒", "發燒", "ㄈㄚㄕㄠ"),
+  zhuyinEntry("方向", "方向", "ㄈㄤㄒㄧㄤ"),
+  zhuyinEntry("等一下", "等一下", "ㄉㄥㄧㄒㄧㄚ", "ㄉㄧㄒ"),
+  zhuyinEntry("燈", "燈", "ㄉㄥ"),
+  zhuyinEntry("電話", "電話", "ㄉㄧㄢㄏㄨㄚ"),
+  zhuyinEntry("電視", "電視", "ㄉㄧㄢㄕ"),
+  zhuyinEntry("打開", "打開", "ㄉㄚㄎㄞ"),
+  zhuyinEntry("多一點", "多一點", "ㄉㄨㄛㄧㄉㄧㄢ", "ㄉㄧㄉ"),
+  zhuyinEntry("頭", "頭", "ㄊㄡ"),
+  zhuyinEntry("躺下", "躺下", "ㄊㄤㄒㄧㄚ"),
+  zhuyinEntry("聽", "聽", "ㄊㄧㄥ"),
+  zhuyinEntry("太熱", "太熱", "ㄊㄞㄖㄜ"),
+  zhuyinEntry("推", "推", "ㄊㄨㄟ"),
+  zhuyinEntry("拿", "拿", "ㄋㄚ"),
+  zhuyinEntry("尿布", "尿布", "ㄋㄧㄠㄅㄨ"),
+  zhuyinEntry("哪裡", "哪裡", "ㄋㄚㄌㄧ"),
+  zhuyinEntry("難受", "難受", "ㄋㄢㄕㄡ"),
+  zhuyinEntry("奶", "奶", "ㄋㄞ"),
+  zhuyinEntry("弄好", "弄好", "ㄋㄨㄥㄏㄠ"),
+  zhuyinEntry("來", "來", "ㄌㄞ"),
+  zhuyinEntry("亮", "亮", "ㄌㄧㄤ"),
+  zhuyinEntry("拉", "拉", "ㄌㄚ"),
+  zhuyinEntry("聯絡", "聯絡", "ㄌㄧㄢㄌㄨㄛ"),
+  zhuyinEntry("離開", "離開", "ㄌㄧㄎㄞ"),
+  zhuyinEntry("給我", "給我", "ㄍㄟㄨㄛ"),
+  zhuyinEntry("關", "關", "ㄍㄨㄢ"),
+  zhuyinEntry("更高", "更高", "ㄍㄥㄍㄠ"),
+  zhuyinEntry("感覺", "感覺", "ㄍㄢㄐㄩㄝ"),
+  zhuyinEntry("蓋被", "蓋被", "ㄍㄞㄅㄟ"),
+  zhuyinEntry("過來", "過來", "ㄍㄨㄛㄌㄞ"),
+  zhuyinEntry("可以", "可以", "ㄎㄜㄧ"),
+  zhuyinEntry("口渴", "口渴", "ㄎㄡㄎㄜ"),
+  zhuyinEntry("開", "開", "ㄎㄞ"),
+  zhuyinEntry("看", "看", "ㄎㄢ"),
+  zhuyinEntry("快", "快", "ㄎㄨㄞ"),
+  zhuyinEntry("咳嗽", "咳嗽", "ㄎㄜㄙㄡ"),
+  zhuyinEntry("好", "好", "ㄏㄠ"),
+  zhuyinEntry("呼吸", "呼吸", "ㄏㄨㄒㄧ"),
+  zhuyinEntry("換", "換", "ㄏㄨㄢ"),
+  zhuyinEntry("回家", "回家", "ㄏㄨㄟㄐㄧㄚ"),
+  zhuyinEntry("後面", "後面", "ㄏㄡㄇㄧㄢ"),
+  zhuyinEntry("叫人", "叫人", "ㄐㄧㄠㄖㄣ", "ㄐㄖ"),
+  zhuyinEntry("今天", "今天", "ㄐㄧㄣㄊㄧㄢ"),
+  zhuyinEntry("近一點", "近一點", "ㄐㄧㄣㄧㄉㄧㄢ", "ㄐㄧㄉ"),
+  zhuyinEntry("急", "急", "ㄐㄧ"),
+  zhuyinEntry("繼續", "繼續", "ㄐㄧㄒㄩ"),
+  zhuyinEntry("加", "加", "ㄐㄧㄚ"),
+  zhuyinEntry("請", "請", "ㄑㄧㄥ"),
+  zhuyinEntry("起來", "起來", "ㄑㄧㄌㄞ"),
+  zhuyinEntry("前", "前", "ㄑㄧㄢ"),
+  zhuyinEntry("清楚", "清楚", "ㄑㄧㄥㄔㄨ"),
+  zhuyinEntry("輕一點", "輕一點", "ㄑㄧㄥㄧㄉㄧㄢ", "ㄑㄧㄉ"),
+  zhuyinEntry("去", "去", "ㄑㄩ"),
+  zhuyinEntry("想吐", "想吐", "ㄒㄧㄤㄊㄨ", "ㄒㄊ"),
+  zhuyinEntry("小便", "小便", "ㄒㄧㄠㄅㄧㄢ", "ㄒㄅ"),
+  zhuyinEntry("需要", "需要", "ㄒㄩㄧㄠ"),
+  zhuyinEntry("小心", "小心", "ㄒㄧㄠㄒㄧㄣ"),
+  zhuyinEntry("吸痰", "吸痰", "ㄒㄧㄊㄢ"),
+  zhuyinEntry("洗澡", "洗澡", "ㄒㄧㄗㄠ"),
+  zhuyinEntry("知道", "知道", "ㄓㄉㄠ"),
+  zhuyinEntry("這裡", "這裡", "ㄓㄜㄌㄧ"),
+  zhuyinEntry("轉", "轉", "ㄓㄨㄢ"),
+  zhuyinEntry("枕頭", "枕頭", "ㄓㄣㄊㄡ"),
+  zhuyinEntry("站", "站", "ㄓㄢ"),
+  zhuyinEntry("找", "找", "ㄓㄠ"),
+  zhuyinEntry("床", "床", "ㄔㄨㄤ"),
+  zhuyinEntry("穿", "穿", "ㄔㄨㄢ"),
+  zhuyinEntry("抽痰", "抽痰", "ㄔㄡㄊㄢ"),
+  zhuyinEntry("出去", "出去", "ㄔㄨㄑㄩ"),
+  zhuyinEntry("長", "長", "ㄔㄤ"),
+  zhuyinEntry("水", "水", "ㄕㄨㄟ"),
+  zhuyinEntry("說", "說", "ㄕㄨㄛ"),
+  zhuyinEntry("舒服", "舒服", "ㄕㄨㄈㄨ"),
+  zhuyinEntry("身體", "身體", "ㄕㄣㄊㄧ"),
+  zhuyinEntry("手", "手", "ㄕㄡ"),
+  zhuyinEntry("少一點", "少一點", "ㄕㄠㄧㄉㄧㄢ", "ㄕㄧㄉ"),
+  zhuyinEntry("人", "人", "ㄖㄣ"),
+  zhuyinEntry("讓我", "讓我", "ㄖㄤㄨㄛ", "ㄖㄨ"),
+  zhuyinEntry("日", "日", "ㄖ"),
+  zhuyinEntry("柔一點", "柔一點", "ㄖㄡㄧㄉㄧㄢ"),
+  zhuyinEntry("容易", "容易", "ㄖㄨㄥㄧ"),
+  zhuyinEntry("坐", "坐", "ㄗㄨㄛ"),
+  zhuyinEntry("走", "走", "ㄗㄡ"),
+  zhuyinEntry("再一次", "再一次", "ㄗㄞㄧㄘ"),
+  zhuyinEntry("怎麼", "怎麼", "ㄗㄣㄇㄜ"),
+  zhuyinEntry("姿勢", "調整姿勢", "ㄗㄕ"),
+  zhuyinEntry("早", "早", "ㄗㄠ"),
+  zhuyinEntry("擦", "擦", "ㄘㄚ"),
+  zhuyinEntry("餐", "餐", "ㄘㄢ"),
+  zhuyinEntry("刺痛", "刺痛", "ㄘㄊㄨㄥ"),
+  zhuyinEntry("側邊", "側邊", "ㄘㄜㄅㄧㄢ"),
+  zhuyinEntry("次", "次", "ㄘ"),
+  zhuyinEntry("送", "送", "ㄙㄨㄥ"),
+  zhuyinEntry("酸", "酸", "ㄙㄨㄢ"),
+  zhuyinEntry("三", "三", "ㄙㄢ"),
+  zhuyinEntry("速度", "速度", "ㄙㄨㄉㄨ"),
+  zhuyinEntry("鬆", "鬆", "ㄙㄨㄥ"),
+  zhuyinEntry("鬆一點", "鬆一點", "ㄙㄨㄥㄧㄉㄧㄢ"),
+  zhuyinEntry("痠痛", "痠痛", "ㄙㄨㄢㄊㄨㄥ"),
+  zhuyinEntry("所有", "所有", "ㄙㄨㄛㄧㄡ"),
+  zhuyinEntry("算了", "算了", "ㄙㄨㄢㄌㄜ"),
+  zhuyinEntry("衣服", "衣服", "ㄧㄈㄨ"),
+  zhuyinEntry("眼睛", "眼睛", "ㄧㄢㄐㄧㄥ"),
+  zhuyinEntry("有", "有", "ㄧㄡ"),
+  zhuyinEntry("又", "又", "ㄧㄡ"),
+  zhuyinEntry("有沒有", "有沒有", "ㄧㄡㄇㄟㄧㄡ", "ㄧㄇㄧ"),
+  zhuyinEntry("有空", "有空", "ㄧㄡㄎㄨㄥ", "ㄧㄎ"),
+  zhuyinEntry("有痛", "有痛", "ㄧㄡㄊㄨㄥ", "ㄧㄊ"),
+  zhuyinEntry("有需要", "有需要", "ㄧㄡㄒㄩㄧㄠ", "ㄧㄒ"),
+  zhuyinEntry("一點", "一點", "ㄧㄉㄧㄢ"),
+  zhuyinEntry("音樂", "音樂", "ㄧㄣㄩㄝ"),
+  zhuyinEntry("外面", "外面", "ㄨㄞㄇㄧㄢ"),
+  zhuyinEntry("晚上", "晚上", "ㄨㄢㄕㄤ"),
+  zhuyinEntry("問", "問", "ㄨㄣ"),
+  zhuyinEntry("溫度", "溫度", "ㄨㄣㄉㄨ"),
+  zhuyinEntry("無法", "無法", "ㄨㄈㄚ"),
+  zhuyinEntry("暈", "暈", "ㄩㄣ"),
+  zhuyinEntry("遠", "遠", "ㄩㄢ"),
+  zhuyinEntry("浴室", "浴室", "ㄩㄕ"),
+  zhuyinEntry("願意", "願意", "ㄩㄢㄧ"),
+  zhuyinEntry("越來越", "越來越", "ㄩㄝㄌㄞㄩㄝ")
 ]);
 
-export const ZhuyinCandidateDictionary = Object.freeze([
-  Object.freeze({ zhuyin: "ㄕˋ", candidates: Object.freeze(["是"]) }),
-  Object.freeze({ zhuyin: "ㄅㄨˊ", candidates: Object.freeze(["不"]) }),
-  Object.freeze({ zhuyin: "ㄧㄠˋ", candidates: Object.freeze(["要"]) }),
-  Object.freeze({ zhuyin: "ㄨㄛˇ", candidates: Object.freeze(["我"]) }),
-  Object.freeze({ zhuyin: "ㄋㄧˇ", candidates: Object.freeze(["你"]) }),
-  Object.freeze({ zhuyin: "ㄅㄤˉㄇㄤˊ", candidates: Object.freeze(["幫忙"]) }),
-  Object.freeze({ zhuyin: "ㄊㄨㄥˋ", candidates: Object.freeze(["痛"]) }),
-  Object.freeze({ zhuyin: "ㄏㄜˉㄕㄨㄟˇ", candidates: Object.freeze(["喝水"]) }),
-  Object.freeze({ zhuyin: "ㄔˉㄈㄢˋ", candidates: Object.freeze(["吃飯"]) }),
-  Object.freeze({ zhuyin: "ㄘㄜˋㄙㄨㄛˇ", candidates: Object.freeze(["廁所"]) }),
-  Object.freeze({ zhuyin: "ㄒㄧㄡˉㄒㄧˊ", candidates: Object.freeze(["休息"]) }),
-  Object.freeze({ zhuyin: "ㄨㄛˇㄧㄠˋ", candidates: Object.freeze(["我要喝水", "我要吃飯", "我要上廁所", "我要休息"]) }),
-  Object.freeze({ zhuyin: "ㄨㄛˇㄒㄩˉㄧㄠˋ", candidates: Object.freeze(["我需要幫忙"]) }),
-  Object.freeze({ zhuyin: "ㄑㄧㄥˇ", candidates: Object.freeze(["請"]) }),
-  Object.freeze({ zhuyin: "ㄑㄧㄥˇㄅㄤˉ", candidates: Object.freeze(["請幫我"]) }),
-  Object.freeze({ zhuyin: "ㄑㄧㄥˇㄉㄥˇ", candidates: Object.freeze(["請等一下"]) })
-]);
+export const ZhTwFrequencyDictionary = Object.freeze(
+  ZhuyinLookupDictionary.map((entry, index) => Object.freeze({
+    ...entry,
+    frequencyRank: index + 1,
+    frequency: 1 / (index + 1)
+  }))
+);
+
+export const ZhuyinStaticInputSymbols = Object.freeze(
+  ZhuyinInputSymbols.filter((symbol) =>
+    ZhTwFrequencyDictionary.some((entry) => entryKeys(entry).some((key) => key.startsWith(symbol)))
+  )
+);
+
+export const ZhTwPhraseCategories = Object.freeze({
+  needs: Object.freeze({
+    label: "需要",
+    tiles: Object.freeze([
+      tile("喝水"),
+      tile("吃飯"),
+      tile("廁所"),
+      tile("休息"),
+      tile("睡覺"),
+      tile("不要"),
+      tile("幫忙"),
+      tile("停")
+    ])
+  }),
+  body: Object.freeze({
+    label: "身體",
+    tiles: Object.freeze([
+      tile("痛"),
+      tile("不舒服"),
+      tile("熱"),
+      tile("冷"),
+      tile("累"),
+      tile("想吐"),
+      tile("頭暈"),
+      tile("怕")
+    ])
+  }),
+  care: Object.freeze({
+    label: "照護",
+    tiles: Object.freeze([
+      tile("幫忙"),
+      tile("家人"),
+      tile("護理師"),
+      tile("醫生"),
+      tile("藥"),
+      tile("姿勢", "調整姿勢"),
+      tile("等一下"),
+      tile("可以")
+    ])
+  }),
+  position: Object.freeze({
+    label: "位置",
+    tiles: Object.freeze([
+      tile("上"),
+      tile("下"),
+      tile("左"),
+      tile("右"),
+      tile("坐起來"),
+      tile("躺下"),
+      tile("翻身"),
+      tile("枕頭")
+    ])
+  }),
+  people: Object.freeze({
+    label: "人",
+    tiles: Object.freeze([
+      tile("家人"),
+      tile("媽媽"),
+      tile("爸爸"),
+      tile("護理師"),
+      tile("醫生"),
+      tile("照顧者"),
+      tile("朋友"),
+      tile("我")
+    ])
+  }),
+  quick: Object.freeze({
+    label: "常用",
+    tiles: Object.freeze([
+      tile("是"),
+      tile("不是"),
+      tile("要"),
+      tile("不要"),
+      tile("停"),
+      tile("等一下"),
+      tile("可以"),
+      tile("不可以")
+    ])
+  }),
+  talk: Object.freeze({
+    label: "表達",
+    tiles: Object.freeze([
+      tile("好"),
+      tile("不好"),
+      tile("知道"),
+      tile("不知道"),
+      tile("喜歡"),
+      tile("不喜歡"),
+      tile("再一次"),
+      tile("結束")
+    ])
+  })
+});
 
 export const ZhTwTiles = Object.freeze([
-  tile("是"),
-  tile("不是"),
-  tile("要"),
-  tile("不要"),
-  tile("我"),
-  tile("你"),
-  tile("幫忙"),
-  tile("痛"),
+  ...ZhTwCoreResponseTiles,
+  ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
+  MoreSuggestionsTile,
+  tile("說", "SAY", TileAction.Speak),
+  tile("刪", "DEL", TileAction.Backspace),
+  tile("清除", "CLR", TileAction.Clear)
+]);
+
+export const ZhTwSuggestionDictionary = Object.freeze([
+  ...ZhTwCoreResponseTiles,
+  ...ZhTwTiles.filter((candidate) => candidate.action === TileAction.Append),
+  ...Object.values(ZhTwPhraseCategories).flatMap((category) => category.tiles),
   tile("喝水"),
   tile("吃飯"),
   tile("廁所"),
   tile("休息"),
+  tile("睡覺"),
+  tile("痛"),
   tile("熱"),
   tile("冷"),
   tile("累"),
-  tile("睡覺"),
-  tile("上"),
-  tile("下"),
-  tile("左"),
-  tile("右"),
-  tile("請"),
-  tile("謝謝"),
-  tile("等一下"),
-  tile("好了"),
-  zhuyinModeTile(),
-  tile("說", "SAY", TileAction.Speak),
-  tile("刪", "DEL", TileAction.Backspace),
-  tile("清除", "CLR", TileAction.Clear),
-  tile("。")
-]);
-
-export const ZhTwSuggestionDictionary = Object.freeze([
-  ...ZhTwTiles.filter((candidate) => candidate.action === TileAction.Append),
-  tile("我要喝水"),
-  tile("我要吃飯"),
-  tile("我要上廁所"),
-  tile("我需要幫忙"),
-  tile("我很痛"),
-  tile("我很熱"),
-  tile("我很冷"),
-  tile("我很累"),
-  tile("我要休息"),
-  tile("我要睡覺"),
-  tile("請幫我"),
-  tile("請等一下"),
-  tile("請叫家人"),
-  tile("請叫護理師"),
-  tile("請調整姿勢"),
+  tile("家人"),
+  tile("護理師"),
+  tile("醫生"),
+  tile("藥"),
+  tile("姿勢", "調整姿勢"),
   tile("可以"),
   tile("不可以"),
   tile("媽媽"),
   tile("爸爸"),
-  tile("護理師"),
-  tile("醫生")
+  tile("不舒服")
 ]);
 
 export const LanguageProfiles = Object.freeze({
@@ -410,8 +765,11 @@ export function createBoardConfig(overrides = {}) {
 export function boardRows(config = createBoardConfig(), message = "", canUndo = false, inputState = {}) {
   const normalized = createBoardConfig(config);
   const safeColumns = clampInt(normalized.columns, 2, 8);
-  if (normalized.profileId === "zh-TW" && inputState.inputMode === "zhuyin") {
-    return zhuyinRows(inputState, safeColumns);
+  if (normalized.profileId === "zh-TW") {
+    return [
+      ...zhTwSuggestionRows(message, safeColumns, canUndo, inputState),
+      ...chunk(normalized.symbols, safeColumns)
+    ];
   }
 
   const suggestions = suggestionRow(message, normalized.suggestionDictionary, safeColumns, canUndo, normalized);
@@ -457,6 +815,18 @@ export function serializeSymbols(symbols) {
           return `${candidate.label}=<mode:${candidate.output}>`;
         case TileAction.ExitMode:
           return `${candidate.label}=<mode:board>`;
+        case TileAction.OpenCategory:
+          return `${candidate.label}=<category:${candidate.output}>`;
+        case TileAction.CloseCategory:
+          return `${candidate.label}=<category:close>`;
+        case TileAction.ZhuyinGroup:
+          return `${candidate.label}=<zhuyin-group:${candidate.output}>`;
+        case TileAction.ZhuyinSymbol:
+          return `${candidate.label}=<zhuyin-symbol:${candidate.output}>`;
+        case TileAction.CommitCandidate:
+          return candidate.output === candidate.label ? candidate.label : `${candidate.label}=${candidate.output}`;
+        case TileAction.MoreSuggestions:
+          return "MORE=<more>";
         case TileAction.Noop:
           return null;
         default:
@@ -469,6 +839,19 @@ export function serializeSymbols(symbols) {
 
 export function loadSymbolsForConfig(storedSymbols, storedVersion) {
   const parsedSymbols = parseSymbols(storedSymbols ?? serializeSymbols(DefaultTiles));
+  return migrateSymbolsForConfig(parsedSymbols, storedVersion);
+}
+
+export function loadProfileSymbolsForConfig(storedSymbols, storedVersion, profileId = DefaultProfileId) {
+  const profile = languageProfileForId(profileId);
+  const parsedSymbols = parseSymbols(storedSymbols ?? serializeSymbols(profile.symbols));
+  return migrateSymbolsForConfig(parsedSymbols, storedVersion, profile.id);
+}
+
+function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = DefaultProfileId) {
+  if (profileId === "zh-TW" && shouldMigrateBuiltInZhTwSymbols(parsedSymbols, storedVersion)) {
+    return ZhTwTiles;
+  }
   if (
     storedVersion < CurrentConfigVersion &&
     (sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) || sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3))
@@ -480,6 +863,19 @@ export function loadSymbolsForConfig(storedSymbols, storedVersion) {
 
 export function loadSuggestionDictionaryForConfig(storedDictionary, storedVersion) {
   const parsedDictionary = parseDictionary(storedDictionary ?? serializeDictionary(DefaultSuggestionDictionary));
+  return migrateSuggestionDictionaryForConfig(parsedDictionary, storedVersion);
+}
+
+export function loadProfileSuggestionDictionaryForConfig(storedDictionary, storedVersion, profileId = DefaultProfileId) {
+  const profile = languageProfileForId(profileId);
+  const parsedDictionary = parseDictionary(storedDictionary ?? serializeDictionary(profile.suggestionDictionary));
+  return migrateSuggestionDictionaryForConfig(parsedDictionary, storedVersion, profile.id);
+}
+
+function migrateSuggestionDictionaryForConfig(parsedDictionary, storedVersion, profileId = DefaultProfileId) {
+  if (profileId === "zh-TW" && shouldMigrateBuiltInZhTwDictionary(parsedDictionary, storedVersion)) {
+    return ZhTwSuggestionDictionary;
+  }
   if (
     storedVersion < CurrentConfigVersion &&
     (sameTiles(parsedDictionary, LegacySuggestionDictionaryV6) || sameTiles(parsedDictionary, LegacySuggestionDictionaryV7))
@@ -487,6 +883,31 @@ export function loadSuggestionDictionaryForConfig(storedDictionary, storedVersio
     return DefaultSuggestionDictionary;
   }
   return parsedDictionary;
+}
+
+function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
+  if (storedVersion >= CurrentConfigVersion) return false;
+  const labels = new Set(symbols.map((candidate) => candidate.label));
+  const hasCurrentDirectBoard = ZhuyinStaticInputSymbols.every((symbol) => labels.has(symbol)) &&
+    labels.has("MORE") &&
+    !labels.has("注音") &&
+    !labels.has("ㄅㄆㄇㄈ");
+  if (hasCurrentDirectBoard) return false;
+
+  const oldDefaultSignals = [
+    "我", "你", "喝水", "吃飯", "廁所", "休息", "睡覺", "護理師", "醫生", "藥", "謝謝", "。"
+  ].filter((label) => labels.has(label)).length;
+  const oldCategorySignals = ["需要", "身體", "照護", "位置"].filter((label) => labels.has(label)).length;
+  const oldZhuyinModeSignals = ["注音", "ㄅㄆㄇㄈ", "ㄧㄨㄩ"].filter((label) => labels.has(label)).length;
+  return oldDefaultSignals >= 4 || oldCategorySignals >= 3 || oldZhuyinModeSignals >= 2;
+}
+
+function shouldMigrateBuiltInZhTwDictionary(dictionary, storedVersion) {
+  if (storedVersion >= CurrentConfigVersion) return false;
+  const labels = new Set(dictionary.map((candidate) => candidate.label));
+  const oldLongPhraseSignals = ["我要喝水", "我要吃飯", "我要上廁所", "我需要幫忙", "我很痛", "叫護理師"]
+    .filter((label) => labels.has(label)).length;
+  return oldLongPhraseSignals >= 2;
 }
 
 export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
@@ -577,27 +998,186 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
   ];
 }
 
+function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) {
+  const safeColumns = clampInt(columns, 2, 8);
+  const pageSize = safeColumns * ZhTwSuggestionRowCount;
+  const allSuggestions = zhTwSuggestionTiles(message);
+  const commandSuggestions = canUndo ? [UndoSuggestionTile] : [];
+  const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
+  const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
+  const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
+  const needsMore = pageCount > 1;
+  const usablePageSize = needsMore ? pageSize - 1 : pageSize;
+  const pageSuggestions = totalSuggestions.slice(page * usablePageSize, page * usablePageSize + usablePageSize);
+  const visibleSuggestions = needsMore
+    ? [...pageSuggestions, MoreSuggestionsTile]
+    : pageSuggestions;
+
+  return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);
+}
+
+function zhTwSuggestionTiles(message) {
+  const buffer = trailingZhuyinBuffer(message);
+  const candidates = buffer
+    ? zhTwBufferedSuggestionTiles(buffer)
+    : ZhTwFrequencyDictionary
+      .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
+
+  return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`);
+}
+
+function zhTwBufferedSuggestionTiles(buffer) {
+  const exactCandidates = ZhTwFrequencyDictionary
+    .map((entry) => zhTwCandidateForBuffer(entry, buffer))
+    .filter(Boolean)
+    .sort(zhTwCandidateRank);
+  const nextSymbols = zhTwNextSymbolTiles(buffer);
+  const backfillCandidates = exactCandidates.length + nextSymbols.length >= 11
+    ? []
+    : zhTwBackfillCandidatesForBuffer(buffer, exactCandidates)
+      .sort(zhTwCandidateRank)
+      .slice(0, 11 - exactCandidates.length - nextSymbols.length);
+
+  return distinctBy(
+    [
+      ...exactCandidates.slice(0, ZhTwImmediateCandidateCountBeforeNextSymbols),
+      ...nextSymbols,
+      ...exactCandidates.slice(ZhTwImmediateCandidateCountBeforeNextSymbols),
+      ...backfillCandidates
+    ],
+    (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
+  );
+}
+
+function zhTwCandidateForBuffer(entry, buffer) {
+  const matchingKey = entryKeys(entry)
+    .filter((key) => key.startsWith(buffer))
+    .sort((left, right) => left.length - right.length)[0];
+  if (!matchingKey) return null;
+  return zhTwCandidateTile(entry, buffer.length, matchingKey, "exact");
+}
+
+function zhTwBackfillCandidatesForBuffer(buffer, exactCandidates) {
+  const exactKeys = new Set(exactCandidates.map((candidate) => `${candidate.label}\u0000${candidate.output}`));
+  const fallbackPrefixes = [];
+  for (let length = buffer.length - 1; length > 0; length -= 1) {
+    fallbackPrefixes.push(buffer.slice(0, length));
+  }
+
+  return distinctBy(
+    fallbackPrefixes.flatMap((prefix) =>
+      ZhTwFrequencyDictionary
+        .filter((entry) => !exactKeys.has(`${entry.label}\u0000${entry.output}`))
+        .map((entry) => {
+          const matchingKey = entryKeys(entry)
+            .filter((key) => key.startsWith(prefix))
+            .sort((left, right) => left.length - right.length)[0];
+          return matchingKey ? zhTwCandidateTile(entry, buffer.length, matchingKey, "prefix-backfill") : null;
+        })
+        .filter(Boolean)
+    ),
+    (candidate) => `${candidate.label}\u0000${candidate.output}`
+  );
+}
+
+function zhTwNextSymbolTiles(buffer) {
+  return distinctBy(
+    ZhTwFrequencyDictionary
+      .flatMap((entry) => entryKeys(entry))
+      .filter((key) => key.startsWith(buffer) && key.length > buffer.length)
+      .map((key) => key.at(buffer.length))
+      .filter((symbol) => ZhuyinInputSymbolSet.has(symbol)),
+    (symbol) => symbol
+  )
+    .sort((left, right) => zhuyinFollowingSymbolRank(left) - zhuyinFollowingSymbolRank(right))
+    .map((symbol) => tile(symbol, symbol, TileAction.Append));
+}
+
+function zhuyinFollowingSymbolRank(symbol) {
+  const index = ZhuyinFollowingSymbolOrder.indexOf(symbol);
+  return index >= 0 ? index : ZhuyinFollowingSymbolOrder.length;
+}
+
+function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
+  return Object.freeze({
+    label: entry.label,
+    output: entry.output,
+    action: TileAction.CommitCandidate,
+    replaceLength,
+    zhuyinKey: matchingKey,
+    matchType,
+    keys: entry.keys,
+    frequencyRank: entry.frequencyRank,
+    frequency: entry.frequency
+  });
+}
+
+function zhTwCandidateRank(left, right) {
+  const leftExact = left.matchType === "exact" && left.zhuyinKey.length === left.replaceLength ? 0 : 1;
+  const rightExact = right.matchType === "exact" && right.zhuyinKey.length === right.replaceLength ? 0 : 1;
+  if (leftExact !== rightExact) return leftExact - rightExact;
+  const leftBackfill = left.matchType === "prefix-backfill" ? 1 : 0;
+  const rightBackfill = right.matchType === "prefix-backfill" ? 1 : 0;
+  if (leftBackfill !== rightBackfill) return leftBackfill - rightBackfill;
+  if (left.zhuyinKey.length !== right.zhuyinKey.length) return left.zhuyinKey.length - right.zhuyinKey.length;
+  return left.frequencyRank - right.frequencyRank;
+}
+
+function trailingZhuyinBuffer(message) {
+  let buffer = "";
+  for (const character of Array.from(message).reverse()) {
+    if (!ZhuyinInputSymbolSet.has(character)) break;
+    buffer = character + buffer;
+  }
+  return buffer;
+}
+
+function zhTwSuggestionPageCount(message, columns, canUndo = false) {
+  const safeColumns = clampInt(columns, 2, 8);
+  const pageSize = safeColumns * ZhTwSuggestionRowCount;
+  const count = zhTwSuggestionTiles(message).length + (canUndo ? 1 : 0);
+  return zhTwSuggestionPageCountForTotal(count, pageSize);
+}
+
+function zhTwSuggestionPageCountForTotal(total, pageSize) {
+  if (total <= pageSize) return 1;
+  return clampInt(Math.ceil(total / Math.max(1, pageSize - 1)), 1, MaxZhTwSuggestionPages);
+}
+
+function zhTwSuggestionKey(candidate) {
+  return `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`;
+}
+
+function padSuggestions(suggestions, size) {
+  return [
+    ...suggestions.slice(0, size),
+    ...Array.from({ length: Math.max(0, size - suggestions.length) }, () => tile("", "", TileAction.Noop))
+  ];
+}
+
 function zhuyinRows(inputState, columns) {
   const state = normalizeZhuyinState(inputState);
   const commandRow = zhuyinCommandRow(state, columns);
   const bodyRows = state.zhuyinStage === "initialGroup"
     ? zhuyinInitialGroupRows(columns)
-    : state.zhuyinStage === "initial"
-      ? zhuyinInitialRows(state.zhuyinGroup, columns)
-      : state.zhuyinStage === "final"
-        ? chunk(ZhuyinFinals.map((candidate) => zhuyinSymbolTile(candidate, candidate, "final")), columns)
-        : state.zhuyinStage === "tone"
-          ? chunk(ZhuyinTones.map((candidate) => zhuyinSymbolTile(candidate.label, candidate.mark, "tone")), columns)
-          : zhuyinCandidateRows(state.zhuyinBuffer, columns);
+    : zhuyinLookupRows(state, columns);
 
   return [commandRow, ...bodyRows];
 }
 
+function categorySuggestionRows(categoryId, columns) {
+  const category = ZhTwPhraseCategories[categoryId];
+  if (!category) return [];
+  const commandRow = paddedRow([
+    categoryCloseTile,
+    tile(category.label, category.label, TileAction.Noop)
+  ], columns);
+  return [commandRow, ...chunk(category.tiles, columns)];
+}
+
 function zhuyinCommandRow(state, columns) {
-  const label = state.zhuyinBuffer ? `注音 ${state.zhuyinBuffer}` : "注音";
-  const row = state.zhuyinStage === "candidate"
-    ? [zhuyinContinueTile, zhuyinClearTile, boardModeTile(), tile(label, label, TileAction.Noop)]
-    : [zhuyinClearTile, boardModeTile(), tile(label, label, TileAction.Noop)];
+  const label = state.zhuyinBuffer ? `找 ${state.zhuyinBuffer}` : "找讀音";
+  const row = [zhuyinClearTile, boardModeTile(), tile(label, label, TileAction.Noop)];
   return paddedRow(row.slice(0, columns), columns);
 }
 
@@ -605,28 +1185,80 @@ function zhuyinInitialGroupRows(columns) {
   return chunk(ZhuyinInitialGroups.map((group) => zhuyinGroupTile(group.label, group.id)), columns);
 }
 
-function zhuyinInitialRows(groupId, columns) {
-  const group = ZhuyinInitialGroups.find((candidate) => candidate.id === groupId) ?? ZhuyinInitialGroups[0];
-  const symbols = group.id === "zero"
-    ? [zhuyinSymbolTile("無聲母", "", "zeroInitial")]
-    : group.symbols.map((candidate) => zhuyinSymbolTile(candidate, candidate, "initial"));
-  return chunk([boardModeTile("返回"), ...symbols], columns);
+function zhuyinLookupRows(state, columns) {
+  const matchingEntries = zhuyinEntriesForState(state);
+  const candidateEntries = zhuyinCandidateEntriesForState(state, matchingEntries);
+  const candidateTiles = candidateEntries.map((entry) => tile(entry.label, entry.output, TileAction.CommitCandidate));
+  const nextSymbolTiles = nextZhuyinSymbolsForState(state)
+    .map((symbol) => zhuyinSymbolTile(symbol, symbol, "prefix"));
+  return chunk([...candidateTiles, ...nextSymbolTiles], columns);
 }
 
-function zhuyinCandidateRows(zhuyinBuffer, columns) {
-  const candidates = candidatesForZhuyin(zhuyinBuffer)
-    .map((candidate) => tile(candidate, candidate, TileAction.CommitCandidate));
-  return chunk(candidates.length > 0 ? candidates : [zhuyinContinueTile, zhuyinClearTile], columns);
+function zhuyinEntriesForState(state) {
+  let entries;
+  if (state.zhuyinBuffer) {
+    entries = ZhuyinLookupDictionary.filter((entry) => entryMatchesPrefix(entry, state.zhuyinBuffer));
+    return distinctBy(entries, (entry) => `${entry.label}\u0000${entry.output}`);
+  }
+  const group = ZhuyinInitialGroups.find((candidate) => candidate.id === state.zhuyinGroup);
+  entries = !group
+    ? ZhuyinLookupDictionary
+    : ZhuyinLookupDictionary.filter((entry) => group.symbols.some((symbol) => entryMatchesPrefix(entry, symbol)));
+  return distinctBy(entries, (entry) => `${entry.label}\u0000${entry.output}`);
 }
 
-function candidatesForZhuyin(zhuyinBuffer) {
-  const exact = ZhuyinCandidateDictionary.find((entry) => entry.zhuyin === zhuyinBuffer);
-  if (exact) return [...exact.candidates];
+function zhuyinCandidateEntriesForState(state, matchingEntries) {
+  const primary = distinctBy(matchingEntries, (entry) => `${entry.label}\u0000${entry.output}`);
+  if (!state.zhuyinBuffer || primary.length >= MinZhuyinTargets) {
+    return primary.slice(0, MaxZhuyinCandidateTargets);
+  }
 
-  return ZhuyinCandidateDictionary
-    .filter((entry) => entry.zhuyin.startsWith(zhuyinBuffer))
-    .flatMap((entry) => entry.candidates)
-    .slice(0, 8);
+  return distinctBy(
+    [
+      ...primary,
+      ...zhuyinFallbackEntriesForState(state, primary)
+    ],
+    (entry) => `${entry.label}\u0000${entry.output}`
+  ).slice(0, MaxZhuyinCandidateTargets);
+}
+
+function zhuyinFallbackEntriesForState(state, primaryEntries) {
+  const primaryKeys = new Set(primaryEntries.map((entry) => `${entry.label}\u0000${entry.output}`));
+  const fallbackPrefixes = distinctBy(
+    [
+      state.zhuyinBuffer.slice(0, -1),
+      state.zhuyinBuffer.at(0),
+      ...(ZhuyinInitialGroups.find((candidate) => candidate.id === state.zhuyinGroup)?.symbols ?? [])
+    ].filter(Boolean),
+    (prefix) => prefix
+  );
+
+  return fallbackPrefixes
+    .flatMap((prefix) => ZhuyinLookupDictionary.filter((entry) => entryMatchesPrefix(entry, prefix)))
+    .filter((entry) => !primaryKeys.has(`${entry.label}\u0000${entry.output}`));
+}
+
+function nextZhuyinSymbolsForState(state) {
+  const entries = zhuyinEntriesForState(state);
+  if (!state.zhuyinBuffer) {
+    const group = ZhuyinInitialGroups.find((candidate) => candidate.id === state.zhuyinGroup);
+    return group?.symbols ?? [];
+  }
+
+  return distinctBy(
+    entries
+      .flatMap((entry) => entryKeys(entry).map((key) => key.at(state.zhuyinBuffer.length)))
+      .filter(Boolean),
+    (symbol) => symbol
+  ).slice(0, 8);
+}
+
+function entryKeys(entry) {
+  return entry.keys ?? [entry.key];
+}
+
+function entryMatchesPrefix(entry, prefix) {
+  return entryKeys(entry).some((key) => key.startsWith(prefix));
 }
 
 export function createScannerState(overrides = {}) {
@@ -760,9 +1392,11 @@ export function createSession(overrides = {}) {
     message: "",
     messageHistory: [],
     inputMode: "board",
+    activeCategory: null,
     zhuyinBuffer: "",
     zhuyinStage: "initialGroup",
     zhuyinGroup: null,
+    suggestionPage: 0,
     scannerState: createScannerState(),
     lockedRow: null,
     lastSelection: null,
@@ -830,9 +1464,11 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     message: applied.message,
     messageHistory: applied.messageHistory,
     inputMode: applied.inputMode ?? session.inputMode,
+    activeCategory: Object.hasOwn(applied, "activeCategory") ? applied.activeCategory : session.activeCategory,
     zhuyinBuffer: applied.zhuyinBuffer ?? session.zhuyinBuffer,
     zhuyinStage: applied.zhuyinStage ?? session.zhuyinStage,
     zhuyinGroup: applied.zhuyinGroup ?? session.zhuyinGroup,
+    suggestionPage: applied.suggestionPage ?? session.suggestionPage,
     scannerState: confirmation.nextState,
     lockedRow: null,
     lastSelection: {
@@ -845,6 +1481,18 @@ export function pressSwitch(session, elapsedInHighlightMs) {
 }
 
 export function applyTile(message, messageHistory, selectedTile, config = createBoardConfig(), inputState = {}) {
+  if (selectedTile.action === TileAction.MoreSuggestions) {
+    const normalized = createBoardConfig(config);
+    const pageCount = normalized.profileId === "zh-TW"
+      ? zhTwSuggestionPageCount(message, normalized.columns, messageHistory.length > 0)
+      : 1;
+    return {
+      message,
+      messageHistory,
+      effect: "suggestion-page",
+      suggestionPage: floorMod((inputState.suggestionPage ?? 0) + 1, pageCount)
+    };
+  }
   if (selectedTile.action === TileAction.Noop) {
     return { message, messageHistory, effect: "none" };
   }
@@ -854,6 +1502,7 @@ export function applyTile(message, messageHistory, selectedTile, config = create
       messageHistory,
       effect: "mode",
       inputMode: selectedTile.output,
+      activeCategory: null,
       ...emptyZhuyinState()
     };
   }
@@ -863,6 +1512,27 @@ export function applyTile(message, messageHistory, selectedTile, config = create
       messageHistory,
       effect: "mode",
       inputMode: "board",
+      activeCategory: null,
+      ...emptyZhuyinState()
+    };
+  }
+  if (selectedTile.action === TileAction.OpenCategory) {
+    return {
+      message,
+      messageHistory,
+      effect: "category",
+      inputMode: "board",
+      activeCategory: selectedTile.output,
+      ...emptyZhuyinState()
+    };
+  }
+  if (selectedTile.action === TileAction.CloseCategory) {
+    return {
+      message,
+      messageHistory,
+      effect: "category",
+      inputMode: "board",
+      activeCategory: null,
       ...emptyZhuyinState()
     };
   }
@@ -873,7 +1543,7 @@ export function applyTile(message, messageHistory, selectedTile, config = create
       effect: "zhuyin",
       inputMode: "zhuyin",
       zhuyinBuffer: normalizeZhuyinState(inputState).zhuyinBuffer,
-      zhuyinStage: "initial",
+      zhuyinStage: "lookup",
       zhuyinGroup: selectedTile.output
     };
   }
@@ -886,17 +1556,6 @@ export function applyTile(message, messageHistory, selectedTile, config = create
       ...nextZhuyinState(inputState, selectedTile)
     };
   }
-  if (selectedTile.action === TileAction.ZhuyinContinue) {
-    return {
-      message,
-      messageHistory,
-      effect: "zhuyin",
-      inputMode: "zhuyin",
-      zhuyinBuffer: normalizeZhuyinState(inputState).zhuyinBuffer,
-      zhuyinStage: "initialGroup",
-      zhuyinGroup: null
-    };
-  }
   if (selectedTile.action === TileAction.ZhuyinClear) {
     return {
       message,
@@ -907,19 +1566,21 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     };
   }
   if (selectedTile.action === TileAction.CommitCandidate) {
-    const nextMessage = appendToken(message, selectedTile, config);
+    const nextMessage = commitCandidateMessage(message, selectedTile, config);
     return {
       message: nextMessage,
       messageHistory: nextMessage === message ? messageHistory : [...messageHistory, message].slice(-24),
       effect: nextMessage === message ? "none" : "message",
       inputMode: "board",
+      activeCategory: null,
+      suggestionPage: 0,
       ...emptyZhuyinState()
     };
   }
   if (selectedTile.action === TileAction.Undo) {
     const previous = messageHistory.at(-1);
     if (previous === undefined) return { message, messageHistory, effect: "none" };
-    return { message: previous, messageHistory: messageHistory.slice(0, -1), effect: "undo" };
+    return { message: previous, messageHistory: messageHistory.slice(0, -1), effect: "undo", suggestionPage: 0 };
   }
   if (selectedTile.action === TileAction.Speak) {
     return { message, messageHistory, effect: "speak" };
@@ -930,8 +1591,16 @@ export function applyTile(message, messageHistory, selectedTile, config = create
   return {
     message: nextMessage,
     messageHistory: [...messageHistory, message].slice(-24),
-    effect: "message"
+    effect: "message",
+    activeCategory: null,
+    suggestionPage: 0
   };
+}
+
+function commitCandidateMessage(message, selectedTile, config) {
+  const replaceLength = clampInt(selectedTile.replaceLength ?? 0, 0, message.length);
+  const baseMessage = replaceLength > 0 ? message.slice(0, message.length - replaceLength) : message;
+  return appendToken(baseMessage, selectedTile, config);
 }
 
 export function selectableCount(row) {
@@ -968,8 +1637,16 @@ function parseSymbolLine(line) {
   if (normalizedLabel === "CLR" || normalizedValue === "<clear>") return tile("CLR", "CLR", TileAction.Clear);
   if (normalizedLabel === "UNDO" || normalizedValue === "<undo>") return tile("UNDO", "UNDO", TileAction.Undo);
   if (normalizedLabel === "SAY" || normalizedValue === "<speak>") return tile("SAY", "SAY", TileAction.Speak);
+  if (normalizedValue === "<more>") return tile(label || "MORE", "MORE", TileAction.MoreSuggestions);
   if (normalizedValue === "<mode:zhuyin>") return tile(label || "注音", "zhuyin", TileAction.EnterMode);
   if (normalizedValue === "<mode:board>") return tile(label || "返回", "board", TileAction.ExitMode);
+  const categoryMatch = normalizedValue.match(/^<category:([^>]+)>$/);
+  if (categoryMatch?.[1] === "close") return tile(label || "返回", "category", TileAction.CloseCategory);
+  if (categoryMatch) return tile(label || categoryMatch[1], categoryMatch[1], TileAction.OpenCategory);
+  const zhuyinGroupMatch = normalizedValue.match(/^<zhuyin-group:([^>]+)>$/);
+  if (zhuyinGroupMatch) return tile(label || zhuyinGroupMatch[1], zhuyinGroupMatch[1], TileAction.ZhuyinGroup);
+  const zhuyinSymbolMatch = value.match(/^<zhuyin-symbol:([^>]+)>$/);
+  if (zhuyinSymbolMatch) return zhuyinSymbolTile(label || zhuyinSymbolMatch[1], zhuyinSymbolMatch[1], "prefix");
   if (normalizedLabel === "<EMPTY>" || normalizedValue === "<empty>") return tile("", "", TileAction.Noop);
   if (!label) return tile(value);
   return tile(label, value);
@@ -1000,34 +1677,12 @@ function normalizeZhuyinState(state = {}) {
 
 function nextZhuyinState(inputState, selectedTile) {
   const state = normalizeZhuyinState(inputState);
-  switch (selectedTile.zhuyinKind) {
-    case "initial":
-      return {
-        zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
-        zhuyinStage: "final",
-        zhuyinGroup: null
-      };
-    case "zeroInitial":
-      return {
-        zhuyinBuffer: state.zhuyinBuffer,
-        zhuyinStage: "final",
-        zhuyinGroup: null
-      };
-    case "final":
-      return {
-        zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
-        zhuyinStage: "tone",
-        zhuyinGroup: null
-      };
-    case "tone":
-      return {
-        zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
-        zhuyinStage: "candidate",
-        zhuyinGroup: null
-      };
-    default:
-      return state;
-  }
+  if (selectedTile.zhuyinKind !== "prefix") return state;
+  return {
+    zhuyinBuffer: state.zhuyinBuffer + selectedTile.output,
+    zhuyinStage: "lookup",
+    zhuyinGroup: state.zhuyinGroup
+  };
 }
 
 function paddedRow(row, columns) {

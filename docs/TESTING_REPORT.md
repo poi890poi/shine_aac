@@ -15,7 +15,7 @@ npm run test:core
 Latest result:
 
 ```text
-47 tests passed
+57 tests passed
 0 tests failed
 ```
 
@@ -40,6 +40,7 @@ Latest result:
 - old built-in layouts migrate to current defaults
 - custom current-version layouts are preserved
 - custom symbols/actions parse correctly
+- category and Zhuyin group actions serialize and parse correctly for editable layouts
 - board rows chunk by configured column count
 - default suggestion dictionary is built from broad ranked vocabulary lists
 - partial words suggest completions such as `wa` -> `WANT`, `WATER`, `WATCH`
@@ -52,11 +53,28 @@ Latest result:
 - expanded vocabulary suggests `DRINK` after `I want `
 - the default board no longer spends a row on a single `?`
 - old built-in suggestion dictionaries migrate, custom dictionaries remain
+- old built-in `zh-TW` layouts migrate to the current direct-Zhuyin first layer
+- custom `zh-TW` board layouts are preserved during migration
+- old built-in `zh-TW` dictionaries migrate from long first-person phrases to short AAC labels
 - English remains the default language profile and keeps word auto-spacing
-- `zh-TW` has an independent phrase-first board and dictionary
+- `zh-TW` has an independent direct-Zhuyin board and dictionary
 - `zh-TW` appends selected words and phrases without automatic spaces
-- `zh-TW` exposes a separate `注音` composition mode instead of replacing the phrase board
-- Zhuyin composition can build `ㄨㄛˇㄧㄠˋ` and commit a phrase candidate such as `我要喝水`
+- `zh-TW` exposes direct Zhuyin symbols, `MORE`, and essential controls while omitting low-information punctuation from the default board
+- `zh-TW` uses three suggestion rows for ranked glyph/phrase candidates instead of second-layer or third-layer Zhuyin pages
+- `zh-TW` candidate suggestions can replace the trailing typed Zhuyin buffer in one undoable action
+- `zh-TW` suggestion rows offer valid following Zhuyin symbols, such as `ㄚ` after `ㄅ`
+- standalone finals that have no dictionary-backed first-symbol entries are not exposed as first-layer dead-end symbols
+- `zh-TW` initial-only Zhuyin such as `ㄅ` surfaces matching ranked phrases such as `不要` and `幫忙`
+- `zh-TW` phrase-initial Zhuyin shortcuts such as `ㄅㄧ` surface useful phrases such as `不要`
+- sparse Zhuyin buffers such as `ㄧㄡ` backfill useful suggestions such as `有`, `又`, and `有沒有`
+- `zh-TW` Zhuyin voice feedback uses Mandarin-readable names such as `玻` and `烏` instead of raw Bopomofo symbols
+- `zh-TW` static Zhuyin symbols all have exact dictionary-backed suggestions
+- every full `zh-TW` dictionary key is discoverable through suggestion pages
+- every `zh-TW` dictionary key is progressively navigable through visible symbols and bounded suggestion pages
+- `MORE` preserves the current phonetic buffer instead of resetting to default suggestions
+- unsupported standalone finals do not show unrelated replacement backfill
+- `MORE` advances only the `zh-TW` suggestion rows and leaves the static board unchanged
+- `zh-TW` dictionary entries include Zhuyin keys and frequency metadata
 - language profile defaults do not share mutable arrays
 
 ### Human-Like Input Sequences
@@ -81,6 +99,10 @@ Latest result:
 - uses `CLR`
 - types `movi`, completes it to `movie `, then uses `DEL`
 - verifies a Pixel 4a 5G-sized viewport fits without scrolling
+- seeds an old stored `zh-TW` layout and verifies it migrates to direct Zhuyin symbols
+- verifies reset restores the packaged `zh-TW` defaults and persists direct Zhuyin symbols instead of stale user layout text
+- verifies rendered `zh-TW` labels such as `ㄅ`, `ㄓ`, `ㄧ`, `MORE`, and replacement suggestions fit without clipping
+- verifies `ㄅㄧ` can be replaced by the suggestion `不要`
 - writes `docs/WEB_E2E_REPORT.md`
 - writes `e2e-artifacts/web-e2e-final.png`
 
@@ -92,6 +114,7 @@ Latest result:
 - verifies the phone-button input adapter path with `keyevent 24`
 - synchronizes on fresh render-state logs before each row and cell activation
 - enters `I want water ` through the packaged scanner
+- launches the packaged APK with `zh-TW` e2e preferences and verifies rendered WebView state includes dictionary-backed first-layer Zhuyin symbols such as `ㄅ`, `ㄧ`, `ㄩ`, plus `MORE`
 - captures `e2e-artifacts/hardware-button-final.png`
 
 ## Important Design Assertions
@@ -110,7 +133,7 @@ Latest result:
 - Android/iOS packaged smoke tests should be rewritten after the web/Capacitor shell exists.
 - Timing comfort still needs human UX testing on real devices.
 - Text-to-speech behavior is not covered by the core because it belongs to platform shells.
-- Persistence migration needs platform-shell tests once storage adapters are introduced.
+- Platform-shell persistence now has a `zh-TW` render smoke test, but broader custom-board migration cases still need more device coverage.
 
 ## How To Review Remotely
 

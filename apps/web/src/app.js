@@ -1,25 +1,25 @@
 import {
-  DefaultSuggestionDictionary,
-  DefaultTiles,
+  CurrentConfigVersion,
   LanguageProfiles,
   ScanStage,
   TileAction,
   advanceSession,
   createBoardConfig,
   createSession,
-  loadSuggestionDictionaryForConfig,
-  loadSymbolsForConfig,
+  loadProfileSuggestionDictionaryForConfig,
+  loadProfileSymbolsForConfig,
   parseDictionary,
   parseSymbols,
   pressSwitch,
   scanDurationForStage,
   serializeDictionary,
   serializeSymbols,
+  speechLabelForTile,
   visibleBoard
 } from "../../../packages/aac-core/src/index.js";
 
 const storageKey = "shine-aac-web-config-v1";
-const webConfigVersion = 4;
+const webConfigVersion = CurrentConfigVersion;
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
 const InputIntent = Object.freeze({
@@ -56,6 +56,7 @@ function loadConfig() {
     const stored = JSON.parse(localStorage.getItem(storageKey) ?? "null");
     if (!stored) return defaults;
     const storedVersion = Number(stored.configVersion) || 0;
+    const profileDefaults = createBoardConfig({ profileId: stored.profileId });
     return createBoardConfig({
       profileId: stored.profileId,
       columns: numberOrDefault(stored.columns, defaults.columns),
@@ -68,11 +69,16 @@ function loadConfig() {
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
       ),
-      suggestionDictionary: loadSuggestionDictionaryForConfig(
-        stored.suggestionDictionary ?? serializeDictionary(DefaultSuggestionDictionary),
-        storedVersion
+      suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
+        stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
+        storedVersion,
+        stored.profileId
       ),
-      symbols: loadSymbolsForConfig(stored.symbols ?? serializeSymbols(DefaultTiles), storedVersion)
+      symbols: loadProfileSymbolsForConfig(
+        stored.symbols ?? serializeSymbols(profileDefaults.symbols),
+        storedVersion,
+        stored.profileId
+      )
     });
   } catch {
     return defaults;
@@ -278,29 +284,7 @@ function announceCurrentScanTarget() {
 }
 
 function labelForSpeech(tile) {
-  if (session.config.profileId === "zh-TW") {
-    if (tile.action === TileAction.Space) return "空格";
-    if (tile.action === TileAction.Backspace) return "刪除";
-    if (tile.action === TileAction.Clear) return "清除";
-    if (tile.action === TileAction.Undo) return "復原";
-    if (tile.action === TileAction.Speak) return "說出";
-    if (tile.action === TileAction.EnterMode) return "注音";
-    if (tile.action === TileAction.ExitMode) return "返回";
-    if (tile.action === TileAction.ZhuyinContinue) return "續音";
-    if (tile.action === TileAction.ZhuyinClear) return "清除注音";
-    if (tile.action === TileAction.CommitCandidate) return tile.output.trim() || tile.label;
-  }
-  if (tile.action === TileAction.Space) return "space";
-  if (tile.action === TileAction.Backspace) return "delete";
-  if (tile.action === TileAction.Clear) return "clear";
-  if (tile.action === TileAction.Undo) return "undo";
-  if (tile.action === TileAction.Speak) return "speak";
-  if (tile.action === TileAction.EnterMode) return "enter mode";
-  if (tile.action === TileAction.ExitMode) return "exit mode";
-  if (tile.action === TileAction.ZhuyinContinue) return "continue";
-  if (tile.action === TileAction.ZhuyinClear) return "clear composition";
-  if (tile.action === TileAction.CommitCandidate) return tile.output.trim() || tile.label;
-  return tile.output.trim() || tile.label;
+  return speechLabelForTile(tile, session.config.profileId);
 }
 
 function render() {
@@ -415,10 +399,11 @@ function tileClass(candidate, activeRow, activeCell) {
   classes.push(`action-${candidate.action}`);
   if (candidate.action !== TileAction.Append) classes.push("command");
   if (candidate.action === TileAction.Noop) classes.push("noop");
+  if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");
-  if (candidate.label.length >= 7) classes.push("tiny");
-  else if (candidate.label.length >= 5) classes.push("small");
+  if (candidate.label.length >= 6) classes.push("tiny");
+  else if (candidate.label.length >= 4) classes.push("small");
   return classes.join(" ");
 }
 
@@ -548,10 +533,12 @@ function renderConfig() {
     const action = event.target?.dataset?.action;
     if (action === "cancel") closeConfig();
     if (action === "reset") {
-      localStorage.removeItem(storageKey);
-      localStorage.removeItem(uiStorageKey);
-      session = createSession({ config: createBoardConfig() });
+      const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
+      const config = createBoardConfig({ profileId });
+      saveConfig(config);
       uiConfig = defaultUiConfig;
+      saveUiConfig(uiConfig);
+      session = createSession({ config });
       closeConfig();
     }
   });

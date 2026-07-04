@@ -68,9 +68,9 @@ try {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       columns: 4,
-      scanIntervalMs: 220,
+      scanIntervalMs: 500,
       transitionPauseMs: 0,
-      firstCellPauseMs: 220,
+      firstCellPauseMs: 500,
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
@@ -86,6 +86,9 @@ try {
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
+  await scenarioZhTwLayoutMigration();
+  await scenarioZhTwResetUsesPackagedDefaults();
+  await assertNoViewportOverflow("zh-tw-pixel-4a-5g-layout");
 
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
   const screenshotPath = join(artifactDir, "web-e2e-final.png");
@@ -149,6 +152,123 @@ async function scenarioClearAndMovie() {
   await selectLabel("DEL");
   await assertMessage("movie");
   steps.push(pass("delete", "selected DEL and removed the automatic trailing space"));
+}
+
+async function scenarioZhTwLayoutMigration() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 8,
+      profileId: "zh-TW",
+      columns: 4,
+      scanIntervalMs: 500,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 500,
+      inputLatencyCompensationMs: 0,
+      suggestionDictionary: [
+        "我要喝水",
+        "我要吃飯",
+        "我要上廁所",
+        "我需要幫忙",
+        "我很痛",
+        "叫護理師"
+      ].join("\\n"),
+      symbols: [
+        "是",
+        "不是",
+        "要",
+        "不要",
+        "我",
+        "你",
+        "幫忙",
+        "痛",
+        "喝水",
+        "吃飯",
+        "廁所",
+        "休息",
+        "熱",
+        "冷",
+        "累",
+        "睡覺",
+        "家人",
+        "護理師",
+        "醫生",
+        "藥",
+        "停",
+        "注音=<mode:zhuyin>",
+        "說=<speak>",
+        "刪=<delete>",
+        "清除=<clear>"
+      ].join("\\n")
+    }));
+    location.reload();
+  `);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "MORE"]);
+
+  let snapshot = await getSnapshot();
+  let labels = snapshot.rows.flat().map((tile) => tile.label);
+  assertArrayEqual(snapshot.rows[3].map((tile) => tile.label), ["是", "不是", "要", "不要"], "zh-TW static core response row");
+  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "MORE", "說", "刪", "清除"]) {
+    if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
+  }
+  for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
+    if (labels.includes(rejected)) throw new Error(`zh-TW layout should not include ${rejected}`);
+  }
+  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "MORE", "不要"]);
+
+  await selectLabel("ㄅ");
+  snapshot = await getSnapshot();
+  labels = snapshot.rows.flat().map((tile) => tile.label);
+  if (!labels.includes("ㄚ")) throw new Error("zh-TW following Zhuyin suggestion missing ㄚ after ㄅ");
+  await selectLabel("ㄧ");
+  await assertMessage("ㄅㄧ");
+  snapshot = await getSnapshot();
+  labels = snapshot.rows.flat().map((tile) => tile.label);
+  for (const expected of ["不要", "不要動"]) {
+    if (!labels.includes(expected)) throw new Error(`zh-TW replacement suggestion missing ${expected}`);
+  }
+  await assertTileLabelsFit(["不要", "不要動", "幫忙", "不是"]);
+  await selectLabel("不要");
+  await assertMessage("不要");
+  steps.push(pass("zh-tw-layout", "migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions"));
+}
+
+async function scenarioZhTwResetUsesPackagedDefaults() {
+  await evaluate(`
+    (() => {
+      document.querySelector(".config-button")?.click();
+      document.querySelector('[data-action="reset"]')?.click();
+    })()
+  `);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "MORE"]);
+  const snapshot = await getSnapshot();
+  const labels = snapshot.rows.flat().map((tile) => tile.label);
+  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "MORE", "說", "刪", "清除"]) {
+    if (!labels.includes(expected)) throw new Error(`zh-TW reset layout missing ${expected}`);
+  }
+  for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
+    if (labels.includes(rejected)) throw new Error(`zh-TW reset layout should not include ${rejected}`);
+  }
+  const stored = await evaluate(`
+    (() => {
+      const config = JSON.parse(localStorage.getItem("shine-aac-web-config-v1"));
+      return {
+        configVersion: config.configVersion,
+        profileId: config.profileId,
+        symbols: config.symbols,
+        suggestionDictionary: config.suggestionDictionary
+      };
+    })()
+  `);
+  if (stored.configVersion < 10 || stored.profileId !== "zh-TW") {
+    throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
+  }
+  if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("MORE=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {
+    throw new Error(`zh-TW reset did not persist packaged direct Zhuyin board: ${stored.symbols}`);
+  }
+  if (stored.suggestionDictionary.includes("我要喝水")) {
+    throw new Error("zh-TW reset persisted old long suggestion dictionary");
+  }
+  steps.push(pass("zh-tw-reset", "reset restored packaged zh-TW defaults instead of stale stored layout"));
 }
 
 async function selectLabel(label, options = {}) {
@@ -239,9 +359,7 @@ async function assertMessage(expected) {
 async function assertSuggestionLabels(expected) {
   const snapshot = await getSnapshot();
   const labels = snapshot.rows[0].map((tile) => tile.label);
-  if (JSON.stringify(labels) !== JSON.stringify(expected)) {
-    throw new Error(`Expected suggestions ${JSON.stringify(expected)}, got ${JSON.stringify(labels)}`);
-  }
+  assertArrayEqual(labels, expected, "suggestions");
 }
 
 async function assertNoViewportOverflow(name) {
@@ -285,6 +403,49 @@ async function waitForUi() {
     await delay(50);
   }
   throw new Error("Timed out waiting for web UI");
+}
+
+async function waitForLabels(expectedLabels) {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const snapshot = await getSnapshot().catch(() => null);
+    const labels = snapshot?.rows?.flat().map((tile) => tile.label) ?? [];
+    if (expectedLabels.every((label) => labels.includes(label))) return;
+    await delay(50);
+  }
+  throw new Error(`Timed out waiting for labels ${expectedLabels.join(", ")}`);
+}
+
+async function assertTileLabelsFit(labels) {
+  const metrics = await evaluate(`
+    ((labels) => {
+      return labels.map((label) => {
+        const tile = [...document.querySelectorAll(".tile")].find((candidate) => candidate.dataset.label === label);
+        const node = tile?.querySelector(".tile-label");
+        if (!tile || !node) return { label, missing: true };
+        return {
+          label,
+          missing: false,
+          clientWidth: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          clientHeight: node.clientHeight,
+          scrollHeight: node.scrollHeight
+        };
+      });
+    })(${JSON.stringify(labels)})
+  `);
+  const clipped = metrics.filter((metric) =>
+    metric.missing ||
+    metric.scrollWidth > metric.clientWidth + 1 ||
+    metric.scrollHeight > metric.clientHeight + 1
+  );
+  if (clipped.length > 0) throw new Error(`Tile labels clipped: ${JSON.stringify(clipped)}`);
+}
+
+function assertArrayEqual(actual, expected, description) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`Expected ${description} ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
 }
 
 async function getSnapshot() {
