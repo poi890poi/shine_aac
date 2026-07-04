@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-04T01:08:46.347Z
+Generated: 2026-07-04T01:30:43.041Z
 
 Result: PASS
 
@@ -17,7 +17,7 @@ Result: PASS
 | pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
-| zh-tw-pixel-4a-5g-layout | PASS | fits 11 rows in 851px viewport without scrolling |
+| zh-tw-pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

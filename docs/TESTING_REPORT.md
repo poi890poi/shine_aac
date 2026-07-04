@@ -64,14 +64,14 @@ Latest result:
 - `zh-TW` exposes direct Zhuyin symbols, `更多`, and essential controls while omitting low-information punctuation from the default board
 - `zh-TW` function labels render and persist in Chinese, including `復原` and `更多`
 - old `zh-TW` MVP boards with English `MORE` migrate to the localized `更多` function label
-- `zh-TW` uses three suggestion rows for ranked glyph/phrase candidates instead of second-layer or third-layer Zhuyin pages
+- `zh-TW` uses four suggestion rows for ranked glyph/phrase candidates instead of second-layer or third-layer Zhuyin pages
 - `zh-TW` candidate suggestions can replace the trailing typed Zhuyin buffer in one undoable action
 - `zh-TW` suggestion rows offer valid following Zhuyin symbols, such as `ㄚ` after `ㄅ`
 - standalone finals that have no dictionary-backed first-symbol entries are not exposed as first-layer dead-end symbols
 - `zh-TW` initial-only Zhuyin such as `ㄅ` surfaces matching ranked phrases such as `不要` and `幫忙`
 - `zh-TW` phrase-initial Zhuyin shortcuts such as `ㄅㄧ` surface useful phrases such as `不要`
-- sparse Zhuyin buffers such as `ㄧㄡ` backfill useful suggestions such as `有`, `又`, and `有沒有`
-- dictionary-backed sparse Zhuyin buffers fill the available 4x3 suggestion area with generic ranked backfill instead of empty cells
+- sparse Zhuyin buffers such as `ㄧㄡ` provide relevant exact suggestions such as `有`, `又`, and `有沒有`
+- typed Zhuyin buffers such as `ㄇㄟ` avoid unrelated prefix/global filler such as `慢`, `門`, `媽媽`, `要`, and `不要`
 - `zh-TW` Zhuyin voice feedback uses Mandarin-readable names such as `玻` and `烏` instead of raw Bopomofo symbols
 - `zh-TW` static Zhuyin symbols all have exact dictionary-backed suggestions
 - every full `zh-TW` dictionary key is discoverable through suggestion pages

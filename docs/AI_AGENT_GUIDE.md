@@ -50,7 +50,7 @@ The main board should expose one communication action: activate the current scan
 ## Preserve Stability
 
 - The suggestion row stays in the same position.
-- Suggestion cells should prefer useful fallback targets over dead empty cells when the row is active.
+- Suggestion cells should prefer relevant fallback targets over dead empty cells when the row is active; never fill typed-buffer suggestions with unrelated words.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.
 - Switching language/profile must not mutate another profile's layout, dictionary, timing, or composition rules.

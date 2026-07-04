@@ -206,7 +206,7 @@ async function scenarioZhTwLayoutMigration() {
 
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
-  assertArrayEqual(snapshot.rows[3].map((tile) => tile.label), ["是", "不是", "要", "不要"], "zh-TW static core response row");
+  assertArrayEqual(snapshot.rows[4].map((tile) => tile.label), ["是", "不是", "要", "不要"], "zh-TW static core response row");
   for (const expected of ["ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
   }
@@ -228,9 +228,24 @@ async function scenarioZhTwLayoutMigration() {
   for (const expected of ["不要", "不要動"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW replacement suggestion missing ${expected}`);
   }
-  await assertTileLabelsFit(["不要", "不要動", "幫忙", "不是"]);
+  await assertTileLabelsFit(["不要", "不要動", "ㄉ", "清除"]);
   await selectLabel("不要");
   await assertMessage("不要");
+  await selectLabel("清除");
+  await assertMessage("");
+  await selectLabel("ㄇ");
+  await selectLabel("ㄟ");
+  await assertMessage("ㄇㄟ");
+  snapshot = await getSnapshot();
+  labels = snapshot.rows.slice(0, 4).flat().map((tile) => tile.label);
+  const contentLabels = labels.filter((label) => label !== "復原");
+  if (contentLabels[0] !== "沒有") throw new Error(`zh-TW ㄇㄟ first content suggestion should be 沒有, got ${contentLabels[0]}`);
+  for (const expected of ["沒", "每", "更多"]) {
+    if (!labels.includes(expected)) throw new Error(`zh-TW ㄇㄟ suggestions missing ${expected}`);
+  }
+  for (const rejected of ["慢", "門", "媽媽", "要", "不要"]) {
+    if (labels.includes(rejected)) throw new Error(`zh-TW ㄇㄟ suggestions should not include unrelated/static ${rejected}`);
+  }
   steps.push(pass("zh-tw-layout", "migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions"));
 }
 
@@ -261,7 +276,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       };
     })()
   `);
-  if (stored.configVersion < 12 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 13 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
   if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("更多=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {

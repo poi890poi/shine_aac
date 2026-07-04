@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8768892 bytes
+8768577 bytes
 ```
 
 ## What This APK Is
@@ -72,14 +72,14 @@ Browser E2E also includes a Pixel 4a 5G-sized layout check:
 
 ```text
 pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
-zh-tw-pixel-4a-5g-layout: PASS, fits 11 rows in 851px viewport without scrolling
+zh-tw-pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
 ```
 
 Public download check:
 
 ```text
 HTTP 200
-Local shared APK size: 8768892 bytes
+Local shared APK size: 8768577 bytes
 ```
 
 ## Notes

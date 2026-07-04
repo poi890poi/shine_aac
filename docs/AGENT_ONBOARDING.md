@@ -9,11 +9,12 @@ This document is for agentic AI joining the SHINE AAC project midstream.
 Read these before editing code:
 
 1. `README.md`
-2. `docs/ARCHITECTURE.md`
-3. `docs/AI_AGENT_GUIDE.md`
-4. `docs/INPUT_ADAPTERS.md`
-5. `docs/MULTILINGUAL_DESIGN.md`
-6. `docs/TESTING_REPORT.md`
+2. `docs/PROJECT_CONSTITUTION.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/AI_AGENT_GUIDE.md`
+5. `docs/INPUT_ADAPTERS.md`
+6. `docs/MULTILINGUAL_DESIGN.md`
+7. `docs/TESTING_REPORT.md`
 
 ## Current Architecture
 

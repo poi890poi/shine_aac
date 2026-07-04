@@ -30,7 +30,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 12;
+export const CurrentConfigVersion = 13;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
@@ -340,7 +340,7 @@ const zhuyinGroupTile = (label, groupId) => tile(label, groupId, TileAction.Zhuy
 const zhuyinSymbolTile = (label, output, kind) => ({ label, output, action: TileAction.ZhuyinSymbol, zhuyinKind: kind });
 const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.CloseCategory));
 const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
-const ZhTwSuggestionRowCount = 3;
+const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
 const ZhTwImmediateCandidateCountBeforeNextSymbols = 2;
 const ZhuyinFollowingSymbolOrder = Object.freeze([
@@ -441,6 +441,24 @@ export const ZhuyinLookupDictionary = Object.freeze([
   zhuyinEntry("拍照", "拍照", "ㄆㄞㄓㄠ"),
   zhuyinEntry("媽媽", "媽媽", "ㄇㄚㄇㄚ"),
   zhuyinEntry("沒有", "沒有", "ㄇㄟㄧㄡ"),
+  zhuyinEntry("沒", "沒", "ㄇㄟ"),
+  zhuyinEntry("每", "每", "ㄇㄟ"),
+  zhuyinEntry("美", "美", "ㄇㄟ"),
+  zhuyinEntry("妹", "妹", "ㄇㄟ"),
+  zhuyinEntry("梅", "梅", "ㄇㄟ"),
+  zhuyinEntry("媒", "媒", "ㄇㄟ"),
+  zhuyinEntry("眉", "眉", "ㄇㄟ"),
+  zhuyinEntry("煤", "煤", "ㄇㄟ"),
+  zhuyinEntry("枚", "枚", "ㄇㄟ"),
+  zhuyinEntry("玫", "玫", "ㄇㄟ"),
+  zhuyinEntry("莓", "莓", "ㄇㄟ"),
+  zhuyinEntry("霉", "霉", "ㄇㄟ"),
+  zhuyinEntry("昧", "昧", "ㄇㄟ"),
+  zhuyinEntry("媚", "媚", "ㄇㄟ"),
+  zhuyinEntry("寐", "寐", "ㄇㄟ"),
+  zhuyinEntry("魅", "魅", "ㄇㄟ"),
+  zhuyinEntry("湄", "湄", "ㄇㄟ"),
+  zhuyinEntry("酶", "酶", "ㄇㄟ"),
   zhuyinEntry("慢", "慢", "ㄇㄢ"),
   zhuyinEntry("門", "門", "ㄇㄣ"),
   zhuyinEntry("毛巾", "毛巾", "ㄇㄠㄐㄧㄣ"),
@@ -558,6 +576,20 @@ export const ZhuyinLookupDictionary = Object.freeze([
   zhuyinEntry("有空", "有空", "ㄧㄡㄎㄨㄥ", "ㄧㄎ"),
   zhuyinEntry("有痛", "有痛", "ㄧㄡㄊㄨㄥ", "ㄧㄊ"),
   zhuyinEntry("有需要", "有需要", "ㄧㄡㄒㄩㄧㄠ", "ㄧㄒ"),
+  zhuyinEntry("由", "由", "ㄧㄡ"),
+  zhuyinEntry("油", "油", "ㄧㄡ"),
+  zhuyinEntry("友", "友", "ㄧㄡ"),
+  zhuyinEntry("游", "游", "ㄧㄡ"),
+  zhuyinEntry("幼", "幼", "ㄧㄡ"),
+  zhuyinEntry("優", "優", "ㄧㄡ"),
+  zhuyinEntry("憂", "憂", "ㄧㄡ"),
+  zhuyinEntry("郵", "郵", "ㄧㄡ"),
+  zhuyinEntry("尤", "尤", "ㄧㄡ"),
+  zhuyinEntry("悠", "悠", "ㄧㄡ"),
+  zhuyinEntry("幽", "幽", "ㄧㄡ"),
+  zhuyinEntry("誘", "誘", "ㄧㄡ"),
+  zhuyinEntry("猶", "猶", "ㄧㄡ"),
+  zhuyinEntry("遊", "遊", "ㄧㄡ"),
   zhuyinEntry("一點", "一點", "ㄧㄉㄧㄢ"),
   zhuyinEntry("音樂", "音樂", "ㄧㄣㄩㄝ"),
   zhuyinEntry("外面", "外面", "ㄨㄞㄇㄧㄢ"),
@@ -913,7 +945,11 @@ function shouldMigrateBuiltInZhTwDictionary(dictionary, storedVersion) {
   const labels = new Set(dictionary.map((candidate) => candidate.label));
   const oldLongPhraseSignals = ["我要喝水", "我要吃飯", "我要上廁所", "我需要幫忙", "我很痛", "叫護理師"]
     .filter((label) => labels.has(label)).length;
-  return oldLongPhraseSignals >= 2;
+  if (oldLongPhraseSignals >= 2) return true;
+
+  const previousSeedSignals = ["沒有", "媽媽", "慢", "門", "有沒有", "有需要"]
+    .filter((label) => labels.has(label)).length;
+  return previousSeedSignals >= 4 && !labels.has("沒") && !labels.has("每") && !labels.has("由");
 }
 
 export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
@@ -1055,29 +1091,14 @@ function zhTwBufferedSuggestionTiles(buffer, targetCount) {
     .filter(Boolean)
     .sort(zhTwCandidateRank);
   const nextSymbols = zhTwNextSymbolTiles(buffer);
-  const prefixBackfillCandidates = exactCandidates.length + nextSymbols.length >= targetCount
-    ? []
-    : zhTwBackfillCandidatesForBuffer(buffer, exactCandidates)
-      .sort(zhTwCandidateRank)
-      .slice(0, targetCount - exactCandidates.length - nextSymbols.length);
   const orderedCandidates = [
     ...exactCandidates.slice(0, ZhTwImmediateCandidateCountBeforeNextSymbols),
     ...nextSymbols,
-    ...exactCandidates.slice(ZhTwImmediateCandidateCountBeforeNextSymbols),
-    ...prefixBackfillCandidates
+    ...exactCandidates.slice(ZhTwImmediateCandidateCountBeforeNextSymbols)
   ];
-  const dedupedCandidates = distinctBy(orderedCandidates, (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`);
-  const globalBackfillCandidates =
-    dedupedCandidates.length >= targetCount || (exactCandidates.length === 0 && nextSymbols.length === 0 && prefixBackfillCandidates.length === 0)
-      ? []
-      : zhTwGlobalBackfillCandidatesForBuffer(buffer, dedupedCandidates)
-        .slice(0, targetCount - dedupedCandidates.length);
 
   return distinctBy(
-    [
-      ...dedupedCandidates,
-      ...globalBackfillCandidates
-    ],
+    orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
 }
@@ -1088,36 +1109,6 @@ function zhTwCandidateForBuffer(entry, buffer) {
     .sort((left, right) => left.length - right.length)[0];
   if (!matchingKey) return null;
   return zhTwCandidateTile(entry, buffer.length, matchingKey, "exact");
-}
-
-function zhTwBackfillCandidatesForBuffer(buffer, exactCandidates) {
-  const exactKeys = new Set(exactCandidates.map((candidate) => `${candidate.label}\u0000${candidate.output}`));
-  const fallbackPrefixes = [];
-  for (let length = buffer.length - 1; length > 0; length -= 1) {
-    fallbackPrefixes.push(buffer.slice(0, length));
-  }
-
-  return distinctBy(
-    fallbackPrefixes.flatMap((prefix) =>
-      ZhTwFrequencyDictionary
-        .filter((entry) => !exactKeys.has(`${entry.label}\u0000${entry.output}`))
-        .map((entry) => {
-          const matchingKey = entryKeys(entry)
-            .filter((key) => key.startsWith(prefix))
-            .sort((left, right) => left.length - right.length)[0];
-          return matchingKey ? zhTwCandidateTile(entry, buffer.length, matchingKey, "prefix-backfill") : null;
-        })
-        .filter(Boolean)
-    ),
-    (candidate) => `${candidate.label}\u0000${candidate.output}`
-  );
-}
-
-function zhTwGlobalBackfillCandidatesForBuffer(buffer, existingCandidates) {
-  const existingKeys = new Set(existingCandidates.map((candidate) => `${candidate.label}\u0000${candidate.output}`));
-  return ZhTwFrequencyDictionary
-    .filter((entry) => !existingKeys.has(`${entry.label}\u0000${entry.output}`))
-    .map((entry) => zhTwCandidateTile(entry, buffer.length, entry.key, "global-backfill"));
 }
 
 function zhTwNextSymbolTiles(buffer) {
@@ -1153,13 +1144,6 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
 }
 
 function zhTwCandidateRank(left, right) {
-  const leftExact = left.matchType === "exact" && left.zhuyinKey.length === left.replaceLength ? 0 : 1;
-  const rightExact = right.matchType === "exact" && right.zhuyinKey.length === right.replaceLength ? 0 : 1;
-  if (leftExact !== rightExact) return leftExact - rightExact;
-  const leftBackfill = left.matchType === "prefix-backfill" ? 1 : 0;
-  const rightBackfill = right.matchType === "prefix-backfill" ? 1 : 0;
-  if (leftBackfill !== rightBackfill) return leftBackfill - rightBackfill;
-  if (left.zhuyinKey.length !== right.zhuyinKey.length) return left.zhuyinKey.length - right.zhuyinKey.length;
   return left.frequencyRank - right.frequencyRank;
 }
 

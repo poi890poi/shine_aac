@@ -126,7 +126,7 @@ Recommended first Taiwan Mandarin profile:
   - Chinese glyphs and phrases are selected from suggestion rows, not hidden pages
   - `更多` pages the suggestion rows only
 - Suggestions:
-  - 4 columns by 3 rows for `zh-TW` candidates
+  - 4 columns by 4 rows for `zh-TW` candidates
   - candidates come from the `zh-TW` frequency dictionary and include Zhuyin readings
   - exact phonetic matches appear before broader ranked backfill
   - candidate tiles may replace the typed Zhuyin suffix before inserting the glyph or phrase
@@ -167,7 +167,7 @@ The current `zh-TW` version should not behave like a separate Chinese input meth
 - same scanner mechanics as English
 - same input adapters as English
 - `zh-TW` TTS locale where available
-- three suggestion rows for ranked glyph/phrase candidates
+- four suggestion rows for ranked glyph/phrase candidates
 - dictionary-backed starting Zhuyin symbols on the static board
 - valid following Zhuyin symbols in suggestion rows
 - no second-layer or third-layer Zhuyin pages
