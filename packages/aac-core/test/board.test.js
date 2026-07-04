@@ -262,7 +262,7 @@ test("default scanning timing favors slower low-fatigue access", () => {
   const config = createBoardConfig();
 
   assert.equal(config.scanIntervalMs, 1300);
-  assert.equal(config.transitionPauseMs, 450);
+  assert.equal(config.transitionPauseMs, 0);
   assert.equal(config.firstCellPauseMs, 1700);
   assert.equal(config.firstCellPauseMs > config.scanIntervalMs, true);
 });
@@ -270,6 +270,7 @@ test("default scanning timing favors slower low-fatigue access", () => {
 test("legacy default scan timing migrates while custom values are preserved", () => {
   assert.equal(loadScanIntervalForConfig(900, 10), DefaultScanIntervalMs);
   assert.equal(loadTransitionPauseForConfig(0, 10), DefaultTransitionPauseMs);
+  assert.equal(loadTransitionPauseForConfig(450, 11), DefaultTransitionPauseMs);
   assert.equal(loadFirstCellPauseForConfig(900, 10), DefaultFirstCellPauseMs);
   assert.equal(loadFirstCellPauseForConfig(LegacyFirstCellPauseMsV6, 6), DefaultFirstCellPauseMs);
   assert.equal(loadScanIntervalForConfig(1800, 10), 1800);
@@ -434,6 +435,17 @@ test("zh-TW sparse phonetic buffers backfill suggestion rows with useful replace
   assert.equal(labels.includes("有"), true);
   assert.equal(labels.includes("又"), true);
   assert.equal(labels.includes("有沒有"), true);
+});
+
+test("zh-TW dictionary-backed sparse buffers fill available suggestion cells generically", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const visibleTargets = boardRows(config, "ㄩㄕ", false, {}).slice(0, 3).flat().filter((candidate) => candidate.action !== TileAction.Noop);
+  const candidates = visibleTargets.filter((candidate) => candidate.action === TileAction.CommitCandidate);
+
+  assert.equal(visibleTargets.length, 12);
+  assert.equal(candidates.every((candidate) => candidate.replaceLength === 2), true);
+  assert.equal(candidates.some((candidate) => candidate.label === "浴室" && candidate.matchType === "exact"), true);
+  assert.equal(candidates.some((candidate) => candidate.matchType === "global-backfill"), true);
 });
 
 test("zh-TW Zhuyin voice feedback uses Mandarin-readable names instead of raw symbols", () => {

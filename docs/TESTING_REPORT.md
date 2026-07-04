@@ -15,7 +15,7 @@ npm --prefix packages/aac-core test
 Latest result:
 
 ```text
-67 tests passed
+69 tests passed
 0 tests failed
 ```
 
@@ -27,6 +27,8 @@ Latest result:
 - row selection enters transition pause
 - transition pause advances to first cell
 - activation during transition pause cancels the locked row
+- default session scanning skips transition pause and moves directly to the first cell
+- positive transition pause remains available when explicitly configured
 - first cell can be selected
 - later cells scan and wrap inside the selected row
 - empty rows are skipped
@@ -69,6 +71,7 @@ Latest result:
 - `zh-TW` initial-only Zhuyin such as `ㄅ` surfaces matching ranked phrases such as `不要` and `幫忙`
 - `zh-TW` phrase-initial Zhuyin shortcuts such as `ㄅㄧ` surface useful phrases such as `不要`
 - sparse Zhuyin buffers such as `ㄧㄡ` backfill useful suggestions such as `有`, `又`, and `有沒有`
+- dictionary-backed sparse Zhuyin buffers fill the available 4x3 suggestion area with generic ranked backfill instead of empty cells
 - `zh-TW` Zhuyin voice feedback uses Mandarin-readable names such as `玻` and `烏` instead of raw Bopomofo symbols
 - `zh-TW` static Zhuyin symbols all have exact dictionary-backed suggestions
 - every full `zh-TW` dictionary key is discoverable through suggestion pages
@@ -87,7 +90,7 @@ Latest result:
 - use `DEL`, `SPC`, `CLR`, and repeated `UNDO` to repair text
 - type `movi`, select `MOVIE`, and get `movie ` rather than `movi movie`
 - accidentally choose `DRINK`, use `UNDO`, then choose `FOOD`
-- accidentally activate a row, cancel during transition pause, and keep the message unchanged
+- with transition pause explicitly configured, accidentally activate a row, cancel during transition pause, and keep the message unchanged
 - activate very early on a symbol and select the previous symbol by latency compensation
 - verify locked suggestion rows do not change while column scanning is in progress
 
@@ -127,7 +130,7 @@ Latest result:
 - Suggestions that complete a partial token replace that token.
 - Static board positions remain stable while dynamic suggestions update.
 - A selected suggestion row is locked until selection completes or is cancelled.
-- The default transition pause is nonzero, so the row-selected escape state is available by default and the first cell gets a longer hold.
+- The default transition pause is `0 ms`, so row selection moves directly to the first cell; the first cell gets a longer hold to avoid a rushed first column.
 - Browser and packaged-app E2E disable audio feedback in test settings for deterministic automation; the app default remains audio-on.
 - Hidden debug output is not accepted as proof of rendered UI behavior.
 

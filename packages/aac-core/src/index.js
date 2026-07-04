@@ -26,13 +26,13 @@ export const TileAction = Object.freeze({
 
 export const DefaultColumns = 4;
 export const DefaultScanIntervalMs = 1300;
-export const DefaultTransitionPauseMs = 450;
+export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 11;
+export const CurrentConfigVersion = 12;
 const PreviousDefaultScanIntervalMs = 900;
-const PreviousDefaultTransitionPauseMs = 0;
+const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
 export const DefaultProfileId = "en-US";
 export const AutoSpaceMode = Object.freeze({
@@ -1024,8 +1024,8 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
 function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const allSuggestions = zhTwSuggestionTiles(message);
   const commandSuggestions = canUndo ? [zhTwUndoSuggestionTile] : [];
+  const allSuggestions = zhTwSuggestionTiles(message, pageSize - commandSuggestions.length);
   const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
@@ -1039,34 +1039,44 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);
 }
 
-function zhTwSuggestionTiles(message) {
+function zhTwSuggestionTiles(message, targetCount = DefaultColumns * ZhTwSuggestionRowCount) {
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
-    ? zhTwBufferedSuggestionTiles(buffer)
+    ? zhTwBufferedSuggestionTiles(buffer, targetCount)
     : ZhTwFrequencyDictionary
       .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
 
   return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`);
 }
 
-function zhTwBufferedSuggestionTiles(buffer) {
+function zhTwBufferedSuggestionTiles(buffer, targetCount) {
   const exactCandidates = ZhTwFrequencyDictionary
     .map((entry) => zhTwCandidateForBuffer(entry, buffer))
     .filter(Boolean)
     .sort(zhTwCandidateRank);
   const nextSymbols = zhTwNextSymbolTiles(buffer);
-  const backfillCandidates = exactCandidates.length + nextSymbols.length >= 11
+  const prefixBackfillCandidates = exactCandidates.length + nextSymbols.length >= targetCount
     ? []
     : zhTwBackfillCandidatesForBuffer(buffer, exactCandidates)
       .sort(zhTwCandidateRank)
-      .slice(0, 11 - exactCandidates.length - nextSymbols.length);
+      .slice(0, targetCount - exactCandidates.length - nextSymbols.length);
+  const orderedCandidates = [
+    ...exactCandidates.slice(0, ZhTwImmediateCandidateCountBeforeNextSymbols),
+    ...nextSymbols,
+    ...exactCandidates.slice(ZhTwImmediateCandidateCountBeforeNextSymbols),
+    ...prefixBackfillCandidates
+  ];
+  const dedupedCandidates = distinctBy(orderedCandidates, (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`);
+  const globalBackfillCandidates =
+    dedupedCandidates.length >= targetCount || (exactCandidates.length === 0 && nextSymbols.length === 0 && prefixBackfillCandidates.length === 0)
+      ? []
+      : zhTwGlobalBackfillCandidatesForBuffer(buffer, dedupedCandidates)
+        .slice(0, targetCount - dedupedCandidates.length);
 
   return distinctBy(
     [
-      ...exactCandidates.slice(0, ZhTwImmediateCandidateCountBeforeNextSymbols),
-      ...nextSymbols,
-      ...exactCandidates.slice(ZhTwImmediateCandidateCountBeforeNextSymbols),
-      ...backfillCandidates
+      ...dedupedCandidates,
+      ...globalBackfillCandidates
     ],
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
@@ -1101,6 +1111,13 @@ function zhTwBackfillCandidatesForBuffer(buffer, exactCandidates) {
     ),
     (candidate) => `${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwGlobalBackfillCandidatesForBuffer(buffer, existingCandidates) {
+  const existingKeys = new Set(existingCandidates.map((candidate) => `${candidate.label}\u0000${candidate.output}`));
+  return ZhTwFrequencyDictionary
+    .filter((entry) => !existingKeys.has(`${entry.label}\u0000${entry.output}`))
+    .map((entry) => zhTwCandidateTile(entry, buffer.length, entry.key, "global-backfill"));
 }
 
 function zhTwNextSymbolTiles(buffer) {
@@ -1158,7 +1175,7 @@ function trailingZhuyinBuffer(message) {
 function zhTwSuggestionPageCount(message, columns, canUndo = false) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const count = zhTwSuggestionTiles(message).length + (canUndo ? 1 : 0);
+  const count = zhTwSuggestionTiles(message, pageSize - (canUndo ? 1 : 0)).length + (canUndo ? 1 : 0);
   return zhTwSuggestionPageCountForTotal(count, pageSize);
 }
 

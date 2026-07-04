@@ -89,7 +89,7 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="11" />
+    <int name="configVersion" value="12" />
     <boolean name="e2eEnabled" value="true" />
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="false" />
@@ -112,7 +112,7 @@ function Write-ZhTwTestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="11" />
+    <int name="configVersion" value="12" />
     <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="scanVoice" value="false" />

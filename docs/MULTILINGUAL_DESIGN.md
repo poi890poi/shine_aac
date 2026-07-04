@@ -152,11 +152,11 @@ Default timing:
 
 ```text
 scan interval: 1300 ms
-row-selected transition pause: 450 ms
+row-selected transition pause: 0 ms
 first-cell hold: 1700 ms
 ```
 
-Helpers can still customize faster timing for a specific user. The default should favor lower effort, lower timing precision, and stamina over maximum throughput.
+Helpers can still customize faster timing or enable a transition pause for a specific user. The default should favor a simple scanner model, lower timing precision, and stamina over maximum throughput.
 
 ### Current Simple Version
 

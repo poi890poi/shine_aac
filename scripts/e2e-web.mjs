@@ -261,7 +261,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       };
     })()
   `);
-  if (stored.configVersion < 11 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 12 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
   if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("更多=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {

@@ -35,12 +35,12 @@ data class CommunicationTile(
 
 const val DefaultColumns = 4
 const val DefaultScanIntervalMs = 1300f
-const val DefaultTransitionPauseMs = 450f
+const val DefaultTransitionPauseMs = 0f
 const val DefaultFirstCellPauseMs = 1700f
 const val LegacyFirstCellPauseMsV6 = 1400f
 private const val PreviousDefaultFirstCellPauseMs = 900f
 const val DefaultInputLatencyCompensationMs = 250f
-const val CurrentConfigVersion = 11
+const val CurrentConfigVersion = 12
 
 val LegacySuggestionDictionaryV6 = listOf(
     CommunicationTile("I", "I"),
