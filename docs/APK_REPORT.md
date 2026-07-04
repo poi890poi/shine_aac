@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8769145 bytes
+8769399 bytes
 ```
 
 ## What This APK Is
@@ -80,7 +80,7 @@ Public download check:
 
 ```text
 HTTP 200
-Local shared APK size: 8769145 bytes
+Local shared APK size: 8769399 bytes
 ```
 
 ## Notes

@@ -300,6 +300,15 @@ test("zh-TW profile uses an independent direct Zhuyin board", () => {
   assert.equal(labels.includes("注音"), false);
 });
 
+test("zh-TW static core row avoids redundant yes-no pairs", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const staticCoreLabels = boardRows(config).slice(4, 5).flat().map((candidate) => candidate.label);
+
+  assert.deepEqual(staticCoreLabels, ["是", "不要", "幫忙", "痛"]);
+  assert.equal(staticCoreLabels.includes("不是"), false);
+  assert.equal(staticCoreLabels.includes("要"), false);
+});
+
 test("zh-TW profile appends without automatic spaces", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
 
@@ -314,7 +323,9 @@ test("zh-TW suggestions use four rows without a space tile", () => {
   const initialRows = boardRows(config).slice(0, 4);
   assert.equal(initialRows.length, 4);
   assert.equal(initialRows.flat().some((candidate) => candidate.label === "SPC"), false);
-  assert.equal(initialRows.flat().some((candidate) => candidate.label === "不要"), true);
+  assert.equal(initialRows.flat().some((candidate) => candidate.label === "不要"), false);
+  assert.equal(initialRows.flat().some((candidate) => candidate.label === "幫忙"), false);
+  assert.equal(initialRows.flat().some((candidate) => candidate.label === "痛"), false);
 
   const phraseRows = boardRows(config, "ㄏ", false, {}).slice(0, 4);
   assert.equal(phraseRows.flat().some((candidate) => candidate.label === "SPC"), false);
@@ -434,14 +445,17 @@ test("zh-TW sparse phonetic buffers backfill suggestion rows with useful replace
   assert.equal(labels.includes("右"), true);
   assert.equal(labels.includes("有"), true);
   assert.equal(labels.includes("又"), true);
-  assert.equal(labels.includes("有沒有"), true);
+  assert.equal(labels.includes("幼"), true);
+  assert.equal(boardRows(config, "ㄧㄡ", false, { suggestionPage: 1 }).slice(0, 4).flat().map((candidate) => candidate.label).includes("有沒有"), true);
 });
 
 test("zh-TW typed buffers avoid unrelated prefix and global backfill", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const labels = boardRows(config, "ㄇㄟ", false, {}).slice(0, 4).flat().map((candidate) => candidate.label);
+  const secondPageLabels = boardRows(config, "ㄇㄟ", false, { suggestionPage: 1 }).slice(0, 4).flat().map((candidate) => candidate.label);
 
-  assert.equal(labels[0], "沒有");
+  assert.equal(labels[0], "沒");
+  assert.equal(secondPageLabels.includes("沒有"), true);
   assert.equal(labels.includes("沒"), true);
   assert.equal(labels.includes("每"), true);
   assert.equal(labels.includes("更多"), true);
@@ -460,6 +474,99 @@ test("zh-TW continuation suggestions include common Zhuyin finals beyond current
   assert.equal(afterWu.includes("ㄟ"), true);
   assert.equal(afterWei[0], "未");
   assert.equal(afterWei.includes("味"), true);
+});
+
+test("zh-TW common full syllables have enough exact glyph candidates", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  for (const syllable of ["ㄇㄟ", "ㄨㄟ", "ㄧㄡ", "ㄒㄧㄠ"]) {
+    const candidates = boardRows(config, syllable, false, {})
+      .slice(0, 4)
+      .flat()
+      .filter((candidate) => candidate.action === TileAction.CommitCandidate && candidate.zhuyinKey === syllable);
+    assert.ok(candidates.length >= 8, `${syllable} should have at least 8 exact glyph/phrase candidates, got ${candidates.map((candidate) => candidate.label).join(", ")}`);
+  }
+});
+
+test("zh-TW suggestion analyzer keeps dictionary-backed pages dense and relevant", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const sparse = [];
+  const irrelevant = [];
+  const duplicateDefaults = [];
+
+  for (const prefix of allZhTwDictionaryPrefixes()) {
+    const firstPageTargets = visibleZhTwSuggestionTargets(config, prefix, 0);
+    const allTargets = suggestionTilesAcrossPages(config, prefix, false)
+      .filter((candidate) => candidate.action !== TileAction.Noop);
+    const relevantTargetCount = zhTwRelevantTargetCountForPrefix(prefix);
+    const expectedFirstPageDensity = Math.min(12, relevantTargetCount);
+
+    if (firstPageTargets.length < expectedFirstPageDensity) {
+      sparse.push(`${prefix}: visible=${firstPageTargets.length}, relevant=${relevantTargetCount}`);
+    }
+
+    for (const candidate of allTargets) {
+      if (candidate.action === TileAction.CommitCandidate && !candidate.zhuyinKey.startsWith(prefix)) {
+        irrelevant.push(`${prefix}: ${candidate.label}/${candidate.zhuyinKey}`);
+      }
+    }
+  }
+
+  for (const label of ["不要", "幫忙", "痛"]) {
+    if (visibleZhTwSuggestionTargets(config, "", 0).some((candidate) => candidate.label === label)) {
+      duplicateDefaults.push(label);
+    }
+  }
+
+  assert.deepEqual(sparse, []);
+  assert.deepEqual(irrelevant, []);
+  assert.deepEqual(duplicateDefaults, []);
+});
+
+test("zh-TW suggestion analyzer ranks exact syllable matches before longer phrase prefixes", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const failures = [];
+
+  for (const prefix of allZhTwDictionaryPrefixes()) {
+    if (prefix.length <= 1) continue;
+    const exactCount = zhTwExactKeyCountForPrefix(prefix);
+    if (exactCount === 0) continue;
+
+    const firstPageCommits = visibleZhTwSuggestionTargets(config, prefix, 0)
+      .filter((candidate) => candidate.action === TileAction.CommitCandidate);
+    const leadingCommits = firstPageCommits.slice(0, Math.min(8, exactCount));
+    const nonExact = leadingCommits.find((candidate) => candidate.zhuyinKey.length !== prefix.length);
+    if (nonExact) {
+      failures.push(`${prefix}: ${nonExact.label}/${nonExact.zhuyinKey} before ${exactCount} exact matches`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
+});
+
+test("zh-TW suggestion analyzer caps IME-like candidates to three pages", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const failures = [];
+
+  for (const prefix of ["", ...allZhTwDictionaryPrefixes()]) {
+    const seenPages = new Set();
+    let state = { suggestionPage: 0 };
+
+    for (let turn = 0; turn < 4; turn += 1) {
+      const rows = boardRows(config, prefix, false, state).slice(0, 4).flat();
+      const signature = rows.map((candidate) => `${candidate.action}:${candidate.label}:${candidate.output}`).join("|");
+      seenPages.add(signature);
+
+      const more = rows.find((candidate) => candidate.action === TileAction.MoreSuggestions);
+      if (!more) break;
+      state = applyTile(prefix, [], more, config, state);
+    }
+
+    if (seenPages.size > 3) {
+      failures.push(`${prefix || "<base>"}: ${seenPages.size} pages`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
 });
 
 test("zh-TW suppresses redundant yes-no question phrases from suggestions", () => {
@@ -619,4 +726,49 @@ function suggestionTilesAcrossPages(config, message, canUndo = false) {
     state = applyTile(message, canUndo ? [""] : [], more, config, state);
   }
   return tiles;
+}
+
+function visibleZhTwSuggestionTargets(config, message, suggestionPage = 0) {
+  return boardRows(config, message, false, { suggestionPage })
+    .slice(0, 4)
+    .flat()
+    .filter((candidate) => candidate.action !== TileAction.Noop);
+}
+
+function allZhTwDictionaryPrefixes() {
+  return [...new Set(
+    ZhTwFrequencyDictionary.flatMap((entry) =>
+      entry.keys.flatMap((key) =>
+        Array.from({ length: key.length }, (_, index) => key.slice(0, index + 1))
+      )
+    )
+  )];
+}
+
+function zhTwRelevantTargetCountForPrefix(prefix) {
+  const commitKeys = new Set(
+    ZhTwFrequencyDictionary.flatMap((entry) =>
+      entry.keys
+        .filter((key) => key.startsWith(prefix))
+        .map(() => entry.label)
+    )
+  );
+  const continuationSymbols = new Set(
+    ZhTwFrequencyDictionary.flatMap((entry) =>
+      entry.keys
+        .filter((key) => key.startsWith(prefix) && key.length > prefix.length)
+        .map((key) => key.at(prefix.length))
+    )
+  );
+  return commitKeys.size + continuationSymbols.size;
+}
+
+function zhTwExactKeyCountForPrefix(prefix) {
+  return new Set(
+    ZhTwFrequencyDictionary.flatMap((entry) =>
+      entry.keys
+        .filter((key) => key === prefix)
+        .map(() => entry.label)
+    )
+  ).size;
 }

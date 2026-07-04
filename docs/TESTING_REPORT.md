@@ -15,7 +15,7 @@ npm --prefix packages/aac-core test
 Latest result:
 
 ```text
-71 tests passed
+76 tests passed
 0 tests failed
 ```
 
@@ -61,9 +61,11 @@ Latest result:
 - English remains the default language profile and keeps word auto-spacing
 - `zh-TW` has an independent direct-Zhuyin board and dictionary
 - `zh-TW` appends selected words and phrases without automatic spaces
-- `zh-TW` exposes direct Zhuyin symbols, `更多`, and essential controls while omitting low-information punctuation from the default board
+- `zh-TW` exposes direct Zhuyin symbols, `更多`, and essential controls while omitting low-information punctuation and redundant yes/no pairs from the default board
 - `zh-TW` function labels render and persist in Chinese, including `復原` and `更多`
 - old `zh-TW` MVP boards with English `MORE` migrate to the localized `更多` function label
+- `zh-TW` static core row is `是` / `不要` / `幫忙` / `痛`, avoiding the previous duplicated `是` / `不是` and `要` / `不要` binary pairs
+- default `zh-TW` suggestion rows do not duplicate static core labels before a Zhuyin buffer is typed
 - `zh-TW` uses four suggestion rows for ranked glyph/phrase candidates instead of second-layer or third-layer Zhuyin pages
 - `zh-TW` candidate suggestions can replace the trailing typed Zhuyin buffer in one undoable action
 - `zh-TW` suggestion rows offer valid following Zhuyin symbols, such as `ㄚ` after `ㄅ`
@@ -73,6 +75,9 @@ Latest result:
 - sparse Zhuyin buffers such as `ㄧㄡ` provide relevant exact suggestions such as `有`, `又`, and `有沒有`
 - typed Zhuyin buffers such as `ㄇㄟ` avoid unrelated prefix/global filler such as `慢`, `門`, `媽媽`, `要`, and `不要`
 - valid Zhuyin continuation suggestions include common paths such as `ㄨ` -> `ㄟ`, and `ㄨㄟ` surfaces exact glyphs such as `未` and `味`
+- common full syllables such as `ㄇㄟ`, `ㄨㄟ`, `ㄧㄡ`, and `ㄒㄧㄠ` have at least eight exact glyph/phrase candidates in core tests
+- analyzer-style `zh-TW` tests enumerate every dictionary prefix and fail on sparse pages, irrelevant replacement candidates, duplicated static defaults, or phrase prefixes ranked ahead of exact syllable glyphs
+- `zh-TW` IME-like candidate rows are capped at no more than three `更多` pages for every dictionary prefix
 - redundant yes/no question phrases such as `是不是` and `要不要` are suppressed from dynamic suggestions
 - `zh-TW` Zhuyin voice feedback uses Mandarin-readable names such as `玻` and `烏` instead of raw Bopomofo symbols
 - `zh-TW` static Zhuyin symbols all have exact dictionary-backed suggestions

@@ -30,7 +30,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 14;
+export const CurrentConfigVersion = 15;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
@@ -343,6 +343,7 @@ const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinC
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
 const ZhTwImmediateCandidateCountBeforeNextSymbols = 2;
+const ZhTwComposedBufferImmediateCandidateCount = 8;
 const ZhuyinFollowingSymbolOrder = Object.freeze([
   "ㄧ", "ㄨ", "ㄩ",
   "ㄚ", "ㄛ", "ㄜ", "ㄝ",
@@ -365,10 +366,11 @@ const MinZhuyinTargets = 8;
 const MaxZhuyinCandidateTargets = 20;
 const ZhTwCoreResponseTiles = Object.freeze([
   tile("是"),
-  tile("不是"),
-  tile("要"),
-  tile("不要")
+  tile("不要"),
+  tile("幫忙"),
+  tile("痛")
 ]);
+const ZhTwCoreResponseLabels = new Set(ZhTwCoreResponseTiles.map((candidate) => candidate.label));
 const ZhTwSuppressedSuggestionLabels = new Set(["是不是", "要不要"]);
 
 export const ZhuyinInitialGroups = Object.freeze([
@@ -530,6 +532,18 @@ export const ZhuyinLookupDictionary = Object.freeze([
   zhuyinEntry("小便", "小便", "ㄒㄧㄠㄅㄧㄢ", "ㄒㄅ"),
   zhuyinEntry("需要", "需要", "ㄒㄩㄧㄠ"),
   zhuyinEntry("小心", "小心", "ㄒㄧㄠㄒㄧㄣ"),
+  zhuyinEntry("小", "小", "ㄒㄧㄠ"),
+  zhuyinEntry("笑", "笑", "ㄒㄧㄠ"),
+  zhuyinEntry("校", "校", "ㄒㄧㄠ"),
+  zhuyinEntry("消", "消", "ㄒㄧㄠ"),
+  zhuyinEntry("效", "效", "ㄒㄧㄠ"),
+  zhuyinEntry("孝", "孝", "ㄒㄧㄠ"),
+  zhuyinEntry("曉", "曉", "ㄒㄧㄠ"),
+  zhuyinEntry("銷", "銷", "ㄒㄧㄠ"),
+  zhuyinEntry("蕭", "蕭", "ㄒㄧㄠ"),
+  zhuyinEntry("宵", "宵", "ㄒㄧㄠ"),
+  zhuyinEntry("削", "削", "ㄒㄧㄠ"),
+  zhuyinEntry("霄", "霄", "ㄒㄧㄠ"),
   zhuyinEntry("吸痰", "吸痰", "ㄒㄧㄊㄢ"),
   zhuyinEntry("洗澡", "洗澡", "ㄒㄧㄗㄠ"),
   zhuyinEntry("知道", "知道", "ㄓㄉㄠ"),
@@ -1083,7 +1097,7 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const commandSuggestions = canUndo ? [zhTwUndoSuggestionTile] : [];
-  const allSuggestions = zhTwSuggestionTiles(message, pageSize - commandSuggestions.length);
+  const allSuggestions = zhTwSuggestionTiles(message);
   const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
@@ -1097,33 +1111,41 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);
 }
 
-function zhTwSuggestionTiles(message, targetCount = DefaultColumns * ZhTwSuggestionRowCount) {
+function zhTwSuggestionTiles(message) {
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
-    ? zhTwBufferedSuggestionTiles(buffer, targetCount)
+    ? zhTwBufferedSuggestionTiles(buffer)
     : ZhTwFrequencyDictionary
+      .filter((entry) => !ZhTwCoreResponseLabels.has(entry.label))
       .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
 
   return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`)
     .filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label));
 }
 
-function zhTwBufferedSuggestionTiles(buffer, targetCount) {
-  const exactCandidates = ZhTwFrequencyDictionary
+function zhTwBufferedSuggestionTiles(buffer) {
+  const rankedCandidates = ZhTwFrequencyDictionary
     .map((entry) => zhTwCandidateForBuffer(entry, buffer))
     .filter(Boolean)
-    .sort(zhTwCandidateRank);
+    .sort((left, right) => zhTwCandidateRankForBuffer(left, right, buffer));
   const nextSymbols = zhTwNextSymbolTiles(buffer);
+  const immediateCandidateCount = zhTwImmediateCandidateCount(buffer);
   const orderedCandidates = [
-    ...exactCandidates.slice(0, ZhTwImmediateCandidateCountBeforeNextSymbols),
+    ...rankedCandidates.slice(0, immediateCandidateCount),
     ...nextSymbols,
-    ...exactCandidates.slice(ZhTwImmediateCandidateCountBeforeNextSymbols)
+    ...rankedCandidates.slice(immediateCandidateCount)
   ];
 
   return distinctBy(
     orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwImmediateCandidateCount(buffer) {
+  return buffer.length <= 1
+    ? ZhTwImmediateCandidateCountBeforeNextSymbols
+    : ZhTwComposedBufferImmediateCandidateCount;
 }
 
 function zhTwCandidateForBuffer(entry, buffer) {
@@ -1171,6 +1193,15 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
 
 function zhTwCandidateRank(left, right) {
   return left.frequencyRank - right.frequencyRank;
+}
+
+function zhTwCandidateRankForBuffer(left, right, buffer) {
+  if (buffer.length > 1) {
+    const leftIsExactKey = left.zhuyinKey.length === buffer.length;
+    const rightIsExactKey = right.zhuyinKey.length === buffer.length;
+    if (leftIsExactKey !== rightIsExactKey) return leftIsExactKey ? -1 : 1;
+  }
+  return zhTwCandidateRank(left, right);
 }
 
 function trailingZhuyinBuffer(message) {

@@ -176,7 +176,7 @@ The current `zh-TW` version should not behave like a separate Chinese input meth
 Static rows expose visible input symbols and controls. They should not expose standalone finals that have no dictionary-backed first-symbol entries:
 
 ```text
-是 / 不是 / 要 / 不要
+是 / 不要 / 幫忙 / 痛
 ㄅ / ㄆ / ㄇ / ㄈ
 ㄉ / ㄊ / ㄋ / ㄌ
 ...
@@ -210,11 +210,13 @@ The `zh-TW` board uses suggestion rows as the expansion area. It does not open c
 ```text
 row 1: ranked candidates
 row 2: ranked candidates
-row 3: ranked candidates, with 更多 in the last cell when another page exists
+row 4: ranked candidates, with 更多 in the last cell when another page exists
 static board rows: unchanged Zhuyin symbols and controls
 ```
 
 `更多` advances only the suggestion rows. It must not change the message, scanner mechanics, static board, or input mode. Page count is capped so scanning remains bounded.
+
+This is intentionally close to a Zhuyin IME model: the typed Zhuyin buffer is visible, and a candidate list converts that buffer into characters or phrases. The AAC adaptation is the hard limit: suggestions are capped at 2-3 pages, currently no more than 3. The system should not grow into a full productivity IME with unbounded candidate lists, context rewriting, user-learning side effects, or extra composition modes.
 
 Candidate commit rule:
 
@@ -248,7 +250,7 @@ The practical `zh-TW` path is direct visible input plus prediction:
 ```text
 choose ㄅ
   -> message contains ㄅ
-  -> suggestion rows show common ㄅ candidates, e.g. 幫忙 / 不是 / 不要
+  -> suggestion rows show common ㄅ candidates, e.g. 不要 / 幫忙
 choose ㄧ
   -> message contains ㄅㄧ
   -> suggestion rows show matching phrase shortcuts, e.g. 不要
@@ -262,13 +264,13 @@ The display should favor:
 
 ```text
 matching candidates first
-then broader useful backfill candidates
+then valid following Zhuyin symbols
 then 更多 when the capped next page is useful
 ```
 
 For example, `ㄧㄡ` should not show only `右`; it should keep `右` near the front while also offering useful targets such as `有`, `又`, `有沒有`, and broader high-value choices. Likewise, phrase-initial shortcuts such as `ㄅㄧ` should surface `不要` without requiring the user to fully spell `ㄅㄨㄧㄠ`.
 
-Typed-buffer suggestions should not show redundant question phrases such as `是不是` or `要不要`; the static board already has `是` / `不是` / `要` / `不要`, and the user can express approximate intent with lower effort.
+Typed-buffer suggestions should not show redundant question phrases such as `是不是` or `要不要`. The static board should also avoid duplicate yes/no pairs: one affirmative (`是`) and one high-value refusal (`不要`) are enough for the permanent row, leaving room for high-information needs such as `幫忙` and `痛`.
 
 Candidate ranking should prefer useful AAC words and compact phrase targets over isolated characters when the Zhuyin prefix matches a common communicative intent. For example, after a `ㄨ` path, candidates such as `我`, `喝水`, `吃飯`, and `廁所` are more useful than a large homophone list.
 
