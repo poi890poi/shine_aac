@@ -89,12 +89,14 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="15" />
+    <int name="configVersion" value="16" />
     <boolean name="e2eEnabled" value="true" />
+    <boolean name="rowScanVoice" value="false" />
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="false" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
+    <boolean name="holdAfterSuggestionChange" value="false" />
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
@@ -112,13 +114,15 @@ function Write-ZhTwTestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="15" />
+    <int name="configVersion" value="16" />
     <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
+    <boolean name="rowScanVoice" value="false" />
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="false" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
+    <boolean name="holdAfterSuggestionChange" value="false" />
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />

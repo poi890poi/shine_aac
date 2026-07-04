@@ -74,6 +74,7 @@ try {
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
@@ -166,6 +167,7 @@ async function scenarioReviewHold() {
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
@@ -193,10 +195,11 @@ async function scenarioReviewHold() {
   snapshot = await getSnapshot();
   if (snapshot.reviewHold) throw new Error("Review hold should release on activation without selecting a tile");
   if (snapshot.message !== "I ") throw new Error(`Review release should not change message, got ${snapshot.message}`);
-  steps.push(pass("review-hold", "optional hold pauses after suggestion changes and resumes on next activation"));
+  steps.push(pass("review-hold", "default hold pauses after suggestion changes and resumes on next activation"));
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
@@ -229,7 +232,7 @@ async function scenarioZhTwLayoutMigration() {
         "是",
         "不是",
         "要",
-        "不要",
+        "不",
         "我",
         "你",
         "幫忙",
@@ -259,14 +262,14 @@ async function scenarioZhTwLayoutMigration() {
 
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
-  assertArrayEqual(snapshot.rows[4].map((tile) => tile.label), ["是", "不要", "幫忙", "痛"], "zh-TW static core response row");
+  assertArrayEqual(snapshot.rows[4].map((tile) => tile.label), ["是", "不", "幫忙", "痛"], "zh-TW static core response row");
   for (const expected of ["ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
   }
   for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW layout should not include ${rejected}`);
   }
-  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "更多", "不要"]);
+  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "更多", "不"]);
 
   await selectLabel("ㄅ");
   snapshot = await getSnapshot();
@@ -278,10 +281,10 @@ async function scenarioZhTwLayoutMigration() {
   await assertMessage("ㄅㄧ");
   snapshot = await getSnapshot();
   labels = snapshot.rows.flat().map((tile) => tile.label);
-  for (const expected of ["不要", "不要動"]) {
+  for (const expected of ["不要", "比", "筆"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW replacement suggestion missing ${expected}`);
   }
-  await assertTileLabelsFit(["不要", "不要動", "ㄉ", "清除"]);
+  await assertTileLabelsFit(["不要", "比", "筆", "清除"]);
   await selectLabel("不要");
   await assertMessage("不要");
   await selectLabel("清除");
@@ -291,9 +294,7 @@ async function scenarioZhTwLayoutMigration() {
   await assertMessage("ㄇㄟ");
   snapshot = await getSnapshot();
   labels = snapshot.rows.slice(0, 4).flat().map((tile) => tile.label);
-  const contentLabels = labels.filter((label) => label !== "復原");
-  if (contentLabels[0] !== "沒") throw new Error(`zh-TW ㄇㄟ first content suggestion should be exact glyph 沒, got ${contentLabels[0]}`);
-  for (const expected of ["每", "美", "更多"]) {
+  for (const expected of ["沒", "每", "美", "更多"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW ㄇㄟ suggestions missing ${expected}`);
   }
   for (const rejected of ["慢", "門", "媽媽", "要", "不要"]) {
@@ -333,7 +334,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       };
     })()
   `);
-  if (stored.configVersion < 15 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 16 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
   if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("更多=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {

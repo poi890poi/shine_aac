@@ -12,13 +12,16 @@ mkdirSync(outSrc, { recursive: true });
 const index = readFileSync(join(repoRoot, "apps", "web", "index.html"), "utf8")
   .replace('<script type="module" src="./src/app.js"></script>', '<script src="./src/bundle.js"></script>');
 const styles = readFileSync(join(repoRoot, "apps", "web", "src", "styles.css"), "utf8");
+const zhTwChewingData = readFileSync(join(repoRoot, "packages", "aac-core", "src", "data", "zh-tw-chewing.generated.js"), "utf8")
+  .replace(/\bexport\s+(?=const\b)/g, "");
 const core = readFileSync(join(repoRoot, "packages", "aac-core", "src", "index.js"), "utf8")
+  .replace(/^import\s+\{[\s\S]*?\}\s+from\s+["']\.\/data\/zh-tw-chewing\.generated\.js["'];\s*/, "")
   .replace(/\bexport\s+(?=(const|function|class)\b)/g, "");
 const app = readFileSync(join(repoRoot, "apps", "web", "src", "app.js"), "utf8")
   .replace(/^import\s+\{[\s\S]*?\}\s+from\s+["'][^"']+["'];\s*/, "");
 
 writeFileSync(join(outRoot, "index.html"), index);
 writeFileSync(join(outSrc, "styles.css"), styles);
-writeFileSync(join(outSrc, "bundle.js"), `${core}\n\n${app}\n`);
+writeFileSync(join(outSrc, "bundle.js"), `${zhTwChewingData}\n\n${core}\n\n${app}\n`);
 
 console.log(`Built WebView assets at ${outRoot}`);

@@ -22,6 +22,7 @@
 - Put AAC rules in the shared core first, with deterministic tests before platform work.
 - Preserve working English behavior when adding another language or access feature.
 - Prefer data pipelines over hand tuning. Do not promote, demote, add, or remove individual suggestions for one observed example when a source/ranking rule is needed.
+- Prefer established language resources or IME dictionaries over custom linguistic logic. App code should constrain presentation for AAC access, not become a second dictionary.
 - Verify rendered user experience, not hidden debug state. For UI claims, use visible browser/app checks or screenshots.
 - Keep mechanisms consistent across profiles. Reuse suggestion rows, scanner states, input adapters, and repair actions unless there is a documented reason not to.
 - Every accessibility change must state what effort, error, or confusion it reduces.

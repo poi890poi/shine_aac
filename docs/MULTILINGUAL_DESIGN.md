@@ -127,22 +127,25 @@ Recommended first Taiwan Mandarin profile:
   - `更多` pages the suggestion rows only
 - Suggestions:
   - 4 columns by 4 rows for `zh-TW` candidates
-  - candidates come from the `zh-TW` frequency dictionary and include Zhuyin readings
+  - candidates come from New Chewing `libchewing-data` and include source Zhuyin readings and priorities
   - exact phonetic matches appear before broader ranked backfill
+  - after an initial Zhuyin symbol, available phonetic continuations are prioritized so the user can keep composing without hunting through pages
   - candidate tiles may replace the typed Zhuyin suffix before inserting the glyph or phrase
 
 The default `zh-TW` board should be intentionally minimalist, but it still needs a learnable route to words that are not visible on the first page. AAC output does not need to be perfectly grammatical or lexically exact to be successful. A user may choose an approximate word, a body-position word, or a nearby need word to communicate intent. The design should optimize for fast, high-information selections and predictable recovery from missing vocabulary.
 
-### Dictionary Source Direction
+### Dictionary Source
 
-The `zh-TW` dictionary should be expanded by importing better sources, not by hand-promoting or hand-removing individual phrases for specific Zhuyin keys. Per-symbol tuning is too likely to overfit the developer's examples and create new sparse or irrelevant pages elsewhere.
+The `zh-TW` dictionary is generated from New Chewing `libchewing-data` `dict/chewing/tsi.csv`, an existing Traditional Chinese Zhuyin IME dictionary. The source rows already provide phrase text, priority, and Zhuyin readings, so SHINE should not maintain a separate pinyin conversion layer or hand-picked rescue entries.
 
-Preferred source direction:
+Pipeline rules:
 
-- Use Taiwan Ministry of Education Mandarin dictionary data as the Taiwan-localized source for Traditional Chinese entries and pronunciations where licensing permits: https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/index.html
-- Use a separate frequency/ranking source to trim suggestions to bounded AAC rows. Dictionary membership and AAC ranking should remain separate decisions.
-- Treat CC-CEDICT as a broad fallback source only after license and attribution requirements are satisfied; it is useful and downloadable, but it is not Taiwan-specific and uses Pinyin rather than Zhuyin: https://cc-cedict.org/wiki/
-- Generate Zhuyin keys mechanically from source pronunciations, then run systematic coverage tests over all imported keys instead of spot-testing examples.
+- Parse Chewing CSV data; do not convert from pinyin in production.
+- Strip tone marks for the current no-tone AAC board.
+- Generate phrase-initial shortcut keys mechanically from syllable boundaries.
+- Trim globally and per key by Chewing priority to keep the APK and suggestion pages bounded.
+- Use AAC layout rules only for presentation: page limit, replacement length, continuation visibility, static duplicate suppression, and localized function labels.
+- Verify coverage against the generated Chewing source data, not against the app's own previous suggestions.
 
 ### Scanning Timing
 
@@ -176,7 +179,7 @@ The current `zh-TW` version should not behave like a separate Chinese input meth
 Static rows expose visible input symbols and controls. They should not expose standalone finals that have no dictionary-backed first-symbol entries:
 
 ```text
-是 / 不要 / 幫忙 / 痛
+是 / 不 / 幫忙 / 痛
 ㄅ / ㄆ / ㄇ / ㄈ
 ㄉ / ㄊ / ㄋ / ㄌ
 ...
@@ -270,7 +273,7 @@ then 更多 when the capped next page is useful
 
 For example, `ㄧㄡ` should not show only `右`; it should keep `右` near the front while also offering useful targets such as `有`, `又`, `有沒有`, and broader high-value choices. Likewise, phrase-initial shortcuts such as `ㄅㄧ` should surface `不要` without requiring the user to fully spell `ㄅㄨㄧㄠ`.
 
-Typed-buffer suggestions should not show redundant question phrases such as `是不是` or `要不要`. The static board should also avoid duplicate yes/no pairs: one affirmative (`是`) and one high-value refusal (`不要`) are enough for the permanent row, leaving room for high-information needs such as `幫忙` and `痛`.
+Typed-buffer suggestions should not show redundant question phrases such as `是不是` or `要不要`. The static board should also avoid duplicate yes/no pairs: one affirmative (`是`) and one generic refusal/negation (`不`) are enough for the permanent row, leaving room for high-information needs such as `幫忙` and `痛`.
 
 Candidate ranking should prefer useful AAC words and compact phrase targets over isolated characters when the Zhuyin prefix matches a common communicative intent. For example, after a `ㄨ` path, candidates such as `我`, `喝水`, `吃飯`, and `廁所` are more useful than a large homophone list.
 

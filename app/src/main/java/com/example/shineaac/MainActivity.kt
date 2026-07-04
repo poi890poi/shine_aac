@@ -170,11 +170,12 @@ class MainActivity : ComponentActivity() {
             if (!prefs.getBoolean("e2eEnabled", false)) return ""
 
             return JSONObject()
+                .put("rowScanVoice", prefs.getBoolean("rowScanVoice", false))
                 .put("scanVoice", prefs.getBoolean("scanVoice", true))
                 .put("activationVoice", prefs.getBoolean("activationVoice", true))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
-                .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", false))
+                .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", true))
                 .toString()
         }
 

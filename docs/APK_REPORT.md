@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8769399 bytes
+8993813 bytes
 ```
 
 ## What This APK Is
@@ -65,8 +65,9 @@ Emulator smoke check:
 - latest screenshot saved at `e2e-artifacts/shine-audio-spacing-fit.png`
 - hardware-button E2E entered `I want water ` through packaged APK key events
 - hardware-button E2E verified packaged `zh-TW` dictionary-backed Zhuyin symbols `ㄅ`, `ㄧ`, `ㄩ`, and `更多`
+- packaged WebView bundle contains the generated New Chewing `zh-TW` dictionary data and has no remaining module `import`/`export` syntax
 - web E2E verified localized `zh-TW` function labels including `復原` and `更多`
-- web E2E verified optional suggestion-review hold pauses scanning and resumes on the next activation
+- web E2E verified default suggestion-review hold pauses scanning and resumes on the next activation
 - hardware-button E2E final screenshot saved at `e2e-artifacts/hardware-button-final.png`
 
 Browser E2E also includes a Pixel 4a 5G-sized layout check:
@@ -80,7 +81,7 @@ Public download check:
 
 ```text
 HTTP 200
-Local shared APK size: 8769399 bytes
+Local shared APK size: 8993813 bytes
 ```
 
 ## Notes

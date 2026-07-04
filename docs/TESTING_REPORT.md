@@ -64,7 +64,7 @@ Latest result:
 - `zh-TW` exposes direct Zhuyin symbols, `更多`, and essential controls while omitting low-information punctuation and redundant yes/no pairs from the default board
 - `zh-TW` function labels render and persist in Chinese, including `復原` and `更多`
 - old `zh-TW` MVP boards with English `MORE` migrate to the localized `更多` function label
-- `zh-TW` static core row is `是` / `不要` / `幫忙` / `痛`, avoiding the previous duplicated `是` / `不是` and `要` / `不要` binary pairs
+- `zh-TW` static core row is `是` / `不` / `幫忙` / `痛`, avoiding duplicated yes/no pairs and keeping refusal generic
 - default `zh-TW` suggestion rows do not duplicate static core labels before a Zhuyin buffer is typed
 - `zh-TW` uses four suggestion rows for ranked glyph/phrase candidates instead of second-layer or third-layer Zhuyin pages
 - `zh-TW` candidate suggestions can replace the trailing typed Zhuyin buffer in one undoable action
@@ -110,7 +110,7 @@ Latest result:
 - uses `UNDO` to repair `WATER`, then selects `FOOD`
 - uses `CLR`
 - types `movi`, completes it to `movie `, then uses `DEL`
-- verifies optional suggestion-review hold pauses scanning after a suggestion-changing input and resumes on the next activation
+- verifies default suggestion-review hold pauses scanning after a suggestion-changing input and resumes on the next activation
 - verifies a Pixel 4a 5G-sized viewport fits without scrolling
 - seeds an old stored `zh-TW` layout and verifies it migrates to direct Zhuyin symbols
 - verifies reset restores the packaged `zh-TW` defaults and persists direct Zhuyin symbols instead of stale user layout text

@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-04T02:34:45.822Z
+Generated: 2026-07-04T07:33:29.649Z
 
 Result: PASS
 
@@ -14,7 +14,7 @@ Result: PASS
 | clear | PASS | selected CLR from the visible board |
 | completion | PASS | typed movi and completed to movie with automatic trailing space |
 | delete | PASS | selected DEL and removed the automatic trailing space |
-| review-hold | PASS | optional hold pauses after suggestion changes and resumes on next activation |
+| review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
 | pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |

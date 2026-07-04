@@ -32,11 +32,12 @@ const InputIntent = Object.freeze({
   Pause: "pause"
 });
 const defaultUiConfig = Object.freeze({
+  rowScanVoice: false,
   scanVoice: true,
   activationVoice: true,
   restartScanFromTop: true,
   hardwareButtons: true,
-  holdAfterSuggestionChange: false
+  holdAfterSuggestionChange: true
 });
 
 let session = createSession({ config: loadConfig() });
@@ -308,7 +309,7 @@ function speakActivation(tile) {
 }
 
 function announceCurrentScanTarget() {
-  if (!uiConfig.scanVoice || configOpen) return;
+  if (configOpen) return;
   const board = visibleBoard(session);
   const scanner = session.scannerState;
   const key = `${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}`;
@@ -316,6 +317,7 @@ function announceCurrentScanTarget() {
   lastScanAnnouncementKey = key;
 
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
+    if (!uiConfig.rowScanVoice) return;
     const labels = (board[scanner.rowIndex] ?? [])
       .filter((candidate) => candidate.action !== TileAction.Noop)
       .map(labelForSpeech)
@@ -324,6 +326,7 @@ function announceCurrentScanTarget() {
     return;
   }
 
+  if (!uiConfig.scanVoice) return;
   const tile = board[scanner.rowIndex]?.[scanner.cellIndex];
   if (tile) speakFeedback(labelForSpeech(tile));
 }
@@ -365,7 +368,7 @@ function render() {
 
   const voice = document.createElement("div");
   voice.className = "voice";
-  voice.textContent = uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
+  voice.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
 
   const configButton = document.createElement("button");
   configButton.className = "config-button";
@@ -537,8 +540,12 @@ function renderConfig() {
         <input name="inputLatencyCompensationMs" type="number" min="0" max="1200" step="25" value="${session.config.inputLatencyCompensationMs}">
       </label>
       <label class="field check-field">
+        <input name="rowScanVoice" type="checkbox" ${uiConfig.rowScanVoice ? "checked" : ""}>
+        Voice while row scanning
+      </label>
+      <label class="field check-field">
         <input name="scanVoice" type="checkbox" ${uiConfig.scanVoice ? "checked" : ""}>
-        Voice while scanning
+        Voice while symbol scanning
       </label>
       <label class="field check-field">
         <input name="activationVoice" type="checkbox" ${uiConfig.activationVoice ? "checked" : ""}>
@@ -611,6 +618,7 @@ function renderConfig() {
     });
     saveConfig(config);
     uiConfig = {
+      rowScanVoice: data.get("rowScanVoice") === "on",
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
       restartScanFromTop: data.get("restartScanFromTop") === "on",

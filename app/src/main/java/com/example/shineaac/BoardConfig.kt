@@ -40,7 +40,7 @@ const val DefaultFirstCellPauseMs = 1700f
 const val LegacyFirstCellPauseMsV6 = 1400f
 private const val PreviousDefaultFirstCellPauseMs = 900f
 const val DefaultInputLatencyCompensationMs = 250f
-const val CurrentConfigVersion = 15
+const val CurrentConfigVersion = 16
 
 val LegacySuggestionDictionaryV6 = listOf(
     CommunicationTile("I", "I"),

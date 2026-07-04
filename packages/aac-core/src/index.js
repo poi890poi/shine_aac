@@ -1,3 +1,5 @@
+import { ZhTwChewingDictionaryEntries } from "./data/zh-tw-chewing.generated.js";
+
 export const ScanStage = Object.freeze({
   Rows: "Rows",
   RowSelected: "RowSelected",
@@ -30,7 +32,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
-export const CurrentConfigVersion = 15;
+export const CurrentConfigVersion = 16;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
@@ -342,31 +344,26 @@ const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.Cl
 const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
-const ZhTwImmediateCandidateCountBeforeNextSymbols = 2;
-const ZhTwComposedBufferImmediateCandidateCount = 8;
-const ZhuyinFollowingSymbolOrder = Object.freeze([
-  "ㄧ", "ㄨ", "ㄩ",
-  "ㄚ", "ㄛ", "ㄜ", "ㄝ",
-  "ㄞ", "ㄟ", "ㄠ", "ㄡ",
-  "ㄢ", "ㄣ", "ㄤ", "ㄥ", "ㄦ",
-  "ㄅ", "ㄆ", "ㄇ", "ㄈ",
-  "ㄉ", "ㄊ", "ㄋ", "ㄌ",
-  "ㄍ", "ㄎ", "ㄏ",
-  "ㄐ", "ㄑ", "ㄒ",
-  "ㄓ", "ㄔ", "ㄕ", "ㄖ",
-  "ㄗ", "ㄘ", "ㄙ"
-]);
 const zhuyinEntry = (label, output, key, ...aliases) => Object.freeze({
   label,
   output,
   key,
   keys: Object.freeze([key, ...aliases])
 });
+const chewingZhuyinEntry = (entry) => Object.freeze({
+  label: entry.label,
+  output: entry.output,
+  key: entry.key,
+  keys: Object.freeze([entry.key]),
+  source: entry.source,
+  sourceRank: entry.sourceRank,
+  frequency: entry.frequency
+});
 const MinZhuyinTargets = 8;
 const MaxZhuyinCandidateTargets = 20;
 const ZhTwCoreResponseTiles = Object.freeze([
   tile("是"),
-  tile("不要"),
+  tile("不"),
   tile("幫忙"),
   tile("痛")
 ]);
@@ -397,6 +394,7 @@ export const ZhuyinInputSymbols = Object.freeze([
 ]);
 
 const ZhuyinInputSymbolSet = new Set(ZhuyinInputSymbols);
+const ZhuyinInitialSymbolSet = new Set(ZhuyinInputSymbols.slice(0, 21));
 const ZhuyinContinuationSymbols = Object.freeze({
   "ㄧ": Object.freeze(["ㄚ", "ㄝ", "ㄠ", "ㄡ", "ㄢ", "ㄣ", "ㄤ", "ㄥ"]),
   "ㄨ": Object.freeze(["ㄚ", "ㄛ", "ㄞ", "ㄟ", "ㄢ", "ㄣ", "ㄤ", "ㄥ"]),
@@ -404,254 +402,21 @@ const ZhuyinContinuationSymbols = Object.freeze({
 });
 
 export const ZhuyinLookupDictionary = Object.freeze([
-  zhuyinEntry("我", "我", "ㄨㄛ"),
-  zhuyinEntry("你", "你", "ㄋㄧ"),
-  zhuyinEntry("要", "要", "ㄧㄠ"),
-  zhuyinEntry("不要", "不要", "ㄅㄨㄧㄠ", "ㄅㄧ"),
-  zhuyinEntry("是", "是", "ㄕ"),
-  zhuyinEntry("不是", "不是", "ㄅㄨㄕ"),
-  zhuyinEntry("幫忙", "幫忙", "ㄅㄤㄇㄤ", "ㄅㄇ"),
-  zhuyinEntry("痛", "痛", "ㄊㄨㄥ"),
-  zhuyinEntry("喝水", "喝水", "ㄏㄜㄕㄨㄟ", "ㄏㄕ"),
-  zhuyinEntry("吃飯", "吃飯", "ㄔㄈㄢ", "ㄔㄈ"),
-  zhuyinEntry("廁所", "廁所", "ㄘㄜㄙㄨㄛ", "ㄘㄙ"),
-  zhuyinEntry("休息", "休息", "ㄒㄧㄡㄒㄧ", "ㄒㄒ"),
-  zhuyinEntry("熱", "熱", "ㄖㄜ"),
-  zhuyinEntry("冷", "冷", "ㄌㄥ"),
-  zhuyinEntry("累", "累", "ㄌㄟ"),
-  zhuyinEntry("睡覺", "睡覺", "ㄕㄨㄟㄐㄧㄠ", "ㄕㄐ"),
-  zhuyinEntry("家人", "家人", "ㄐㄧㄚㄖㄣ", "ㄐㄖ"),
-  zhuyinEntry("護理師", "護理師", "ㄏㄨㄌㄧㄕ", "ㄏㄌㄕ"),
-  zhuyinEntry("醫生", "醫生", "ㄧㄕㄥ", "ㄧㄕ"),
-  zhuyinEntry("藥", "藥", "ㄧㄠ"),
-  zhuyinEntry("停", "停", "ㄊㄧㄥ"),
-  zhuyinEntry("上", "上", "ㄕㄤ"),
-  zhuyinEntry("下", "下", "ㄒㄧㄚ"),
-  zhuyinEntry("左", "左", "ㄗㄨㄛ"),
-  zhuyinEntry("右", "右", "ㄧㄡ"),
-  zhuyinEntry("喝水", "喝水", "ㄨㄛㄧㄠㄏㄜㄕㄨㄟ", "ㄨㄧㄏㄕ"),
-  zhuyinEntry("吃飯", "吃飯", "ㄨㄛㄧㄠㄔㄈㄢ", "ㄨㄧㄔㄈ"),
-  zhuyinEntry("廁所", "廁所", "ㄨㄛㄧㄠㄘㄜㄙㄨㄛ", "ㄨㄧㄘㄙ"),
-  zhuyinEntry("痛", "痛", "ㄨㄛㄏㄣㄊㄨㄥ", "ㄨㄏㄊ"),
-  zhuyinEntry("家人", "家人", "ㄐㄧㄠㄐㄧㄚㄖㄣ", "ㄐㄐㄖ"),
-  zhuyinEntry("護理師", "護理師", "ㄐㄧㄠㄏㄨㄌㄧㄕ", "ㄐㄏㄌㄕ"),
-  zhuyinEntry("不舒服", "不舒服", "ㄅㄨㄕㄨㄈㄨ", "ㄅㄕㄈ"),
-  zhuyinEntry("被子", "被子", "ㄅㄟㄗ"),
-  zhuyinEntry("幫我", "幫我", "ㄅㄤㄨㄛ", "ㄅㄨ"),
-  zhuyinEntry("不要動", "不要動", "ㄅㄨㄧㄠㄉㄨㄥ", "ㄅㄧㄉ"),
-  zhuyinEntry("抱", "抱", "ㄅㄠ"),
-  zhuyinEntry("爸爸", "爸爸", "ㄅㄚㄅㄚ"),
-  zhuyinEntry("怕", "怕", "ㄆㄚ"),
-  zhuyinEntry("朋友", "朋友", "ㄆㄥㄧㄡ"),
-  zhuyinEntry("陪我", "陪我", "ㄆㄟㄨㄛ"),
-  zhuyinEntry("旁邊", "旁邊", "ㄆㄤㄅㄧㄢ"),
-  zhuyinEntry("平躺", "平躺", "ㄆㄧㄥㄊㄤ"),
-  zhuyinEntry("拍照", "拍照", "ㄆㄞㄓㄠ"),
-  zhuyinEntry("媽媽", "媽媽", "ㄇㄚㄇㄚ"),
-  zhuyinEntry("沒有", "沒有", "ㄇㄟㄧㄡ"),
-  zhuyinEntry("沒", "沒", "ㄇㄟ"),
-  zhuyinEntry("每", "每", "ㄇㄟ"),
-  zhuyinEntry("美", "美", "ㄇㄟ"),
-  zhuyinEntry("妹", "妹", "ㄇㄟ"),
-  zhuyinEntry("梅", "梅", "ㄇㄟ"),
-  zhuyinEntry("媒", "媒", "ㄇㄟ"),
-  zhuyinEntry("眉", "眉", "ㄇㄟ"),
-  zhuyinEntry("煤", "煤", "ㄇㄟ"),
-  zhuyinEntry("枚", "枚", "ㄇㄟ"),
-  zhuyinEntry("玫", "玫", "ㄇㄟ"),
-  zhuyinEntry("莓", "莓", "ㄇㄟ"),
-  zhuyinEntry("霉", "霉", "ㄇㄟ"),
-  zhuyinEntry("昧", "昧", "ㄇㄟ"),
-  zhuyinEntry("媚", "媚", "ㄇㄟ"),
-  zhuyinEntry("寐", "寐", "ㄇㄟ"),
-  zhuyinEntry("魅", "魅", "ㄇㄟ"),
-  zhuyinEntry("湄", "湄", "ㄇㄟ"),
-  zhuyinEntry("酶", "酶", "ㄇㄟ"),
-  zhuyinEntry("慢", "慢", "ㄇㄢ"),
-  zhuyinEntry("門", "門", "ㄇㄣ"),
-  zhuyinEntry("毛巾", "毛巾", "ㄇㄠㄐㄧㄣ"),
-  zhuyinEntry("明白", "明白", "ㄇㄧㄥㄅㄞ"),
-  zhuyinEntry("飯", "飯", "ㄈㄢ"),
-  zhuyinEntry("翻身", "翻身", "ㄈㄢㄕㄣ"),
-  zhuyinEntry("風扇", "風扇", "ㄈㄥㄕㄢ"),
-  zhuyinEntry("放下", "放下", "ㄈㄤㄒㄧㄚ"),
-  zhuyinEntry("發燒", "發燒", "ㄈㄚㄕㄠ"),
-  zhuyinEntry("方向", "方向", "ㄈㄤㄒㄧㄤ"),
-  zhuyinEntry("等一下", "等一下", "ㄉㄥㄧㄒㄧㄚ", "ㄉㄧㄒ"),
-  zhuyinEntry("燈", "燈", "ㄉㄥ"),
-  zhuyinEntry("電話", "電話", "ㄉㄧㄢㄏㄨㄚ"),
-  zhuyinEntry("電視", "電視", "ㄉㄧㄢㄕ"),
-  zhuyinEntry("打開", "打開", "ㄉㄚㄎㄞ"),
-  zhuyinEntry("多一點", "多一點", "ㄉㄨㄛㄧㄉㄧㄢ", "ㄉㄧㄉ"),
-  zhuyinEntry("頭", "頭", "ㄊㄡ"),
-  zhuyinEntry("躺下", "躺下", "ㄊㄤㄒㄧㄚ"),
-  zhuyinEntry("聽", "聽", "ㄊㄧㄥ"),
-  zhuyinEntry("太熱", "太熱", "ㄊㄞㄖㄜ"),
-  zhuyinEntry("推", "推", "ㄊㄨㄟ"),
-  zhuyinEntry("拿", "拿", "ㄋㄚ"),
-  zhuyinEntry("尿布", "尿布", "ㄋㄧㄠㄅㄨ"),
-  zhuyinEntry("哪裡", "哪裡", "ㄋㄚㄌㄧ"),
-  zhuyinEntry("難受", "難受", "ㄋㄢㄕㄡ"),
-  zhuyinEntry("奶", "奶", "ㄋㄞ"),
-  zhuyinEntry("弄好", "弄好", "ㄋㄨㄥㄏㄠ"),
-  zhuyinEntry("來", "來", "ㄌㄞ"),
-  zhuyinEntry("亮", "亮", "ㄌㄧㄤ"),
-  zhuyinEntry("拉", "拉", "ㄌㄚ"),
-  zhuyinEntry("聯絡", "聯絡", "ㄌㄧㄢㄌㄨㄛ"),
-  zhuyinEntry("離開", "離開", "ㄌㄧㄎㄞ"),
-  zhuyinEntry("給我", "給我", "ㄍㄟㄨㄛ"),
-  zhuyinEntry("關", "關", "ㄍㄨㄢ"),
-  zhuyinEntry("更高", "更高", "ㄍㄥㄍㄠ"),
-  zhuyinEntry("感覺", "感覺", "ㄍㄢㄐㄩㄝ"),
-  zhuyinEntry("蓋被", "蓋被", "ㄍㄞㄅㄟ"),
-  zhuyinEntry("過來", "過來", "ㄍㄨㄛㄌㄞ"),
-  zhuyinEntry("可以", "可以", "ㄎㄜㄧ"),
-  zhuyinEntry("口渴", "口渴", "ㄎㄡㄎㄜ"),
-  zhuyinEntry("開", "開", "ㄎㄞ"),
-  zhuyinEntry("看", "看", "ㄎㄢ"),
-  zhuyinEntry("快", "快", "ㄎㄨㄞ"),
-  zhuyinEntry("咳嗽", "咳嗽", "ㄎㄜㄙㄡ"),
-  zhuyinEntry("好", "好", "ㄏㄠ"),
-  zhuyinEntry("呼吸", "呼吸", "ㄏㄨㄒㄧ"),
-  zhuyinEntry("換", "換", "ㄏㄨㄢ"),
-  zhuyinEntry("回家", "回家", "ㄏㄨㄟㄐㄧㄚ"),
-  zhuyinEntry("後面", "後面", "ㄏㄡㄇㄧㄢ"),
-  zhuyinEntry("叫人", "叫人", "ㄐㄧㄠㄖㄣ", "ㄐㄖ"),
-  zhuyinEntry("今天", "今天", "ㄐㄧㄣㄊㄧㄢ"),
-  zhuyinEntry("近一點", "近一點", "ㄐㄧㄣㄧㄉㄧㄢ", "ㄐㄧㄉ"),
-  zhuyinEntry("急", "急", "ㄐㄧ"),
-  zhuyinEntry("繼續", "繼續", "ㄐㄧㄒㄩ"),
-  zhuyinEntry("加", "加", "ㄐㄧㄚ"),
-  zhuyinEntry("請", "請", "ㄑㄧㄥ"),
-  zhuyinEntry("起來", "起來", "ㄑㄧㄌㄞ"),
-  zhuyinEntry("前", "前", "ㄑㄧㄢ"),
-  zhuyinEntry("清楚", "清楚", "ㄑㄧㄥㄔㄨ"),
-  zhuyinEntry("輕一點", "輕一點", "ㄑㄧㄥㄧㄉㄧㄢ", "ㄑㄧㄉ"),
-  zhuyinEntry("去", "去", "ㄑㄩ"),
-  zhuyinEntry("想吐", "想吐", "ㄒㄧㄤㄊㄨ", "ㄒㄊ"),
-  zhuyinEntry("小便", "小便", "ㄒㄧㄠㄅㄧㄢ", "ㄒㄅ"),
-  zhuyinEntry("需要", "需要", "ㄒㄩㄧㄠ"),
-  zhuyinEntry("小心", "小心", "ㄒㄧㄠㄒㄧㄣ"),
-  zhuyinEntry("小", "小", "ㄒㄧㄠ"),
-  zhuyinEntry("笑", "笑", "ㄒㄧㄠ"),
-  zhuyinEntry("校", "校", "ㄒㄧㄠ"),
-  zhuyinEntry("消", "消", "ㄒㄧㄠ"),
-  zhuyinEntry("效", "效", "ㄒㄧㄠ"),
-  zhuyinEntry("孝", "孝", "ㄒㄧㄠ"),
-  zhuyinEntry("曉", "曉", "ㄒㄧㄠ"),
-  zhuyinEntry("銷", "銷", "ㄒㄧㄠ"),
-  zhuyinEntry("蕭", "蕭", "ㄒㄧㄠ"),
-  zhuyinEntry("宵", "宵", "ㄒㄧㄠ"),
-  zhuyinEntry("削", "削", "ㄒㄧㄠ"),
-  zhuyinEntry("霄", "霄", "ㄒㄧㄠ"),
-  zhuyinEntry("吸痰", "吸痰", "ㄒㄧㄊㄢ"),
-  zhuyinEntry("洗澡", "洗澡", "ㄒㄧㄗㄠ"),
-  zhuyinEntry("知道", "知道", "ㄓㄉㄠ"),
-  zhuyinEntry("這裡", "這裡", "ㄓㄜㄌㄧ"),
-  zhuyinEntry("轉", "轉", "ㄓㄨㄢ"),
-  zhuyinEntry("枕頭", "枕頭", "ㄓㄣㄊㄡ"),
-  zhuyinEntry("站", "站", "ㄓㄢ"),
-  zhuyinEntry("找", "找", "ㄓㄠ"),
-  zhuyinEntry("床", "床", "ㄔㄨㄤ"),
-  zhuyinEntry("穿", "穿", "ㄔㄨㄢ"),
-  zhuyinEntry("抽痰", "抽痰", "ㄔㄡㄊㄢ"),
-  zhuyinEntry("出去", "出去", "ㄔㄨㄑㄩ"),
-  zhuyinEntry("長", "長", "ㄔㄤ"),
-  zhuyinEntry("水", "水", "ㄕㄨㄟ"),
-  zhuyinEntry("說", "說", "ㄕㄨㄛ"),
-  zhuyinEntry("舒服", "舒服", "ㄕㄨㄈㄨ"),
-  zhuyinEntry("身體", "身體", "ㄕㄣㄊㄧ"),
-  zhuyinEntry("手", "手", "ㄕㄡ"),
-  zhuyinEntry("少一點", "少一點", "ㄕㄠㄧㄉㄧㄢ", "ㄕㄧㄉ"),
-  zhuyinEntry("人", "人", "ㄖㄣ"),
-  zhuyinEntry("讓我", "讓我", "ㄖㄤㄨㄛ", "ㄖㄨ"),
-  zhuyinEntry("日", "日", "ㄖ"),
-  zhuyinEntry("柔一點", "柔一點", "ㄖㄡㄧㄉㄧㄢ"),
-  zhuyinEntry("容易", "容易", "ㄖㄨㄥㄧ"),
-  zhuyinEntry("坐", "坐", "ㄗㄨㄛ"),
-  zhuyinEntry("走", "走", "ㄗㄡ"),
-  zhuyinEntry("再一次", "再一次", "ㄗㄞㄧㄘ"),
-  zhuyinEntry("怎麼", "怎麼", "ㄗㄣㄇㄜ"),
-  zhuyinEntry("姿勢", "調整姿勢", "ㄗㄕ"),
-  zhuyinEntry("早", "早", "ㄗㄠ"),
-  zhuyinEntry("擦", "擦", "ㄘㄚ"),
-  zhuyinEntry("餐", "餐", "ㄘㄢ"),
-  zhuyinEntry("刺痛", "刺痛", "ㄘㄊㄨㄥ"),
-  zhuyinEntry("側邊", "側邊", "ㄘㄜㄅㄧㄢ"),
-  zhuyinEntry("次", "次", "ㄘ"),
-  zhuyinEntry("送", "送", "ㄙㄨㄥ"),
-  zhuyinEntry("酸", "酸", "ㄙㄨㄢ"),
-  zhuyinEntry("三", "三", "ㄙㄢ"),
-  zhuyinEntry("速度", "速度", "ㄙㄨㄉㄨ"),
-  zhuyinEntry("鬆", "鬆", "ㄙㄨㄥ"),
-  zhuyinEntry("鬆一點", "鬆一點", "ㄙㄨㄥㄧㄉㄧㄢ"),
-  zhuyinEntry("痠痛", "痠痛", "ㄙㄨㄢㄊㄨㄥ"),
-  zhuyinEntry("所有", "所有", "ㄙㄨㄛㄧㄡ"),
-  zhuyinEntry("算了", "算了", "ㄙㄨㄢㄌㄜ"),
-  zhuyinEntry("衣服", "衣服", "ㄧㄈㄨ"),
-  zhuyinEntry("眼睛", "眼睛", "ㄧㄢㄐㄧㄥ"),
-  zhuyinEntry("有", "有", "ㄧㄡ"),
-  zhuyinEntry("又", "又", "ㄧㄡ"),
-  zhuyinEntry("有沒有", "有沒有", "ㄧㄡㄇㄟㄧㄡ", "ㄧㄇㄧ"),
-  zhuyinEntry("有空", "有空", "ㄧㄡㄎㄨㄥ", "ㄧㄎ"),
-  zhuyinEntry("有痛", "有痛", "ㄧㄡㄊㄨㄥ", "ㄧㄊ"),
-  zhuyinEntry("有需要", "有需要", "ㄧㄡㄒㄩㄧㄠ", "ㄧㄒ"),
-  zhuyinEntry("由", "由", "ㄧㄡ"),
-  zhuyinEntry("油", "油", "ㄧㄡ"),
-  zhuyinEntry("友", "友", "ㄧㄡ"),
-  zhuyinEntry("游", "游", "ㄧㄡ"),
-  zhuyinEntry("幼", "幼", "ㄧㄡ"),
-  zhuyinEntry("優", "優", "ㄧㄡ"),
-  zhuyinEntry("憂", "憂", "ㄧㄡ"),
-  zhuyinEntry("郵", "郵", "ㄧㄡ"),
-  zhuyinEntry("尤", "尤", "ㄧㄡ"),
-  zhuyinEntry("悠", "悠", "ㄧㄡ"),
-  zhuyinEntry("幽", "幽", "ㄧㄡ"),
-  zhuyinEntry("誘", "誘", "ㄧㄡ"),
-  zhuyinEntry("猶", "猶", "ㄧㄡ"),
-  zhuyinEntry("遊", "遊", "ㄧㄡ"),
-  zhuyinEntry("一點", "一點", "ㄧㄉㄧㄢ"),
-  zhuyinEntry("音樂", "音樂", "ㄧㄣㄩㄝ"),
-  zhuyinEntry("外面", "外面", "ㄨㄞㄇㄧㄢ"),
-  zhuyinEntry("晚上", "晚上", "ㄨㄢㄕㄤ"),
-  zhuyinEntry("問", "問", "ㄨㄣ"),
-  zhuyinEntry("溫度", "溫度", "ㄨㄣㄉㄨ"),
-  zhuyinEntry("無法", "無法", "ㄨㄈㄚ"),
-  zhuyinEntry("未", "未", "ㄨㄟ"),
-  zhuyinEntry("味", "味", "ㄨㄟ"),
-  zhuyinEntry("位", "位", "ㄨㄟ"),
-  zhuyinEntry("為", "為", "ㄨㄟ"),
-  zhuyinEntry("胃", "胃", "ㄨㄟ"),
-  zhuyinEntry("餵", "餵", "ㄨㄟ"),
-  zhuyinEntry("衛", "衛", "ㄨㄟ"),
-  zhuyinEntry("微", "微", "ㄨㄟ"),
-  zhuyinEntry("危", "危", "ㄨㄟ"),
-  zhuyinEntry("委", "委", "ㄨㄟ"),
-  zhuyinEntry("尾", "尾", "ㄨㄟ"),
-  zhuyinEntry("維", "維", "ㄨㄟ"),
-  zhuyinEntry("圍", "圍", "ㄨㄟ"),
-  zhuyinEntry("威", "威", "ㄨㄟ"),
-  zhuyinEntry("偉", "偉", "ㄨㄟ"),
-  zhuyinEntry("違", "違", "ㄨㄟ"),
-  zhuyinEntry("暈", "暈", "ㄩㄣ"),
-  zhuyinEntry("遠", "遠", "ㄩㄢ"),
-  zhuyinEntry("浴室", "浴室", "ㄩㄕ"),
-  zhuyinEntry("願意", "願意", "ㄩㄢㄧ"),
-  zhuyinEntry("越來越", "越來越", "ㄩㄝㄌㄞㄩㄝ")
+  ...ZhTwChewingDictionaryEntries.map(chewingZhuyinEntry)
 ]);
 
 export const ZhTwFrequencyDictionary = Object.freeze(
   ZhuyinLookupDictionary.map((entry, index) => Object.freeze({
     ...entry,
-    frequencyRank: index + 1,
-    frequency: 1 / (index + 1)
+    frequencyRank: entry.sourceRank ?? index + 1,
+    frequency: entry.frequency ?? 1 / (index + 1)
   }))
 );
+const ZhTwDictionaryByPrefix = buildZhTwDictionaryByPrefix(ZhTwFrequencyDictionary);
+const ZhTwNextSymbolsByPrefix = buildZhTwNextSymbolsByPrefix(ZhTwFrequencyDictionary);
 
 export const ZhuyinStaticInputSymbols = Object.freeze(
-  ZhuyinInputSymbols.filter((symbol) =>
-    ZhTwFrequencyDictionary.some((entry) => entryKeys(entry).some((key) => key.startsWith(symbol)))
-  )
+  ZhuyinInputSymbols.slice(0, 24)
 );
 
 export const ZhTwPhraseCategories = Object.freeze({
@@ -663,7 +428,7 @@ export const ZhTwPhraseCategories = Object.freeze({
       tile("廁所"),
       tile("休息"),
       tile("睡覺"),
-      tile("不要"),
+      tile("不"),
       tile("幫忙"),
       tile("停")
     ])
@@ -726,7 +491,7 @@ export const ZhTwPhraseCategories = Object.freeze({
       tile("是"),
       tile("不是"),
       tile("要"),
-      tile("不要"),
+      tile("不"),
       tile("停"),
       tile("等一下"),
       tile("可以"),
@@ -964,7 +729,7 @@ function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
   const hasDirectZhuyinBoard = ZhuyinStaticInputSymbols.every((symbol) => labels.has(symbol)) &&
     !labels.has("注音") &&
     !labels.has("ㄅㄆㄇㄈ");
-  const hasCurrentDirectBoard = hasDirectZhuyinBoard && labels.has("\u66f4\u591a");
+  const hasCurrentDirectBoard = hasDirectZhuyinBoard && labels.has("\u66f4\u591a") && labels.has("不") && !labels.has("不要");
   if (hasCurrentDirectBoard) return false;
   if (hasDirectZhuyinBoard && labels.has("MORE")) return true;
 
@@ -1097,7 +862,7 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const commandSuggestions = canUndo ? [zhTwUndoSuggestionTile] : [];
-  const allSuggestions = zhTwSuggestionTiles(message);
+  const allSuggestions = zhTwSuggestionTiles(message, safeColumns);
   const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
@@ -1111,10 +876,10 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);
 }
 
-function zhTwSuggestionTiles(message) {
+function zhTwSuggestionTiles(message, columns = DefaultColumns) {
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
-    ? zhTwBufferedSuggestionTiles(buffer)
+    ? zhTwBufferedSuggestionTiles(buffer, columns)
     : ZhTwFrequencyDictionary
       .filter((entry) => !ZhTwCoreResponseLabels.has(entry.label))
       .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
@@ -1123,13 +888,16 @@ function zhTwSuggestionTiles(message) {
     .filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label));
 }
 
-function zhTwBufferedSuggestionTiles(buffer) {
-  const rankedCandidates = ZhTwFrequencyDictionary
-    .map((entry) => zhTwCandidateForBuffer(entry, buffer))
-    .filter(Boolean)
-    .sort((left, right) => zhTwCandidateRankForBuffer(left, right, buffer));
-  const nextSymbols = zhTwNextSymbolTiles(buffer);
-  const immediateCandidateCount = zhTwImmediateCandidateCount(buffer);
+function zhTwBufferedSuggestionTiles(buffer, columns) {
+  const rankedCandidates = distinctBy(
+    (ZhTwDictionaryByPrefix.get(buffer) ?? [])
+      .map((entry) => zhTwCandidateForBuffer(entry, buffer))
+      .filter(Boolean)
+      .sort((left, right) => zhTwCandidateRankForBuffer(left, right, buffer)),
+    (candidate) => `${candidate.label}\u0000${candidate.output}`
+  );
+  const nextSymbols = zhTwNextSymbolTiles(buffer, columns);
+  const immediateCandidateCount = zhTwImmediateCandidateCount(buffer, columns, nextSymbols.length);
   const orderedCandidates = [
     ...rankedCandidates.slice(0, immediateCandidateCount),
     ...nextSymbols,
@@ -1142,10 +910,14 @@ function zhTwBufferedSuggestionTiles(buffer) {
   );
 }
 
-function zhTwImmediateCandidateCount(buffer) {
-  return buffer.length <= 1
-    ? ZhTwImmediateCandidateCountBeforeNextSymbols
-    : ZhTwComposedBufferImmediateCandidateCount;
+function zhTwImmediateCandidateCount(buffer, columns, nextSymbolCount = 0) {
+  const safeColumns = clampInt(columns, 2, 8);
+  const preferredCount = safeColumns * zhTwPreferredCandidateRowsBeforeNextSymbols(buffer);
+  if (!zhTwNeedsPhoneticContinuationSpace(buffer)) return preferredCount;
+
+  const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
+  const minimumCandidateCount = zhTwMinimumCandidateCountBeforeNextSymbols(buffer, safeColumns);
+  return clampInt(firstPageUsableCount - nextSymbolCount, minimumCandidateCount, preferredCount);
 }
 
 function zhTwCandidateForBuffer(entry, buffer) {
@@ -1156,25 +928,36 @@ function zhTwCandidateForBuffer(entry, buffer) {
   return zhTwCandidateTile(entry, buffer.length, matchingKey, "exact");
 }
 
-function zhTwNextSymbolTiles(buffer) {
-  return distinctBy(
+function zhTwNextSymbolTiles(buffer, columns) {
+  const safeColumns = clampInt(columns, 2, 8);
+  const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
+  const maxSymbols = Math.max(0, firstPageUsableCount - zhTwMinimumCandidateCountBeforeNextSymbols(buffer, safeColumns));
+  const symbols = distinctBy(
     [
       ...(ZhuyinContinuationSymbols[buffer] ?? []),
-      ...ZhTwFrequencyDictionary
-      .flatMap((entry) => entryKeys(entry))
-      .filter((key) => key.startsWith(buffer) && key.length > buffer.length)
-      .map((key) => key.at(buffer.length))
-      .filter((symbol) => ZhuyinInputSymbolSet.has(symbol))
+      ...(ZhTwNextSymbolsByPrefix.get(buffer) ?? [])
     ],
     (symbol) => symbol
-  )
-    .sort((left, right) => zhuyinFollowingSymbolRank(left) - zhuyinFollowingSymbolRank(right))
-    .map((symbol) => tile(symbol, symbol, TileAction.Append));
+  );
+  const orderedSymbols = zhTwNeedsPhoneticContinuationSpace(buffer)
+    ? [
+      ...symbols.filter((symbol) => !ZhuyinInitialSymbolSet.has(symbol)),
+      ...symbols.filter((symbol) => ZhuyinInitialSymbolSet.has(symbol))
+    ]
+    : symbols;
+  return orderedSymbols.slice(0, maxSymbols).map((symbol) => tile(symbol, symbol, TileAction.Append));
 }
 
-function zhuyinFollowingSymbolRank(symbol) {
-  const index = ZhuyinFollowingSymbolOrder.indexOf(symbol);
-  return index >= 0 ? index : ZhuyinFollowingSymbolOrder.length;
+function zhTwPreferredCandidateRowsBeforeNextSymbols(buffer) {
+  return buffer.length <= 1 ? 1 : 2;
+}
+
+function zhTwMinimumCandidateCountBeforeNextSymbols(buffer, columns) {
+  return buffer.length <= 1 ? 1 : columns;
+}
+
+function zhTwNeedsPhoneticContinuationSpace(buffer) {
+  return buffer.length <= 1 || ["ㄧ", "ㄨ", "ㄩ"].includes(buffer.at(-1));
 }
 
 function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
@@ -1196,11 +979,10 @@ function zhTwCandidateRank(left, right) {
 }
 
 function zhTwCandidateRankForBuffer(left, right, buffer) {
-  if (buffer.length > 1) {
-    const leftIsExactKey = left.zhuyinKey.length === buffer.length;
-    const rightIsExactKey = right.zhuyinKey.length === buffer.length;
-    if (leftIsExactKey !== rightIsExactKey) return leftIsExactKey ? -1 : 1;
-  }
+  if (buffer.length <= 1) return zhTwCandidateRank(left, right);
+  const leftIsExactKey = left.zhuyinKey.length === buffer.length;
+  const rightIsExactKey = right.zhuyinKey.length === buffer.length;
+  if (leftIsExactKey !== rightIsExactKey) return leftIsExactKey ? -1 : 1;
   return zhTwCandidateRank(left, right);
 }
 
@@ -1216,7 +998,7 @@ function trailingZhuyinBuffer(message) {
 function zhTwSuggestionPageCount(message, columns, canUndo = false) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const count = zhTwSuggestionTiles(message, pageSize - (canUndo ? 1 : 0)).length + (canUndo ? 1 : 0);
+  const count = zhTwSuggestionTiles(message, safeColumns).length + (canUndo ? 1 : 0);
   return zhTwSuggestionPageCountForTotal(count, pageSize);
 }
 
@@ -1336,6 +1118,36 @@ function nextZhuyinSymbolsForState(state) {
 
 function entryKeys(entry) {
   return entry.keys ?? [entry.key];
+}
+
+function buildZhTwDictionaryByPrefix(dictionary) {
+  const map = new Map();
+  for (const entry of dictionary) {
+    for (const key of entryKeys(entry)) {
+      for (let length = 1; length <= key.length; length += 1) {
+        const prefix = key.slice(0, length);
+        if (!map.has(prefix)) map.set(prefix, []);
+        map.get(prefix).push(entry);
+      }
+    }
+  }
+  return map;
+}
+
+function buildZhTwNextSymbolsByPrefix(dictionary) {
+  const map = new Map();
+  for (const entry of dictionary) {
+    for (const key of entryKeys(entry)) {
+      for (let length = 1; length < key.length; length += 1) {
+        const prefix = key.slice(0, length);
+        const symbol = key.at(length);
+        if (!ZhuyinInputSymbolSet.has(symbol)) continue;
+        if (!map.has(prefix)) map.set(prefix, new Set());
+        map.get(prefix).add(symbol);
+      }
+    }
+  }
+  return new Map([...map.entries()].map(([prefix, symbols]) => [prefix, [...symbols]]));
 }
 
 function entryMatchesPrefix(entry, prefix) {

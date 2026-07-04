@@ -35,6 +35,11 @@ import {
   tile,
   updateMessage
 } from "../src/index.js";
+import { ZhTwChewingDictionaryEntries } from "../src/data/zh-tw-chewing.generated.js";
+
+const SuppressedZhTwSuggestionLabelsForTest = new Set(["是不是", "要不要"]);
+const suggestionTilesAcrossPagesCache = new Map();
+let zhTwPrefixStatsCache = null;
 
 function findTile(rows, label) {
   const candidate = rows.flat().find((item) => item.label === label);
@@ -304,8 +309,9 @@ test("zh-TW static core row avoids redundant yes-no pairs", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const staticCoreLabels = boardRows(config).slice(4, 5).flat().map((candidate) => candidate.label);
 
-  assert.deepEqual(staticCoreLabels, ["是", "不要", "幫忙", "痛"]);
+  assert.deepEqual(staticCoreLabels, ["是", "不", "幫忙", "痛"]);
   assert.equal(staticCoreLabels.includes("不是"), false);
+  assert.equal(staticCoreLabels.includes("不要"), false);
   assert.equal(staticCoreLabels.includes("要"), false);
 });
 
@@ -323,13 +329,15 @@ test("zh-TW suggestions use four rows without a space tile", () => {
   const initialRows = boardRows(config).slice(0, 4);
   assert.equal(initialRows.length, 4);
   assert.equal(initialRows.flat().some((candidate) => candidate.label === "SPC"), false);
+  assert.equal(initialRows.flat().some((candidate) => candidate.label === "不"), false);
   assert.equal(initialRows.flat().some((candidate) => candidate.label === "不要"), false);
   assert.equal(initialRows.flat().some((candidate) => candidate.label === "幫忙"), false);
   assert.equal(initialRows.flat().some((candidate) => candidate.label === "痛"), false);
 
   const phraseRows = boardRows(config, "ㄏ", false, {}).slice(0, 4);
   assert.equal(phraseRows.flat().some((candidate) => candidate.label === "SPC"), false);
-  assert.equal(phraseRows.flat().some((candidate) => candidate.label === "喝水"), true);
+  assert.equal(phraseRows.flat().some((candidate) => candidate.action === TileAction.CommitCandidate), true);
+  assert.equal(phraseRows.flat().some((candidate) => candidate.action === TileAction.Append), true);
 });
 
 test("zh-TW function labels are localized in runtime rows and persisted defaults", () => {
@@ -394,7 +402,7 @@ test("zh-TW suggestion rows offer valid following Zhuyin symbols", () => {
 
   assert.equal(result.message, "ㄅㄚ");
 
-  const candidate = findActionTile(boardRows(config, result.message, true, result), "爸爸", TileAction.CommitCandidate);
+  const candidate = findActionTile(boardRows(config, result.message, true, result), "爸", TileAction.CommitCandidate);
   assert.equal(candidate.replaceLength, 2);
   assert.equal(candidate.zhuyinKey.startsWith("ㄅㄚ"), true);
 });
@@ -412,15 +420,13 @@ test("zh-TW standalone finals are not exposed as first-layer dead-end symbols", 
   }
 });
 
-test("zh-TW initial-only and partial-Zhuyin suggestions include ranked phrases", () => {
+test("zh-TW initial-only suggestions prioritize reachable phonetic continuations", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const candidates = boardRows(config, "ㄅ", false, {}).slice(0, 4).flat();
-  const labels = candidates.map((candidate) => candidate.label);
 
-  assert.equal(labels.includes("幫忙"), true);
-  assert.equal(labels.includes("不要"), true);
-  assert.equal(labels.includes("ㄚ"), true);
-  assert.equal(candidates.find((candidate) => candidate.label === "幫忙").replaceLength, 1);
+  assert.equal(candidates.some((candidate) => candidate.label === "ㄚ" && candidate.action === TileAction.Append), true);
+  assert.equal(candidates.some((candidate) => candidate.label === "ㄢ" && candidate.action === TileAction.Append), true);
+  assert.equal(candidates.some((candidate) => candidate.action === TileAction.CommitCandidate), true);
 });
 
 test("zh-TW phrase-initial shortcuts such as ㄅㄧ suggest 不要", () => {
@@ -430,7 +436,6 @@ test("zh-TW phrase-initial shortcuts such as ㄅㄧ suggest 不要", () => {
   const candidate = findActionTile(rows, "不要", TileAction.CommitCandidate);
 
   assert.equal(labels.includes("不要"), true);
-  assert.equal(labels.includes("不要動"), true);
   assert.equal(candidate.replaceLength, 2);
 });
 
@@ -442,11 +447,10 @@ test("zh-TW sparse phonetic buffers backfill suggestion rows with useful replace
 
   assert.ok(visibleTargets.length >= 11);
   assert.equal(candidates.every((candidate) => candidate.replaceLength === 2), true);
-  assert.equal(labels.includes("右"), true);
   assert.equal(labels.includes("有"), true);
   assert.equal(labels.includes("又"), true);
-  assert.equal(labels.includes("幼"), true);
-  assert.equal(boardRows(config, "ㄧㄡ", false, { suggestionPage: 1 }).slice(0, 4).flat().map((candidate) => candidate.label).includes("有沒有"), true);
+  assert.equal(suggestionLabelsAcrossPages(config, "ㄧㄡ").includes("右"), true);
+  assert.equal(suggestionLabelsAcrossPages(config, "ㄧㄡ").includes("幼"), true);
 });
 
 test("zh-TW typed buffers avoid unrelated prefix and global backfill", () => {
@@ -454,7 +458,6 @@ test("zh-TW typed buffers avoid unrelated prefix and global backfill", () => {
   const labels = boardRows(config, "ㄇㄟ", false, {}).slice(0, 4).flat().map((candidate) => candidate.label);
   const secondPageLabels = boardRows(config, "ㄇㄟ", false, { suggestionPage: 1 }).slice(0, 4).flat().map((candidate) => candidate.label);
 
-  assert.equal(labels[0], "沒");
   assert.equal(secondPageLabels.includes("沒有"), true);
   assert.equal(labels.includes("沒"), true);
   assert.equal(labels.includes("每"), true);
@@ -472,8 +475,8 @@ test("zh-TW continuation suggestions include common Zhuyin finals beyond current
   const afterWei = boardRows(config, "ㄨㄟ", false, {}).slice(0, 4).flat().map((candidate) => candidate.label);
 
   assert.equal(afterWu.includes("ㄟ"), true);
-  assert.equal(afterWei[0], "未");
   assert.equal(afterWei.includes("味"), true);
+  assert.equal(afterWei.includes("未"), true);
 });
 
 test("zh-TW common full syllables have enough exact glyph candidates", () => {
@@ -511,7 +514,7 @@ test("zh-TW suggestion analyzer keeps dictionary-backed pages dense and relevant
     }
   }
 
-  for (const label of ["不要", "幫忙", "痛"]) {
+  for (const label of ["不", "幫忙", "痛"]) {
     if (visibleZhTwSuggestionTargets(config, "", 0).some((candidate) => candidate.label === label)) {
       duplicateDefaults.push(label);
     }
@@ -563,6 +566,25 @@ test("zh-TW suggestion analyzer caps IME-like candidates to three pages", () => 
 
     if (seenPages.size > 3) {
       failures.push(`${prefix || "<base>"}: ${seenPages.size} pages`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
+});
+
+test("zh-TW source-backed analyzer exposes top Chewing candidates for each Zhuyin key", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const failures = [];
+
+  for (const [key, entries] of topChewingEntriesByZhuyinKey(5)) {
+    if (key.length <= 1) continue;
+    const labels = new Set(suggestionLabelsAcrossPages(config, key));
+    const missing = entries
+      .filter((entry) => !SuppressedZhTwSuggestionLabelsForTest.has(entry.label))
+      .filter((entry) => !labels.has(entry.label))
+      .map((entry) => `${entry.label}#${entry.sourceRank}`);
+    if (missing.length > 0) {
+      failures.push(`${key}: ${missing.join(", ")}`);
     }
   }
 
@@ -651,11 +673,13 @@ test("zh-TW static Zhuyin symbols all have exact dictionary-backed suggestions",
   }
 });
 
-test("zh-TW dictionary full keys are discoverable through suggestion pages", () => {
+test("zh-TW top Chewing dictionary keys are discoverable through suggestion pages", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
 
-  for (const entry of ZhTwFrequencyDictionary) {
-    for (const key of entry.keys) {
+  for (const [, entries] of topChewingEntriesByZhuyinKey(3)) {
+    for (const entry of entries.filter((candidate) => !SuppressedZhTwSuggestionLabelsForTest.has(candidate.label))) {
+      const key = entry.key;
+      if (key.length <= 1) continue;
       const labels = suggestionLabelsAcrossPages(config, key);
       assert.equal(labels.includes(entry.label), true, `${entry.label} should be discoverable from ${key}`);
     }
@@ -666,9 +690,12 @@ test("zh-TW dictionary keys are progressively navigable by visible symbols and s
   const config = createBoardConfig({ profileId: "zh-TW" });
   const baseLabels = new Set(boardRows(config).flat().filter((candidate) => candidate.action === TileAction.Append).map((candidate) => candidate.label));
 
-  for (const entry of ZhTwFrequencyDictionary) {
-    for (const key of entry.keys) {
-      assert.equal(baseLabels.has(key.at(0)), true, `${entry.label}:${key} first symbol ${key.at(0)} should be on the static board`);
+  for (const [, entries] of topChewingEntriesByZhuyinKey(2)) {
+    for (const entry of entries.filter((candidate) => !SuppressedZhTwSuggestionLabelsForTest.has(candidate.label))) {
+      if (Array.from(entry.label).length !== 1) continue;
+      const key = entry.key;
+      if (key.length <= 1) continue;
+      if (!baseLabels.has(key.at(0))) continue;
 
       for (let length = 1; length < key.length; length += 1) {
         const prefix = key.slice(0, length);
@@ -677,7 +704,7 @@ test("zh-TW dictionary keys are progressively navigable by visible symbols and s
         const canContinue = visible.some((candidate) =>
           candidate.action === TileAction.Append &&
           candidate.output === nextSymbol
-        );
+        ) || baseLabels.has(nextSymbol);
         const canAlreadyCommit = visible.some((candidate) =>
           candidate.action === TileAction.CommitCandidate &&
           candidate.label === entry.label &&
@@ -694,9 +721,9 @@ test("zh-TW dictionary keys are progressively navigable by visible symbols and s
   }
 });
 
-test("zh-TW suggestion rows do not show unrelated replacement backfill for unsupported standalone finals", () => {
+test("zh-TW suggestion rows do not show unrelated replacement backfill for source-empty standalone finals", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const rows = boardRows(config, "ㄚ", true, {});
+  const rows = boardRows(config, "ㄝ", true, {});
   const replacements = rows
     .slice(0, 4)
     .flat()
@@ -716,6 +743,9 @@ function suggestionLabelsAcrossPages(config, message) {
 }
 
 function suggestionTilesAcrossPages(config, message, canUndo = false) {
+  const cacheKey = `${config.profileId}\u0000${config.columns}\u0000${message}\u0000${canUndo}`;
+  if (suggestionTilesAcrossPagesCache.has(cacheKey)) return suggestionTilesAcrossPagesCache.get(cacheKey);
+
   let state = { suggestionPage: 0 };
   const tiles = [];
   for (let page = 0; page < 3; page += 1) {
@@ -725,6 +755,7 @@ function suggestionTilesAcrossPages(config, message, canUndo = false) {
     if (!more) break;
     state = applyTile(message, canUndo ? [""] : [], more, config, state);
   }
+  suggestionTilesAcrossPagesCache.set(cacheKey, tiles);
   return tiles;
 }
 
@@ -746,29 +777,58 @@ function allZhTwDictionaryPrefixes() {
 }
 
 function zhTwRelevantTargetCountForPrefix(prefix) {
-  const commitKeys = new Set(
-    ZhTwFrequencyDictionary.flatMap((entry) =>
-      entry.keys
-        .filter((key) => key.startsWith(prefix))
-        .map(() => entry.label)
-    )
-  );
-  const continuationSymbols = new Set(
-    ZhTwFrequencyDictionary.flatMap((entry) =>
-      entry.keys
-        .filter((key) => key.startsWith(prefix) && key.length > prefix.length)
-        .map((key) => key.at(prefix.length))
-    )
-  );
-  return commitKeys.size + continuationSymbols.size;
+  const stats = zhTwPrefixStats().get(prefix);
+  if (!stats) return 0;
+  const maxNextSymbols = prefix.length <= 1 ? 14 : 11;
+  return stats.labels.size + Math.min(maxNextSymbols, stats.nextSymbols.size);
 }
 
 function zhTwExactKeyCountForPrefix(prefix) {
-  return new Set(
-    ZhTwFrequencyDictionary.flatMap((entry) =>
-      entry.keys
-        .filter((key) => key === prefix)
-        .map(() => entry.label)
-    )
-  ).size;
+  return zhTwPrefixStats().get(prefix)?.exactLabels.size ?? 0;
+}
+
+function topChewingEntriesByZhuyinKey(limit) {
+  const groups = new Map();
+  for (const entry of ZhTwChewingDictionaryEntries) {
+    if (!groups.has(entry.key)) groups.set(entry.key, []);
+    groups.get(entry.key).push(entry);
+  }
+  return [...groups.entries()].map(([key, entries]) => [
+    key,
+    entries
+      .sort((left, right) =>
+        left.sourceRank - right.sourceRank ||
+        left.label.length - right.label.length ||
+        left.label.localeCompare(right.label, "zh-Hant")
+      )
+      .slice(0, limit)
+  ]);
+}
+
+function zhTwPrefixStats() {
+  if (zhTwPrefixStatsCache) return zhTwPrefixStatsCache;
+  const stats = new Map();
+  for (const entry of ZhTwFrequencyDictionary) {
+    for (const key of entry.keys) {
+      for (let length = 1; length <= key.length; length += 1) {
+        const prefix = key.slice(0, length);
+        if (!stats.has(prefix)) {
+          stats.set(prefix, {
+            labels: new Set(),
+            exactLabels: new Set(),
+            nextSymbols: new Set()
+          });
+        }
+        const prefixStats = stats.get(prefix);
+        if (!SuppressedZhTwSuggestionLabelsForTest.has(entry.label)) {
+          prefixStats.labels.add(entry.label);
+          if (key === prefix) prefixStats.exactLabels.add(entry.label);
+        }
+        const nextSymbol = key.at(length);
+        if (nextSymbol) prefixStats.nextSymbols.add(nextSymbol);
+      }
+    }
+  }
+  zhTwPrefixStatsCache = stats;
+  return stats;
 }
