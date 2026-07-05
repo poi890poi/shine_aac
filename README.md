@@ -220,7 +220,7 @@ For a shareable file, create a versioned release artifact:
 The output is under `releases\vX.Y.Z\`, for example:
 
 ```text
-releases\v0.2.0\shine-aac-v0.2.0-code3-debug.apk
+releases\v0.2.1\shine-aac-v0.2.1-code4-debug.apk
 ```
 
 Useful variants:

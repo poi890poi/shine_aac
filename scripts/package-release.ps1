@@ -1,5 +1,6 @@
 param(
     [string]$SdkDir,
+    [switch]$SetupSdk,
     [switch]$SkipBuild
 )
 
@@ -39,6 +40,9 @@ if (-not $SkipBuild) {
     if ($SdkDir) {
         $buildArgs += "-SdkDir"
         $buildArgs += $SdkDir
+    }
+    if ($SetupSdk) {
+        $buildArgs += "-SetupSdk"
     }
     & .\build-test.bat @buildArgs
     if ($LASTEXITCODE -ne 0) {

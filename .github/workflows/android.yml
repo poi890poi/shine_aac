@@ -28,7 +28,7 @@ jobs:
 
       - name: Build versioned debug APK
         shell: pwsh
-        run: .\package-release.bat
+        run: .\package-release.bat -SetupSdk
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

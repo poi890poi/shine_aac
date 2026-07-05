@@ -7,8 +7,8 @@ SHINE AAC uses one release version for source, APK metadata, tags, and release f
 Edit `version.properties`:
 
 ```properties
-versionName=0.2.0
-versionCode=3
+versionName=0.2.1
+versionCode=4
 ```
 
 - `versionName`: public SemVer version.
@@ -39,9 +39,9 @@ Build and package a versioned debug APK:
 This creates:
 
 ```text
-releases\v0.2.0\shine-aac-v0.2.0-code3-debug.apk
-releases\v0.2.0\SHA256SUMS.txt
-releases\v0.2.0\RELEASE_NOTES.md
+releases\v0.2.1\shine-aac-v0.2.1-code4-debug.apk
+releases\v0.2.1\SHA256SUMS.txt
+releases\v0.2.1\RELEASE_NOTES.md
 ```
 
 Do not share `app-debug.apk` directly. It is an intermediate build output and is overwritten on every build.
@@ -56,6 +56,6 @@ Do not share `app-debug.apk` directly. It is an intermediate build output and is
 6. Push the tag. GitHub Actions publishes the GitHub Release and attaches the versioned APK plus `SHA256SUMS.txt`.
 
 ```powershell
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
