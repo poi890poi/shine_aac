@@ -6,16 +6,18 @@ Generated: 2026-07-04
 
 The platform-independent AAC core now has deterministic tests for scanner behavior, board/suggestion behavior, and realistic one-switch human input sequences. These tests run on Windows without Android SDK, emulator, APK install, or device connection.
 
-Latest command:
+Latest commands:
 
 ```powershell
 npm --prefix packages/aac-core test
+npm run test:web:e2e
 ```
 
-Latest result:
+Latest results:
 
 ```text
-76 tests passed
+78 core tests passed
+WEB E2E PASS
 0 tests failed
 ```
 
@@ -111,6 +113,10 @@ Latest result:
 - uses `CLR`
 - types `movi`, completes it to `movie `, then uses `DEL`
 - verifies default suggestion-review hold pauses scanning after a suggestion-changing input and resumes on the next activation
+- verifies input calibration records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message
+- verifies hidden `Config` long-press starts the extended everyday conversation demo and tap exits it
+- demo mode uses internal scanner state and activates after roughly one-third to one-half of the highlight duration
+- demo mode includes word selections, deeper-row alphabet spelling, `DEL`, and `UNDO` correction
 - verifies a Pixel 4a 5G-sized viewport fits without scrolling
 - seeds an old stored `zh-TW` layout and verifies it migrates to direct Zhuyin symbols
 - verifies reset restores the packaged `zh-TW` defaults and persists direct Zhuyin symbols instead of stale user layout text

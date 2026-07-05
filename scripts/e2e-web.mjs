@@ -88,6 +88,9 @@ try {
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioReviewHold();
+  await scenarioInputCalibration();
+  await scenarioDeveloperDemoMode();
+  await scenarioZhTwHomeDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
@@ -210,6 +213,121 @@ async function scenarioReviewHold() {
   await waitForUi();
 }
 
+async function scenarioInputCalibration() {
+  await evaluate(`
+    (() => {
+      document.querySelector(".config-button")?.click();
+      document.querySelector('[data-action="calibrate"]')?.click();
+    })()
+  `);
+  await waitForCalibration("reliable");
+
+  for (let count = 0; count < 5; count += 1) {
+    await evaluate(`window.ShineAacInput.receive({ intent: "activate", source: "keyboard", key: " " })`);
+    await delay(320);
+  }
+  let calibration = await getCalibrationSnapshot();
+  if (!calibration.text.includes("Ready") || !calibration.text.includes("5 / 5 clean activations")) {
+    throw new Error(`Reliable calibration did not reach ready state: ${calibration.text}`);
+  }
+  if (!calibration.text.includes("TOTAL") || !calibration.text.includes("keyboard")) {
+    throw new Error(`Reliable calibration did not record keyboard source: ${calibration.text}`);
+  }
+
+  await evaluate(`document.querySelector('[data-calibration-class="unreliable"]')?.click()`);
+  await waitForCalibration("unreliable");
+  await evaluate(`document.querySelector('[data-calibration-action="start-rest"]')?.click()`);
+  await evaluate(`window.ShineAacInput.receive({ intent: "activate", source: "camera-mouth-open", confidence: 0.82 })`);
+  await delay(40);
+  await evaluate(`window.ShineAacInput.receive({ intent: "activate", source: "camera-mouth-open", confidence: 0.84 })`);
+  calibration = await getCalibrationSnapshot();
+  if (!calibration.text.includes("2 at rest") || !calibration.text.includes("False activations while resting")) {
+    throw new Error(`Noisy calibration did not flag rest activations: ${calibration.text}`);
+  }
+
+  await evaluate(`document.querySelector('[data-calibration-action="start-trials"]')?.click()`);
+  await evaluate(`window.ShineAacInput.receive({ intent: "activate", source: "emg-threshold", confidence: 0.72 })`);
+  await delay(40);
+  await evaluate(`window.ShineAacInput.receive({ intent: "activate", source: "emg-threshold", confidence: 0.69 })`);
+  calibration = await getCalibrationSnapshot();
+  if (!calibration.text.includes("EXTRA FIRES") || !calibration.text.includes("emg-threshold")) {
+    throw new Error(`Noisy calibration did not record duplicate trial source: ${calibration.text}`);
+  }
+
+  await evaluate(`
+    (() => {
+      document.querySelector('[data-calibration-action="back"]')?.click();
+      document.querySelector('[data-action="cancel"]')?.click();
+    })()
+  `);
+  await waitForUi();
+  await assertMessage("");
+  steps.push(pass("input-calibration", "records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message"));
+}
+
+async function scenarioDeveloperDemoMode() {
+  await evaluate(`
+    localStorage.removeItem("shine-aac-demo-mode");
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 16,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: 250,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 250,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    location.href = ${JSON.stringify(appUrl)};
+  `);
+  await waitForUi();
+  await longPressSelector(".config-button", 2000);
+  await waitForDemoActive();
+  await assertMessage("I need help ", 20000);
+  await delay(3000);
+  if (!await isDemoActive()) throw new Error("Rich demo should remain active after the first utterance");
+  const snapshot = await getSnapshot();
+  await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
+  await waitForDemoInactive();
+  steps.push(pass("demo-mode", "hidden Config long-press starts extended conversation demo and tap exits it"));
+}
+
+async function scenarioZhTwHomeDemoMode() {
+  const expected = "今天比較累但是心情好想放鬆不想講話想聽你講這樣很舒服謝謝";
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 16,
+      profileId: "zh-TW",
+      columns: 4,
+      scanIntervalMs: 80,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 80,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    location.href = ${JSON.stringify(`${appUrl}?demo=zh-tw-home`)};
+  `);
+  await waitForRenderedBoard();
+  await waitForDemoActive();
+  await assertMessage(expected, 420000);
+  await assertMessageSingleLineOverflow();
+  await waitForDemoInactive();
+  await evaluate(`globalThis.ShineAacDemoError = ""`);
+  steps.push(pass("zh-tw-demo-mode", "automated the zh-TW home conversation through normal visible suggestions"));
+}
+
 async function scenarioZhTwLayoutMigration() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
@@ -300,10 +418,14 @@ async function scenarioZhTwLayoutMigration() {
   for (const rejected of ["慢", "門", "媽媽", "要", "不要"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW ㄇㄟ suggestions should not include unrelated/static ${rejected}`);
   }
-  await selectLabel("更多");
-  snapshot = await getSnapshot();
-  labels = snapshot.rows.slice(0, 4).flat().map((tile) => tile.label);
-  if (!labels.includes("沒有")) throw new Error("zh-TW ㄇㄟ second suggestion page should keep phrase 沒有 reachable");
+  const meiPages = new Set(labels);
+  for (let page = 0; page < 2 && !meiPages.has("沒有"); page += 1) {
+    await selectLabel("更多");
+    snapshot = await getSnapshot();
+    labels = snapshot.rows.slice(0, 4).flat().map((tile) => tile.label);
+    labels.forEach((label) => meiPages.add(label));
+  }
+  if (!meiPages.has("沒有")) throw new Error("zh-TW ㄇㄟ suggestion pages should keep phrase 沒有 reachable");
   steps.push(pass("zh-tw-layout", "migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions"));
 }
 
@@ -407,6 +529,33 @@ async function clickTarget(target) {
   await delay(10);
 }
 
+async function longPressSelector(selector, durationMs) {
+  const point = await evaluate(`
+    (() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) throw new Error("selector not found");
+      const rect = element.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()
+  `);
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+    button: "left",
+    clickCount: 1
+  });
+  await delay(durationMs);
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x: point.x,
+    y: point.y,
+    button: "left",
+    clickCount: 1
+  });
+  await delay(40);
+}
+
 async function scrollTileIntoView(rowIndex, cellIndex) {
   return evaluate(`
     (() => {
@@ -420,9 +569,11 @@ async function scrollTileIntoView(rowIndex, cellIndex) {
   `);
 }
 
-async function assertMessage(expected) {
-  const deadline = Date.now() + 3000;
+async function assertMessage(expected, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    const demoError = await evaluate(`document.body.classList.contains("demo-active") ? (globalThis.ShineAacDemoError || "") : ""`).catch(() => "");
+    if (demoError) throw new Error(demoError);
     const snapshot = await getSnapshot();
     if (snapshot.message === expected) return;
     await delay(20);
@@ -470,6 +621,36 @@ async function assertNoViewportOverflow(name) {
   steps.push(pass(name, `fits ${layout.rows} rows in ${layout.innerHeight}px viewport without scrolling`));
 }
 
+async function assertMessageSingleLineOverflow() {
+  const metrics = await evaluate(`
+    (() => {
+      const node = document.querySelector('[data-testid="message"]');
+      const style = getComputedStyle(node);
+      return {
+        whiteSpace: style.whiteSpace,
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        clientWidth: node.clientWidth,
+        scrollWidth: node.scrollWidth,
+        clientHeight: node.clientHeight,
+        scrollHeight: node.scrollHeight
+      };
+    })()
+  `);
+  if (metrics.whiteSpace !== "nowrap") {
+    throw new Error(`Message should stay on one line: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.overflowX !== "hidden" || metrics.overflowY !== "hidden") {
+    throw new Error(`Message overflow should be hidden: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.scrollHeight > metrics.clientHeight + 1) {
+    throw new Error(`Message should not grow vertically: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.scrollWidth <= metrics.clientWidth) {
+    throw new Error(`Long message should overflow horizontally for left-side clipping: ${JSON.stringify(metrics)}`);
+  }
+}
+
 async function waitForUi() {
   const deadline = Date.now() + 8000;
   while (Date.now() < deadline) {
@@ -478,6 +659,50 @@ async function waitForUi() {
     await delay(50);
   }
   throw new Error("Timed out waiting for web UI");
+}
+
+async function waitForRenderedBoard() {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const snapshot = await getSnapshot().catch(() => null);
+    if (snapshot?.rows?.length > 0) return;
+    await delay(50);
+  }
+  throw new Error("Timed out waiting for rendered board");
+}
+
+async function waitForDemoActive() {
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline) {
+    const active = await evaluate(`document.body.classList.contains("demo-active")`);
+    if (active) return;
+    await delay(50);
+  }
+  throw new Error("Demo mode did not start from hidden gesture");
+}
+
+async function waitForDemoInactive(timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const active = await evaluate(`document.body.classList.contains("demo-active")`);
+    if (!active) return;
+    await delay(50);
+  }
+  throw new Error("Demo mode did not stop after completing scenario");
+}
+
+async function waitForCalibration(kind) {
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline) {
+    const snapshot = await getCalibrationSnapshot().catch(() => null);
+    if (snapshot?.kind === kind) return;
+    await delay(50);
+  }
+  throw new Error(`Timed out waiting for ${kind} calibration`);
+}
+
+async function isDemoActive() {
+  return evaluate(`document.body.classList.contains("demo-active")`);
 }
 
 async function waitForLabels(expectedLabels) {
@@ -557,6 +782,19 @@ async function getSnapshot() {
         phase,
         reviewHold: rows.flat().some((tile) => tile.reviewHold),
         activeProgress: current?.progress ?? 0
+      };
+    })()
+  `);
+}
+
+async function getCalibrationSnapshot() {
+  return evaluate(`
+    (() => {
+      const panel = document.querySelector(".calibration-panel");
+      if (!panel) throw new Error("calibration panel not found");
+      return {
+        kind: document.querySelector('[data-testid="calibration-unreliable"]') ? "unreliable" : "reliable",
+        text: panel.innerText
       };
     })()
   `);

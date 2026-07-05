@@ -20,34 +20,34 @@ import {
   speechLabelForTile,
   visibleBoard
 } from "../../../packages/aac-core/src/index.js";
+import { createDemoMode } from "./demo-mode.js";
+import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
+import { InputIntent, isHardwareInput } from "./input.js";
+import { defaultUiConfig, loadUiConfig, saveUiConfig, syncNativeUiConfig } from "./ui-config.js";
 
 const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
-const InputIntent = Object.freeze({
-  Activate: "activate",
-  Next: "next",
-  Previous: "previous",
-  Pause: "pause"
-});
-const defaultUiConfig = Object.freeze({
-  rowScanVoice: false,
-  scanVoice: true,
-  activationVoice: true,
-  restartScanFromTop: true,
-  hardwareButtons: true,
-  holdAfterSuggestionChange: true
-});
 
 let session = createSession({ config: loadConfig() });
-let uiConfig = loadUiConfig();
+let uiConfig = loadUiConfig(uiStorageKey);
 let highlightStartedAt = performance.now();
 let timerId = 0;
 let animationFrameId = 0;
 let configOpen = false;
+let calibrationOpen = false;
+let calibrationTimerId = 0;
 let lastScanAnnouncementKey = "";
 let reviewHoldActive = false;
+let suppressNextConfigClick = false;
+let calibrationState = createCalibrationState();
+const demoMode = createDemoMode({
+  getHighlightStartedAt: () => highlightStartedAt,
+  getSession: () => session,
+  isReviewHoldActive: () => reviewHoldActive,
+  receiveInput: handleInputEvent
+});
 
 globalThis.ShineAacInput = {
   receive: handleInputEvent
@@ -97,42 +97,6 @@ function loadConfig() {
     });
   } catch {
     return defaults;
-  }
-}
-
-function loadUiConfig() {
-  const nativeConfig = loadNativeUiConfig();
-  if (nativeConfig) return nativeConfig;
-
-  try {
-    return { ...defaultUiConfig, ...JSON.parse(localStorage.getItem(uiStorageKey) ?? "null") };
-  } catch {
-    return defaultUiConfig;
-  }
-}
-
-function loadNativeUiConfig() {
-  if (!globalThis.ShineAacAndroid?.getInitialUiConfigJson) return null;
-  try {
-    const raw = globalThis.ShineAacAndroid.getInitialUiConfigJson();
-    if (!raw) return null;
-    return { ...defaultUiConfig, ...JSON.parse(raw) };
-  } catch {
-    return null;
-  }
-}
-
-function saveUiConfig(config) {
-  localStorage.setItem(uiStorageKey, JSON.stringify(config));
-  syncNativeUiConfig(config);
-}
-
-function syncNativeUiConfig(config) {
-  if (!globalThis.ShineAacAndroid?.setUiConfigJson) return;
-  try {
-    globalThis.ShineAacAndroid.setUiConfigJson(JSON.stringify(config));
-  } catch {
-    // Native sync is best effort; browser builds do not provide it.
   }
 }
 
@@ -199,16 +163,13 @@ function setSession(nextSession) {
 function handleInputEvent(inputEvent = {}) {
   const intent = inputEvent.intent ?? InputIntent.Activate;
   if (intent !== InputIntent.Activate) return false;
+  if (calibrationOpen) {
+    recordCalibrationInput(inputEvent);
+    return true;
+  }
   if (isHardwareInput(inputEvent.source) && !uiConfig.hardwareButtons) return false;
   activateSwitch();
   return true;
-}
-
-function isHardwareInput(source = "") {
-  const normalized = String(source);
-  return normalized.startsWith("android-hardware") ||
-    normalized.startsWith("android-volume") ||
-    normalized.startsWith("android-media");
 }
 
 function activateSwitch() {
@@ -376,8 +337,13 @@ function render() {
   configButton.textContent = "Config";
   configButton.addEventListener("click", (event) => {
     event.stopPropagation();
+    if (suppressNextConfigClick) {
+      suppressNextConfigClick = false;
+      return;
+    }
     openConfig();
   });
+  attachDemoLongPress(configButton);
 
   status.append(phase, voice, configButton);
   topPanel.append(message, status);
@@ -488,6 +454,8 @@ function phaseLabel(stage) {
 
 function openConfig() {
   configOpen = true;
+  calibrationOpen = false;
+  stopCalibrationTimer();
   reviewHoldActive = false;
   window.clearTimeout(timerId);
   window.cancelAnimationFrame(animationFrameId);
@@ -496,10 +464,28 @@ function openConfig() {
 
 function closeConfig() {
   configOpen = false;
+  calibrationOpen = false;
+  stopCalibrationTimer();
   reviewHoldActive = false;
   render();
   resetClock();
   scheduleScan();
+}
+
+function openCalibration() {
+  configOpen = true;
+  calibrationOpen = true;
+  reviewHoldActive = false;
+  window.clearTimeout(timerId);
+  window.cancelAnimationFrame(animationFrameId);
+  calibrationState = createCalibrationState(calibrationState.inputClass);
+  renderCalibration();
+}
+
+function closeCalibration() {
+  calibrationOpen = false;
+  stopCalibrationTimer();
+  renderConfig();
 }
 
 function renderConfig() {
@@ -563,15 +549,14 @@ function renderConfig() {
         <input name="holdAfterSuggestionChange" type="checkbox" ${uiConfig.holdAfterSuggestionChange ? "checked" : ""}>
         Hold after suggestion changes
       </label>
-      <label class="field wide">Suggestion dictionary
-        <textarea name="suggestionDictionary">${escapeHtml(serializeDictionary(session.config.suggestionDictionary))}</textarea>
-      </label>
+      ${suggestionDictionaryFieldHtml(session.config)}
       <label class="field wide">Board symbols
         <textarea name="symbols">${escapeHtml(serializeSymbols(session.config.symbols))}</textarea>
       </label>
     </div>
     <div class="config-actions">
       <button class="secondary-button" type="button" data-action="reset">Reset</button>
+      <button class="secondary-button" type="button" data-action="calibrate">Input test</button>
       <button class="secondary-button" type="button" data-action="cancel">Cancel</button>
       <button class="primary-button" type="submit">Save</button>
     </div>
@@ -585,6 +570,7 @@ function renderConfig() {
     form.elements.transitionPauseMs.value = String(profile.transitionPauseMs);
     form.elements.firstCellPauseMs.value = String(profile.firstCellPauseMs);
     form.elements.inputLatencyCompensationMs.value = String(profile.inputLatencyCompensationMs);
+    form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
     form.elements.symbols.value = serializeSymbols(profile.symbols);
   });
@@ -592,12 +578,13 @@ function renderConfig() {
   form.addEventListener("click", (event) => {
     const action = event.target?.dataset?.action;
     if (action === "cancel") closeConfig();
+    if (action === "calibrate") openCalibration();
     if (action === "reset") {
       const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
       const config = createBoardConfig({ profileId });
       saveConfig(config);
       uiConfig = defaultUiConfig;
-      saveUiConfig(uiConfig);
+      saveUiConfig(uiStorageKey, uiConfig);
       session = createSession({ config });
       closeConfig();
     }
@@ -606,14 +593,18 @@ function renderConfig() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(form);
+    const profileId = String(data.get("profileId") ?? "en-US");
+    const profile = LanguageProfiles[profileId] ?? LanguageProfiles["en-US"];
     const config = createBoardConfig({
-      profileId: String(data.get("profileId") ?? "en-US"),
+      profileId,
       columns: clamp(Number(data.get("columns")), 2, 8),
       scanIntervalMs: clamp(Number(data.get("scanIntervalMs")), 300, 5000),
       transitionPauseMs: clamp(Number(data.get("transitionPauseMs")), 0, 4000),
       firstCellPauseMs: clamp(Number(data.get("firstCellPauseMs")), 300, 6000),
       inputLatencyCompensationMs: clamp(Number(data.get("inputLatencyCompensationMs")), 0, 1200),
-      suggestionDictionary: parseDictionary(String(data.get("suggestionDictionary") ?? "")),
+      suggestionDictionary: profile.id === "zh-TW"
+        ? profile.suggestionDictionary
+        : parseDictionary(String(data.get("suggestionDictionary") ?? "")),
       symbols: parseSymbols(String(data.get("symbols") ?? ""))
     });
     saveConfig(config);
@@ -625,7 +616,7 @@ function renderConfig() {
       hardwareButtons: data.get("hardwareButtons") === "on",
       holdAfterSuggestionChange: data.get("holdAfterSuggestionChange") === "on"
     };
-    saveUiConfig(uiConfig);
+    saveUiConfig(uiStorageKey, uiConfig);
     session = createSession({ config });
     closeConfig();
   });
@@ -633,6 +624,363 @@ function renderConfig() {
   panel.append(title, form);
   backdrop.append(panel);
   app.append(backdrop);
+}
+
+function createCalibrationState(inputClass = "reliable") {
+  return {
+    inputClass,
+    events: [],
+    lastEventAt: 0,
+    rest: {
+      running: false,
+      startedAt: 0,
+      durationMs: 10000,
+      events: []
+    },
+    trials: {
+      running: false,
+      total: 5,
+      index: 0,
+      awaitingNext: false,
+      results: []
+    }
+  };
+}
+
+function recordCalibrationInput(inputEvent) {
+  const now = performance.now();
+  const source = String(inputEvent.source ?? "unknown");
+  const previous = calibrationState.lastEventAt;
+  const event = {
+    at: now,
+    source,
+    key: inputEvent.key,
+    keyCode: inputEvent.keyCode,
+    confidence: Number.isFinite(Number(inputEvent.confidence)) ? Number(inputEvent.confidence) : null,
+    deltaMs: previous > 0 ? now - previous : null,
+    disabledBySettings: isHardwareInput(source) && !uiConfig.hardwareButtons
+  };
+
+  calibrationState.lastEventAt = now;
+  calibrationState.events = [...calibrationState.events, event].slice(-80);
+
+  if (calibrationState.inputClass === "unreliable" && calibrationState.rest.running) {
+    calibrationState.rest.events = [...calibrationState.rest.events, event].slice(-80);
+  }
+
+  if (
+    calibrationState.inputClass === "unreliable" &&
+    calibrationState.trials.running &&
+    calibrationState.trials.index < calibrationState.trials.total
+  ) {
+    const trialIndex = calibrationState.trials.index;
+    const results = calibrationState.trials.results.slice();
+    const current = results[trialIndex] ? results[trialIndex].slice() : [];
+    current.push(event);
+    results[trialIndex] = current;
+    calibrationState.trials = {
+      ...calibrationState.trials,
+      awaitingNext: true,
+      results
+    };
+  }
+
+  renderCalibration();
+}
+
+function renderCalibration() {
+  app.innerHTML = "";
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "config-backdrop";
+
+  const panel = document.createElement("section");
+  panel.className = "config-panel calibration-panel";
+
+  const title = document.createElement("h1");
+  title.textContent = "Input Test";
+
+  const body = document.createElement("div");
+  body.className = "calibration-body";
+  body.innerHTML = `
+    <div class="calibration-mode" role="group" aria-label="Input source type">
+      <button class="mode-button ${calibrationState.inputClass === "reliable" ? "selected" : ""}" type="button" data-calibration-class="reliable">
+        Reliable switch
+      </button>
+      <button class="mode-button ${calibrationState.inputClass === "unreliable" ? "selected" : ""}" type="button" data-calibration-class="unreliable">
+        Noisy sensor
+      </button>
+    </div>
+    ${calibrationState.inputClass === "reliable" ? reliableCalibrationHtml() : unreliableCalibrationHtml()}
+    ${calibrationStatsHtml()}
+    ${calibrationEventLogHtml()}
+  `;
+
+  body.addEventListener("click", handleCalibrationClick);
+
+  const actions = document.createElement("div");
+  actions.className = "config-actions";
+  actions.innerHTML = `
+    <button class="secondary-button" type="button" data-calibration-action="clear">Clear</button>
+    <button class="primary-button" type="button" data-calibration-action="back">Back</button>
+  `;
+  actions.addEventListener("click", handleCalibrationClick);
+
+  panel.append(title, body, actions);
+  backdrop.append(panel);
+  app.append(backdrop);
+}
+
+function reliableCalibrationHtml() {
+  const total = calibrationState.events.length;
+  const duplicates = duplicateCalibrationEvents(calibrationState.events).length;
+  const disabled = calibrationState.events.some((event) => event.disabledBySettings);
+  const ready = total >= 5 && duplicates === 0 && !disabled;
+  const status = ready
+    ? "Ready"
+    : disabled
+      ? "Disabled"
+      : duplicates > 0
+        ? "Double fire"
+        : "Collecting";
+  return `
+    <section class="calibration-section" data-testid="calibration-reliable">
+      <div class="calibration-status ${ready ? "good" : duplicates > 0 || disabled ? "warn" : ""}">
+        <strong>${status}</strong>
+        <span>${Math.min(total, 5)} / 5 clean activations</span>
+      </div>
+      <div class="calibration-meter" aria-label="Reliable input progress">
+        <div style="width: ${Math.min(100, (total / 5) * 100)}%"></div>
+      </div>
+    </section>
+  `;
+}
+
+function unreliableCalibrationHtml() {
+  const restRemainingMs = restRemaining();
+  const restEvents = calibrationState.rest.events.length;
+  const trials = calibrationState.trials;
+  const capturedTrials = trials.results.filter((events) => events?.length > 0).length;
+  const extraFires = trials.results.reduce((count, events) => count + Math.max(0, (events?.length ?? 0) - 1), 0);
+  const restStatus = restEvents > 0
+    ? `${restEvents} at rest`
+    : calibrationState.rest.running
+      ? `${Math.ceil(restRemainingMs / 1000)}s`
+      : "Quiet";
+  const trialStatus = trials.index >= trials.total
+    ? "Done"
+    : !trials.running
+      ? "Not started"
+      : trials.awaitingNext
+      ? "Captured"
+      : `Trial ${trials.index + 1}`;
+  return `
+    <section class="calibration-section" data-testid="calibration-unreliable">
+      <div class="calibration-cards">
+        <div class="calibration-card ${restEvents === 0 ? "good" : "warn"}">
+          <span>Rest watch</span>
+          <strong>${restStatus}</strong>
+        </div>
+        <div class="calibration-card ${extraFires === 0 ? "good" : "warn"}">
+          <span>Trials</span>
+          <strong>${capturedTrials} / ${trials.total}</strong>
+        </div>
+        <div class="calibration-card ${extraFires === 0 ? "" : "warn"}">
+          <span>Extra fires</span>
+          <strong>${extraFires}</strong>
+        </div>
+      </div>
+      <div class="calibration-actions-inline">
+        <button class="secondary-button" type="button" data-calibration-action="start-rest">
+          ${calibrationState.rest.running ? "Restart rest" : "Start rest"}
+        </button>
+        <button class="secondary-button" type="button" data-calibration-action="start-trials">Start trials</button>
+        <button class="secondary-button" type="button" data-calibration-action="missed" ${!trials.running || trials.index >= trials.total ? "disabled" : ""}>Missed</button>
+        <button class="secondary-button" type="button" data-calibration-action="next-trial" ${!trials.awaitingNext ? "disabled" : ""}>Next trial</button>
+      </div>
+      <div class="calibration-status ${restEvents === 0 && extraFires === 0 && capturedTrials >= trials.total ? "good" : restEvents > 0 || extraFires > 0 ? "warn" : ""}">
+        <strong>${trialStatus}</strong>
+        <span>${unreliableRecommendation(restEvents, capturedTrials, extraFires)}</span>
+      </div>
+    </section>
+  `;
+}
+
+function calibrationStatsHtml() {
+  const events = calibrationState.events;
+  const last = events.at(-1);
+  const duplicates = duplicateCalibrationEvents(events).length;
+  const sourceCounts = events.reduce((counts, event) => {
+    counts.set(event.source, (counts.get(event.source) ?? 0) + 1);
+    return counts;
+  }, new Map());
+  const topSource = [...sourceCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? "none";
+  const interval = medianInterval(events);
+  return `
+    <section class="calibration-grid" data-testid="calibration-stats">
+      <div class="calibration-card">
+        <span>Last source</span>
+        <strong>${escapeHtml(last?.source ?? "none")}</strong>
+      </div>
+      <div class="calibration-card">
+        <span>Main source</span>
+        <strong>${escapeHtml(topSource)}</strong>
+      </div>
+      <div class="calibration-card">
+        <span>Total</span>
+        <strong>${events.length}</strong>
+      </div>
+      <div class="calibration-card ${duplicates > 0 ? "warn" : ""}">
+        <span>Under 300ms</span>
+        <strong>${duplicates}</strong>
+      </div>
+      <div class="calibration-card">
+        <span>Median interval</span>
+        <strong>${interval === null ? "-" : `${Math.round(interval)}ms`}</strong>
+      </div>
+      <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
+        <span>Hardware setting</span>
+        <strong>${uiConfig.hardwareButtons ? "On" : "Off"}</strong>
+      </div>
+    </section>
+  `;
+}
+
+function calibrationEventLogHtml() {
+  const rows = calibrationState.events
+    .slice(-8)
+    .reverse()
+    .map((event) => `
+      <tr>
+        <td>${escapeHtml(event.source)}</td>
+        <td>${event.deltaMs === null ? "-" : Math.round(event.deltaMs)}</td>
+        <td>${event.confidence === null ? "-" : Math.round(event.confidence * 100) / 100}</td>
+      </tr>
+    `)
+    .join("");
+  return `
+    <section class="calibration-log">
+      <table>
+        <thead>
+          <tr><th>Source</th><th>Delta ms</th><th>Confidence</th></tr>
+        </thead>
+        <tbody>${rows || "<tr><td colspan=\"3\">No activations yet</td></tr>"}</tbody>
+      </table>
+    </section>
+  `;
+}
+
+function handleCalibrationClick(event) {
+  const inputClass = event.target?.dataset?.calibrationClass;
+  if (inputClass) {
+    calibrationState = createCalibrationState(inputClass);
+    startCalibrationTimer();
+    renderCalibration();
+    return;
+  }
+
+  const action = event.target?.dataset?.calibrationAction;
+  if (!action) return;
+  if (action === "back") {
+    closeCalibration();
+    return;
+  }
+  if (action === "clear") {
+    calibrationState = createCalibrationState(calibrationState.inputClass);
+    startCalibrationTimer();
+    renderCalibration();
+    return;
+  }
+  if (action === "start-rest") {
+    calibrationState = {
+      ...calibrationState,
+      rest: { ...calibrationState.rest, running: true, startedAt: performance.now(), events: [] }
+    };
+    startCalibrationTimer();
+    renderCalibration();
+    return;
+  }
+  if (action === "start-trials") {
+    calibrationState = {
+      ...calibrationState,
+      rest: { ...calibrationState.rest, running: false },
+      trials: { running: true, total: 5, index: 0, awaitingNext: false, results: [] }
+    };
+    renderCalibration();
+    return;
+  }
+  if (action === "missed") {
+    const trials = calibrationState.trials;
+    if (trials.index >= trials.total) return;
+    const results = trials.results.slice();
+    results[trials.index] = results[trials.index] ?? [];
+    calibrationState = {
+      ...calibrationState,
+      trials: { ...trials, index: trials.index + 1, awaitingNext: false, results }
+    };
+    renderCalibration();
+    return;
+  }
+  if (action === "next-trial") {
+    const trials = calibrationState.trials;
+    calibrationState = {
+      ...calibrationState,
+      trials: { ...trials, index: Math.min(trials.total, trials.index + 1), awaitingNext: false }
+    };
+    renderCalibration();
+  }
+}
+
+function duplicateCalibrationEvents(events) {
+  return events.filter((event) => event.deltaMs !== null && event.deltaMs < 300);
+}
+
+function medianInterval(events) {
+  const intervals = events
+    .map((event) => event.deltaMs)
+    .filter((value) => value !== null && value >= 300)
+    .sort((left, right) => left - right);
+  if (intervals.length === 0) return null;
+  return intervals[Math.floor(intervals.length / 2)];
+}
+
+function restRemaining() {
+  if (!calibrationState.rest.running) return 0;
+  return Math.max(0, calibrationState.rest.durationMs - (performance.now() - calibrationState.rest.startedAt));
+}
+
+function startCalibrationTimer() {
+  stopCalibrationTimer();
+  calibrationTimerId = window.setInterval(() => {
+    if (!calibrationOpen) return;
+    if (calibrationState.rest.running && restRemaining() <= 0) {
+      calibrationState = {
+        ...calibrationState,
+        rest: { ...calibrationState.rest, running: false }
+      };
+    }
+    renderCalibration();
+  }, 500);
+}
+
+function stopCalibrationTimer() {
+  window.clearInterval(calibrationTimerId);
+  calibrationTimerId = 0;
+}
+
+function unreliableRecommendation(restEvents, capturedTrials, extraFires) {
+  if (restEvents > 0) return "False activations while resting";
+  if (extraFires > 0) return "Multiple events from one action";
+  if (capturedTrials >= calibrationState.trials.total) return "Usable as a switch source";
+  return "Waiting for trial activations";
+}
+
+function suggestionDictionaryFieldHtml(config) {
+  return `
+      <label class="field wide" data-suggestion-dictionary-field${config.profileId === "zh-TW" ? " hidden" : ""}>Suggestion dictionary
+        <textarea name="suggestionDictionary">${escapeHtml(serializeDictionary(config.suggestionDictionary))}</textarea>
+      </label>
+  `;
 }
 
 function profileOptionsHtml(selectedProfileId) {
@@ -644,22 +992,25 @@ function profileOptionsHtml(selectedProfileId) {
     .join("");
 }
 
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
+function attachDemoLongPress(element) {
+  let pressTimer = 0;
+  const cancelPress = () => {
+    window.clearTimeout(pressTimer);
+    pressTimer = 0;
+  };
 
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, value));
-}
-
-function numberOrDefault(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
+  element.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    cancelPress();
+    pressTimer = window.setTimeout(() => {
+      pressTimer = 0;
+      suppressNextConfigClick = true;
+      demoMode.start();
+    }, 1800);
+  });
+  element.addEventListener("pointerup", cancelPress);
+  element.addEventListener("pointercancel", cancelPress);
+  element.addEventListener("pointerleave", cancelPress);
 }
 
 document.addEventListener("keydown", (event) => {
@@ -674,3 +1025,4 @@ render();
 scheduleScan();
 syncNativeUiConfig(uiConfig);
 announceCurrentScanTarget();
+demoMode.startFromEnvironment();

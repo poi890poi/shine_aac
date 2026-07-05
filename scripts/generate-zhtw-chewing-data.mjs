@@ -11,9 +11,9 @@ const RemoteChewingTsiUrl = "https://codeberg.org/chewing/libchewing-data/raw/br
 const SourceUrl = "https://codeberg.org/chewing/libchewing-data/src/branch/main/dict/chewing/tsi.csv";
 
 const MaxLabelLength = 4;
-const MaxKeyLength = 4;
-const MaxEntriesPerKey = 45;
-const MaxGeneratedEntries = 12000;
+const MaxKeyLength = 8;
+const MaxEntriesPerKey = 120;
+const MaxGeneratedEntries = 60000;
 const ToneMarks = /[ˊˇˋ˙]/gu;
 const ZhuyinSymbols = new Set(Array.from("ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ"));
 

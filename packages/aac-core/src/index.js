@@ -344,6 +344,7 @@ const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.Cl
 const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
+const MaxZhTwContextChars = 3;
 const zhuyinEntry = (label, output, key, ...aliases) => Object.freeze({
   label,
   output,
@@ -414,6 +415,7 @@ export const ZhTwFrequencyDictionary = Object.freeze(
 );
 const ZhTwDictionaryByPrefix = buildZhTwDictionaryByPrefix(ZhTwFrequencyDictionary);
 const ZhTwNextSymbolsByPrefix = buildZhTwNextSymbolsByPrefix(ZhTwFrequencyDictionary);
+const ZhTwPhraseCompletionsByPrefix = buildZhTwPhraseCompletionsByPrefix(ZhTwFrequencyDictionary);
 
 export const ZhuyinStaticInputSymbols = Object.freeze(
   ZhuyinInputSymbols.slice(0, 24)
@@ -524,7 +526,6 @@ export const ZhTwTiles = Object.freeze([
 
 export const ZhTwSuggestionDictionary = Object.freeze([
   ...ZhTwCoreResponseTiles,
-  ...ZhTwTiles.filter((candidate) => candidate.action === TileAction.Append),
   ...Object.values(ZhTwPhraseCategories).flatMap((category) => category.tiles),
   tile("喝水"),
   tile("吃飯"),
@@ -544,7 +545,8 @@ export const ZhTwSuggestionDictionary = Object.freeze([
   tile("不可以"),
   tile("媽媽"),
   tile("爸爸"),
-  tile("不舒服")
+  tile("不舒服"),
+  ...ZhTwTiles.filter((candidate) => candidate.action === TileAction.Append)
 ]);
 
 export const LanguageProfiles = Object.freeze({
@@ -605,7 +607,7 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
   const safeColumns = clampInt(normalized.columns, 2, 8);
   if (normalized.profileId === "zh-TW") {
     return [
-      ...zhTwSuggestionRows(message, safeColumns, canUndo, inputState),
+      ...zhTwSuggestionRows(message, normalized.suggestionDictionary, safeColumns, canUndo, inputState),
       ...chunk(normalized.symbols, safeColumns)
     ];
   }
@@ -858,11 +860,11 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
   ];
 }
 
-function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) {
+function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const commandSuggestions = canUndo ? [zhTwUndoSuggestionTile] : [];
-  const allSuggestions = zhTwSuggestionTiles(message, safeColumns);
+  const allSuggestions = zhTwSuggestionTiles(message, dictionary, safeColumns);
   const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
@@ -876,16 +878,28 @@ function zhTwSuggestionRows(message, columns, canUndo = false, inputState = {}) 
   return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);
 }
 
-function zhTwSuggestionTiles(message, columns = DefaultColumns) {
+function zhTwSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary, columns = DefaultColumns) {
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
     ? zhTwBufferedSuggestionTiles(buffer, columns)
-    : ZhTwFrequencyDictionary
-      .filter((entry) => !ZhTwCoreResponseLabels.has(entry.label))
-      .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
+    : zhTwUnbufferedSuggestionTiles(message, dictionary);
 
   return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`)
     .filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label));
+}
+
+function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary) {
+  const contextCompletions = zhTwContextCompletionTiles(message);
+  if (contextCompletions.length > 0) return contextCompletions;
+
+  const configuredSuggestions = dictionary
+    .filter((candidate) => candidate.action !== TileAction.Noop)
+    .filter((candidate) => !ZhTwCoreResponseLabels.has(candidate.label));
+  const sourceBackfill = ZhTwFrequencyDictionary
+    .filter((entry) => !ZhTwCoreResponseLabels.has(entry.label))
+    .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
+
+  return [...configuredSuggestions, ...sourceBackfill];
 }
 
 function zhTwBufferedSuggestionTiles(buffer, columns) {
@@ -974,12 +988,39 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
   });
 }
 
+function zhTwContextCompletionTiles(message) {
+  const context = trailingHanContext(message);
+  if (!context) return [];
+
+  return distinctBy(
+    (ZhTwPhraseCompletionsByPrefix.get(context) ?? [])
+      .filter((entry) => !ZhTwSuppressedSuggestionLabels.has(entry.label))
+      .map((entry) => zhTwContextCompletionTile(entry, context)),
+    (candidate) => `${candidate.label}\u0000${candidate.output}`
+  );
+}
+
+function zhTwContextCompletionTile(entry, context) {
+  const suffix = Array.from(entry.label).slice(Array.from(context).length).join("");
+  return Object.freeze({
+    label: suffix,
+    output: suffix,
+    action: TileAction.CommitCandidate,
+    replaceLength: 0,
+    zhuyinKey: entry.key,
+    matchType: "context",
+    sourceLabel: entry.label,
+    keys: entry.keys,
+    frequencyRank: entry.frequencyRank,
+    frequency: entry.frequency
+  });
+}
+
 function zhTwCandidateRank(left, right) {
   return left.frequencyRank - right.frequencyRank;
 }
 
 function zhTwCandidateRankForBuffer(left, right, buffer) {
-  if (buffer.length <= 1) return zhTwCandidateRank(left, right);
   const leftIsExactKey = left.zhuyinKey.length === buffer.length;
   const rightIsExactKey = right.zhuyinKey.length === buffer.length;
   if (leftIsExactKey !== rightIsExactKey) return leftIsExactKey ? -1 : 1;
@@ -995,10 +1036,24 @@ function trailingZhuyinBuffer(message) {
   return buffer;
 }
 
-function zhTwSuggestionPageCount(message, columns, canUndo = false) {
+function trailingHanContext(message) {
+  let context = "";
+  for (const character of Array.from(message).reverse()) {
+    if (!isHanCharacter(character)) break;
+    context = character + context;
+    if (Array.from(context).length >= MaxZhTwContextChars) break;
+  }
+  return context;
+}
+
+function isHanCharacter(character) {
+  return /^\p{Script=Han}$/u.test(character);
+}
+
+function zhTwSuggestionPageCount(message, dictionary, columns, canUndo = false) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const count = zhTwSuggestionTiles(message, safeColumns).length + (canUndo ? 1 : 0);
+  const count = zhTwSuggestionTiles(message, dictionary, safeColumns).length + (canUndo ? 1 : 0);
   return zhTwSuggestionPageCountForTotal(count, pageSize);
 }
 
@@ -1148,6 +1203,20 @@ function buildZhTwNextSymbolsByPrefix(dictionary) {
     }
   }
   return new Map([...map.entries()].map(([prefix, symbols]) => [prefix, [...symbols]]));
+}
+
+function buildZhTwPhraseCompletionsByPrefix(dictionary) {
+  const map = new Map();
+  for (const entry of dictionary) {
+    const characters = Array.from(entry.label);
+    if (characters.length <= 1) continue;
+    for (let length = 1; length < Math.min(characters.length, MaxZhTwContextChars + 1); length += 1) {
+      const prefix = characters.slice(0, length).join("");
+      if (!map.has(prefix)) map.set(prefix, []);
+      map.get(prefix).push(entry);
+    }
+  }
+  return map;
 }
 
 function entryMatchesPrefix(entry, prefix) {
@@ -1377,7 +1446,7 @@ export function applyTile(message, messageHistory, selectedTile, config = create
   if (selectedTile.action === TileAction.MoreSuggestions) {
     const normalized = createBoardConfig(config);
     const pageCount = normalized.profileId === "zh-TW"
-      ? zhTwSuggestionPageCount(message, normalized.columns, messageHistory.length > 0)
+      ? zhTwSuggestionPageCount(message, normalized.suggestionDictionary, normalized.columns, messageHistory.length > 0)
       : 1;
     return {
       message,

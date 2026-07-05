@@ -70,6 +70,7 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
 - Voice feedback for row scanning, symbol scanning, and activated targets, configurable by a helper. Row-scan voice is off by default; symbol and activation voice remain on.
+- A developer-only demo mode. On a phone, long-press `Config` to start the extended everyday conversation demo; tap anywhere to exit. Browser builds can also start it with `?demo=water` or `localStorage["shine-aac-demo-mode"]="water"`. It emits the same activation intents as real input, includes word selections, alphabet spelling across deeper rows, speech, clear, `DEL`, and `UNDO` correction.
 - Different visual styles for text-entry targets, space, speak, and repair functions such as `CLR`, `UNDO`, and `DEL`.
 - Adjustable scan speed, transition pause, first-symbol hold, suggestion-review hold, and input-latency compensation.
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
@@ -161,6 +162,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - custom symbols and words
 - row-scan voice feedback, symbol-scan voice feedback, activation voice feedback, and restart-from-top behavior
 - phone/external hardware button activation
+- input testing for reliable switches and noisy sensor-style adapters
 
 Symbol format is one item per line:
 

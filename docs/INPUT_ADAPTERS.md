@@ -42,10 +42,16 @@ Native Android code should call this entry point. Future input adapters should d
 
 `Config` includes `Phone/external buttons activate switch`. It defaults on. When disabled, Android native code allows volume/media keys to fall back to normal system behavior where possible.
 
+`Config` also includes `Input test`, a helper-facing calibration mode. It pauses normal scanning and records activation events without editing the message. The page has two source categories:
+
+- Reliable switch: for touch, keyboard, volume keys, and external switches that should produce one clean activation per intentional action.
+- Noisy sensor: for future camera, EMG, or other threshold-based adapters where false activations at rest, missed actions, and repeated fires need to be measured separately.
+
+The same `window.ShineAacInput.receive(...)` entry point is used in calibration and communication mode, so future adapters can be tested before they are trusted for message entry.
+
 ## Next Steps
 
 1. Add direct support for more keyboard key mappings.
-2. Add a helper-facing input test screen showing each detected source.
-3. Improve Android accessibility labels/focus for OS-level Switch Access.
-4. Test cheap Bluetooth camera shutter remotes and USB foot pedals.
-5. Add camera/gesture adapters only after the event boundary is stable.
+2. Improve Android accessibility labels/focus for OS-level Switch Access.
+3. Test cheap Bluetooth camera shutter remotes and USB foot pedals.
+4. Add camera/gesture adapters only after the event boundary is stable.

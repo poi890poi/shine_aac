@@ -40,6 +40,49 @@ import { ZhTwChewingDictionaryEntries } from "../src/data/zh-tw-chewing.generate
 const SuppressedZhTwSuggestionLabelsForTest = new Set(["是不是", "要不要"]);
 const suggestionTilesAcrossPagesCache = new Map();
 let zhTwPrefixStatsCache = null;
+const ZhTwGoldenCommonGlyphs = Object.freeze(Array.from(
+  "的一是不有我在人了中來他這上個們到說大為子和你地出道也時年得就那要下以生會自去家可小心天好想看用聽喝冰紅茶少甜等講新集音量從剛那裡今比累但舒謝"
+));
+const ZhTwGoldenDailyWords = Object.freeze([
+  "不要",
+  "謝謝",
+  "可以",
+  "一下",
+  "今天",
+  "比較",
+  "但是",
+  "心情",
+  "舒服",
+  "講話",
+  "放鬆",
+  "吸管",
+  "音量",
+  "剛剛",
+  "那裡",
+  "最新",
+  "資料",
+  "紅茶"
+]);
+const ZhTwAcademicDailyConversationCases = Object.freeze([
+  // Source anchors:
+  // - MagicData-RAMC describes spontaneous Mandarin dialogs across ordinary life,
+  //   family life, education/health, digital devices, and other daily domains.
+  // - VoiceBank-2023 describes Mandarin speech-impaired voice-banking prompts
+  //   made from short paragraphs and common phrases.
+  // These are short QC utterances selected from those domains, not copied corpus lines.
+  Object.freeze({ domain: "ordinary-life", segments: Object.freeze(["我", "想", "喝", "水"]) }),
+  Object.freeze({ domain: "ordinary-life", segments: Object.freeze(["我", "想", "休息", "一下"]) }),
+  Object.freeze({ domain: "health-comfort", segments: Object.freeze(["今天", "比較", "累"]) }),
+  Object.freeze({ domain: "care-help", segments: Object.freeze(["請", "幫", "我", "調整", "姿勢"]) }),
+  Object.freeze({ domain: "home-media", segments: Object.freeze(["我", "想", "聽", "音樂"]) }),
+  Object.freeze({ domain: "digital-devices", segments: Object.freeze(["音量", "小", "一點"]) }),
+  Object.freeze({ domain: "health-comfort", segments: Object.freeze(["這樣", "很", "舒服"]) }),
+  Object.freeze({ domain: "conversation-repair", segments: Object.freeze(["可以", "再", "說", "一次"]) }),
+  Object.freeze({ domain: "agency", segments: Object.freeze(["我", "不想", "講話"]) }),
+  Object.freeze({ domain: "social", segments: Object.freeze(["謝謝", "你", "陪", "我"]) }),
+  Object.freeze({ domain: "home-media", segments: Object.freeze(["我", "想", "看", "電視"]) }),
+  Object.freeze({ domain: "ordinary-life", segments: Object.freeze(["等", "一下", "再", "喝"]) })
+]);
 
 function findTile(rows, label) {
   const candidate = rows.flat().find((item) => item.label === label);
@@ -340,6 +383,18 @@ test("zh-TW suggestions use four rows without a space tile", () => {
   assert.equal(phraseRows.flat().some((candidate) => candidate.action === TileAction.Append), true);
 });
 
+test("zh-TW unbuffered suggestions start with AAC-useful daily targets", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const firstPageLabels = boardRows(config).slice(0, 4).flat().map((candidate) => candidate.label);
+
+  for (const label of ["喝水", "吃飯", "廁所", "休息", "睡覺", "不舒服"]) {
+    assert.equal(firstPageLabels.includes(label), true, `${label} should be on the first unbuffered suggestion page`);
+  }
+  for (const label of ["之", "回", "新聞", "ㄅ", "ㄆ", "ㄇ"]) {
+    assert.equal(firstPageLabels.includes(label), false, `${label} should not crowd out first-page AAC suggestions`);
+  }
+});
+
 test("zh-TW function labels are localized in runtime rows and persisted defaults", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const rowsWithUndo = boardRows(config, "ㄅ", true).slice(0, 4).flat();
@@ -392,6 +447,19 @@ test("zh-TW direct Zhuyin input appends symbols, then replacement suggestions co
   result = applyTile(result.message, result.messageHistory, candidate, config, result);
   assert.equal(result.message, "不要");
   assert.deepEqual(result.messageHistory, ["", "ㄅ", "ㄅㄧ"]);
+});
+
+test("zh-TW committed Han text suggests dictionary-backed phrase continuations", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config, "電", false, {});
+  const suggestions = rows.slice(0, 4).flat().filter((candidate) => candidate.action === TileAction.CommitCandidate);
+  const labels = suggestions.map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("視"), true);
+  assert.equal(labels.includes("影"), true);
+  assert.equal(suggestions.every((candidate) => candidate.matchType === "context"), true);
+  assert.equal(findActionTile(rows, "視", TileAction.CommitCandidate).sourceLabel, "電視");
+  assert.equal(applyTile("電", [], findActionTile(rows, "視", TileAction.CommitCandidate), config, {}).message, "電視");
 });
 
 test("zh-TW suggestion rows offer valid following Zhuyin symbols", () => {
@@ -456,9 +524,8 @@ test("zh-TW sparse phonetic buffers backfill suggestion rows with useful replace
 test("zh-TW typed buffers avoid unrelated prefix and global backfill", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const labels = boardRows(config, "ㄇㄟ", false, {}).slice(0, 4).flat().map((candidate) => candidate.label);
-  const secondPageLabels = boardRows(config, "ㄇㄟ", false, { suggestionPage: 1 }).slice(0, 4).flat().map((candidate) => candidate.label);
 
-  assert.equal(secondPageLabels.includes("沒有"), true);
+  assert.equal(suggestionLabelsAcrossPages(config, "ㄇㄟ").includes("沒有"), true);
   assert.equal(labels.includes("沒"), true);
   assert.equal(labels.includes("每"), true);
   assert.equal(labels.includes("更多"), true);
@@ -585,6 +652,44 @@ test("zh-TW source-backed analyzer exposes top Chewing candidates for each Zhuyi
       .map((entry) => `${entry.label}#${entry.sourceRank}`);
     if (missing.length > 0) {
       failures.push(`${key}: ${missing.join(", ")}`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
+});
+
+test("zh-TW golden common glyphs and daily words are source-backed and reachable", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const failures = [];
+
+  for (const label of [...new Set([...ZhTwGoldenCommonGlyphs, ...ZhTwGoldenDailyWords])]) {
+    const entries = ZhTwFrequencyDictionary.filter((entry) => entry.label === label);
+    if (entries.length === 0) {
+      failures.push(`${label}: missing from packaged source dictionary`);
+      continue;
+    }
+
+    const reachable = entries.some((entry) =>
+      suggestionLabelsAcrossPages(config, entry.key).includes(label)
+    );
+    if (!reachable) {
+      failures.push(`${label}: not visible from ${entries.map((entry) => entry.key).join("/")}`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
+});
+
+test("zh-TW academic daily conversation cases are composable through normal suggestions", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const failures = [];
+
+  for (const testCase of ZhTwAcademicDailyConversationCases) {
+    for (const segment of testCase.segments) {
+      if (isZhTwLabelReachable(config, segment)) continue;
+      if (Array.from(segment).every((character) => isZhTwLabelReachable(config, character))) continue;
+
+      failures.push(`${testCase.domain}: ${testCase.segments.join("")} cannot compose ${segment}`);
     }
   }
 
@@ -740,6 +845,12 @@ test("language profiles do not share mutable default arrays", () => {
 
 function suggestionLabelsAcrossPages(config, message) {
   return suggestionTilesAcrossPages(config, message, false).map((candidate) => candidate.label);
+}
+
+function isZhTwLabelReachable(config, label) {
+  return ZhTwFrequencyDictionary
+    .filter((entry) => entry.label === label)
+    .some((entry) => suggestionLabelsAcrossPages(config, entry.key).includes(label));
 }
 
 function suggestionTilesAcrossPages(config, message, canUndo = false) {

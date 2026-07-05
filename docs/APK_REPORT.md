@@ -19,7 +19,7 @@ app/build/outputs/apk/debug/app-debug.apk
 Size:
 
 ```text
-8993813 bytes
+8996455 bytes
 ```
 
 ## What This APK Is
@@ -30,7 +30,7 @@ The APK bundles:
 
 - `apps/web/index.html`
 - `apps/web/src/styles.css`
-- a generated WebView-compatible `bundle.js` containing the web app and AAC core
+- a generated WebView-compatible `bundle.js` containing local web modules, the web app, and AAC core
 
 The Android shell provides:
 
@@ -68,6 +68,9 @@ Emulator smoke check:
 - packaged WebView bundle contains the generated New Chewing `zh-TW` dictionary data and has no remaining module `import`/`export` syntax
 - web E2E verified localized `zh-TW` function labels including `復原` and `更多`
 - web E2E verified default suggestion-review hold pauses scanning and resumes on the next activation
+- web E2E verified hidden `Config` long-press starts the extended everyday conversation demo and tap exits it
+- demo mode uses scanner state to activate targets after roughly one-third to one-half of the highlight duration
+- demo mode includes word selections, deeper-row alphabet spelling, `DEL`, and `UNDO` correction
 - hardware-button E2E final screenshot saved at `e2e-artifacts/hardware-button-final.png`
 
 Browser E2E also includes a Pixel 4a 5G-sized layout check:
@@ -81,7 +84,7 @@ Public download check:
 
 ```text
 HTTP 200
-Local shared APK size: 8993813 bytes
+Local shared APK size: 8996455 bytes
 ```
 
 ## Notes
