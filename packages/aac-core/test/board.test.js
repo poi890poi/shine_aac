@@ -149,6 +149,46 @@ SPC=<space>
   assert.equal(symbols[5].action, TileAction.Clear);
 });
 
+test("parser and serializer preserve custom action labels", () => {
+  const symbols = parseSymbols(`
+\u7a7a\u683c=<space>
+\u522a=<delete>
+\u6e05\u9664=<clear>
+\u5fa9\u539f=<undo>
+\u8aaa=<speak>
+  `);
+
+  assert.deepEqual(symbols.map((candidate) => candidate.label), ["\u7a7a\u683c", "\u522a", "\u6e05\u9664", "\u5fa9\u539f", "\u8aaa"]);
+  assert.equal(serializeSymbols(symbols), [
+    "\u7a7a\u683c=<space>",
+    "\u522a=<delete>",
+    "\u6e05\u9664=<clear>",
+    "\u5fa9\u539f=<undo>",
+    "\u8aaa=<speak>"
+  ].join("\n"));
+});
+
+test("current zh-TW configs saved with English action labels reload localized", () => {
+  const stored = [
+    "\u3105",
+    "SAY=<speak>",
+    "DEL=<delete>",
+    "CLR=<clear>",
+    "MORE=<more>"
+  ].join("\n");
+  const labels = loadProfileSymbolsForConfig(stored, CurrentConfigVersion, "zh-TW")
+    .map((candidate) => candidate.label);
+
+  assert.equal(labels.includes("\u8aaa"), true);
+  assert.equal(labels.includes("\u522a"), true);
+  assert.equal(labels.includes("\u6e05\u9664"), true);
+  assert.equal(labels.includes("\u66f4\u591a"), true);
+  assert.equal(labels.includes("SAY"), false);
+  assert.equal(labels.includes("DEL"), false);
+  assert.equal(labels.includes("CLR"), false);
+  assert.equal(labels.includes("MORE"), false);
+});
+
 test("parser preserves category and Zhuyin group actions for editable layouts", () => {
   const symbols = parseSymbols(`
 需要=<category:needs>
@@ -404,7 +444,13 @@ test("zh-TW function labels are localized in runtime rows and persisted defaults
 
   const serializedSymbols = serializeSymbols(config.symbols);
   assert.equal(serializedSymbols.includes("\u66f4\u591a=<more>"), true);
+  assert.equal(serializedSymbols.includes("\u8aaa=<speak>"), true);
+  assert.equal(serializedSymbols.includes("\u522a=<delete>"), true);
+  assert.equal(serializedSymbols.includes("\u6e05\u9664=<clear>"), true);
   assert.equal(serializedSymbols.includes("MORE=<more>"), false);
+  assert.equal(serializedSymbols.includes("SAY=<speak>"), false);
+  assert.equal(serializedSymbols.includes("DEL=<delete>"), false);
+  assert.equal(serializedSymbols.includes("CLR=<clear>"), false);
 });
 
 test("zh-TW MVP board with English MORE migrates to localized function label", () => {

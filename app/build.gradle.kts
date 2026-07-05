@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
 }
+
+val releaseProperties = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+val shineVersionName = releaseProperties.getProperty("versionName")
+val shineVersionCode = releaseProperties.getProperty("versionCode").toInt()
 
 val syncWebAssets by tasks.registering(Exec::class) {
     workingDir = rootProject.projectDir
@@ -16,8 +24,8 @@ android {
         applicationId = "com.example.shineaac"
         minSdk = 25
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = shineVersionCode
+        versionName = shineVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

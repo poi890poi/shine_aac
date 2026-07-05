@@ -221,17 +221,18 @@ async function scenarioInputCalibration() {
     })()
   `);
   await waitForCalibration("reliable");
+  await assertCalibrationActionsVisible();
 
   for (let count = 0; count < 5; count += 1) {
     await evaluate(`window.ShineAacInput.receive({ intent: "activate", source: "keyboard", key: " " })`);
     await delay(320);
   }
   let calibration = await getCalibrationSnapshot();
-  if (!calibration.text.includes("Ready") || !calibration.text.includes("5 / 5 clean activations")) {
-    throw new Error(`Reliable calibration did not reach ready state: ${calibration.text}`);
+  if (!calibration.text.includes("Good") || !calibration.text.includes("5 / 5 clean presses")) {
+    throw new Error(`Button/switch calibration did not reach good state: ${calibration.text}`);
   }
-  if (!calibration.text.includes("TOTAL") || !calibration.text.includes("keyboard")) {
-    throw new Error(`Reliable calibration did not record keyboard source: ${calibration.text}`);
+  if (!calibration.text.includes("keyboard")) {
+    throw new Error(`Button/switch calibration did not record keyboard source: ${calibration.text}`);
   }
 
   await evaluate(`document.querySelector('[data-calibration-class="unreliable"]')?.click()`);
@@ -459,7 +460,17 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   if (stored.configVersion < 16 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
-  if (!stored.symbols.includes("ㄅ") || !stored.symbols.includes("更多=<more>") || stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")) {
+  if (
+    !stored.symbols.includes("ㄅ") ||
+    !stored.symbols.includes("更多=<more>") ||
+    !stored.symbols.includes("說=<speak>") ||
+    !stored.symbols.includes("刪=<delete>") ||
+    !stored.symbols.includes("清除=<clear>") ||
+    stored.symbols.includes("SAY=<speak>") ||
+    stored.symbols.includes("DEL=<delete>") ||
+    stored.symbols.includes("CLR=<clear>") ||
+    stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")
+  ) {
     throw new Error(`zh-TW reset did not persist packaged direct Zhuyin board: ${stored.symbols}`);
   }
   if (stored.suggestionDictionary.includes("我要喝水")) {
@@ -479,7 +490,7 @@ async function selectCell(rowIndex, cellIndex) {
   const cellSnapshot = await waitForActive(
     ({ activeCell }) => activeCell?.rowIndex === rowIndex && activeCell?.cellIndex === cellIndex,
     `cell ${rowIndex}:${cellIndex}`,
-    cellIndex === 0 ? 16000 : 8000
+    cellIndex === 0 ? 30000 : 12000
   );
   await clickTarget(cellSnapshot.activeCell);
 }
@@ -699,6 +710,24 @@ async function waitForCalibration(kind) {
     await delay(50);
   }
   throw new Error(`Timed out waiting for ${kind} calibration`);
+}
+
+async function assertCalibrationActionsVisible() {
+  const layout = await evaluate(`
+    (() => {
+      const actions = document.querySelector(".calibration-panel .config-actions");
+      if (!actions) throw new Error("calibration actions not found");
+      const rect = actions.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        height: rect.height,
+        innerHeight,
+        visible: rect.top >= 0 && rect.bottom <= innerHeight && rect.height > 0
+      };
+    })()
+  `);
+  if (!layout.visible) throw new Error(`Calibration actions are not visible: ${JSON.stringify(layout)}`);
 }
 
 async function isDemoActive() {

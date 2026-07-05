@@ -1,12 +1,12 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-04T17:21:28.234Z
+Generated: 2026-07-05T03:01:16.373Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5173/apps/web/ |
+| server | PASS | served http://127.0.0.1:5179/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | test-config | PASS | seeded fast scan timing through browser localStorage |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |

@@ -642,15 +642,15 @@ export function serializeSymbols(symbols) {
         case TileAction.Append:
           return candidate.output === candidate.label ? candidate.label : `${candidate.label}=${candidate.output}`;
         case TileAction.Space:
-          return "SPC=<space>";
+          return `${candidate.label || "SPC"}=<space>`;
         case TileAction.Backspace:
-          return "DEL=<delete>";
+          return `${candidate.label || "DEL"}=<delete>`;
         case TileAction.Clear:
-          return "CLR=<clear>";
+          return `${candidate.label || "CLR"}=<clear>`;
         case TileAction.Undo:
-          return "UNDO=<undo>";
+          return `${candidate.label || "UNDO"}=<undo>`;
         case TileAction.Speak:
-          return "SAY=<speak>";
+          return `${candidate.label || "SAY"}=<speak>`;
         case TileAction.EnterMode:
           return `${candidate.label}=<mode:${candidate.output}>`;
         case TileAction.ExitMode:
@@ -692,6 +692,9 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
   if (profileId === "zh-TW" && shouldMigrateBuiltInZhTwSymbols(parsedSymbols, storedVersion)) {
     return ZhTwTiles;
   }
+  if (profileId === "zh-TW") {
+    return localizeZhTwStandardActionLabels(parsedSymbols);
+  }
   if (
     storedVersion < CurrentConfigVersion &&
     (sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) || sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3))
@@ -699,6 +702,18 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
     return DefaultTiles;
   }
   return parsedSymbols;
+}
+
+function localizeZhTwStandardActionLabels(symbols) {
+  return symbols.map((candidate) => {
+    if (candidate.action === TileAction.Space && candidate.label === "SPC") return tile("空格", " ", TileAction.Space);
+    if (candidate.action === TileAction.Backspace && candidate.label === "DEL") return tile("刪", "DEL", TileAction.Backspace);
+    if (candidate.action === TileAction.Clear && candidate.label === "CLR") return tile("清除", "CLR", TileAction.Clear);
+    if (candidate.action === TileAction.Undo && candidate.label === "UNDO") return tile("復原", "UNDO", TileAction.Undo);
+    if (candidate.action === TileAction.Speak && candidate.label === "SAY") return tile("說", "SAY", TileAction.Speak);
+    if (candidate.action === TileAction.MoreSuggestions && candidate.label === "MORE") return zhTwMoreSuggestionsTile;
+    return candidate;
+  });
 }
 
 export function loadSuggestionDictionaryForConfig(storedDictionary, storedVersion) {
@@ -1594,11 +1609,11 @@ function parseSymbolLine(line) {
   const normalizedLabel = label.toUpperCase();
   const normalizedValue = value.toLowerCase();
 
-  if (normalizedLabel === "SPC" || normalizedValue === "<space>") return tile("SPC", " ", TileAction.Space);
-  if (normalizedLabel === "DEL" || normalizedValue === "<delete>") return tile("DEL", "DEL", TileAction.Backspace);
-  if (normalizedLabel === "CLR" || normalizedValue === "<clear>") return tile("CLR", "CLR", TileAction.Clear);
-  if (normalizedLabel === "UNDO" || normalizedValue === "<undo>") return tile("UNDO", "UNDO", TileAction.Undo);
-  if (normalizedLabel === "SAY" || normalizedValue === "<speak>") return tile("SAY", "SAY", TileAction.Speak);
+  if (normalizedLabel === "SPC" || normalizedValue === "<space>") return tile(label || "SPC", " ", TileAction.Space);
+  if (normalizedLabel === "DEL" || normalizedValue === "<delete>") return tile(label || "DEL", "DEL", TileAction.Backspace);
+  if (normalizedLabel === "CLR" || normalizedValue === "<clear>") return tile(label || "CLR", "CLR", TileAction.Clear);
+  if (normalizedLabel === "UNDO" || normalizedValue === "<undo>") return tile(label || "UNDO", "UNDO", TileAction.Undo);
+  if (normalizedLabel === "SAY" || normalizedValue === "<speak>") return tile(label || "SAY", "SAY", TileAction.Speak);
   if (normalizedValue === "<more>") return tile(label || "MORE", "MORE", TileAction.MoreSuggestions);
   if (normalizedValue === "<mode:zhuyin>") return tile(label || "注音", "zhuyin", TileAction.EnterMode);
   if (normalizedValue === "<mode:board>") return tile(label || "返回", "board", TileAction.ExitMode);

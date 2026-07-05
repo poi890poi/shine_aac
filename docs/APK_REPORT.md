@@ -1,26 +1,34 @@
 # SHINE AAC APK Report
 
-Generated: 2026-07-04
+Generated: 2026-07-05
 
 ## Download
 
-Debug APK:
+Current release artifact:
 
 ```text
-https://juvenile-sport-pregnant-immigration.trycloudflare.com/app-debug.apk
+releases/v0.2.0/shine-aac-v0.2.0-code3-debug.apk
 ```
 
-Local file:
+After tag `v0.2.0` is pushed, the public GitHub Release download URL is:
+
+```text
+https://github.com/poi890poi/shine_aac/releases/download/v0.2.0/shine-aac-v0.2.0-code3-debug.apk
+```
+
+SHA-256:
+
+```text
+edafc88331391512b01af455cec04bb18c17d575095b42195efa1f06ab93723f
+```
+
+Intermediate Gradle output, overwritten on every build:
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Size:
-
-```text
-8996455 bytes
-```
+Do not distribute `app-debug.apk` directly. Use the versioned file under `releases/`, or the APK attached to the matching GitHub Release tag.
 
 ## What This APK Is
 
@@ -80,11 +88,10 @@ pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
 zh-tw-pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
 ```
 
-Public download check:
+Versioned release packaging:
 
 ```text
-HTTP 200
-Local shared APK size: 8996455 bytes
+.\package-release.bat -SdkDir E:\Android\Sdk
 ```
 
 ## Notes

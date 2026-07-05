@@ -703,17 +703,24 @@ function renderCalibration() {
   const body = document.createElement("div");
   body.className = "calibration-body";
   body.innerHTML = `
+    <section class="calibration-intro">
+      <strong>Communication is paused.</strong>
+      <span>Use the same input the person will use, then check whether each intentional action becomes one activation.</span>
+    </section>
     <div class="calibration-mode" role="group" aria-label="Input source type">
       <button class="mode-button ${calibrationState.inputClass === "reliable" ? "selected" : ""}" type="button" data-calibration-class="reliable">
-        Reliable switch
+        Button or switch
       </button>
       <button class="mode-button ${calibrationState.inputClass === "unreliable" ? "selected" : ""}" type="button" data-calibration-class="unreliable">
-        Noisy sensor
+        Sensor
       </button>
     </div>
     ${calibrationState.inputClass === "reliable" ? reliableCalibrationHtml() : unreliableCalibrationHtml()}
-    ${calibrationStatsHtml()}
-    ${calibrationEventLogHtml()}
+    <details class="calibration-details">
+      <summary>Event details</summary>
+      ${calibrationStatsHtml()}
+      ${calibrationEventLogHtml()}
+    </details>
   `;
 
   body.addEventListener("click", handleCalibrationClick);
@@ -721,8 +728,8 @@ function renderCalibration() {
   const actions = document.createElement("div");
   actions.className = "config-actions";
   actions.innerHTML = `
-    <button class="secondary-button" type="button" data-calibration-action="clear">Clear</button>
-    <button class="primary-button" type="button" data-calibration-action="back">Back</button>
+    <button class="secondary-button" type="button" data-calibration-action="clear">Clear test</button>
+    <button class="primary-button" type="button" data-calibration-action="back">Back to config</button>
   `;
   actions.addEventListener("click", handleCalibrationClick);
 
@@ -735,23 +742,50 @@ function reliableCalibrationHtml() {
   const total = calibrationState.events.length;
   const duplicates = duplicateCalibrationEvents(calibrationState.events).length;
   const disabled = calibrationState.events.some((event) => event.disabledBySettings);
+  const cleanCount = Math.max(0, Math.min(5, total - duplicates));
   const ready = total >= 5 && duplicates === 0 && !disabled;
   const status = ready
-    ? "Ready"
+    ? "Good"
     : disabled
       ? "Disabled"
       : duplicates > 0
-        ? "Double fire"
-        : "Collecting";
+        ? "Needs adjustment"
+        : "Waiting";
+  const last = calibrationState.events.at(-1);
+  const lastDetected = last && performance.now() - last.at < 1200;
+  const guidance = ready
+    ? "This source is behaving like a reliable switch."
+    : disabled
+      ? "Turn on phone/external buttons in Configuration or use a different source."
+      : duplicates > 0
+        ? "The app saw repeated activations too close together. Increase debounce in the adapter or try sensor testing."
+        : "Press the input five times at a comfortable pace.";
   return `
     <section class="calibration-section" data-testid="calibration-reliable">
+      <div class="calibration-steps">
+        <div class="calibration-step current">
+          <span>1</span>
+          <strong>Press input</strong>
+          <small>Use touch, a key, volume button, or external switch.</small>
+        </div>
+        <div class="calibration-step">
+          <span>2</span>
+          <strong>Repeat five times</strong>
+          <small>Each press should count once.</small>
+        </div>
+      </div>
+      <div class="calibration-live ${lastDetected ? "detected" : ""}">
+        <strong>${lastDetected ? "Detected" : "Waiting for input"}</strong>
+        <span>${escapeHtml(last?.source ?? "No source yet")}</span>
+      </div>
       <div class="calibration-status ${ready ? "good" : duplicates > 0 || disabled ? "warn" : ""}">
         <strong>${status}</strong>
-        <span>${Math.min(total, 5)} / 5 clean activations</span>
+        <span>${cleanCount} / 5 clean presses</span>
       </div>
       <div class="calibration-meter" aria-label="Reliable input progress">
-        <div style="width: ${Math.min(100, (total / 5) * 100)}%"></div>
+        <div style="width: ${Math.min(100, (cleanCount / 5) * 100)}%"></div>
       </div>
+      <p class="calibration-guidance">${guidance}</p>
     </section>
   `;
 }
@@ -774,8 +808,26 @@ function unreliableCalibrationHtml() {
       : trials.awaitingNext
       ? "Captured"
       : `Trial ${trials.index + 1}`;
+  const last = calibrationState.events.at(-1);
+  const lastDetected = last && performance.now() - last.at < 1200;
   return `
     <section class="calibration-section" data-testid="calibration-unreliable">
+      <div class="calibration-steps">
+        <div class="calibration-step ${calibrationState.rest.running ? "current" : ""}">
+          <span>1</span>
+          <strong>Rest watch</strong>
+          <small>Relax without making the action. Any activation here is noise.</small>
+        </div>
+        <div class="calibration-step ${trials.running ? "current" : ""}">
+          <span>2</span>
+          <strong>Action trials</strong>
+          <small>Make one deliberate action for each trial.</small>
+        </div>
+      </div>
+      <div class="calibration-live ${lastDetected ? "detected" : ""}">
+        <strong>${lastDetected ? "Detected" : "Waiting for sensor"}</strong>
+        <span>${escapeHtml(last?.source ?? "No source yet")}</span>
+      </div>
       <div class="calibration-cards">
         <div class="calibration-card ${restEvents === 0 ? "good" : "warn"}">
           <span>Rest watch</span>
@@ -802,6 +854,7 @@ function unreliableCalibrationHtml() {
         <strong>${trialStatus}</strong>
         <span>${unreliableRecommendation(restEvents, capturedTrials, extraFires)}</span>
       </div>
+      <p class="calibration-guidance">${unreliableGuidance(restEvents, capturedTrials, extraFires)}</p>
     </section>
   `;
 }
@@ -973,6 +1026,13 @@ function unreliableRecommendation(restEvents, capturedTrials, extraFires) {
   if (extraFires > 0) return "Multiple events from one action";
   if (capturedTrials >= calibrationState.trials.total) return "Usable as a switch source";
   return "Waiting for trial activations";
+}
+
+function unreliableGuidance(restEvents, capturedTrials, extraFires) {
+  if (restEvents > 0) return "Raise the trigger threshold, change the gesture, or improve mounting before using this source for communication.";
+  if (extraFires > 0) return "Add a lockout/debounce period so one intentional action cannot select twice.";
+  if (capturedTrials >= calibrationState.trials.total) return "This sensor can be tried as a switch source. Re-test when posture, lighting, electrode placement, or fatigue changes.";
+  return "Run rest watch first, then start trials. Use Missed when the person tried but no activation arrived.";
 }
 
 function suggestionDictionaryFieldHtml(config) {

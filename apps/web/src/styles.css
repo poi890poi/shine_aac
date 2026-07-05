@@ -240,20 +240,26 @@ body.demo-active .phase::after {
 .config-backdrop {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   padding: 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
   background: #f6f4ee;
+  -webkit-overflow-scrolling: touch;
 }
 
 .config-panel {
   width: min(980px, 100%);
-  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
   overflow: auto;
   padding: 18px;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.28);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .config-panel h1 {
@@ -308,10 +314,22 @@ body.demo-active .phase::after {
 }
 
 .config-actions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 14px;
+  margin: 14px -2px 0;
+  padding: 12px 2px 2px;
+  border-top: 1px solid #e2e6ea;
+  background: #ffffff;
+  z-index: 2;
+}
+
+.secondary-button:disabled,
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .calibration-panel {
@@ -321,6 +339,27 @@ body.demo-active .phase::after {
 .calibration-body {
   display: grid;
   gap: 14px;
+}
+
+.calibration-intro {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-left: 5px solid #1f6f78;
+  background: #eef7f6;
+  color: #172027;
+}
+
+.calibration-intro strong {
+  font-size: 18px;
+}
+
+.calibration-intro span,
+.calibration-guidance,
+.calibration-step small {
+  color: #4e5964;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .calibration-mode,
@@ -349,10 +388,102 @@ body.demo-active .phase::after {
 .calibration-section {
   display: grid;
   gap: 12px;
-  padding: 14px;
-  border: 1px solid #ddded7;
+}
+
+.calibration-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calibration-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: start;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d3d9df;
   border-radius: 8px;
-  background: #f8faf9;
+  background: #ffffff;
+}
+
+.calibration-step.current {
+  border-color: #1f6f78;
+  box-shadow: inset 0 0 0 2px rgba(31, 111, 120, 0.18);
+}
+
+.calibration-step span {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #1f6f78;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.calibration-step strong {
+  min-width: 0;
+  font-size: 18px;
+}
+
+.calibration-step small {
+  grid-column: 2;
+}
+
+.calibration-live {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 58px;
+  padding: 12px 14px;
+  border: 2px dashed #9aa4ae;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.calibration-live.detected {
+  border-style: solid;
+  border-color: #247a4d;
+  background: #e8f5ee;
+}
+
+.calibration-live strong {
+  font-size: 24px;
+}
+
+.calibration-live span {
+  min-width: 0;
+  color: #4e5964;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.calibration-details {
+  display: grid;
+  gap: 10px;
+}
+
+.calibration-details summary {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #8c93a0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2b2f36;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.calibration-details[open] {
+  gap: 10px;
+}
+
+.calibration-details[open] summary {
+  margin-bottom: 10px;
 }
 
 .calibration-status {
@@ -511,6 +642,37 @@ body.demo-active .phase::after {
 
   .config-grid {
     grid-template-columns: 1fr;
+  }
+
+  .config-backdrop {
+    padding: 10px;
+  }
+
+  .config-panel {
+    max-height: calc(100dvh - 20px);
+    padding: 12px;
+  }
+
+  .config-actions {
+    flex-wrap: wrap;
+  }
+
+  .config-actions .secondary-button,
+  .config-actions .primary-button {
+    flex: 1 1 130px;
+  }
+
+  .calibration-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .calibration-live {
+    display: grid;
+  }
+
+  .calibration-body,
+  .config-grid {
+    padding-bottom: 64px;
   }
 
   .calibration-grid,

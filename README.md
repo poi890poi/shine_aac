@@ -27,6 +27,7 @@ Useful docs:
 - [Agent Onboarding](docs/AGENT_ONBOARDING.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
+- [Release Process](docs/RELEASE_PROCESS.md)
 - [AAC Core](packages/aac-core/README.md)
 - [Testing Report](docs/TESTING_REPORT.md)
 - [Windows/Browser App Report](docs/WINDOWS_APP_REPORT.md)
@@ -204,10 +205,22 @@ The most automatic path on Windows, after the Android SDK is installed, is:
 .\build-test.bat
 ```
 
-The script detects the Android SDK, writes the ignored `local.properties` file, runs JVM unit tests, and builds the debug APK at:
+The script detects the Android SDK, writes the ignored `local.properties` file, runs JVM unit tests, and builds the intermediate debug APK at:
 
 ```text
 app\build\outputs\apk\debug\app-debug.apk
+```
+
+For a shareable file, create a versioned release artifact:
+
+```powershell
+.\package-release.bat -SdkDir E:\Android\Sdk
+```
+
+The output is under `releases\vX.Y.Z\`, for example:
+
+```text
+releases\v0.2.0\shine-aac-v0.2.0-code3-debug.apk
 ```
 
 Useful variants:

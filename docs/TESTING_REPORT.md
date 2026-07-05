@@ -16,7 +16,7 @@ npm run test:web:e2e
 Latest results:
 
 ```text
-78 core tests passed
+83 core tests passed
 WEB E2E PASS
 0 tests failed
 ```
