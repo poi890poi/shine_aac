@@ -7,13 +7,13 @@ Generated: 2026-07-05
 Current release artifact:
 
 ```text
-releases/v0.2.1/shine-aac-v0.2.1-code4-debug.apk
+releases/v0.2.2/shine-aac-v0.2.2-code5-debug.apk
 ```
 
-After tag `v0.2.1` is pushed, the public GitHub Release download URL is:
+Public download URL:
 
 ```text
-https://github.com/poi890poi/shine_aac/releases/download/v0.2.1/shine-aac-v0.2.1-code4-debug.apk
+https://github.com/poi890poi/shine_aac/raw/v0.2.2/releases/v0.2.2/shine-aac-v0.2.2-code5-debug.apk
 ```
 
 SHA-256:
