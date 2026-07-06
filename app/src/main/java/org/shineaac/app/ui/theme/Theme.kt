@@ -1,4 +1,4 @@
-package com.example.shineaac.ui.theme
+package org.shineaac.app.ui.theme
 
 import android.app.Activity
 import android.os.Build

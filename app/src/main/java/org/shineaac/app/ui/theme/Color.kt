@@ -1,4 +1,4 @@
-package com.example.shineaac.ui.theme
+package org.shineaac.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

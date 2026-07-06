@@ -1,4 +1,4 @@
-package com.example.shineaac
+package org.shineaac.app
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

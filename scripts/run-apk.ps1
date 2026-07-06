@@ -250,8 +250,8 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Step "Launching SHINE AAC"
-& $adb shell monkey -p com.example.shineaac -c android.intent.category.LAUNCHER 1 | Out-Null
+Write-Step "Launching SayToMe AAC"
+& $adb shell monkey -p org.shineaac.app -c android.intent.category.LAUNCHER 1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

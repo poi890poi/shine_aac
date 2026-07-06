@@ -1,4 +1,4 @@
-package com.example.shineaac
+package org.shineaac.app
 
 enum class ScanStage {
     Rows,

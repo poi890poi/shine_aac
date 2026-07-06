@@ -17,11 +17,11 @@ val syncWebAssets by tasks.registering(Exec::class) {
 }
 
 android {
-    namespace = "com.example.shineaac"
+    namespace = "org.shineaac.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.shineaac"
+        applicationId = "org.shineaac.app"
         minSdk = 25
         targetSdk = 35
         versionCode = shineVersionCode

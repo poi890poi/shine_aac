@@ -105,7 +105,7 @@ function Write-TestPreferences {
 "@
 
     Invoke-AdbQuiet push $prefsPath "/data/local/tmp/shine_aac_config.xml"
-    Invoke-AdbQuiet shell "run-as com.example.shineaac sh -c 'mkdir -p shared_prefs; cp /data/local/tmp/shine_aac_config.xml shared_prefs/shine_aac_config.xml'"
+    Invoke-AdbQuiet shell "run-as org.shineaac.app sh -c 'mkdir -p shared_prefs; cp /data/local/tmp/shine_aac_config.xml shared_prefs/shine_aac_config.xml'"
 }
 
 function Write-ZhTwTestPreferences {
@@ -131,7 +131,7 @@ function Write-ZhTwTestPreferences {
 "@
 
     Invoke-AdbQuiet push $prefsPath "/data/local/tmp/shine_aac_config.xml"
-    Invoke-AdbQuiet shell "run-as com.example.shineaac sh -c 'mkdir -p shared_prefs; cp /data/local/tmp/shine_aac_config.xml shared_prefs/shine_aac_config.xml'"
+    Invoke-AdbQuiet shell "run-as org.shineaac.app sh -c 'mkdir -p shared_prefs; cp /data/local/tmp/shine_aac_config.xml shared_prefs/shine_aac_config.xml'"
 }
 
 function Get-E2ELog {
@@ -251,10 +251,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Step "Resetting app data for deterministic hardware-button E2E"
-Invoke-AdbQuiet shell pm clear com.example.shineaac
+Invoke-AdbQuiet shell pm clear org.shineaac.app
 Invoke-AdbQuiet logcat -c
 Write-TestPreferences
-Invoke-AdbQuiet shell am start -W -n com.example.shineaac/.MainActivity
+Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
 Wait-E2EReady
 Start-Sleep -Milliseconds 300
 
@@ -274,8 +274,8 @@ Invoke-AdbQuiet pull $screenshotDevicePath $screenshotHostPath
 Write-Step "Verifying zh-TW first-layer render state in packaged APK"
 Invoke-AdbQuiet logcat -c
 Write-ZhTwTestPreferences
-Invoke-AdbQuiet shell am force-stop com.example.shineaac
-Invoke-AdbQuiet shell am start -W -n com.example.shineaac/.MainActivity
+Invoke-AdbQuiet shell am force-stop org.shineaac.app
+Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
 $zhuyinBo = -join ([char]0x3105)
 $zhuyinYi = -join ([char]0x3127)
 $zhuyinYu = -join ([char]0x3129)
