@@ -17,3 +17,6 @@ local.properties
 /tools/cloudflared.exe
 /e2e-artifacts/
 /.tmp/
+/keystore.properties
+/*.jks
+/*.keystore

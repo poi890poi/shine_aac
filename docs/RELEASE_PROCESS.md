@@ -46,6 +46,24 @@ releases\v0.2.2\RELEASE_NOTES.md
 
 Do not share `app-debug.apk` directly. It is an intermediate build output and is overwritten on every build.
 
+## Google Play AAB
+
+Google Play uploads should use a signed release Android App Bundle, not the debug APK.
+
+Generate an upload keystore outside Git, then build with:
+
+```powershell
+.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties
+```
+
+The signed bundle is created at:
+
+```text
+app\build\outputs\bundle\release\app-release.aab
+```
+
+Keep the real keystore properties file and `.jks` file out of Git. Use `keystore.properties.example` as the template.
+
 ## Minimal Release Checklist
 
 1. Update `version.properties`.

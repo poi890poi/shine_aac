@@ -10,6 +10,21 @@ val releaseProperties = Properties().apply {
 }
 val shineVersionName = releaseProperties.getProperty("versionName")
 val shineVersionCode = releaseProperties.getProperty("versionCode").toInt()
+val keystorePropertiesPath = providers.gradleProperty("shineAacKeystoreProperties")
+    .orElse(providers.environmentVariable("SHINE_AAC_KEYSTORE_PROPERTIES"))
+    .orNull
+val keystorePropertiesFile = keystorePropertiesPath
+    ?.let { rootProject.file(it) }
+    ?: rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.isFile) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+fun keystoreProperty(name: String): String? =
+    keystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+val hasReleaseSigning = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { !keystoreProperty(it).isNullOrBlank() }
 
 val syncWebAssets by tasks.registering(Exec::class) {
     workingDir = rootProject.projectDir
@@ -33,8 +48,22 @@ android {
         }
     }
 
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperty("storeFile")!!)
+                storePassword = keystoreProperty("storePassword")
+                keyAlias = keystoreProperty("keyAlias")
+                keyPassword = keystoreProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
