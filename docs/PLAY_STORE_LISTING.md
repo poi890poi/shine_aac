@@ -69,6 +69,14 @@ Early development build for supervised AAC testing.
 
 This build is not a finished clinical product and should not be used as the only communication method during trials.
 
+## Privacy And Data Safety
+
+- Privacy policy draft: `docs/PRIVACY_POLICY.md`
+- Data Safety worksheet: `docs/PLAY_DATA_SAFETY.md`
+- Current draft declaration: the app does not collect or share user data with SHINE AAC.
+- The app processes messages and settings locally on the device.
+- Android Text-to-Speech behavior may depend on the speech engine installed on the device.
+
 ## Screenshot Strategy
 
 Uploaded phone screenshots are useful as human reference, especially for seeing how the app feels on a real device. They should not be the final store assets because they can drift from the current build and include status-bar details that should be controlled.
