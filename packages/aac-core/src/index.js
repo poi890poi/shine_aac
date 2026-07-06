@@ -32,6 +32,40 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 1700;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
+export const ScanTimingPresets = Object.freeze({
+  default: Object.freeze({
+    id: "default",
+    label: "Default switch",
+    scanIntervalMs: DefaultScanIntervalMs,
+    transitionPauseMs: DefaultTransitionPauseMs,
+    firstCellPauseMs: DefaultFirstCellPauseMs,
+    inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
+  }),
+  slower: Object.freeze({
+    id: "slower",
+    label: "Slower switch",
+    scanIntervalMs: 1800,
+    transitionPauseMs: 0,
+    firstCellPauseMs: 2300,
+    inputLatencyCompensationMs: 300
+  }),
+  firstCellSupport: Object.freeze({
+    id: "firstCellSupport",
+    label: "First symbol support",
+    scanIntervalMs: DefaultScanIntervalMs,
+    transitionPauseMs: 0,
+    firstCellPauseMs: 2300,
+    inputLatencyCompensationMs: 300
+  }),
+  cancelable: Object.freeze({
+    id: "cancelable",
+    label: "Cancelable row",
+    scanIntervalMs: 1500,
+    transitionPauseMs: 650,
+    firstCellPauseMs: 2100,
+    inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
+  })
+});
 export const CurrentConfigVersion = 16;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -220,6 +254,12 @@ export const AacCoreVocabularyWords = Object.freeze([
   "yes", "no", "not", "more", "all", "some", "again", "done", "now", "later", "good", "bad", "big", "little",
   "hot", "cold", "up", "down", "in", "out", "on", "off", "with", "without", "and", "or", "because", "what",
   "where", "when", "why", "how", "please", "thanks"
+]);
+
+export const ProjectCoreUniversalCoreWords = Object.freeze([
+  "all", "can", "different", "do", "done", "get", "go", "good", "he", "help", "here", "I",
+  "in", "it", "like", "look", "make", "more", "not", "on", "open", "put", "same", "she",
+  "some", "stop", "that", "turn", "up", "want", "what", "when", "where", "who", "why", "you"
 ]);
 
 export const CommonEnglishServiceWords = Object.freeze([
@@ -416,10 +456,59 @@ export const ZhTwFrequencyDictionary = Object.freeze(
 const ZhTwDictionaryByPrefix = buildZhTwDictionaryByPrefix(ZhTwFrequencyDictionary);
 const ZhTwNextSymbolsByPrefix = buildZhTwNextSymbolsByPrefix(ZhTwFrequencyDictionary);
 const ZhTwPhraseCompletionsByPrefix = buildZhTwPhraseCompletionsByPrefix(ZhTwFrequencyDictionary);
+const ZhTwValidPrefixSet = zhTwValidPrefixSet(ZhTwFrequencyDictionary);
 
 export const ZhuyinStaticInputSymbols = Object.freeze(
   ZhuyinInputSymbols.slice(0, 24)
 );
+
+export function zhTwVisibleNextSymbolsForPrefix(prefix, columns = DefaultColumns) {
+  return zhTwNextSymbolTiles(prefix, columns).map((candidate) => candidate.output);
+}
+
+export function analyzeZhTwPhoneticAccess(options = {}) {
+  const dictionary = options.dictionary ?? ZhTwFrequencyDictionary;
+  const staticSymbols = options.staticSymbols ?? ZhuyinStaticInputSymbols;
+  const columns = options.columns ?? DefaultColumns;
+  const topEntryLimit = Math.max(1, Math.trunc(options.topEntryLimit ?? 500));
+  const staticSet = new Set(staticSymbols);
+  const totalWeight = dictionary.reduce((sum, entry) => sum + zhTwAccessWeight(entry), 0);
+  const firstSymbolStats = ZhuyinInputSymbols.map((symbol) => zhTwFirstSymbolAccessStats(symbol, dictionary, staticSet));
+  const staticCoverageWeight = firstSymbolStats
+    .filter((stat) => stat.static)
+    .reduce((sum, stat) => sum + stat.weight, 0);
+  const hiddenSymbolStats = ZhuyinInputSymbols
+    .filter((symbol) => !staticSet.has(symbol))
+    .map((symbol) => zhTwHiddenSymbolAccessStats(symbol, dictionary, staticSet, columns));
+  const visibleDeadEndContinuations = zhTwVisibleDeadEndContinuations(dictionary, staticSet, columns);
+  const topEntries = dictionary
+    .slice()
+    .sort((left, right) => left.frequencyRank - right.frequencyRank)
+    .slice(0, topEntryLimit);
+  const unreachableTopEntries = topEntries
+    .map((entry) => zhTwEntryAccessPath(entry, staticSet, columns))
+    .filter((result) => !result.reachable);
+
+  return Object.freeze({
+    columns,
+    staticSymbolCount: staticSymbols.length,
+    inputSymbolCount: ZhuyinInputSymbols.length,
+    dictionaryEntryCount: dictionary.length,
+    totalWeight,
+    staticCoverageWeight,
+    staticCoverageRatio: totalWeight > 0 ? staticCoverageWeight / totalWeight : 0,
+    firstSymbolStats: Object.freeze(firstSymbolStats),
+    hiddenSymbolStats: Object.freeze(hiddenSymbolStats),
+    visibleDeadEndContinuations: Object.freeze(visibleDeadEndContinuations),
+    topFirstSymbolsByWeight: Object.freeze(
+      firstSymbolStats
+        .slice()
+        .sort((left, right) => right.weight - left.weight)
+    ),
+    topEntryLimit,
+    unreachableTopEntries: Object.freeze(unreachableTopEntries)
+  });
+}
 
 export const ZhTwPhraseCategories = Object.freeze({
   needs: Object.freeze({
@@ -600,6 +689,36 @@ export function createBoardConfig(overrides = {}) {
     symbols: profile.symbols,
     ...safeOverrides
   };
+}
+
+export function scanTimingPresetForId(presetId) {
+  return ScanTimingPresets[presetId] ?? ScanTimingPresets.default;
+}
+
+export function scanTimingPresetIdForConfig(config = createBoardConfig()) {
+  const normalized = createBoardConfig(config);
+  for (const preset of Object.values(ScanTimingPresets)) {
+    if (
+      normalized.scanIntervalMs === preset.scanIntervalMs &&
+      normalized.transitionPauseMs === preset.transitionPauseMs &&
+      normalized.firstCellPauseMs === preset.firstCellPauseMs &&
+      normalized.inputLatencyCompensationMs === preset.inputLatencyCompensationMs
+    ) {
+      return preset.id;
+    }
+  }
+  return "custom";
+}
+
+export function applyScanTimingPreset(config = createBoardConfig(), presetId = "default") {
+  const preset = scanTimingPresetForId(presetId);
+  return createBoardConfig({
+    ...config,
+    scanIntervalMs: preset.scanIntervalMs,
+    transitionPauseMs: preset.transitionPauseMs,
+    firstCellPauseMs: preset.firstCellPauseMs,
+    inputLatencyCompensationMs: preset.inputLatencyCompensationMs
+  });
 }
 
 export function boardRows(config = createBoardConfig(), message = "", canUndo = false, inputState = {}) {
@@ -967,7 +1086,7 @@ function zhTwNextSymbolTiles(buffer, columns) {
       ...(ZhTwNextSymbolsByPrefix.get(buffer) ?? [])
     ],
     (symbol) => symbol
-  );
+  ).filter((symbol) => ZhTwValidPrefixSet.has(`${buffer}${symbol}`));
   const orderedSymbols = zhTwNeedsPhoneticContinuationSpace(buffer)
     ? [
       ...symbols.filter((symbol) => !ZhuyinInitialSymbolSet.has(symbol)),
@@ -1232,6 +1351,151 @@ function buildZhTwPhraseCompletionsByPrefix(dictionary) {
     }
   }
   return map;
+}
+
+function zhTwFirstSymbolAccessStats(symbol, dictionary, staticSet) {
+  const entries = dictionary.filter((entry) => entryKeys(entry).some((key) => key.at(0) === symbol));
+  const weight = entries.reduce((sum, entry) => sum + zhTwAccessWeight(entry), 0);
+  return Object.freeze({
+    symbol,
+    static: staticSet.has(symbol),
+    entryCount: entries.length,
+    weight
+  });
+}
+
+function zhTwHiddenSymbolAccessStats(symbol, dictionary, staticSet, columns) {
+  const prefixMap = new Map();
+  let entryCount = 0;
+  let visiblePrefixCount = 0;
+  let reachableWeight = 0;
+  for (const entry of dictionary) {
+    let entryUsesSymbol = false;
+    for (const key of entryKeys(entry)) {
+      for (let index = 1; index < key.length; index += 1) {
+        if (key.at(index) !== symbol) continue;
+        const prefix = key.slice(0, index);
+        if (!staticSet.has(key.at(0))) continue;
+        entryUsesSymbol = true;
+        if (!prefixMap.has(prefix)) {
+          const visible = zhTwVisibleNextSymbolsForPrefix(prefix, columns).includes(symbol);
+          prefixMap.set(prefix, visible);
+          if (visible) visiblePrefixCount += 1;
+        }
+        if (prefixMap.get(prefix)) reachableWeight += zhTwAccessWeight(entry);
+      }
+    }
+    if (entryUsesSymbol) entryCount += 1;
+  }
+
+  return Object.freeze({
+    symbol,
+    entryCount,
+    prefixCount: prefixMap.size,
+    visiblePrefixCount,
+    allPrefixesVisible: prefixMap.size === visiblePrefixCount,
+    reachableWeight
+  });
+}
+
+function zhTwEntryAccessPath(entry, staticSet, columns) {
+  const paths = entryKeys(entry).map((key) => zhTwKeyAccessPath(entry, key, staticSet, columns));
+  return paths.find((path) => path.reachable) ?? paths[0] ?? Object.freeze({
+    label: entry.label,
+    key: "",
+    reachable: false,
+    blockedAt: 0,
+    blockedSymbol: "",
+    reason: "missing-key"
+  });
+}
+
+function zhTwVisibleDeadEndContinuations(dictionary, staticSet, columns) {
+  const checked = new Set();
+  const deadEnds = [];
+  const validPrefixSet = zhTwValidPrefixSet(dictionary);
+  const prefixes = distinctBy(
+    dictionary.flatMap((entry) =>
+      entryKeys(entry).flatMap((key) =>
+        Array.from({ length: Math.max(0, key.length - 1) }, (_, index) => key.slice(0, index + 1))
+      )
+    ),
+    (prefix) => prefix
+  );
+
+  for (const prefix of prefixes) {
+    if (!prefix || !staticSet.has(prefix.at(0))) continue;
+    for (const symbol of zhTwVisibleNextSymbolsForPrefix(prefix, columns)) {
+      const nextPrefix = `${prefix}${symbol}`;
+      const key = `${prefix}\u0000${symbol}`;
+      if (checked.has(key)) continue;
+      checked.add(key);
+      if (validPrefixSet.has(nextPrefix)) continue;
+      deadEnds.push(Object.freeze({
+        prefix,
+        symbol,
+        nextPrefix,
+        reason: "no-candidate-or-continuation"
+      }));
+    }
+  }
+
+  return deadEnds;
+}
+
+function zhTwValidPrefixSet(dictionary) {
+  const prefixes = new Set();
+  for (const entry of dictionary) {
+    for (const key of entryKeys(entry)) {
+      for (let length = 1; length <= key.length; length += 1) {
+        prefixes.add(key.slice(0, length));
+      }
+    }
+  }
+  return prefixes;
+}
+
+function zhTwKeyAccessPath(entry, key, staticSet, columns) {
+  if (!key || !staticSet.has(key.at(0))) {
+    return Object.freeze({
+      label: entry.label,
+      key,
+      reachable: false,
+      blockedAt: 0,
+      blockedSymbol: key?.at(0) ?? "",
+      reason: "first-symbol-not-static"
+    });
+  }
+
+  for (let index = 1; index < key.length; index += 1) {
+    const symbol = key.at(index);
+    const prefix = key.slice(0, index);
+    const available = staticSet.has(symbol) || zhTwVisibleNextSymbolsForPrefix(prefix, columns).includes(symbol);
+    if (!available) {
+      return Object.freeze({
+        label: entry.label,
+        key,
+        reachable: false,
+        blockedAt: index,
+        blockedSymbol: symbol,
+        prefix,
+        reason: "hidden-continuation-not-visible"
+      });
+    }
+  }
+
+  return Object.freeze({
+    label: entry.label,
+    key,
+    reachable: true
+  });
+}
+
+function zhTwAccessWeight(entry) {
+  const frequency = Number(entry.frequency ?? 0);
+  if (Number.isFinite(frequency) && frequency > 0) return frequency;
+  const rank = Math.max(1, Number(entry.frequencyRank ?? entry.sourceRank ?? 1));
+  return 1 / rank;
 }
 
 function entryMatchesPrefix(entry, prefix) {
@@ -1678,19 +1942,36 @@ function nextSelectableRow(rowIndex, rowCount, columnCountForRow) {
 }
 
 function transitionRank(previousWord, candidate) {
-  const actions = new Set(["want", "need", "help", "go", "stop", "watch", "look", "move", "turn", "drink", "eat", "call"]);
-  const needs = new Set(["water", "drink", "food", "toilet", "bathroom", "pain", "hot", "cold", "tired", "sleep", "medicine", "more", "done"]);
-  if (previousWord === "i" || previousWord === "you") return actions.has(candidate) ? 0 : 2;
-  if (previousWord === "want" || previousWord === "need") return needs.has(candidate) ? 0 : 2;
-  if (previousWord === "go" || previousWord === "turn" || previousWord === "move") {
-    return new Set(["up", "down", "left", "right"]).has(candidate) ? 0 : 2;
+  if (previousWord === "i" || previousWord === "you") {
+    return orderedTransitionRank(candidate, PronounTransitionWords);
   }
-  return 1;
+  if (previousWord === "want") {
+    return orderedTransitionRank(candidate, WantTransitionWords);
+  }
+  if (previousWord === "need") {
+    return orderedTransitionRank(candidate, NeedTransitionWords);
+  }
+  if (previousWord === "feel") {
+    return orderedTransitionRank(candidate, FeelingTransitionWords);
+  }
+  if (previousWord === "no" || previousWord === "not" || previousWord === "don't") {
+    return orderedTransitionRank(candidate, RefusalTransitionWords);
+  }
+  if (previousWord === "go" || previousWord === "turn" || previousWord === "move") {
+    return orderedTransitionRank(candidate, DirectionTransitionWords);
+  }
+  return 4;
+}
+
+function orderedTransitionRank(candidate, orderedWords) {
+  const index = orderedWords.indexOf(candidate);
+  return index >= 0 ? index : orderedWords.length + 1;
 }
 
 function completionRank(currentToken, candidate) {
   const output = candidate.output.toLowerCase();
-  return aacPriorityWords.has(output) ? 0 : 1;
+  if (projectCoreUniversalCorePriorityWords.has(output)) return 0;
+  return aacPriorityWords.has(output) ? 1 : 2;
 }
 
 function wordTiles(words) {
@@ -1708,6 +1989,27 @@ const aacPriorityWords = new Set([
   ...AacCoreVocabularyWords.map((word) => word.toLowerCase()),
   ...AacFringeStarterWords.map((word) => word.toLowerCase())
 ]);
+
+const projectCoreUniversalCorePriorityWords = new Set(
+  ProjectCoreUniversalCoreWords.map((word) => word.toLowerCase())
+);
+
+const PronounTransitionWords = Object.freeze([
+  "want", "need", "feel", "like", "go", "help", "stop", "look", "watch", "make", "get", "do"
+]);
+const WantTransitionWords = Object.freeze([
+  "drink", "water", "food", "bathroom", "toilet", "more", "music", "movie", "TV", "book", "game", "phone"
+]);
+const NeedTransitionWords = Object.freeze([
+  "help", "drink", "water", "food", "bathroom", "toilet", "medicine", "sleep", "blanket", "pillow", "family", "doctor"
+]);
+const FeelingTransitionWords = Object.freeze([
+  "sick", "tired", "good", "bad", "happy", "sad", "angry", "scared", "hot", "cold", "pain", "hurt"
+]);
+const RefusalTransitionWords = Object.freeze([
+  "drink", "food", "medicine", "help", "more", "go", "stop", "touch", "move", "bathroom", "shower"
+]);
+const DirectionTransitionWords = Object.freeze(["up", "down", "left", "right", "in", "out", "on", "off"]);
 
 function distinctBy(items, keyForItem) {
   const seen = new Set();

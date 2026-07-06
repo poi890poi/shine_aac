@@ -2,8 +2,10 @@ import {
   CurrentConfigVersion,
   LanguageProfiles,
   ScanStage,
+  ScanTimingPresets,
   TileAction,
   advanceSession,
+  applyScanTimingPreset,
   createBoardConfig,
   createSession,
   loadProfileSuggestionDictionaryForConfig,
@@ -15,6 +17,7 @@ import {
   parseSymbols,
   pressSwitch,
   scanDurationForStage,
+  scanTimingPresetIdForConfig,
   serializeDictionary,
   serializeSymbols,
   speechLabelForTile,
@@ -391,7 +394,12 @@ function render() {
 
   shell.append(topPanel, boardElement);
   app.append(shell);
+  scrollMessageToEnd(message);
   emitRenderState(board);
+}
+
+function scrollMessageToEnd(messageElement) {
+  messageElement.scrollLeft = messageElement.scrollWidth;
 }
 
 function emitRenderState(board) {
@@ -513,6 +521,11 @@ function renderConfig() {
       <label class="field">Columns
         <input name="columns" type="number" min="2" max="8" step="1" value="${session.config.columns}">
       </label>
+      <label class="field">Scan preset
+        <select name="scanTimingPreset">
+          ${scanTimingPresetOptionsHtml(session.config)}
+        </select>
+      </label>
       <label class="field">Switch speed ms
         <input name="scanIntervalMs" type="number" min="300" max="5000" step="50" value="${session.config.scanIntervalMs}">
       </label>
@@ -570,10 +583,47 @@ function renderConfig() {
     form.elements.transitionPauseMs.value = String(profile.transitionPauseMs);
     form.elements.firstCellPauseMs.value = String(profile.firstCellPauseMs);
     form.elements.inputLatencyCompensationMs.value = String(profile.inputLatencyCompensationMs);
+    form.elements.scanTimingPreset.value = "default";
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
     form.elements.symbols.value = serializeSymbols(profile.symbols);
   });
+
+  form.elements.scanTimingPreset.addEventListener("change", () => {
+    const presetId = form.elements.scanTimingPreset.value;
+    if (presetId === "custom") return;
+    const presetConfig = applyScanTimingPreset(session.config, presetId);
+    form.elements.scanIntervalMs.value = String(presetConfig.scanIntervalMs);
+    form.elements.transitionPauseMs.value = String(presetConfig.transitionPauseMs);
+    form.elements.firstCellPauseMs.value = String(presetConfig.firstCellPauseMs);
+    form.elements.inputLatencyCompensationMs.value = String(presetConfig.inputLatencyCompensationMs);
+  });
+
+  const timingFields = [
+    form.elements.scanIntervalMs,
+    form.elements.transitionPauseMs,
+    form.elements.firstCellPauseMs,
+    form.elements.inputLatencyCompensationMs
+  ];
+  const syncTimingPresetSelection = () => {
+    const currentTiming = createBoardConfig({
+      ...session.config,
+      scanIntervalMs: clamp(Number(form.elements.scanIntervalMs.value), 300, 5000),
+      transitionPauseMs: clamp(Number(form.elements.transitionPauseMs.value), 0, 4000),
+      firstCellPauseMs: clamp(Number(form.elements.firstCellPauseMs.value), 300, 6000),
+      inputLatencyCompensationMs: clamp(Number(form.elements.inputLatencyCompensationMs.value), 0, 1200)
+    });
+    const presetId = scanTimingPresetIdForConfig(currentTiming);
+    if (presetId !== "custom") {
+      form.elements.scanTimingPreset.value = presetId;
+      return;
+    }
+    if (!Array.from(form.elements.scanTimingPreset.options).some((option) => option.value === "custom")) {
+      form.elements.scanTimingPreset.add(new Option("Custom", "custom"));
+    }
+    form.elements.scanTimingPreset.value = "custom";
+  };
+  timingFields.forEach((field) => field.addEventListener("input", syncTimingPresetSelection));
 
   form.addEventListener("click", (event) => {
     const action = event.target?.dataset?.action;
@@ -1050,6 +1100,19 @@ function profileOptionsHtml(selectedProfileId) {
       return `<option value="${escapeHtml(profile.id)}"${selected}>${escapeHtml(profile.displayName)}</option>`;
     })
     .join("");
+}
+
+function scanTimingPresetOptionsHtml(config) {
+  const selectedPresetId = scanTimingPresetIdForConfig(config);
+  const presetOptions = Object.values(ScanTimingPresets)
+    .map((preset) => {
+      const selected = preset.id === selectedPresetId ? " selected" : "";
+      return `<option value="${escapeHtml(preset.id)}"${selected}>${escapeHtml(preset.label)}</option>`;
+    });
+  if (selectedPresetId === "custom") {
+    presetOptions.push("<option value=\"custom\" selected>Custom</option>");
+  }
+  return presetOptions.join("");
 }
 
 function attachDemoLongPress(element) {

@@ -32,7 +32,7 @@ test("complete phrase can be entered through one-switch session transitions", ()
   session = selectSuggestionCell(session, 0);
   assert.equal(session.message, "I ");
 
-  assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "HELP"]);
+  assert.deepEqual(visibleBoard(session)[0].map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "FEEL"]);
   session = selectSuggestionCell(session, 1);
   assert.equal(session.message, "I want ");
 
@@ -45,14 +45,14 @@ test("locked suggestion row does not change while selecting a cell", () => {
   let session = createSession({ message: "I ", messageHistory: [""] });
   session = pressSwitch(session, 1000);
   assert.equal(session.scannerState.stage, ScanStage.FirstCell);
-  assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "HELP"]);
+  assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "FEEL"]);
 
   const changedElsewhere = {
     ...session,
     message: "I want ",
     messageHistory: [...session.messageHistory, "I"]
   };
-  assert.deepEqual(visibleBoard(changedElsewhere)[0].map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "HELP"]);
+  assert.deepEqual(visibleBoard(changedElsewhere)[0].map((candidate) => candidate.label), ["UNDO", "WANT", "NEED", "FEEL"]);
 });
 
 test("zero transition pause skips row-selected escape state", () => {

@@ -61,10 +61,17 @@ textarea {
   font-size: 28px;
   font-weight: 800;
   line-height: 38px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   overflow-wrap: normal;
   text-align: right;
   white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.message::-webkit-scrollbar {
+  display: none;
 }
 
 .space-marker {

@@ -126,7 +126,7 @@ async function scenarioPhraseAndUndo() {
   await assertMessage("");
   await selectLabel("I", { rowIndex: 0 });
   await assertMessage("I ");
-  await assertSuggestionLabels(["UNDO", "WANT", "NEED", "HELP"]);
+  await assertSuggestionLabels(["UNDO", "WANT", "NEED", "FEEL"]);
   await selectLabel("WANT", { rowIndex: 0 });
   await assertMessage("I want ");
   await assertSuggestionLabels(["UNDO", "DRINK", "WATER", "FOOD"]);
@@ -323,7 +323,7 @@ async function scenarioZhTwHomeDemoMode() {
   await waitForRenderedBoard();
   await waitForDemoActive();
   await assertMessage(expected, 420000);
-  await assertMessageSingleLineOverflow();
+  await assertMessageScrolledToEnd();
   await waitForDemoInactive();
   await evaluate(`globalThis.ShineAacDemoError = ""`);
   steps.push(pass("zh-tw-demo-mode", "automated the zh-TW home conversation through normal visible suggestions"));
@@ -632,7 +632,7 @@ async function assertNoViewportOverflow(name) {
   steps.push(pass(name, `fits ${layout.rows} rows in ${layout.innerHeight}px viewport without scrolling`));
 }
 
-async function assertMessageSingleLineOverflow() {
+async function assertMessageScrolledToEnd() {
   const metrics = await evaluate(`
     (() => {
       const node = document.querySelector('[data-testid="message"]');
@@ -641,25 +641,31 @@ async function assertMessageSingleLineOverflow() {
         whiteSpace: style.whiteSpace,
         overflowX: style.overflowX,
         overflowY: style.overflowY,
+        scrollLeft: node.scrollLeft,
         clientWidth: node.clientWidth,
         scrollWidth: node.scrollWidth,
         clientHeight: node.clientHeight,
-        scrollHeight: node.scrollHeight
+        scrollHeight: node.scrollHeight,
+        visibleEnd: node.scrollLeft + node.clientWidth
       };
     })()
   `);
   if (metrics.whiteSpace !== "nowrap") {
     throw new Error(`Message should stay on one line: ${JSON.stringify(metrics)}`);
   }
-  if (metrics.overflowX !== "hidden" || metrics.overflowY !== "hidden") {
-    throw new Error(`Message overflow should be hidden: ${JSON.stringify(metrics)}`);
+  if (metrics.overflowX !== "auto" || metrics.overflowY !== "hidden") {
+    throw new Error(`Message should scroll horizontally only: ${JSON.stringify(metrics)}`);
   }
   if (metrics.scrollHeight > metrics.clientHeight + 1) {
     throw new Error(`Message should not grow vertically: ${JSON.stringify(metrics)}`);
   }
   if (metrics.scrollWidth <= metrics.clientWidth) {
-    throw new Error(`Long message should overflow horizontally for left-side clipping: ${JSON.stringify(metrics)}`);
+    throw new Error(`Long message should overflow horizontally: ${JSON.stringify(metrics)}`);
   }
+  if (metrics.visibleEnd < metrics.scrollWidth - 1) {
+    throw new Error(`Long message should auto-scroll to the latest symbols: ${JSON.stringify(metrics)}`);
+  }
+  steps.push(pass("message-scroll-end", "long single-line message scrolls horizontally and keeps latest symbols visible"));
 }
 
 async function waitForUi() {

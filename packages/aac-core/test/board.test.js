@@ -12,11 +12,15 @@ import {
   LegacyFirstCellPauseMsV6,
   LegacyFrequencyDefaultTilesV3,
   LegacySuggestionDictionaryV6,
+  ProjectCoreUniversalCoreWords,
+  ScanTimingPresets,
   TileAction,
   ZhuyinInputSymbols,
   ZhuyinStaticInputSymbols,
   ZhTwFrequencyDictionary,
+  analyzeZhTwPhoneticAccess,
   applyTile,
+  applyScanTimingPreset,
   boardRows,
   createBoardConfig,
   loadFirstCellPauseForConfig,
@@ -29,6 +33,7 @@ import {
   parseSymbols,
   serializeDictionary,
   serializeSymbols,
+  scanTimingPresetIdForConfig,
   speechLabelForTile,
   suggestTiles,
   suggestionRow,
@@ -233,6 +238,12 @@ test("default suggestion dictionary is sourced from broad ranked vocabulary list
   }
 });
 
+test("completion ranking prioritizes sourced universal core words", () => {
+  assert.equal(ProjectCoreUniversalCoreWords.includes("like"), true);
+  const suggestions = suggestTiles("l", DefaultSuggestionDictionary, 3).map((candidate) => candidate.label);
+  assert.equal(suggestions.includes("LIKE"), true);
+});
+
 test("expanded default vocabulary includes movie", () => {
   const suggestions = suggestTiles("movi", DefaultSuggestionDictionary, 3).map((candidate) => candidate.label);
   assert.equal(suggestions.includes("MOVIE"), true);
@@ -247,6 +258,18 @@ test("suggestions prefer actions after pronouns", () => {
   const suggestions = suggestTiles("I ", DefaultSuggestionDictionary, 4).map((candidate) => candidate.label);
   assert.equal(suggestions.includes("WANT"), true);
   assert.equal(suggestions.includes("NEED"), true);
+  assert.equal(suggestions.includes("FEEL"), true);
+});
+
+test("suggestions prefer general feeling and refusal continuations", () => {
+  assert.deepEqual(
+    suggestTiles("feel ", DefaultSuggestionDictionary, 3).map((candidate) => candidate.label),
+    ["SICK", "TIRED", "GOOD"]
+  );
+  assert.deepEqual(
+    suggestTiles("no ", DefaultSuggestionDictionary, 3).map((candidate) => candidate.label),
+    ["DRINK", "FOOD", "MEDICINE"]
+  );
 });
 
 test("suggestion row keeps stable width with space and fallback letters", () => {
@@ -353,6 +376,19 @@ test("default scanning timing favors slower low-fatigue access", () => {
   assert.equal(config.transitionPauseMs, 0);
   assert.equal(config.firstCellPauseMs, 1700);
   assert.equal(config.firstCellPauseMs > config.scanIntervalMs, true);
+});
+
+test("scan timing presets are named bundles over normal timing fields", () => {
+  const defaultConfig = createBoardConfig();
+  assert.equal(scanTimingPresetIdForConfig(defaultConfig), "default");
+
+  const slowerConfig = applyScanTimingPreset(defaultConfig, "slower");
+  assert.equal(slowerConfig.scanIntervalMs, ScanTimingPresets.slower.scanIntervalMs);
+  assert.equal(slowerConfig.firstCellPauseMs, ScanTimingPresets.slower.firstCellPauseMs);
+  assert.equal(scanTimingPresetIdForConfig(slowerConfig), "slower");
+
+  const customConfig = createBoardConfig({ ...slowerConfig, firstCellPauseMs: slowerConfig.firstCellPauseMs + 50 });
+  assert.equal(scanTimingPresetIdForConfig(customConfig), "custom");
 });
 
 test("legacy default scan timing migrates while custom values are preserved", () => {
@@ -870,6 +906,25 @@ test("zh-TW dictionary keys are progressively navigable by visible symbols and s
       }
     }
   }
+});
+
+test("zh-TW static and continuation symbols preserve broad phonetic access coverage", () => {
+  const analysis = analyzeZhTwPhoneticAccess({ topEntryLimit: 500 });
+  const hiddenWithPrefixes = analysis.hiddenSymbolStats.filter((stat) => stat.prefixCount > 0);
+  const hiddenWithNoVisiblePath = hiddenWithPrefixes.filter((stat) => stat.visiblePrefixCount === 0);
+
+  assert.equal(analysis.staticSymbolCount, 24);
+  assert.equal(analysis.inputSymbolCount, 37);
+  assert.ok(
+    analysis.staticCoverageRatio >= 0.98,
+    `static first-symbol coverage should stay high, got ${analysis.staticCoverageRatio}`
+  );
+  assert.deepEqual(hiddenWithNoVisiblePath, []);
+  assert.deepEqual(analysis.visibleDeadEndContinuations, []);
+  assert.ok(
+    analysis.unreachableTopEntries.length <= 5,
+    `top source-ranked entries should remain broadly reachable, got ${analysis.unreachableTopEntries.map((entry) => `${entry.label}:${entry.key}`).join(", ")}`
+  );
 });
 
 test("zh-TW suggestion rows do not show unrelated replacement backfill for source-empty standalone finals", () => {
