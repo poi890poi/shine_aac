@@ -1,12 +1,12 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-05T15:43:35.707Z
+Generated: 2026-07-08T15:51:17.797Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5185/apps/web/ |
+| server | PASS | served http://127.0.0.1:5183/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | test-config | PASS | seeded fast scan timing through browser localStorage |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
@@ -19,10 +19,10 @@ Result: PASS
 | demo-mode | PASS | hidden Config long-press starts extended conversation demo and tap exits it |
 | message-scroll-end | PASS | long single-line message scrolls horizontally and keeps latest symbols visible |
 | zh-tw-demo-mode | PASS | automated the zh-TW home conversation through normal visible suggestions |
-| pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
+| pixel-4a-5g-layout | PASS | fits 19 rows in 851px viewport without scrolling |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
-| zh-tw-pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
+| zh-tw-pixel-4a-5g-layout | PASS | fits 19 rows in 851px viewport without scrolling |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

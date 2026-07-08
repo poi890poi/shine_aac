@@ -72,6 +72,8 @@ const demoScenarios = Object.freeze({
   "zh-tw-home": Object.freeze({
     steps: Object.freeze([
       pause(1800),
+      ...zhTwPodcastMessage(),
+      ...zhTwClearBreak(1600),
       ...zhTwMessage([
         "冰", "紅茶",
         "少", "冰",
@@ -81,8 +83,6 @@ const demoScenarios = Object.freeze({
       ]),
       ...zhTwClearBreak(2200),
       ...zhTwMessage([
-        "聽", "新", "資料", "夾",
-        "最新", "一", "集",
         "音量", "小",
         "從", "剛剛", "那裡"
       ]),
@@ -90,8 +90,6 @@ const demoScenarios = Object.freeze({
       ...zhTwMessage([
         "今天", "比較", "累",
         "但是", "心情", "好",
-        "想", "放鬆",
-        "不想", "講話",
         "想", "聽", "你", "講",
         "這樣", "很", "舒服",
         "謝謝"
@@ -309,6 +307,27 @@ function normalizeScenarioId(value) {
 
 function zhTwMessage(labels) {
   return labels.map(zhTwTarget);
+}
+
+function zhTwPodcastMessage() {
+  return [
+    ...zhTwMessage(["\u807d"]),
+    zhTwSpace(),
+    ...zhTwSpellText("podcast"),
+    zhTwSpace(),
+    ...zhTwMessage(["\u65b0", "\u8cc7\u6599", "\u593e"])
+  ];
+}
+
+function zhTwSpellText(text) {
+  return Array.from(text).map((character) => {
+    if (character === " ") return zhTwSpace();
+    return letter(character);
+  });
+}
+
+function zhTwSpace() {
+  return select("\u7a7a\u683c", { output: " ", action: TileAction.Space });
 }
 
 function zhTwClearBreak(waitMs) {

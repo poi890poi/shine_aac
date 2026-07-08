@@ -270,7 +270,7 @@ async function scenarioDeveloperDemoMode() {
   await evaluate(`
     localStorage.removeItem("shine-aac-demo-mode");
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 16,
+      configVersion: 17,
       profileId: "en-US",
       columns: 4,
       scanIntervalMs: 250,
@@ -300,10 +300,10 @@ async function scenarioDeveloperDemoMode() {
 }
 
 async function scenarioZhTwHomeDemoMode() {
-  const expected = "今天比較累但是心情好想放鬆不想講話想聽你講這樣很舒服謝謝";
+  const expected = "今天比較累但是心情好想聽你講這樣很舒服謝謝";
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 16,
+      configVersion: 17,
       profileId: "zh-TW",
       columns: 4,
       scanIntervalMs: 80,
@@ -457,7 +457,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       };
     })()
   `);
-  if (stored.configVersion < 16 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 17 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
   if (
@@ -485,7 +485,13 @@ async function selectLabel(label, options = {}) {
 }
 
 async function selectCell(rowIndex, cellIndex) {
-  const rowSnapshot = await waitForActive(({ activeRow }) => activeRow?.rowIndex === rowIndex, `row ${rowIndex}`);
+  const initialSnapshot = await getSnapshot();
+  const rowTimeoutMs = Math.max(8000, (initialSnapshot.rows.length + 2) * 750);
+  const rowSnapshot = await waitForActive(
+    ({ activeRow }) => activeRow?.rowIndex === rowIndex,
+    `row ${rowIndex}`,
+    rowTimeoutMs
+  );
   await clickTarget(rowSnapshot.activeRow);
   const cellSnapshot = await waitForActive(
     ({ activeCell }) => activeCell?.rowIndex === rowIndex && activeCell?.cellIndex === cellIndex,

@@ -353,6 +353,7 @@ function render() {
 
   const boardElement = document.createElement("section");
   boardElement.className = "board";
+  if (board.length >= 18) boardElement.classList.add("dense-board");
   boardElement.setAttribute("data-testid", "board");
   boardElement.style.setProperty("--row-count", String(board.length));
 

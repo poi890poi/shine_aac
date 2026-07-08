@@ -66,7 +66,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 16;
+export const CurrentConfigVersion = 17;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
@@ -606,6 +606,9 @@ export const ZhTwPhraseCategories = Object.freeze({
 
 export const ZhTwTiles = Object.freeze([
   ...ZhTwCoreResponseTiles,
+  ...frequencyLetters.map(letterTile),
+  tile("\u7a7a\u683c", " ", TileAction.Space),
+  tile("?"),
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
   zhTwMoreSuggestionsTile,
   tile("說", "SAY", TileAction.Speak),
@@ -865,8 +868,10 @@ function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
   const hasDirectZhuyinBoard = ZhuyinStaticInputSymbols.every((symbol) => labels.has(symbol)) &&
     !labels.has("注音") &&
     !labels.has("ㄅㄆㄇㄈ");
+  const hasEnglishStaticBoard = frequencyLetters.every((letter) => labels.has(letter)) &&
+    labels.has("\u7a7a\u683c");
   const hasCurrentDirectBoard = hasDirectZhuyinBoard && labels.has("\u66f4\u591a") && labels.has("不") && !labels.has("不要");
-  if (hasCurrentDirectBoard) return false;
+  if (hasCurrentDirectBoard) return !hasEnglishStaticBoard;
   if (hasDirectZhuyinBoard && labels.has("MORE")) return true;
 
   const oldDefaultSignals = [

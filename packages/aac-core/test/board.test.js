@@ -346,6 +346,28 @@ test("old built-in zh-TW board migrates to direct static Zhuyin symbols", () => 
   assert.equal(labels.includes("喝水"), false);
 });
 
+test("previous direct zh-TW board migrates to include English spelling tiles", () => {
+  const previousDirectBoard = [
+    tile("\u662f"),
+    tile("\u4e0d"),
+    tile("\u5e6b\u5fd9"),
+    tile("\u75db"),
+    ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
+    tile("\u66f4\u591a", "MORE", TileAction.MoreSuggestions),
+    tile("\u8aaa", "SAY", TileAction.Speak),
+    tile("\u522a", "DEL", TileAction.Backspace),
+    tile("\u6e05\u9664", "CLR", TileAction.Clear)
+  ];
+
+  const migrated = loadProfileSymbolsForConfig(serializeSymbols(previousDirectBoard), 16, "zh-TW");
+  const labels = migrated.map((candidate) => candidate.label);
+
+  for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+    assert.equal(labels.includes(letter), true, `missing ${letter}`);
+  }
+  assert.equal(labels.includes("\u7a7a\u683c"), true);
+});
+
 test("custom zh-TW board symbols are preserved during migration", () => {
   const custom = [tile("自訂"), tile("注音", "zhuyin", TileAction.EnterMode)];
 
@@ -422,6 +444,38 @@ test("zh-TW profile uses an independent direct Zhuyin board", () => {
   assert.equal(labels.includes("更多"), true);
   assert.equal(labels.includes("ㄦ"), false);
   assert.equal(labels.includes("注音"), false);
+});
+
+test("zh-TW static board includes early English spelling rows", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config);
+  const labels = config.symbols.map((candidate) => candidate.label);
+
+  for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+    assert.equal(labels.includes(letter), true, `missing ${letter}`);
+  }
+  assert.equal(labels.includes("\u7a7a\u683c"), true);
+  assert.deepEqual(rows.slice(5, 12).map((row) => row.map((candidate) => candidate.label)), [
+    ["E", "T", "A", "O"],
+    ["I", "N", "S", "R"],
+    ["H", "L", "D", "C"],
+    ["U", "M", "F", "P"],
+    ["G", "W", "Y", "B"],
+    ["V", "K", "X", "J"],
+    ["Q", "Z", "\u7a7a\u683c", "?"]
+  ]);
+});
+
+test("zh-TW English spelling tiles append through the normal board", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config);
+
+  let result = applyTile("", [], findActionTile(rows, "P", TileAction.Append), config, {});
+  result = applyTile(result.message, result.messageHistory, findActionTile(rows, "O", TileAction.Append), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(rows, "D", TileAction.Append), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(rows, "\u7a7a\u683c", TileAction.Space), config, result);
+
+  assert.equal(result.message, "pod ");
 });
 
 test("zh-TW static core row avoids redundant yes-no pairs", () => {

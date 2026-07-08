@@ -244,6 +244,30 @@ body.demo-active .phase::after {
   font-size: 16px;
 }
 
+.board.dense-board,
+.board.dense-board .row {
+  gap: 4px;
+}
+
+.board.dense-board .tile {
+  border-radius: 6px;
+  font-size: 20px;
+}
+
+.board.dense-board .tile-label {
+  min-height: 20px;
+  padding: 1px 3px;
+  line-height: 1;
+}
+
+.board.dense-board .tile.small .tile-label {
+  font-size: 15px;
+}
+
+.board.dense-board .tile.tiny .tile-label {
+  font-size: 12px;
+}
+
 .config-backdrop {
   position: fixed;
   inset: 0;
@@ -634,6 +658,10 @@ body.demo-active .phase::after {
     font-size: 20px;
   }
 
+  .board.dense-board .tile {
+    font-size: 16px;
+  }
+
   .tile.small .tile-label {
     font-size: 15px;
   }
@@ -645,6 +673,11 @@ body.demo-active .phase::after {
   .board,
   .row {
     gap: 6px;
+  }
+
+  .board.dense-board,
+  .board.dense-board .row {
+    gap: 4px;
   }
 
   .config-grid {
@@ -715,6 +748,10 @@ body.demo-active .phase::after {
 
   .tile {
     font-size: 18px;
+  }
+
+  .board.dense-board .tile {
+    font-size: 15px;
   }
 
   .tile.small .tile-label {
