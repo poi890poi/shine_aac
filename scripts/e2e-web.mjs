@@ -862,6 +862,17 @@ async function getSnapshot() {
       const rows = [...document.querySelectorAll(".row")].map((row, rowIndex) =>
         [...row.querySelectorAll(".tile")].map((tile, cellIndex) => {
           const rect = tile.getBoundingClientRect();
+          const progressFill = tile.querySelector(".progress-fill");
+          const inlineTransform = progressFill?.style.transform ?? "";
+          const computedTransform = progressFill ? getComputedStyle(progressFill).transform : "";
+          const transform = inlineTransform || computedTransform;
+          let progress = Number.parseFloat(progressFill?.style.width || "0");
+          const scaleMatch = transform.match(/scaleX\\(([^)]+)\\)/);
+          if (scaleMatch) {
+            progress = Number.parseFloat(scaleMatch[1]) * 100;
+          } else if (transform.startsWith("matrix(")) {
+            progress = Number.parseFloat(transform.slice(7).split(",")[0]) * 100;
+          }
           return {
             rowIndex,
             cellIndex,
@@ -870,7 +881,7 @@ async function getSnapshot() {
             activeRow: tile.classList.contains("active-row"),
             activeCell: tile.classList.contains("active-cell"),
             reviewHold: tile.classList.contains("review-hold"),
-            progress: Number.parseFloat(tile.querySelector(".progress-fill")?.style.width || "0"),
+            progress,
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2
           };

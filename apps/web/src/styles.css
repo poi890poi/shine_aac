@@ -214,9 +214,12 @@ body.demo-active .phase::after {
 .progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 0%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
   pointer-events: none;
   background: rgba(31, 122, 140, 0.28);
+  will-change: transform;
 }
 
 .tile.review-hold .progress-fill {

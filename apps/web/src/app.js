@@ -44,6 +44,12 @@ let calibrationTimerId = 0;
 let lastScanAnnouncementKey = "";
 let reviewHoldActive = false;
 let suppressNextConfigClick = false;
+let renderedBoardKey = "";
+let renderedMessage = "";
+let renderedTiles = [];
+let renderedPhaseElement = null;
+let renderedVoiceElement = null;
+let currentProgressFills = [];
 let calibrationState = createCalibrationState();
 const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
@@ -228,8 +234,12 @@ function updateProgress() {
   const duration = scanDurationForStage(session.scannerState, session.config);
   const elapsed = Math.max(0, performance.now() - highlightStartedAt);
   const progress = reviewHoldActive ? 1 : Math.min(1, elapsed / Math.max(1, duration));
-  const progressFill = app.querySelector(".tile.is-current .progress-fill");
-  if (progressFill) progressFill.style.width = `${progress * 100}%`;
+  const progressFills = currentProgressFills.some((fill) => fill?.isConnected)
+    ? currentProgressFills.filter((fill) => fill?.isConnected)
+    : [...app.querySelectorAll(".tile.is-current .progress-fill")];
+  for (const progressFill of progressFills) {
+    progressFill.style.transform = `scaleX(${progress})`;
+  }
   if (reviewHoldActive) return;
   animationFrameId = window.requestAnimationFrame(updateProgress);
 }
@@ -301,7 +311,25 @@ function labelForSpeech(tile) {
 
 function render() {
   const board = visibleBoard(session);
+  const boardKey = boardSignature(board);
+  const canPatch =
+    renderedTiles.length > 0 &&
+    renderedTiles[0].element.isConnected &&
+    boardKey === renderedBoardKey &&
+    session.message === renderedMessage;
+
+  if (canPatch) {
+    updateScanPresentation(board);
+    emitRenderState(board);
+    return;
+  }
+
+  renderFull(board, boardKey);
+}
+
+function renderFull(board, boardKey) {
   const scanner = session.scannerState;
+  invalidateRenderedBoard();
   app.innerHTML = "";
 
   const shell = document.createElement("section");
@@ -329,10 +357,12 @@ function render() {
   const phase = document.createElement("div");
   phase.className = "phase";
   phase.textContent = reviewHoldActive ? "Review" : phaseLabel(scanner.stage);
+  renderedPhaseElement = phase;
 
   const voice = document.createElement("div");
   voice.className = "voice";
   voice.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
+  renderedVoiceElement = voice;
 
   const configButton = document.createElement("button");
   configButton.className = "config-button";
@@ -363,17 +393,8 @@ function render() {
     rowElement.style.gridTemplateColumns = `repeat(${session.config.columns}, minmax(0, 1fr))`;
 
     row.forEach((candidate, cellIndex) => {
-      const activeRow =
-        (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) &&
-        scanner.rowIndex === rowIndex;
-      const activeCell =
-        (scanner.stage === ScanStage.FirstCell || scanner.stage === ScanStage.Cells) &&
-        scanner.rowIndex === rowIndex &&
-        scanner.cellIndex === cellIndex;
-
       const tile = document.createElement("div");
-      const reviewHold = reviewHoldActive && (activeRow || activeCell);
-      tile.className = tileClass(candidate, activeRow, activeCell, reviewHold);
+      tile.className = tileClass(candidate, false, false, false);
       tile.setAttribute("data-label", candidate.label);
       tile.setAttribute("data-action", candidate.action);
       tile.setAttribute("role", "button");
@@ -388,6 +409,7 @@ function render() {
 
       tile.append(progressFill, label);
       rowElement.append(tile);
+      renderedTiles.push({ element: tile, progressFill, candidate, rowIndex, cellIndex });
     });
 
     boardElement.append(rowElement);
@@ -395,8 +417,73 @@ function render() {
 
   shell.append(topPanel, boardElement);
   app.append(shell);
+  renderedBoardKey = boardKey;
+  renderedMessage = session.message;
+  updateScanPresentation(board);
   scrollMessageToEnd(message);
   emitRenderState(board);
+}
+
+function updateScanPresentation(board) {
+  const scanner = session.scannerState;
+  if (renderedPhaseElement) {
+    renderedPhaseElement.textContent = reviewHoldActive ? "Review" : phaseLabel(scanner.stage);
+  }
+  if (renderedVoiceElement) {
+    renderedVoiceElement.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
+  }
+
+  const previousProgressFills = currentProgressFills;
+  const nextProgressFills = [];
+
+  for (const rendered of renderedTiles) {
+    const candidate = rendered.candidate;
+    const activeRow =
+      (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) &&
+      scanner.rowIndex === rendered.rowIndex;
+    const activeCell =
+      (scanner.stage === ScanStage.FirstCell || scanner.stage === ScanStage.Cells) &&
+      scanner.rowIndex === rendered.rowIndex &&
+      scanner.cellIndex === rendered.cellIndex;
+    const reviewHold = reviewHoldActive && (activeRow || activeCell);
+    const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold);
+    if (rendered.element.className !== nextClassName) {
+      rendered.element.className = nextClassName;
+    }
+    if (activeRow || activeCell || reviewHold) {
+      nextProgressFills.push(rendered.progressFill);
+    }
+  }
+
+  for (const previousProgressFill of previousProgressFills) {
+    if (!nextProgressFills.includes(previousProgressFill)) {
+      previousProgressFill.style.transform = "scaleX(0)";
+    }
+  }
+  currentProgressFills = nextProgressFills;
+}
+
+function invalidateRenderedBoard() {
+  renderedBoardKey = "";
+  renderedMessage = "";
+  renderedTiles = [];
+  renderedPhaseElement = null;
+  renderedVoiceElement = null;
+  currentProgressFills = [];
+}
+
+function boardSignature(board) {
+  return [
+    session.config.columns,
+    ...board.map((row) => row
+      .map((candidate) => [
+        candidate.label,
+        candidate.output,
+        candidate.action,
+        candidate.replaceLength ?? ""
+      ].join("\u001f"))
+      .join("\u001e"))
+  ].join("\u001d");
 }
 
 function scrollMessageToEnd(messageElement) {
@@ -498,6 +585,7 @@ function closeCalibration() {
 }
 
 function renderConfig() {
+  invalidateRenderedBoard();
   app.innerHTML = "";
 
   const backdrop = document.createElement("div");
@@ -740,6 +828,7 @@ function recordCalibrationInput(inputEvent) {
 }
 
 function renderCalibration() {
+  invalidateRenderedBoard();
   app.innerHTML = "";
 
   const backdrop = document.createElement("div");
