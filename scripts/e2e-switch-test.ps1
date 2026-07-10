@@ -90,6 +90,7 @@ function Write-TestPreferences {
 <map>
     <int name="columns" value="4" />
     <int name="configVersion" value="16" />
+    <string name="profileId">en-US</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
     <boolean name="scanVoice" value="false" />
