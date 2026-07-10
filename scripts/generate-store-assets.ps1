@@ -1,5 +1,6 @@
 param(
-    [string]$SourcePath = "store-assets\source\saytome-mascot-source.jpg"
+    [string]$SourcePath = "store-assets\source\saytome-mascot-source.jpg",
+    [switch]$GenerateFeatureGraphic
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,6 +23,52 @@ function Resize-Bitmap($Bitmap, [int]$Width, [int]$Height) {
     $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
     $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $graphics.DrawImage($Bitmap, 0, 0, $Width, $Height)
+    $graphics.Dispose()
+    return $result
+}
+
+function Find-VisibleBounds($Bitmap) {
+    $minX = $Bitmap.Width
+    $minY = $Bitmap.Height
+    $maxX = 0
+    $maxY = 0
+
+    for ($y = 0; $y -lt $Bitmap.Height; $y++) {
+        for ($x = 0; $x -lt $Bitmap.Width; $x++) {
+            $pixel = $Bitmap.GetPixel($x, $y)
+            if ($pixel.R -gt 10 -or $pixel.G -gt 10 -or $pixel.B -gt 10) {
+                if ($x -lt $minX) { $minX = $x }
+                if ($x -gt $maxX) { $maxX = $x }
+                if ($y -lt $minY) { $minY = $y }
+                if ($y -gt $maxY) { $maxY = $y }
+            }
+        }
+    }
+
+    if ($maxX -le $minX -or $maxY -le $minY) {
+        return New-Object System.Drawing.Rectangle(0, 0, $Bitmap.Width, $Bitmap.Height)
+    }
+
+    $width = $maxX - $minX + 1
+    $height = $maxY - $minY + 1
+    $size = [Math]::Max($width, $height)
+    $centerX = ($minX + $maxX) / 2
+    $centerY = ($minY + $maxY) / 2
+    $left = [int][Math]::Round($centerX - ($size / 2))
+    $top = [int][Math]::Round($centerY - ($size / 2))
+    $left = [Math]::Max(0, [Math]::Min($left, $Bitmap.Width - $size))
+    $top = [Math]::Max(0, [Math]::Min($top, $Bitmap.Height - $size))
+
+    return New-Object System.Drawing.Rectangle($left, $top, $size, $size)
+}
+
+function Crop-Bitmap($Bitmap, [System.Drawing.Rectangle]$Bounds) {
+    $result = New-Object System.Drawing.Bitmap($Bounds.Width, $Bounds.Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $graphics = [System.Drawing.Graphics]::FromImage($result)
+    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $graphics.DrawImage($Bitmap, 0, 0, $Bounds, [System.Drawing.GraphicsUnit]::Pixel)
     $graphics.Dispose()
     return $result
 }
@@ -85,6 +132,8 @@ $resolvedSource = Resolve-Path -LiteralPath $SourcePath
 $loaded = [System.Drawing.Image]::FromFile($resolvedSource.Path)
 $source = New-Object System.Drawing.Bitmap($loaded)
 $loaded.Dispose()
+$launcherBounds = Find-VisibleBounds $source
+$launcherSource = Crop-Bitmap $source $launcherBounds
 
 $storeIcon512 = Resize-Bitmap $source 512 512
 Save-Png $storeIcon512 "store-assets\app-icon\saytome-aac-icon-512.png"
@@ -101,16 +150,20 @@ $densities = @{
 }
 
 foreach ($entry in $densities.GetEnumerator()) {
-    $resized = Resize-Bitmap $source $entry.Value $entry.Value
+    $resized = Resize-Bitmap $launcherSource $entry.Value $entry.Value
     Save-Png $resized (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher.png")
     Save-Png $resized (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_round.png")
+    Save-Png $resized (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_foreground.png")
     $resized.Dispose()
 }
 
-Draw-FeatureGraphic $storeIcon512 "store-assets\feature-graphic\saytome-aac-feature-graphic.png"
+if ($GenerateFeatureGraphic) {
+    Draw-FeatureGraphic $storeIcon512 "store-assets\feature-graphic\saytome-aac-feature-graphic.png"
+}
 
 $storeIcon512.Dispose()
 $storeIcon1024.Dispose()
+$launcherSource.Dispose()
 $source.Dispose()
 
 Write-Host "Generated store assets and launcher icons from the original source image."
