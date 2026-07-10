@@ -1212,18 +1212,29 @@ function attachDemoLongPress(element) {
     pressTimer = 0;
   };
 
-  element.addEventListener("pointerdown", (event) => {
+  const startPress = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
+    if (pressTimer) return;
     cancelPress();
     pressTimer = window.setTimeout(() => {
       pressTimer = 0;
       suppressNextConfigClick = true;
       demoMode.start();
     }, 1800);
-  });
+  };
+
+  element.addEventListener("pointerdown", startPress);
   element.addEventListener("pointerup", cancelPress);
-  element.addEventListener("pointercancel", cancelPress);
-  element.addEventListener("pointerleave", cancelPress);
+  element.addEventListener("pointerleave", (event) => {
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    cancelPress();
+  });
+  element.addEventListener("touchstart", startPress, { passive: true });
+  element.addEventListener("touchend", cancelPress);
+  element.addEventListener("mousedown", startPress);
+  element.addEventListener("mouseup", cancelPress);
+  element.addEventListener("mouseleave", cancelPress);
+  element.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
 document.addEventListener("keydown", (event) => {

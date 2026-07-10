@@ -204,6 +204,23 @@ function Switch-Activate([string]$Label) {
     Write-Host "keyevent $activationKeyCode $Label"
 }
 
+function Get-ScreenSize {
+    $sizeText = (& $script:adb shell wm size) -join "`n"
+    if ($sizeText -match "(\d+)x(\d+)") {
+        return @([int]$Matches[1], [int]$Matches[2])
+    }
+
+    throw "Could not determine emulator screen size from: $sizeText"
+}
+
+function LongPress-ConfigButton {
+    $size = Get-ScreenSize
+    $x = [int]($size[0] * 0.82)
+    $y = [int]($size[1] * 0.17)
+    Invoke-AdbQuiet shell input swipe $x $y $x $y 2200
+    Write-Host "long press $x $y Config button"
+}
+
 function Select-SuggestionCell([int]$CellIndex, [string]$ExpectedLabel) {
     Wait-RenderState "suggestion row for $ExpectedLabel" @('"stage":"Rows"', '"rowIndex":0')
     Switch-Activate "suggestion row for $ExpectedLabel"
@@ -252,6 +269,19 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Step "Resetting app data for deterministic hardware-button E2E"
+Invoke-AdbQuiet shell pm clear org.shineaac.app
+Invoke-AdbQuiet logcat -c
+Write-TestPreferences
+Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
+Wait-E2EReady
+Start-Sleep -Milliseconds 300
+
+Write-Step "Verifying packaged Config long-press Demo activation"
+Invoke-AdbQuiet logcat -c
+LongPress-ConfigButton
+Wait-LoggedMessage "I need help " 30000
+
+Write-Step "Resetting app data after Demo E2E"
 Invoke-AdbQuiet shell pm clear org.shineaac.app
 Invoke-AdbQuiet logcat -c
 Write-TestPreferences
