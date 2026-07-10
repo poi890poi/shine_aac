@@ -1,25 +1,31 @@
 # SHINE AAC APK Report
 
-Generated: 2026-07-05
+Generated: 2026-07-10
 
 ## Download
 
-Current release artifact:
+Current prerelease artifact:
 
 ```text
-releases/v0.2.2/shine-aac-v0.2.2-code5-debug.apk
+releases/v0.2.3/shine-aac-v0.2.3-code6-debug.apk
 ```
 
-Public download URL:
+Public download URL after push/tag:
 
 ```text
-https://github.com/poi890poi/shine_aac/raw/v0.2.2/releases/v0.2.2/shine-aac-v0.2.2-code5-debug.apk
+https://github.com/poi890poi/shine_aac/raw/v0.2.3/releases/v0.2.3/shine-aac-v0.2.3-code6-debug.apk
 ```
 
 SHA-256:
 
 ```text
-edafc88331391512b01af455cec04bb18c17d575095b42195efa1f06ab93723f
+1b1f8945bb15479c41a8ffe6105935ea1fcf694821d3fdec88aa98b2626ed2f4
+```
+
+Size:
+
+```text
+9847078 bytes
 ```
 
 Intermediate Gradle output, overwritten on every build:
@@ -28,72 +34,74 @@ Intermediate Gradle output, overwritten on every build:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Do not distribute `app-debug.apk` directly. Use the versioned file under `releases/`, or the APK attached to the matching GitHub Release tag.
+Do not distribute `app-debug.apk` directly. Use the versioned file under `releases/`, the raw GitHub tag URL above, or the APK attached to the matching GitHub Release tag.
 
 ## What This APK Is
 
-This APK is now a thin Android WebView shell around the Windows/browser app and the shared `packages/aac-core` logic.
+This is an early-development debug APK for UX testing. It is not a Play Store production artifact and is not a signed release AAB.
 
 The APK bundles:
 
-- `apps/web/index.html`
-- `apps/web/src/styles.css`
-- a generated WebView-compatible `bundle.js` containing local web modules, the web app, and AAC core
+- Android WebView shell
+- local web assets generated from `apps/web`
+- shared `packages/aac-core` scanner, board, profile, dictionary, and message logic
+- Android Text-to-Speech bridge
+- Android hardware-button input bridge
 
-The Android shell provides:
-
-- local WebView loading from APK assets
-- JavaScript enabled
-- browser local storage
-- native Android Text-to-Speech bridge for `SAY`
-- native Android Text-to-Speech bridge for scan and activation feedback
-- Android hardware button input bridge for volume/media/camera-style keys
-
-## Verified
+## Verified For This Artifact
 
 Passed:
 
 ```powershell
-npm run test:core
+npm test
+node scripts/report-communication-benchmarks.mjs
 npm run test:web:e2e
-.\build-test.bat -SdkDir E:\Android\Sdk
-.\run-apk.bat -NoBuild -SdkDir E:\Android\Sdk
-.\e2e-switch-test.bat -NoBuild -SdkDir E:\Android\Sdk
-```
-
-Emulator smoke check:
-
-- APK installed successfully
-- APK launched successfully
-- WebView rendered the AAC board
-- full board fits on the emulator display without scrolling
-- action targets have distinct function styling, and the message area shows a visible cursor
-- spaces are visible in the message area as dot markers
-- logcat no longer shows the previous `file:///android_asset` ES module CORS error
-- latest screenshot saved at `e2e-artifacts/shine-audio-spacing-fit.png`
-- hardware-button E2E entered `I want water ` through packaged APK key events
-- hardware-button E2E verified packaged `zh-TW` dictionary-backed Zhuyin symbols `ㄅ`, `ㄧ`, `ㄩ`, and `更多`
-- packaged WebView bundle contains the generated New Chewing `zh-TW` dictionary data and has no remaining module `import`/`export` syntax
-- web E2E verified localized `zh-TW` function labels including `復原` and `更多`
-- web E2E verified default suggestion-review hold pauses scanning and resumes on the next activation
-- web E2E verified hidden `Config` long-press starts the extended everyday conversation demo and tap exits it
-- demo mode uses scanner state to activate targets after roughly one-third to one-half of the highlight duration
-- demo mode includes word selections, deeper-row alphabet spelling, `DEL`, and `UNDO` correction
-- hardware-button E2E final screenshot saved at `e2e-artifacts/hardware-button-final.png`
-
-Browser E2E also includes a Pixel 4a 5G-sized layout check:
-
-```text
-pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
-zh-tw-pixel-4a-5g-layout: PASS, fits 12 rows in 851px viewport without scrolling
-```
-
-Versioned release packaging:
-
-```text
 .\package-release.bat -SdkDir E:\Android\Sdk
 ```
 
-## Notes
+Package output:
 
-This is a debug APK, so Android may warn about installing an unknown app. It is intended for user-experience testing, not release distribution.
+```text
+E:\workspace\shine_aac\releases\v0.2.3\shine-aac-v0.2.3-code6-debug.apk
+```
+
+Build notes:
+
+- Gradle build succeeded.
+- Android Gradle Plugin warning remains: AGP `8.5.0` is tested up to compileSdk `34`; project currently uses compileSdk `35`.
+- The warning did not block the debug APK build.
+
+## Runtime APK Smoke Status
+
+Runtime device/emulator smoke was not rerun for this exact `v0.2.3` package during this documentation update. It should be repeated before a wider tester group if any Android shell behavior changes.
+
+Recommended smoke checks:
+
+- install the versioned APK
+- launch the app and verify the main board renders
+- verify `zh-TW` profile shows Chinese labels plus the `EN` English entry point
+- verify `EN` opens English symbols and returns predictably
+- verify `復原`, `刪`, and `清除`
+- verify one-line message display scrolls horizontally instead of growing vertically
+- verify Android TTS speaks selected output
+- verify hardware/accessibility switch input path if the tester uses switch scanning
+
+## Human UX Verification
+
+This APK is intended for small-scale Taiwan UX verification. Ask testers to treat it as early development software.
+
+Minimum UX checklist:
+
+| Case | Expected |
+| --- | --- |
+| Early-development warning | tester understands the app is not finished |
+| Basic request | short need such as drink/comfort can be entered |
+| Longer thought | a feeling or preference can be expressed and repaired |
+| Occasional English | `EN` supports short embedded English without switching profile |
+| Scan timing | timing feels usable and first cell is not rushed |
+| Speech output | volume and Mandarin voice are acceptable |
+| Layout fit | rows and message area do not clip on the device |
+
+## Play Store Note
+
+Google Play should use a signed release Android App Bundle generated by `build-play-aab.bat`, not this debug APK. This APK is for prerelease testing only.

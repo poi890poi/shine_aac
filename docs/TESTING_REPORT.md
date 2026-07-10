@@ -12,7 +12,7 @@ Methodology: `docs/TESTING_PLAN.md`
 | Communication benchmark report | `node scripts/report-communication-benchmarks.mjs` | PASS | 103 / 103 benchmark tasks passing | `docs/COMMUNICATION_BENCHMARK_REPORT.md` |
 | Browser E2E | `npm run test:web:e2e` with fresh ports | PASS | 16 reported steps/artifacts, Pixel 4a 5G viewport fit checks pass | `docs/WEB_E2E_REPORT.md` |
 | Android debug build | `.\build-test.bat -SdkDir E:\Android\Sdk` | PASS | Gradle debug APK built | `docs/APK_REPORT.md` |
-| APK package | `.\package-release.bat -SdkDir E:\Android\Sdk` | Pending this prerelease package | versioned APK, SHA-256, URL | `docs/APK_REPORT.md` |
+| APK package | `.\package-release.bat -SdkDir E:\Android\Sdk` | PASS | `shine-aac-v0.2.3-code6-debug.apk`, SHA-256 `1b1f8945bb15479c41a8ffe6105935ea1fcf694821d3fdec88aa98b2626ed2f4` | `docs/APK_REPORT.md` |
 | Human UX verification | manual Taiwan trial checklist | Pending | owner/helper/user feedback required | release notes / UX notes |
 
 ## Current Communication Benchmark Stats
@@ -65,7 +65,14 @@ The latest Android build check passed with:
 .\build-test.bat -SdkDir E:\Android\Sdk
 ```
 
-The current prerelease package step will generate a versioned APK under `releases/`, record SHA-256, and provide a pushed GitHub download URL. Runtime device/emulator smoke should be repeated when native shell behavior changes, especially hardware switch input, TTS, storage, WebView loading, or Android permissions.
+The current prerelease package step generated:
+
+```text
+releases/v0.2.3/shine-aac-v0.2.3-code6-debug.apk
+SHA-256: 1b1f8945bb15479c41a8ffe6105935ea1fcf694821d3fdec88aa98b2626ed2f4
+```
+
+Runtime device/emulator smoke should be repeated when native shell behavior changes, especially hardware switch input, TTS, storage, WebView loading, or Android permissions.
 
 ## UX Verification Still Needed
 
