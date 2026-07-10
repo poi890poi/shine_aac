@@ -145,6 +145,7 @@ function composeToken(session, token) {
   if (direct) return selectPosition(session, direct);
 
   if (session.config.profileId === "zh-TW") {
+    if (isZhTwLatinToken(token)) return composeZhTwLatinToken(session, token);
     return composeZhTwToken(session, token);
   }
 
@@ -176,6 +177,37 @@ function composeToken(session, token) {
   }
 
   return { session: next, metrics };
+}
+
+function isZhTwLatinToken(token) {
+  return /^[A-Za-z ?]+$/.test(String(token));
+}
+
+function composeZhTwLatinToken(session, token) {
+  let next = session;
+  let metrics = blankMetrics();
+
+  const opened = selectVisibleTile(next, (candidate) =>
+    candidate.action === TileAction.OpenCategory &&
+    candidate.output === "english"
+  );
+  next = opened.session;
+  metrics = addMetrics(metrics, opened.metrics);
+
+  for (const character of Array.from(String(token))) {
+    const selected = selectVisibleTile(next, (candidate) => {
+      if (character === " ") return candidate.action === TileAction.Space && candidate.output === " ";
+      return candidate.action === TileAction.Append && candidate.output === character.toLowerCase();
+    });
+    next = selected.session;
+    metrics = addMetrics(metrics, selected.metrics);
+  }
+
+  const closed = selectVisibleTile(next, (candidate) => candidate.action === TileAction.CloseCategory);
+  return {
+    session: closed.session,
+    metrics: addMetrics(metrics, closed.metrics)
+  };
 }
 
 function composeZhTwToken(session, token) {

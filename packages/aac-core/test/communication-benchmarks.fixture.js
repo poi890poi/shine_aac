@@ -229,6 +229,28 @@ const ZhTwPhoneticCoreBenchmarks = Object.freeze([
     maxSelections: 18
   }),
   Object.freeze({
+    id: "zhtw-multilingual-home-podcast",
+    profileId: "zh-TW",
+    source: "shineZhTwPhoneticCore",
+    sourceExample: "Home setting request with embedded English media word in a zh-TW sentence.",
+    purpose: "multilingual-home-media-request",
+    targetConcepts: ["聽", "podcast", "新", "資料", "夾"],
+    acceptableTokenSequences: [["聽", " podcast ", "新", "資料", "夾"]],
+    expectedFinalMessages: ["聽 podcast 新資料夾"],
+    maxSelections: 30
+  }),
+  Object.freeze({
+    id: "zhtw-multilingual-audio-repair",
+    profileId: "zh-TW",
+    source: "shineZhTwPhoneticCore",
+    sourceExample: "Home setting media repair with an embedded English source label.",
+    purpose: "multilingual-home-audio-repair",
+    targetConcepts: ["podcast", "音量", "小"],
+    acceptableTokenSequences: [["podcast ", "音量", "小"]],
+    expectedFinalMessages: ["podcast 音量小"],
+    maxSelections: 23
+  }),
+  Object.freeze({
     id: "zhtw-phonetic-home-drink",
     profileId: "zh-TW",
     source: "shineZhTwPhoneticCore",

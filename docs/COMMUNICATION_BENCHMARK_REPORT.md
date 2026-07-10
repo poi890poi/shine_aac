@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-07-05T14:58:14.039Z
+Generated: 2026-07-10T06:03:45.726Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -14,41 +14,45 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 | Top zh-TW glyph reachability | unique Han glyphs | 222 / 224 (99.11%) | >= 99% | Single-character entries reachable in the top 500 source-ranked dictionary slice |
 | Top zh-TW phrase reachability | unique phrases | 141 / 141 (100.00%) | >= 95% | Multi-character entries reachable in the top 500 source-ranked dictionary slice |
 | zh-TW functional phrase surface | phrases | 48 | 10 areas x 8-12 phrases = 80-120 | Built-in functional phrases for needs, comfort, care, positioning, people, preference, and repair |
-| Multi-concept utterance coverage | utterances / sentences | 10 | 10 areas x 12 utterances = 120 | Real communication sequences; this remains the main benchmark gap |
+| Multi-concept utterance coverage | utterances / sentences | 16 | 10 areas x 12 utterances = 120 | Real communication sequences; this remains the main benchmark gap |
 | Corpus-style zh-TW sentence audit | source sentences | 0 | external reference: 400 | BASPRO/TMNews scale reference only; generated filler is not counted |
-| Benchmark pass rate | tasks | 97 | 97 | Evaluation tasks passing current limits |
+| Benchmark pass rate | tasks | 103 | 103 | Evaluation tasks passing current limits |
 
 ## Effort Metrics
 
 | Metric | Unit | Total | Average Per Passing Task |
 | --- | --- | ---: | ---: |
-| Estimated scan time | seconds | 1433.10 | 14.77 avg / 13.80 median |
-| Output selections | selected tiles | 210 | 2.16 |
-| Switch activations | activations | 420 | 4.33 avg / 4.00 median |
-| Scanner advances | row/cell advances | 1047 | 10.79 |
+| Estimated scan time | seconds | 2783.20 | 27.02 avg / 13.80 median |
+| Output selections | selected tiles | 420 | 4.08 |
+| Switch activations | activations | 840 | 8.16 avg / 4.00 median |
+| Scanner advances | row/cell advances | 2032 | 19.73 |
 
 ## Effort Targets
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 14.77 sec | <= 15 sec | meets |
+| Average benchmark time | 27.02 sec | <= 15 sec | gap |
 | Median benchmark time | 13.80 sec | <= 10 sec urgent phrase target | gap |
-| Average switch activations | 4.33 | <= 6 | meets |
+| Average switch activations | 8.16 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
 
 ## Selected Action Counts
 
 | Tile Action | Count |
 | --- | ---: |
-| append | 153 |
-| more-suggestions | 56 |
+| append | 307 |
+| close-category | 2 |
+| commit-candidate | 40 |
+| more-suggestions | 65 |
+| open-category | 2 |
+| space | 3 |
 | undo | 1 |
 
 ## Read This Correctly
 
 - Word-list reachability is still tracked: 36 / 36 Project Core words, but this is not a sentence metric.
 - Current zh-TW phrase-surface coverage is 48 phrases against an initial target of 80-120.
-- Real multi-concept utterance coverage is 10 / 120; that denominator means 10 communication areas x 12 utterance probes each.
+- Real multi-concept utterance coverage is 16 / 120; that denominator means 10 communication areas x 12 utterance probes each.
 - Source-licensed natural sentence audit coverage is 0. The 400-sentence number is an external Chinese phonetic-balanced script reference, not a SHINE release target.
 - zh-TW glyph and phrase reachability above comes from source-ranked dictionary entries, not generated sentences.
 - Estimated time uses configured scanner timings along the actual selected path; it is not test runtime.
@@ -94,20 +98,20 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 1433.10 seconds
-- Average estimated scan time per passing task: 14.77 seconds
-- Total selections across passing tasks: 210
-- Average selections per passing task: 2.16
-- Total switch activations across passing tasks: 420
-- Average switch activations per passing task: 4.33
-- Total scan advances across passing tasks: 1047
-- Average scan advances per passing task: 10.79
+- Total estimated scan time across passing tasks: 2783.20 seconds
+- Average estimated scan time per passing task: 27.02 seconds
+- Total selections across passing tasks: 420
+- Average selections per passing task: 4.08
+- Total switch activations across passing tasks: 840
+- Average switch activations per passing task: 8.16
+- Total scan advances across passing tasks: 2032
+- Average scan advances per passing task: 19.73
 
 ## Task Type Counts
 
 | Task Type | Tasks |
 | --- | ---: |
-| multi-concept / operational utterance | 10 |
+| multi-concept / operational utterance | 16 |
 | single-concept workflow | 3 |
 | word reachability | 36 |
 | zh-TW functional surface | 48 |
@@ -117,7 +121,7 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | Profile | Tasks |
 | --- | ---: |
 | en-US | 43 |
-| zh-TW | 54 |
+| zh-TW | 60 |
 
 ## Purpose Counts
 
@@ -133,8 +137,14 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | comfort-object | 1 |
 | conversation | 2 |
 | conversation-repair | 1 |
+| feeling-social-expression | 1 |
 | feelings | 1 |
+| home-audio-repair | 1 |
+| home-drink-request | 1 |
+| home-media-request | 1 |
 | identity | 1 |
+| multilingual-home-audio-repair | 1 |
+| multilingual-home-media-request | 1 |
 | need | 6 |
 | operational-repair | 1 |
 | people | 4 |
@@ -163,6 +173,7 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | Project Core Universal Core Vocabulary | 39 |
 | SHINE AAC current-app regression | 1 |
 | SHINE zh-TW built-in functional vocabulary | 48 |
+| SHINE zh-TW phonetic core regression | 6 |
 | SHINE zh-TW telegraphic AAC utterances | 6 |
 
 | Task | Source | Best Output | Time Sec | Selections | Activations | Scan Advances | Actions | Limit | Status |
@@ -257,6 +268,12 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | zhtw-utterance-sit-up-pillow | SHINE zh-TW telegraphic AAC utterances | 更多 坐起來 更多 枕頭 | 26.30 | 4 | 8 | 19 | append:2, more-suggestions:2 | 4 | PASS |
 | zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 15.50 | 3 | 6 | 11 | append:2, more-suggestions:1 | 3 | PASS |
 | zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | 3 | PASS |
+| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 117.30 | 17 | 34 | 85 | append:13, commit-candidate:4 | 18 | PASS |
+| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽  podcast  新 資料 夾 | 198.90 | 28 | 56 | 145 | append:20, close-category:1, commit-candidate:4, open-category:1, space:2 | 30 | PASS |
+| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast  音量 小 | 134.70 | 21 | 42 | 99 | append:15, close-category:1, commit-candidate:2, more-suggestions:1, open-category:1, space:1 | 23 | PASS |
+| zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 332.70 | 51 | 102 | 243 | append:37, commit-candidate:12, more-suggestions:2 | 54 | PASS |
+| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 153.70 | 26 | 52 | 113 | append:19, commit-candidate:5, more-suggestions:2 | 28 | PASS |
+| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 412.80 | 67 | 134 | 300 | append:50, commit-candidate:13, more-suggestions:4 | 70 | PASS |
 | project-core-go | Project Core Universal Core Vocabulary | go | 6.90 | 1 | 2 | 5 | append:1 | 1 | PASS |
 | project-core-like | Project Core Universal Core Vocabulary | like | 17.70 | 2 | 4 | 13 | append:2 | 2 | PASS |
 | project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 4.70 | 2 | 4 | 3 | append:2 | 4 | PASS |
@@ -290,3 +307,6 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 - SHINE zh-TW telegraphic AAC utterances: docs/QUALITY_TARGET_METRICS.md
   - Uses existing zh-TW functional phrases as short AAC utterances across ASHA and Light/McNaughton communication functions.
   - These are benchmark probes for current UI reachability, not generated natural-language corpus sentences.
+- SHINE zh-TW phonetic core regression: docs/QUALITY_TARGET_METRICS.md
+  - Uses source-backed zh-TW dictionary entries and virtual row/column selection to measure whether daily words can be composed without browser timing.
+  - Counts tile activations for reachability and efficiency; real-time scanning is covered separately by browser smoke tests.
