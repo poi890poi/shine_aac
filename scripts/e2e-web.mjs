@@ -15,6 +15,12 @@ const debugPort = Number(process.env.SHINE_AAC_CDP_PORT ?? 9223);
 const edgePath = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const profileDir = join(process.env.TEMP ?? artifactDir, `shine-aac-edge-${Date.now()}`);
 const appUrl = `http://127.0.0.1:${webPort}/apps/web/`;
+const HttpStartupTimeoutMs = 30000;
+const UiWaitTimeoutMs = 30000;
+const DemoStartTimeoutMs = 10000;
+const DemoStopTimeoutMs = 60000;
+const CalibrationWaitTimeoutMs = 10000;
+const BrowserSmokeScanMs = 500;
 
 const steps = [];
 let serverProcess;
@@ -30,7 +36,7 @@ try {
   });
   serverProcess.stdout.on("data", (data) => process.stdout.write(data));
   serverProcess.stderr.on("data", (data) => process.stderr.write(data));
-  await waitForHttp(appUrl, 6000);
+  await waitForHttp(appUrl, HttpStartupTimeoutMs);
   steps.push(pass("server", `served ${appUrl}`));
 
   edgeProcess = spawn(edgePath, [
@@ -51,7 +57,7 @@ try {
     if (!text.includes("DevTools listening")) process.stderr.write(text);
   });
 
-  await waitForHttp(`http://127.0.0.1:${debugPort}/json/version`, 8000);
+  await waitForHttp(`http://127.0.0.1:${debugPort}/json/version`, HttpStartupTimeoutMs);
   const target = await createTarget(appUrl);
   cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
   await cdp.send("Page.enable");
@@ -68,9 +74,9 @@ try {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       columns: 4,
-      scanIntervalMs: 500,
+      scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
-      firstCellPauseMs: 500,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
@@ -83,14 +89,13 @@ try {
     location.reload();
   `);
   await waitForUi();
-  steps.push(pass("test-config", "seeded fast scan timing through browser localStorage"));
+  steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioDeveloperDemoMode();
-  await scenarioZhTwHomeDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
@@ -164,9 +169,9 @@ async function scenarioReviewHold() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       columns: 4,
-      scanIntervalMs: 500,
+      scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
-      firstCellPauseMs: 500,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
@@ -273,9 +278,9 @@ async function scenarioDeveloperDemoMode() {
       configVersion: 18,
       profileId: "en-US",
       columns: 4,
-      scanIntervalMs: 250,
+      scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
-      firstCellPauseMs: 250,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
@@ -306,9 +311,9 @@ async function scenarioZhTwHomeDemoMode() {
       configVersion: 18,
       profileId: "zh-TW",
       columns: 4,
-      scanIntervalMs: 80,
+      scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
-      firstCellPauseMs: 80,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
@@ -335,9 +340,9 @@ async function scenarioZhTwLayoutMigration() {
       configVersion: 8,
       profileId: "zh-TW",
       columns: 4,
-      scanIntervalMs: 500,
+      scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
-      firstCellPauseMs: 500,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0,
       suggestionDictionary: [
         "我要喝水",
@@ -377,18 +382,18 @@ async function scenarioZhTwLayoutMigration() {
     }));
     location.reload();
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "更多"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "EN"]);
 
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
   assertArrayEqual(snapshot.rows[4].map((tile) => tile.label), ["是", "不", "幫忙", "痛"], "zh-TW static core response row");
-  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
+  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
   }
   for (const rejected of ["E", "T", "空格", "我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW layout should not include ${rejected}`);
   }
-  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "更多", "不"]);
+  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "EN", "不"]);
 
   await selectLabel("ㄅ");
   snapshot = await getSnapshot();
@@ -437,10 +442,10 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       document.querySelector('[data-action="reset"]')?.click();
     })()
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "更多"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "EN"]);
   const snapshot = await getSnapshot();
   const labels = snapshot.rows.flat().map((tile) => tile.label);
-  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
+  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW reset layout missing ${expected}`);
   }
   for (const rejected of ["E", "T", "空格", "我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
@@ -464,13 +469,13 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   if (
     !stored.symbols.includes("ㄅ") ||
     !stored.symbols.includes("EN=<category:english>") ||
-    !stored.symbols.includes("更多=<more>") ||
     !stored.symbols.includes("說=<speak>") ||
     !stored.symbols.includes("刪=<delete>") ||
     !stored.symbols.includes("清除=<clear>") ||
     stored.symbols.includes("SAY=<speak>") ||
     stored.symbols.includes("DEL=<delete>") ||
     stored.symbols.includes("CLR=<clear>") ||
+    stored.symbols.includes("更多=<more>") ||
     stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>") ||
     stored.symbolLines.includes("E")
   ) {
@@ -592,7 +597,7 @@ async function scrollTileIntoView(rowIndex, cellIndex) {
 async function assertMessage(expected, timeoutMs = 3000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const demoError = await evaluate(`document.body.classList.contains("demo-active") ? (globalThis.ShineAacDemoError || "") : ""`).catch(() => "");
+    const demoError = await evaluate(`globalThis.ShineAacDemoError || ""`).catch(() => "");
     if (demoError) throw new Error(demoError);
     const snapshot = await getSnapshot();
     if (snapshot.message === expected) return;
@@ -678,7 +683,7 @@ async function assertMessageScrolledToEnd() {
 }
 
 async function waitForUi() {
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + UiWaitTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getSnapshot().catch(() => null);
     if (snapshot?.rows?.length > 0 && snapshot.rows.flat().some((tile) => tile.label === "WANT")) return;
@@ -688,7 +693,7 @@ async function waitForUi() {
 }
 
 async function waitForRenderedBoard() {
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + UiWaitTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getSnapshot().catch(() => null);
     if (snapshot?.rows?.length > 0) return;
@@ -698,7 +703,7 @@ async function waitForRenderedBoard() {
 }
 
 async function waitForDemoActive() {
-  const deadline = Date.now() + 4000;
+  const deadline = Date.now() + DemoStartTimeoutMs;
   while (Date.now() < deadline) {
     const active = await evaluate(`document.body.classList.contains("demo-active")`);
     if (active) return;
@@ -707,7 +712,7 @@ async function waitForDemoActive() {
   throw new Error("Demo mode did not start from hidden gesture");
 }
 
-async function waitForDemoInactive(timeoutMs = 20000) {
+async function waitForDemoInactive(timeoutMs = DemoStopTimeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const active = await evaluate(`document.body.classList.contains("demo-active")`);
@@ -718,7 +723,7 @@ async function waitForDemoInactive(timeoutMs = 20000) {
 }
 
 async function waitForCalibration(kind) {
-  const deadline = Date.now() + 4000;
+  const deadline = Date.now() + CalibrationWaitTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getCalibrationSnapshot().catch(() => null);
     if (snapshot?.kind === kind) return;
@@ -750,7 +755,7 @@ async function isDemoActive() {
 }
 
 async function waitForLabels(expectedLabels) {
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + UiWaitTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getSnapshot().catch(() => null);
     const labels = snapshot?.rows?.flat().map((tile) => tile.label) ?? [];

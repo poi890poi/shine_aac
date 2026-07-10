@@ -46,6 +46,14 @@ export const CommunicationBenchmarkSources = Object.freeze({
       "Uses existing zh-TW functional phrases as short AAC utterances across ASHA and Light/McNaughton communication functions.",
       "These are benchmark probes for current UI reachability, not generated natural-language corpus sentences."
     ]
+  }),
+  shineZhTwPhoneticCore: Object.freeze({
+    title: "SHINE zh-TW phonetic core regression",
+    url: "docs/QUALITY_TARGET_METRICS.md",
+    notes: [
+      "Uses source-backed zh-TW dictionary entries and virtual row/column selection to measure whether daily words can be composed without browser timing.",
+      "Counts tile activations for reachability and efficiency; real-time scanning is covered separately by browser smoke tests."
+    ]
   })
 });
 
@@ -208,10 +216,58 @@ const ZhTwTelegraphicUtteranceBenchmarks = Object.freeze([
   })
 ]);
 
+const ZhTwPhoneticCoreBenchmarks = Object.freeze([
+  Object.freeze({
+    id: "zhtw-phonetic-home-podcast",
+    profileId: "zh-TW",
+    source: "shineZhTwPhoneticCore",
+    sourceExample: "Home setting request to listen to a specific program title.",
+    purpose: "home-media-request",
+    targetConcepts: ["聽", "新", "資料", "夾"],
+    acceptableTokenSequences: [["聽", "新", "資料", "夾"]],
+    expectedFinalMessages: ["聽新資料夾"],
+    maxSelections: 18
+  }),
+  Object.freeze({
+    id: "zhtw-phonetic-home-drink",
+    profileId: "zh-TW",
+    source: "shineZhTwPhoneticCore",
+    sourceExample: "Home setting drink request with modifiers and assistive object.",
+    purpose: "home-drink-request",
+    targetConcepts: ["冰", "紅茶", "少", "冰", "不要", "太", "甜", "等", "一下", "喝", "用", "吸管"],
+    acceptableTokenSequences: [["冰", "紅茶", "少", "冰", "不要", "太", "甜", "等", "一下", "喝", "用", "吸管"]],
+    expectedFinalMessages: ["冰紅茶少冰不要太甜等一下喝用吸管"],
+    maxSelections: 54
+  }),
+  Object.freeze({
+    id: "zhtw-phonetic-home-audio-repair",
+    profileId: "zh-TW",
+    source: "shineZhTwPhoneticCore",
+    sourceExample: "Home setting media repair: volume and location in a program.",
+    purpose: "home-audio-repair",
+    targetConcepts: ["音量", "小", "從", "剛剛", "那裡"],
+    acceptableTokenSequences: [["音量", "小", "從", "剛剛", "那裡"]],
+    expectedFinalMessages: ["音量小從剛剛那裡"],
+    maxSelections: 28
+  }),
+  Object.freeze({
+    id: "zhtw-phonetic-home-feeling",
+    profileId: "zh-TW",
+    source: "shineZhTwPhoneticCore",
+    sourceExample: "Home setting complex feeling and social expression.",
+    purpose: "feeling-social-expression",
+    targetConcepts: ["今天", "比較", "累", "但是", "心情", "好", "想", "聽", "你", "講", "這樣", "很", "舒服", "謝謝"],
+    acceptableTokenSequences: [["今天", "比較", "累", "但是", "心情", "好", "想", "聽", "你", "講", "這樣", "很", "舒服", "謝謝"]],
+    expectedFinalMessages: ["今天比較累但是心情好想聽你講這樣很舒服謝謝"],
+    maxSelections: 70
+  })
+]);
+
 export const CommunicationBenchmarks = Object.freeze([
   ...ProjectCoreWordBenchmarks,
   ...ZhTwFunctionalPhraseBenchmarks,
   ...ZhTwTelegraphicUtteranceBenchmarks,
+  ...ZhTwPhoneticCoreBenchmarks,
   Object.freeze({
     id: "project-core-go",
     source: "projectCoreUniversalCore",

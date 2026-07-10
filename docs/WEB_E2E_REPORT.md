@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-10T01:31:16.923Z
+Generated: 2026-07-10T04:52:24.975Z
 
 Result: PASS
 
@@ -8,7 +8,7 @@ Result: PASS
 | --- | --- | --- |
 | server | PASS | served http://127.0.0.1:5183/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
-| test-config | PASS | seeded fast scan timing through browser localStorage |
+| test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
 | undo-correction | PASS | undid WATER and selected FOOD |
 | clear | PASS | selected CLR from the visible board |
@@ -17,12 +17,10 @@ Result: PASS
 | review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
 | demo-mode | PASS | hidden Config long-press starts extended conversation demo and tap exits it |
-| message-scroll-end | PASS | long single-line message scrolls horizontally and keeps latest symbols visible |
-| zh-tw-demo-mode | PASS | automated the zh-TW home conversation through normal visible suggestions |
-| pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
+| pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
-| zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
+| zh-tw-pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

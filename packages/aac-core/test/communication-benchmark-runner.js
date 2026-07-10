@@ -6,7 +6,8 @@ import {
   createScannerState,
   createSession,
   pressSwitch,
-  visibleBoard
+  visibleBoard,
+  ZhTwFrequencyDictionary
 } from "../src/index.js";
 
 export function normalizeText(value) {
@@ -143,6 +144,10 @@ function composeToken(session, token) {
   const direct = bestPositionForToken(session, token);
   if (direct) return selectPosition(session, direct);
 
+  if (session.config.profileId === "zh-TW") {
+    return composeZhTwToken(session, token);
+  }
+
   const normalized = normalizeToken(token);
   if (!/^[a-z]+$/.test(normalized)) {
     throw new Error(`No visible tile or spelling fallback for ${token}`);
@@ -171,6 +176,107 @@ function composeToken(session, token) {
   }
 
   return { session: next, metrics };
+}
+
+function composeZhTwToken(session, token) {
+  const label = String(token);
+  const targetEntry = bestZhTwEntry(label);
+  if (!targetEntry) throw new Error(`No zh-TW dictionary entry for ${label}`);
+
+  let next = session;
+  let metrics = blankMetrics();
+
+  for (const symbol of Array.from(targetEntry.key)) {
+    const selected = selectVisibleTileAcrossSuggestionPages(next, (candidate) =>
+      candidate.action === TileAction.Append &&
+      candidate.output === symbol
+    );
+    if (!selected) {
+      throw new Error(`No visible zh-TW symbol ${symbol} while composing ${label} with ${targetEntry.key}`);
+    }
+    next = selected.session;
+    metrics = addMetrics(metrics, selected.metrics);
+  }
+
+  const committed = selectVisibleTileAcrossSuggestionPages(next, (candidate) =>
+    candidate.action === TileAction.CommitCandidate &&
+    candidate.label === label
+  );
+  if (committed) {
+    return {
+      session: committed.session,
+      metrics: addMetrics(metrics, committed.metrics)
+    };
+  }
+
+  if (Array.from(label).length <= 1) {
+    throw new Error(`No visible zh-TW candidate for ${label} after ${targetEntry.key}`);
+  }
+
+  for (const _symbol of Array.from(targetEntry.key)) {
+    const selected = selectVisibleTile(next, (candidate) => candidate.action === TileAction.Backspace);
+    next = selected.session;
+    metrics = addMetrics(metrics, selected.metrics);
+  }
+
+  for (const character of Array.from(label)) {
+    const selected = composeZhTwToken(next, character);
+    next = selected.session;
+    metrics = addMetrics(metrics, selected.metrics);
+  }
+
+  return { session: next, metrics };
+}
+
+function selectVisibleTileAcrossSuggestionPages(session, predicate, maxPages = 3) {
+  let next = session;
+  let metrics = blankMetrics();
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const position = selectablePositions(next).find(({ candidate }) => predicate(candidate));
+    if (position) {
+      const selected = selectPosition(next, position);
+      return {
+        session: selected.session,
+        metrics: addMetrics(metrics, selected.metrics)
+      };
+    }
+
+    const morePosition = selectablePositions(next)
+      .find(({ candidate }) => candidate.action === TileAction.MoreSuggestions);
+    if (!morePosition) return null;
+
+    const selectedMore = selectPosition(next, morePosition);
+    next = selectedMore.session;
+    metrics = addMetrics(metrics, selectedMore.metrics);
+  }
+
+  return null;
+}
+
+function selectVisibleTile(session, predicate) {
+  const position = selectablePositions(session).find(({ candidate }) => predicate(candidate));
+  if (!position) {
+    throw new Error(`No visible tile matching predicate; labels=${visibleBoard(session).flat().map((candidate) => candidate.label).join(" ")}`);
+  }
+  return selectPosition(session, position);
+}
+
+function bestZhTwEntry(label) {
+  return ZhTwFrequencyDictionary
+    .filter((entry) => entry.label === label)
+    .sort((left, right) =>
+      zhTwKeyPreference(label, left.key) - zhTwKeyPreference(label, right.key) ||
+      left.frequencyRank - right.frequencyRank
+    )[0] ?? null;
+}
+
+function zhTwKeyPreference(label, key) {
+  const labelLength = Array.from(label).length;
+  const keyLength = Array.from(key).length;
+  if (labelLength > 1 && keyLength > labelLength) return 0;
+  if (labelLength > 1) return 1;
+  return keyLength;
 }
 
 export function composeSequence(startSession, tokens) {
