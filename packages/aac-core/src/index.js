@@ -609,17 +609,15 @@ export const ZhTwPhraseCategories = Object.freeze({
     tiles: Object.freeze([
       ...frequencyLetters.map(letterTile),
       tile("\u7a7a\u683c", " ", TileAction.Space),
-      tile("?"),
-      tile("刪", "DEL", TileAction.Backspace)
+      tile("?")
     ])
   })
 });
 
 export const ZhTwTiles = Object.freeze([
   ...ZhTwCoreResponseTiles,
-  categoryTile("EN", EnglishCategoryId),
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
-  zhTwMoreSuggestionsTile,
+  categoryTile("EN", EnglishCategoryId),
   tile("說", "SAY", TileAction.Speak),
   tile("刪", "DEL", TileAction.Backspace),
   tile("清除", "CLR", TileAction.Clear)
@@ -1069,12 +1067,28 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
       .sort((left, right) => zhTwCandidateRankForBuffer(left, right, buffer)),
     (candidate) => `${candidate.label}\u0000${candidate.output}`
   );
-  const nextSymbols = zhTwNextSymbolTiles(buffer, columns);
+  const nextSymbols = zhTwNextSymbolTiles(buffer);
   const immediateCandidateCount = zhTwImmediateCandidateCount(buffer, columns, nextSymbols.length);
+  const firstPageNextSymbolCount = zhTwFirstPageNextSymbolCount(buffer, columns, nextSymbols.length, immediateCandidateCount);
+  const firstPageNextSymbols = nextSymbols.slice(0, firstPageNextSymbolCount);
+  const overflowNextSymbols = nextSymbols.slice(firstPageNextSymbolCount);
+  const overflowPhoneticNextSymbols = overflowNextSymbols
+    .filter((candidate) => !ZhuyinInitialSymbolSet.has(candidate.output));
+  const overflowInitialNextSymbols = overflowNextSymbols
+    .filter((candidate) => ZhuyinInitialSymbolSet.has(candidate.output));
+  const remainingCandidates = rankedCandidates.slice(immediateCandidateCount);
+  const laterCandidates = buffer.length <= 1
+    ? [
+      ...remainingCandidates.filter((candidate) => candidate.zhuyinKey.length === buffer.length),
+      ...remainingCandidates.filter((candidate) => candidate.zhuyinKey.length !== buffer.length)
+    ]
+    : remainingCandidates;
   const orderedCandidates = [
     ...rankedCandidates.slice(0, immediateCandidateCount),
-    ...nextSymbols,
-    ...rankedCandidates.slice(immediateCandidateCount)
+    ...firstPageNextSymbols,
+    ...overflowPhoneticNextSymbols,
+    ...laterCandidates,
+    ...overflowInitialNextSymbols
   ];
 
   return distinctBy(
@@ -1090,7 +1104,20 @@ function zhTwImmediateCandidateCount(buffer, columns, nextSymbolCount = 0) {
 
   const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
   const minimumCandidateCount = zhTwMinimumCandidateCountBeforeNextSymbols(buffer, safeColumns);
-  return clampInt(firstPageUsableCount - nextSymbolCount, minimumCandidateCount, preferredCount);
+  const firstPageNextSymbolBudget = Math.max(0, firstPageUsableCount - preferredCount);
+  return clampInt(
+    firstPageUsableCount - Math.min(nextSymbolCount, firstPageNextSymbolBudget),
+    minimumCandidateCount,
+    preferredCount
+  );
+}
+
+function zhTwFirstPageNextSymbolCount(buffer, columns, nextSymbolCount, candidateCount) {
+  if (!zhTwNeedsPhoneticContinuationSpace(buffer)) return 0;
+
+  const safeColumns = clampInt(columns, 2, 8);
+  const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
+  return clampInt(firstPageUsableCount - candidateCount, 0, nextSymbolCount);
 }
 
 function zhTwCandidateForBuffer(entry, buffer) {
@@ -1101,14 +1128,11 @@ function zhTwCandidateForBuffer(entry, buffer) {
   return zhTwCandidateTile(entry, buffer.length, matchingKey, "exact");
 }
 
-function zhTwNextSymbolTiles(buffer, columns) {
-  const safeColumns = clampInt(columns, 2, 8);
-  const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
-  const maxSymbols = Math.max(0, firstPageUsableCount - zhTwMinimumCandidateCountBeforeNextSymbols(buffer, safeColumns));
+function zhTwNextSymbolTiles(buffer) {
   const symbols = distinctBy(
     [
-      ...(ZhuyinContinuationSymbols[buffer] ?? []),
-      ...(ZhTwNextSymbolsByPrefix.get(buffer) ?? [])
+      ...(ZhTwNextSymbolsByPrefix.get(buffer) ?? []),
+      ...(ZhuyinContinuationSymbols[buffer] ?? [])
     ],
     (symbol) => symbol
   ).filter((symbol) => ZhTwValidPrefixSet.has(`${buffer}${symbol}`));
@@ -1118,15 +1142,15 @@ function zhTwNextSymbolTiles(buffer, columns) {
       ...symbols.filter((symbol) => ZhuyinInitialSymbolSet.has(symbol))
     ]
     : symbols;
-  return orderedSymbols.slice(0, maxSymbols).map((symbol) => tile(symbol, symbol, TileAction.Append));
+  return orderedSymbols.map((symbol) => tile(symbol, symbol, TileAction.Append));
 }
 
 function zhTwPreferredCandidateRowsBeforeNextSymbols(buffer) {
-  return buffer.length <= 1 ? 1 : 2;
+  return 2;
 }
 
 function zhTwMinimumCandidateCountBeforeNextSymbols(buffer, columns) {
-  return buffer.length <= 1 ? 1 : columns;
+  return columns;
 }
 
 function zhTwNeedsPhoneticContinuationSpace(buffer) {
@@ -1180,6 +1204,8 @@ function zhTwCandidateRank(left, right) {
 }
 
 function zhTwCandidateRankForBuffer(left, right, buffer) {
+  if (buffer.length <= 1) return zhTwCandidateRank(left, right);
+
   const leftIsExactKey = left.zhuyinKey.length === buffer.length;
   const rightIsExactKey = right.zhuyinKey.length === buffer.length;
   if (leftIsExactKey !== rightIsExactKey) return leftIsExactKey ? -1 : 1;
@@ -1246,7 +1272,12 @@ function categorySuggestionRows(categoryId, columns) {
   const category = ZhTwPhraseCategories[categoryId];
   if (!category) return [];
   const commandTiles = categoryId === EnglishCategoryId
-    ? [zhuyinCategoryCloseTile, categoryCloseTile, tile(category.label, category.label, TileAction.Noop)]
+    ? [
+      zhuyinCategoryCloseTile,
+      categoryCloseTile,
+      tile("說", "SAY", TileAction.Speak),
+      tile("刪", "DEL", TileAction.Backspace)
+    ]
     : [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
   const commandRow = paddedRow(commandTiles, columns);
   return [commandRow, ...chunk(category.tiles, columns)];

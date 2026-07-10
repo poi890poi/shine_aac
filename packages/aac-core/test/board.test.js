@@ -340,7 +340,7 @@ test("old built-in zh-TW board migrates to direct static Zhuyin symbols", () => 
   assert.equal(labels.includes("ㄅ"), true);
   assert.equal(labels.includes("ㄧ"), true);
   assert.equal(labels.includes("ㄩ"), true);
-  assert.equal(labels.includes("更多"), true);
+  assert.equal(labels.includes("更多"), false);
   assert.equal(labels.includes("ㄡ"), false);
   assert.equal(labels.includes("注音"), false);
   assert.equal(labels.includes("喝水"), false);
@@ -440,7 +440,7 @@ test("zh-TW profile uses an independent direct Zhuyin board", () => {
   assert.equal(labels.includes("ㄅ"), true);
   assert.equal(labels.includes("ㄧ"), true);
   assert.equal(labels.includes("ㄩ"), true);
-  assert.equal(labels.includes("更多"), true);
+  assert.equal(labels.includes("更多"), false);
   assert.equal(labels.includes("ㄦ"), false);
   assert.equal(labels.includes("注音"), false);
 });
@@ -462,7 +462,7 @@ test("zh-TW English entry point opens frequency-ordered spelling rows", () => {
   const rows = boardRows(config, opened.message, false, opened);
 
   assert.equal(opened.activeCategory, "english");
-  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["\u6ce8", "\u8fd4\u56de", "\u82f1\u6587", ""]);
+  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["\u6ce8", "\u8fd4\u56de", "\u8aaa", "\u522a"]);
   assert.deepEqual(rows.slice(1).map((row) => row.map((candidate) => candidate.label)), [
     ["E", "T", "A", "O"],
     ["I", "N", "S", "R"],
@@ -470,9 +470,16 @@ test("zh-TW English entry point opens frequency-ordered spelling rows", () => {
     ["U", "M", "F", "P"],
     ["G", "W", "Y", "B"],
     ["V", "K", "X", "J"],
-    ["Q", "Z", "\u7a7a\u683c", "?"],
-    ["\u522a"]
+    ["Q", "Z", "\u7a7a\u683c", "?"]
   ]);
+});
+
+test("zh-TW static and English spelling rows avoid sparse selectable rows", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const opened = applyTile("", [], findActionTile(boardRows(config), "EN", TileAction.OpenCategory), config, {});
+
+  assert.deepEqual(sparseSelectableRows(boardRows(config).slice(4)), []);
+  assert.deepEqual(sparseSelectableRows(boardRows(config, opened.message, false, opened)), []);
 });
 
 test("zh-TW English spelling category stays open while composing", () => {
@@ -543,7 +550,7 @@ test("zh-TW function labels are localized in runtime rows and persisted defaults
   assert.equal(rowsWithUndo.some((candidate) => candidate.label === "UNDO"), false);
 
   const serializedSymbols = serializeSymbols(config.symbols);
-  assert.equal(serializedSymbols.includes("\u66f4\u591a=<more>"), true);
+  assert.equal(serializedSymbols.includes("\u66f4\u591a=<more>"), false);
   assert.equal(serializedSymbols.includes("\u8aaa=<speak>"), true);
   assert.equal(serializedSymbols.includes("\u522a=<delete>"), true);
   assert.equal(serializedSymbols.includes("\u6e05\u9664=<clear>"), true);
@@ -553,15 +560,13 @@ test("zh-TW function labels are localized in runtime rows and persisted defaults
   assert.equal(serializedSymbols.includes("CLR=<clear>"), false);
 });
 
-test("zh-TW MVP board with English MORE migrates to localized function label", () => {
+test("zh-TW MVP board with English MORE migrates away from static more control", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const oldMvpSymbols = config.symbols.map((candidate) =>
-    candidate.action === TileAction.MoreSuggestions ? { ...candidate, label: "MORE" } : candidate
-  );
+  const oldMvpSymbols = [...config.symbols, tile("MORE", "MORE", TileAction.MoreSuggestions)];
   const migrated = loadProfileSymbolsForConfig(serializeSymbols(oldMvpSymbols), 10, "zh-TW");
   const labels = migrated.map((candidate) => candidate.label);
 
-  assert.equal(labels.includes("\u66f4\u591a"), true);
+  assert.equal(labels.includes("\u66f4\u591a"), false);
   assert.equal(labels.includes("MORE"), false);
 });
 
@@ -798,6 +803,31 @@ test("zh-TW source-backed analyzer exposes top Chewing candidates for each Zhuyi
       .map((entry) => `${entry.label}#${entry.sourceRank}`);
     if (missing.length > 0) {
       failures.push(`${key}: ${missing.join(", ")}`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
+});
+
+test("zh-TW single-symbol suggestions expose source-ranked prefix candidates early", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const failures = [];
+
+  for (const symbol of ZhuyinStaticInputSymbols) {
+    const topEntries = topFrequencyEntriesByZhuyinPrefix(symbol, 4);
+    if (topEntries.length < 4) continue;
+
+    const firstPageLabels = new Set(
+      visibleZhTwSuggestionTargets(config, symbol, 0)
+        .filter((candidate) => candidate.action === TileAction.CommitCandidate)
+        .map((candidate) => candidate.label)
+    );
+    const missing = topEntries
+      .filter((entry) => !firstPageLabels.has(entry.label))
+      .map((entry) => `${entry.label}#${entry.frequencyRank}`);
+
+    if (missing.length > 0) {
+      failures.push(`${symbol}: ${missing.join(", ")}`);
     }
   }
 
@@ -1042,6 +1072,16 @@ function visibleZhTwSuggestionTargets(config, message, suggestionPage = 0) {
     .filter((candidate) => candidate.action !== TileAction.Noop);
 }
 
+function sparseSelectableRows(rows) {
+  return rows
+    .map((row, index) => ({
+      index,
+      labels: row.filter((candidate) => candidate.action !== TileAction.Noop).map((candidate) => candidate.label)
+    }))
+    .filter((row) => row.labels.length > 0 && row.labels.length < 3)
+    .map((row) => `${row.index}: ${row.labels.join(", ")}`);
+}
+
 function allZhTwDictionaryPrefixes() {
   return [...new Set(
     ZhTwFrequencyDictionary.flatMap((entry) =>
@@ -1061,6 +1101,21 @@ function zhTwRelevantTargetCountForPrefix(prefix) {
 
 function zhTwExactKeyCountForPrefix(prefix) {
   return zhTwPrefixStats().get(prefix)?.exactLabels.size ?? 0;
+}
+
+function topFrequencyEntriesByZhuyinPrefix(prefix, limit) {
+  const seenLabels = new Set();
+  const entries = [];
+  for (const entry of ZhTwFrequencyDictionary) {
+    if (SuppressedZhTwSuggestionLabelsForTest.has(entry.label)) continue;
+    if (!entry.keys.some((key) => key.startsWith(prefix))) continue;
+    if (seenLabels.has(entry.label)) continue;
+
+    seenLabels.add(entry.label);
+    entries.push(entry);
+    if (entries.length >= limit) break;
+  }
+  return entries;
 }
 
 function topChewingEntriesByZhuyinKey(limit) {
