@@ -26,9 +26,30 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Install Android SDK packages
+        shell: pwsh
+        run: |
+          $sdkRoot = $env:ANDROID_HOME
+          if (-not $sdkRoot) { $sdkRoot = $env:ANDROID_SDK_ROOT }
+          if (-not $sdkRoot) { throw "ANDROID_HOME and ANDROID_SDK_ROOT are not set on the runner." }
+          if (-not (Test-Path -LiteralPath $sdkRoot)) { throw "Android SDK root does not exist: $sdkRoot" }
+
+          $sdkManager = Get-ChildItem -LiteralPath $sdkRoot -Recurse -Filter sdkmanager.bat -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $sdkManager) { throw "sdkmanager.bat was not found under $sdkRoot" }
+
+          $licenseInput = "y`n" * 100
+          $licenseInput | & $sdkManager --sdk_root=$sdkRoot --licenses
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & $sdkManager --sdk_root=$sdkRoot "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "SHINE_AAC_SDK_ROOT=$sdkRoot"
+
       - name: Build versioned debug APK
         shell: pwsh
-        run: .\package-release.bat -SetupSdk
+        run: .\package-release.bat -SdkDir $env:SHINE_AAC_SDK_ROOT
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
