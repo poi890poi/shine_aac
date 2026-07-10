@@ -94,7 +94,7 @@ function Write-TestPreferences {
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
     <boolean name="scanVoice" value="false" />
-    <boolean name="activationVoice" value="false" />
+    <boolean name="activationVoice" value="true" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
     <boolean name="holdAfterSuggestionChange" value="false" />

@@ -14,11 +14,14 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import org.json.JSONObject
 import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     private var webView: WebView? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private val ttsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     @Volatile private var hardwareButtonsEnabled = true
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -75,9 +78,14 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         webView?.destroy()
         webView = null
-        tts?.stop()
-        tts?.shutdown()
+        val engine = tts
         tts = null
+        ttsReady = false
+        ttsExecutor.execute {
+            engine?.stop()
+            engine?.shutdown()
+        }
+        ttsExecutor.shutdown()
         super.onDestroy()
     }
 
@@ -128,7 +136,7 @@ class MainActivity : ComponentActivity() {
         fun speak(text: String) {
             val spoken = text.trim()
             if (spoken.isEmpty() || !ttsReady) return
-            runOnUiThread {
+            ttsExecutor.execute {
                 tts?.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, "shine-aac-message")
             }
         }
@@ -137,7 +145,7 @@ class MainActivity : ComponentActivity() {
         fun setSpeechLocale(languageTag: String) {
             if (!ttsReady || languageTag.isBlank()) return
             val locale = Locale.forLanguageTag(languageTag)
-            runOnUiThread {
+            ttsExecutor.execute {
                 tts?.setLanguage(locale)
             }
         }
