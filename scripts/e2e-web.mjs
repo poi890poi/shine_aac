@@ -270,7 +270,7 @@ async function scenarioDeveloperDemoMode() {
   await evaluate(`
     localStorage.removeItem("shine-aac-demo-mode");
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 17,
+      configVersion: 18,
       profileId: "en-US",
       columns: 4,
       scanIntervalMs: 250,
@@ -303,7 +303,7 @@ async function scenarioZhTwHomeDemoMode() {
   const expected = "今天比較累但是心情好想聽你講這樣很舒服謝謝";
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 17,
+      configVersion: 18,
       profileId: "zh-TW",
       columns: 4,
       scanIntervalMs: 80,
@@ -382,10 +382,10 @@ async function scenarioZhTwLayoutMigration() {
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
   assertArrayEqual(snapshot.rows[4].map((tile) => tile.label), ["是", "不", "幫忙", "痛"], "zh-TW static core response row");
-  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
+  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
   }
-  for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
+  for (const rejected of ["E", "T", "空格", "我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW layout should not include ${rejected}`);
   }
   await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "更多", "不"]);
@@ -440,10 +440,10 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "更多"]);
   const snapshot = await getSnapshot();
   const labels = snapshot.rows.flat().map((tile) => tile.label);
-  for (const expected of ["ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
+  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "更多", "說", "刪", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW reset layout missing ${expected}`);
   }
-  for (const rejected of ["我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
+  for (const rejected of ["E", "T", "空格", "我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW reset layout should not include ${rejected}`);
   }
   const stored = await evaluate(`
@@ -453,15 +453,17 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
         configVersion: config.configVersion,
         profileId: config.profileId,
         symbols: config.symbols,
+        symbolLines: config.symbols.split(/\\n/),
         suggestionDictionary: config.suggestionDictionary
       };
     })()
   `);
-  if (stored.configVersion < 17 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 18 || stored.profileId !== "zh-TW") {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
   if (
     !stored.symbols.includes("ㄅ") ||
+    !stored.symbols.includes("EN=<category:english>") ||
     !stored.symbols.includes("更多=<more>") ||
     !stored.symbols.includes("說=<speak>") ||
     !stored.symbols.includes("刪=<delete>") ||
@@ -469,7 +471,8 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
     stored.symbols.includes("SAY=<speak>") ||
     stored.symbols.includes("DEL=<delete>") ||
     stored.symbols.includes("CLR=<clear>") ||
-    stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>")
+    stored.symbols.includes("ㄅㄆㄇㄈ=<zhuyin-group:labial>") ||
+    stored.symbolLines.includes("E")
   ) {
     throw new Error(`zh-TW reset did not persist packaged direct Zhuyin board: ${stored.symbols}`);
   }

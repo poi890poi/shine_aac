@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-08T15:51:17.797Z
+Generated: 2026-07-10T01:31:16.923Z
 
 Result: PASS
 
@@ -19,10 +19,10 @@ Result: PASS
 | demo-mode | PASS | hidden Config long-press starts extended conversation demo and tap exits it |
 | message-scroll-end | PASS | long single-line message scrolls horizontally and keeps latest symbols visible |
 | zh-tw-demo-mode | PASS | automated the zh-TW home conversation through normal visible suggestions |
-| pixel-4a-5g-layout | PASS | fits 19 rows in 851px viewport without scrolling |
+| pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
-| zh-tw-pixel-4a-5g-layout | PASS | fits 19 rows in 851px viewport without scrolling |
+| zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

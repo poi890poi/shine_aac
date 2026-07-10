@@ -66,7 +66,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 17;
+export const CurrentConfigVersion = 18;
 const PreviousDefaultScanIntervalMs = 900;
 const PreviousDefaultTransitionPauseMs = 450;
 const PreviousDefaultFirstCellPauseMs = 900;
@@ -381,6 +381,7 @@ const categoryTile = (label, categoryId) => tile(label, categoryId, TileAction.O
 const zhuyinGroupTile = (label, groupId) => tile(label, groupId, TileAction.ZhuyinGroup);
 const zhuyinSymbolTile = (label, output, kind) => ({ label, output, action: TileAction.ZhuyinSymbol, zhuyinKind: kind });
 const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.CloseCategory));
+const zhuyinCategoryCloseTile = Object.freeze(tile("注", "category", TileAction.CloseCategory));
 const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
@@ -410,6 +411,7 @@ const ZhTwCoreResponseTiles = Object.freeze([
 ]);
 const ZhTwCoreResponseLabels = new Set(ZhTwCoreResponseTiles.map((candidate) => candidate.label));
 const ZhTwSuppressedSuggestionLabels = new Set(["是不是", "要不要"]);
+const EnglishCategoryId = "english";
 
 export const ZhuyinInitialGroups = Object.freeze([
   Object.freeze({ id: "labial", label: "ㄅㄆㄇㄈ", symbols: Object.freeze(["ㄅ", "ㄆ", "ㄇ", "ㄈ"]) }),
@@ -601,14 +603,21 @@ export const ZhTwPhraseCategories = Object.freeze({
       tile("再一次"),
       tile("結束")
     ])
+  }),
+  [EnglishCategoryId]: Object.freeze({
+    label: "英文",
+    tiles: Object.freeze([
+      ...frequencyLetters.map(letterTile),
+      tile("\u7a7a\u683c", " ", TileAction.Space),
+      tile("?"),
+      tile("刪", "DEL", TileAction.Backspace)
+    ])
   })
 });
 
 export const ZhTwTiles = Object.freeze([
   ...ZhTwCoreResponseTiles,
-  ...frequencyLetters.map(letterTile),
-  tile("\u7a7a\u683c", " ", TileAction.Space),
-  tile("?"),
+  categoryTile("EN", EnglishCategoryId),
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
   zhTwMoreSuggestionsTile,
   tile("說", "SAY", TileAction.Speak),
@@ -618,7 +627,9 @@ export const ZhTwTiles = Object.freeze([
 
 export const ZhTwSuggestionDictionary = Object.freeze([
   ...ZhTwCoreResponseTiles,
-  ...Object.values(ZhTwPhraseCategories).flatMap((category) => category.tiles),
+  ...Object.entries(ZhTwPhraseCategories)
+    .filter(([id]) => id !== EnglishCategoryId)
+    .flatMap(([, category]) => category.tiles),
   tile("喝水"),
   tile("吃飯"),
   tile("廁所"),
@@ -728,6 +739,10 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
   const normalized = createBoardConfig(config);
   const safeColumns = clampInt(normalized.columns, 2, 8);
   if (normalized.profileId === "zh-TW") {
+    if (inputState.activeCategory) {
+      const categoryRows = categorySuggestionRows(inputState.activeCategory, safeColumns);
+      if (categoryRows.length > 0) return categoryRows;
+    }
     return [
       ...zhTwSuggestionRows(message, normalized.suggestionDictionary, safeColumns, canUndo, inputState),
       ...chunk(normalized.symbols, safeColumns)
@@ -870,8 +885,13 @@ function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
     !labels.has("ㄅㄆㄇㄈ");
   const hasEnglishStaticBoard = frequencyLetters.every((letter) => labels.has(letter)) &&
     labels.has("\u7a7a\u683c");
+  const hasEnglishEntryPoint = symbols.some((candidate) =>
+    candidate.label === "EN" &&
+    candidate.action === TileAction.OpenCategory &&
+    candidate.output === EnglishCategoryId
+  );
   const hasCurrentDirectBoard = hasDirectZhuyinBoard && labels.has("\u66f4\u591a") && labels.has("不") && !labels.has("不要");
-  if (hasCurrentDirectBoard) return !hasEnglishStaticBoard;
+  if (hasCurrentDirectBoard) return !hasEnglishEntryPoint || hasEnglishStaticBoard;
   if (hasDirectZhuyinBoard && labels.has("MORE")) return true;
 
   const oldDefaultSignals = [
@@ -1225,10 +1245,10 @@ function zhuyinRows(inputState, columns) {
 function categorySuggestionRows(categoryId, columns) {
   const category = ZhTwPhraseCategories[categoryId];
   if (!category) return [];
-  const commandRow = paddedRow([
-    categoryCloseTile,
-    tile(category.label, category.label, TileAction.Noop)
-  ], columns);
+  const commandTiles = categoryId === EnglishCategoryId
+    ? [zhuyinCategoryCloseTile, categoryCloseTile, tile(category.label, category.label, TileAction.Noop)]
+    : [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
+  const commandRow = paddedRow(commandTiles, columns);
   return [commandRow, ...chunk(category.tiles, columns)];
 }
 
@@ -1838,7 +1858,7 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     message: nextMessage,
     messageHistory: [...messageHistory, message].slice(-24),
     effect: "message",
-    activeCategory: null,
+    activeCategory: inputState.activeCategory ?? null,
     suggestionPage: 0
   };
 }

@@ -346,7 +346,7 @@ test("old built-in zh-TW board migrates to direct static Zhuyin symbols", () => 
   assert.equal(labels.includes("喝水"), false);
 });
 
-test("previous direct zh-TW board migrates to include English spelling tiles", () => {
+test("previous direct zh-TW board migrates to English entry point", () => {
   const previousDirectBoard = [
     tile("\u662f"),
     tile("\u4e0d"),
@@ -362,10 +362,9 @@ test("previous direct zh-TW board migrates to include English spelling tiles", (
   const migrated = loadProfileSymbolsForConfig(serializeSymbols(previousDirectBoard), 16, "zh-TW");
   const labels = migrated.map((candidate) => candidate.label);
 
-  for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-    assert.equal(labels.includes(letter), true, `missing ${letter}`);
-  }
-  assert.equal(labels.includes("\u7a7a\u683c"), true);
+  assert.equal(labels.includes("EN"), true);
+  assert.equal(labels.includes("E"), false);
+  assert.equal(labels.includes("\u7a7a\u683c"), false);
 });
 
 test("custom zh-TW board symbols are preserved during migration", () => {
@@ -446,36 +445,47 @@ test("zh-TW profile uses an independent direct Zhuyin board", () => {
   assert.equal(labels.includes("注音"), false);
 });
 
-test("zh-TW static board includes early English spelling rows", () => {
+test("zh-TW static board includes only an English entry point", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const rows = boardRows(config);
   const labels = config.symbols.map((candidate) => candidate.label);
 
+  assert.equal(labels.includes("EN"), true);
   for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-    assert.equal(labels.includes(letter), true, `missing ${letter}`);
+    assert.equal(labels.includes(letter), false, `${letter} should not be first-level`);
   }
-  assert.equal(labels.includes("\u7a7a\u683c"), true);
-  assert.deepEqual(rows.slice(5, 12).map((row) => row.map((candidate) => candidate.label)), [
+  assert.equal(labels.includes("\u7a7a\u683c"), false);
+});
+
+test("zh-TW English entry point opens frequency-ordered spelling rows", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const opened = applyTile("", [], findActionTile(boardRows(config), "EN", TileAction.OpenCategory), config, {});
+  const rows = boardRows(config, opened.message, false, opened);
+
+  assert.equal(opened.activeCategory, "english");
+  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["\u6ce8", "\u8fd4\u56de", "\u82f1\u6587", ""]);
+  assert.deepEqual(rows.slice(1).map((row) => row.map((candidate) => candidate.label)), [
     ["E", "T", "A", "O"],
     ["I", "N", "S", "R"],
     ["H", "L", "D", "C"],
     ["U", "M", "F", "P"],
     ["G", "W", "Y", "B"],
     ["V", "K", "X", "J"],
-    ["Q", "Z", "\u7a7a\u683c", "?"]
+    ["Q", "Z", "\u7a7a\u683c", "?"],
+    ["\u522a"]
   ]);
 });
 
-test("zh-TW English spelling tiles append through the normal board", () => {
+test("zh-TW English spelling category stays open while composing", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const rows = boardRows(config);
+  let result = applyTile("", [], findActionTile(boardRows(config), "EN", TileAction.OpenCategory), config, {});
 
-  let result = applyTile("", [], findActionTile(rows, "P", TileAction.Append), config, {});
-  result = applyTile(result.message, result.messageHistory, findActionTile(rows, "O", TileAction.Append), config, result);
-  result = applyTile(result.message, result.messageHistory, findActionTile(rows, "D", TileAction.Append), config, result);
-  result = applyTile(result.message, result.messageHistory, findActionTile(rows, "\u7a7a\u683c", TileAction.Space), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "P", TileAction.Append), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "O", TileAction.Append), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "D", TileAction.Append), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "\u7a7a\u683c", TileAction.Space), config, result);
 
   assert.equal(result.message, "pod ");
+  assert.equal(result.activeCategory, "english");
 });
 
 test("zh-TW static core row avoids redundant yes-no pairs", () => {

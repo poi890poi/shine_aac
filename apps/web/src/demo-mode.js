@@ -312,10 +312,16 @@ function zhTwMessage(labels) {
 function zhTwPodcastMessage() {
   return [
     ...zhTwMessage(["\u807d"]),
-    zhTwSpace(),
-    ...zhTwSpellText("podcast"),
-    zhTwSpace(),
+    ...zhTwEnglishText(" podcast "),
     ...zhTwMessage(["\u65b0", "\u8cc7\u6599", "\u593e"])
+  ];
+}
+
+function zhTwEnglishText(text) {
+  return [
+    select("EN", { output: "english", action: TileAction.OpenCategory }),
+    ...zhTwSpellText(text),
+    select("\u6ce8", { action: TileAction.CloseCategory })
   ];
 }
 
