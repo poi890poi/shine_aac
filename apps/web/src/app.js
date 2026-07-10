@@ -221,27 +221,30 @@ function scheduleScan() {
   window.cancelAnimationFrame(animationFrameId);
   if (configOpen) return;
   if (reviewHoldActive) {
-    updateProgress();
+    setProgressFills(1, 0);
     return;
   }
 
   const duration = scanDurationForStage(session.scannerState, session.config);
   timerId = window.setTimeout(advanceScan, duration);
-  updateProgress();
+  startProgressAnimation(duration);
 }
 
-function updateProgress() {
-  const duration = scanDurationForStage(session.scannerState, session.config);
-  const elapsed = Math.max(0, performance.now() - highlightStartedAt);
-  const progress = reviewHoldActive ? 1 : Math.min(1, elapsed / Math.max(1, duration));
+function startProgressAnimation(duration) {
+  setProgressFills(0, 0);
+  animationFrameId = window.requestAnimationFrame(() => {
+    setProgressFills(1, Math.max(1, duration));
+  });
+}
+
+function setProgressFills(progress, durationMs) {
   const progressFills = currentProgressFills.some((fill) => fill?.isConnected)
     ? currentProgressFills.filter((fill) => fill?.isConnected)
     : [...app.querySelectorAll(".tile.is-current .progress-fill")];
   for (const progressFill of progressFills) {
+    progressFill.style.transitionDuration = `${durationMs}ms`;
     progressFill.style.transform = `scaleX(${progress})`;
   }
-  if (reviewHoldActive) return;
-  animationFrameId = window.requestAnimationFrame(updateProgress);
 }
 
 function shouldHoldForSuggestionReview(selection) {
@@ -457,6 +460,7 @@ function updateScanPresentation(board) {
 
   for (const previousProgressFill of previousProgressFills) {
     if (!nextProgressFills.includes(previousProgressFill)) {
+      previousProgressFill.style.transitionDuration = "0ms";
       previousProgressFill.style.transform = "scaleX(0)";
     }
   }

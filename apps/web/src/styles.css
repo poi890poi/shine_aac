@@ -221,6 +221,9 @@ body.demo-active .phase::after {
   width: 100%;
   transform: scaleX(0);
   transform-origin: left center;
+  transition-property: transform;
+  transition-duration: 0ms;
+  transition-timing-function: linear;
   pointer-events: none;
   background: rgba(31, 122, 140, 0.28);
   will-change: transform;

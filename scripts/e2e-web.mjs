@@ -865,7 +865,7 @@ async function getSnapshot() {
           const progressFill = tile.querySelector(".progress-fill");
           const inlineTransform = progressFill?.style.transform ?? "";
           const computedTransform = progressFill ? getComputedStyle(progressFill).transform : "";
-          const transform = inlineTransform || computedTransform;
+          const transform = computedTransform && computedTransform !== "none" ? computedTransform : inlineTransform;
           let progress = Number.parseFloat(progressFill?.style.width || "0");
           const scaleMatch = transform.match(/scaleX\\(([^)]+)\\)/);
           if (scaleMatch) {
