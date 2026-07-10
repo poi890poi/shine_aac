@@ -9,8 +9,8 @@ $repoRoot = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")
 $commandLineToolsUrl = "https://dl.google.com/android/repository/commandlinetools-win-14742923_latest.zip"
 $packages = @(
     "platform-tools",
-    "platforms;android-34",
-    "build-tools;34.0.0"
+    "platforms;android-35",
+    "build-tools;35.0.0"
 )
 
 function Write-Step($Message) {
