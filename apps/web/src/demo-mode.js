@@ -321,7 +321,7 @@ function zhTwEnglishText(text) {
   return [
     select("EN", { output: "english", action: TileAction.OpenCategory }),
     ...zhTwSpellText(text),
-    select("\u6ce8", { action: TileAction.CloseCategory })
+    select("\u6ce8\u97f3", { action: TileAction.CloseCategory })
   ];
 }
 

@@ -462,7 +462,7 @@ test("zh-TW English entry point opens frequency-ordered spelling rows", () => {
   const rows = boardRows(config, opened.message, false, opened);
 
   assert.equal(opened.activeCategory, "english");
-  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["\u6ce8", "\u8fd4\u56de", "\u8aaa", "\u522a"]);
+  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["\u6ce8\u97f3", "\u8fd4\u56de", "\u8aaa", "\u522a"]);
   assert.deepEqual(rows.slice(1).map((row) => row.map((candidate) => candidate.label)), [
     ["E", "T", "A", "O"],
     ["I", "N", "S", "R"],

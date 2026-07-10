@@ -1,12 +1,12 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-10T04:52:24.975Z
+Generated: 2026-07-10T06:38:29.740Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5183/apps/web/ |
+| server | PASS | served http://127.0.0.1:5187/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
@@ -20,6 +20,7 @@ Result: PASS
 | pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
+| zh-tw-language-switch-review-hold | PASS | EN and 注音 language switches use the suggestion-change review hold setting |
 | zh-tw-pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 

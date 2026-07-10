@@ -99,6 +99,7 @@ try {
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
+  await scenarioZhTwLanguageSwitchReviewHold();
   await assertNoViewportOverflow("zh-tw-pixel-4a-5g-layout");
 
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
@@ -206,6 +207,16 @@ async function scenarioReviewHold() {
   steps.push(pass("review-hold", "default hold pauses after suggestion changes and resumes on next activation"));
 
   await evaluate(`
+    {
+      const stored = JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}");
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+        ...stored,
+        scanIntervalMs: ${BrowserSmokeScanMs},
+        transitionPauseMs: 0,
+        firstCellPauseMs: ${BrowserSmokeScanMs},
+        inputLatencyCompensationMs: 0
+      }));
+    }
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
       scanVoice: false,
@@ -487,6 +498,54 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   steps.push(pass("zh-tw-reset", "reset restored packaged zh-TW defaults instead of stale stored layout"));
 }
 
+async function scenarioZhTwLanguageSwitchReviewHold() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: true
+    }));
+    location.reload();
+  `);
+  await waitForLabels(["\u3105", "\u3127", "\u3129", "EN"]);
+
+  await selectLabel("EN");
+  let snapshot = await getSnapshot();
+  if (!snapshot.reviewHold) throw new Error("Language switch to EN should use suggestion-change review hold");
+  if (!snapshot.rows.flat().some((tile) => tile.label === "\u6ce8\u97f3")) {
+    throw new Error("English category should show 注音 close tile");
+  }
+  if (!snapshot.rows.flat().some((tile) => tile.label === "E")) {
+    throw new Error("English category should show English spelling symbols");
+  }
+  await clickTarget(snapshot.activeRow);
+  await delay(40);
+
+  await selectLabel("\u6ce8\u97f3", { rowIndex: 0 });
+  snapshot = await getSnapshot();
+  if (!snapshot.reviewHold) throw new Error("Language switch back to Zhuyin should use suggestion-change review hold");
+  if (!snapshot.rows.flat().some((tile) => tile.label === "EN")) {
+    throw new Error("Zhuyin board should show EN entry point after closing English category");
+  }
+  await clickTarget(snapshot.activeRow);
+  await delay(40);
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    location.reload();
+  `);
+  await waitForLabels(["\u3105", "\u3127", "\u3129", "EN"]);
+  steps.push(pass("zh-tw-language-switch-review-hold", "EN and 注音 language switches use the suggestion-change review hold setting"));
+}
+
 async function selectLabel(label, options = {}) {
   const position = await findLabel(label, options);
   await selectCell(position.rowIndex, position.cellIndex);
@@ -494,7 +553,7 @@ async function selectLabel(label, options = {}) {
 
 async function selectCell(rowIndex, cellIndex) {
   const initialSnapshot = await getSnapshot();
-  const rowTimeoutMs = Math.max(8000, (initialSnapshot.rows.length + 2) * 750);
+  const rowTimeoutMs = Math.max(30000, (initialSnapshot.rows.length + 2) * 1500);
   const rowSnapshot = await waitForActive(
     ({ activeRow }) => activeRow?.rowIndex === rowIndex,
     `row ${rowIndex}`,

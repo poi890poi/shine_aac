@@ -237,7 +237,7 @@ function updateProgress() {
 function shouldHoldForSuggestionReview(selection) {
   return uiConfig.holdAfterSuggestionChange &&
     selection &&
-    ["message", "undo", "suggestion-page"].includes(selection.effect);
+    ["message", "undo", "suggestion-page", "category"].includes(selection.effect);
 }
 
 function speak(text) {

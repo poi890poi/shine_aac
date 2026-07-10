@@ -381,7 +381,7 @@ const categoryTile = (label, categoryId) => tile(label, categoryId, TileAction.O
 const zhuyinGroupTile = (label, groupId) => tile(label, groupId, TileAction.ZhuyinGroup);
 const zhuyinSymbolTile = (label, output, kind) => ({ label, output, action: TileAction.ZhuyinSymbol, zhuyinKind: kind });
 const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.CloseCategory));
-const zhuyinCategoryCloseTile = Object.freeze(tile("注", "category", TileAction.CloseCategory));
+const zhuyinCategoryCloseTile = Object.freeze(tile("注音", "category", TileAction.CloseCategory));
 const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
