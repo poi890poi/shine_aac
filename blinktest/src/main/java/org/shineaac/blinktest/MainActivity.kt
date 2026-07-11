@@ -46,6 +46,7 @@ class MainActivity : Activity() {
     private lateinit var scoreText: TextView
     private lateinit var eventCountText: TextView
     private lateinit var trackingText: TextView
+    private lateinit var boxModeText: TextView
     private lateinit var openText: TextView
     private lateinit var closedText: TextView
     private lateinit var thresholdText: TextView
@@ -102,6 +103,7 @@ class MainActivity : Activity() {
         scoreText = valueText("0.000")
         eventCountText = valueText("0")
         trackingText = valueText("manual")
+        boxModeText = valueText("normal")
         openText = valueText("not set")
         closedText = valueText("not set")
         thresholdText = valueText("0.250")
@@ -134,7 +136,7 @@ class MainActivity : Activity() {
             setPadding(16, 16, 16, 16)
             addView(previewFrame)
             addView(row("State", stateText, "Score", scoreText, "Events", eventCountText))
-            addView(row("Tracking", trackingText))
+            addView(row("Tracking", trackingText, "Box X", boxModeText))
             addView(buttonRow(
                 button("Start Camera") { startCameraFlow() },
                 button("Calibrate Open") { calibrateOpen() },
@@ -144,6 +146,7 @@ class MainActivity : Activity() {
             addView(buttonRow(
                 button("Flip Box X") {
                     mirrorOverlayX = !mirrorOverlayX
+                    boxModeText.text = if (mirrorOverlayX) "flipped" else "normal"
                     addLog("box mirror X: ${if (mirrorOverlayX) "on" else "off"}")
                     lastTrackedRoi = null
                     updateRoi()
@@ -315,6 +318,16 @@ class MainActivity : Activity() {
 
     private fun readFeatures(image: Image): Features {
         val rawFrame = RawFrame.from(image)
+        val last = lastTrackedRoi
+        if (last != null && System.currentTimeMillis() - last.detectedAtMs < 1500) {
+            val frame = rawFrame.oriented(last.rotation)
+            val heldFeatures = featuresFromRoi(frame, last.x, last.y, last.w, last.h)
+            if (shouldHoldLastRoi(heldFeatures)) {
+                runOnUiThread { trackingText.text = "held face" }
+                return heldFeatures
+            }
+        }
+
         val rotations = mutableListOf<Int>()
         lastTrackedRoi?.rotation?.let { rotations.add(it) }
         rotations.addAll(listOf(0, 90, 270, 180))
@@ -339,7 +352,6 @@ class MainActivity : Activity() {
             }
         }
 
-        val last = lastTrackedRoi
         if (last != null && System.currentTimeMillis() - last.detectedAtMs < 1200) {
             val frame = rawFrame.oriented(last.rotation)
             runOnUiThread { trackingText.text = "last face" }
@@ -356,6 +368,12 @@ class MainActivity : Activity() {
             updateRoi()
         }
         return featuresFromRoi(frame, x0, y0, roiW, roiH)
+    }
+
+    private fun shouldHoldLastRoi(features: Features): Boolean {
+        if (openBaseline == null || closedBaseline == null) return false
+        val threshold = activeThreshold()
+        return sampledClosedScore(features) >= threshold * 0.55
     }
 
     private fun detectFace(frame: OrientedFrame): FaceDetector.Face? {
@@ -499,7 +517,7 @@ class MainActivity : Activity() {
         }
         openBaseline = features
         closed = false
-        addLog("open baseline captured")
+        addLog("open baseline captured; score ${String.format("%.3f", sampledClosedScore(features))}")
         updateReadout()
     }
 
@@ -510,7 +528,7 @@ class MainActivity : Activity() {
             return
         }
         closedBaseline = features
-        addLog("closed sample captured")
+        addLog("closed sample captured; score ${String.format("%.3f", sampledClosedScore(features))}")
         updateReadout()
     }
 
