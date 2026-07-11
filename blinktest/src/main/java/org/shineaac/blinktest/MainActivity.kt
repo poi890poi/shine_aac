@@ -22,6 +22,7 @@ import android.media.ImageReader
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
@@ -70,6 +71,7 @@ class MainActivity : Activity() {
     private var doubleGapMs = 650L
     private var ignoreShortMs = 70L
     private var cooldownMs = 500L
+    private var mirrorOverlayX = false
 
     private var openBaseline: Features? = null
     private var closedBaseline: Features? = null
@@ -136,8 +138,16 @@ class MainActivity : Activity() {
             addView(buttonRow(
                 button("Start Camera") { startCameraFlow() },
                 button("Calibrate Open") { calibrateOpen() },
-                button("Sample Closed") { sampleClosed() },
+                button("Sample Closed in 3s") { sampleClosedAfterDelay() },
                 button("Clear Log") { clearLog() }
+            ))
+            addView(buttonRow(
+                button("Flip Box X") {
+                    mirrorOverlayX = !mirrorOverlayX
+                    addLog("box mirror X: ${if (mirrorOverlayX) "on" else "off"}")
+                    lastTrackedRoi = null
+                    updateRoi()
+                }
             ))
             addView(sectionTitle("Manual Fallback Region"))
             addView(slider("X", 0, 90, roiXPct) { roiXPct = it; updateRoi() })
@@ -321,7 +331,8 @@ class MainActivity : Activity() {
                         (roi.x * 100 / frame.width).coerceIn(0, 99),
                         (roi.y * 100 / frame.height).coerceIn(0, 99),
                         (roi.w * 100 / frame.width).coerceIn(1, 100),
-                        (roi.h * 100 / frame.height).coerceIn(1, 100)
+                        (roi.h * 100 / frame.height).coerceIn(1, 100),
+                        mirrorOverlayX
                     )
                 }
                 return featuresFromRoi(frame, roi.x, roi.y, roi.w, roi.h)
@@ -503,6 +514,13 @@ class MainActivity : Activity() {
         updateReadout()
     }
 
+    private fun sampleClosedAfterDelay() {
+        addLog("close eyes now; sampling in 3 seconds")
+        Handler(Looper.getMainLooper()).postDelayed({
+            sampleClosed()
+        }, 3000)
+    }
+
     private fun emitEvent(message: String) {
         lastEventAt = System.currentTimeMillis()
         eventCount += 1
@@ -555,7 +573,7 @@ class MainActivity : Activity() {
     }
 
     private fun updateRoi() {
-        roiOverlay.setRoi(roiXPct, roiYPct, roiWPct, roiHPct)
+        roiOverlay.setRoi(roiXPct, roiYPct, roiWPct, roiHPct, mirrorOverlayX)
     }
 
     private fun sectionTitle(text: String) = TextView(this).apply {
