@@ -642,7 +642,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                     statusView?.text = "Preview short blink detected."
                 }
                 PreviewBlink.Long -> {
-                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, LongPreviewCueMs)
+                    playLongPreviewCue()
                     statusView?.text = "Preview long blink detected. Current position works."
                 }
                 PreviewBlink.None -> Unit
@@ -674,6 +674,13 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun previousQualityText(): String =
         savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
+
+    private fun playLongPreviewCue() {
+        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, LongPreviewCueMs)
+        mainHandler?.postDelayed({
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, LongPreviewCueMs)
+        }, LongPreviewCueGapMs)
+    }
 
     private fun collectCalibrationSample(features: EyeFeatures) {
         when (phase) {
@@ -890,6 +897,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val LongBlinkGuardMs = 150L
         const val ShortPreviewCueMs = 70
         const val LongPreviewCueMs = 130
+        const val LongPreviewCueGapMs = 180L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
 
