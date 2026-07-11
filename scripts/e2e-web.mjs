@@ -91,6 +91,7 @@ try {
   await waitForUi();
   steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
+  await scenarioFirstColumnProgressTiming();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioReviewHold();
@@ -145,6 +146,71 @@ async function scenarioPhraseAndUndo() {
   await selectLabel("FOOD", { rowIndex: 0 });
   await assertMessage("I want food ");
   steps.push(pass("undo-correction", "undid WATER and selected FOOD"));
+}
+
+async function scenarioFirstColumnProgressTiming() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: 1200,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 1800,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+
+  const rowSnapshot = await waitForActive(
+    ({ activeRow }) => activeRow?.rowIndex === 0 && activeRow.progress >= 85,
+    "row 0 with late progress",
+    5000
+  );
+  await clickTarget(rowSnapshot.activeRow);
+
+  await waitForActive(({ activeCell }) => activeCell?.rowIndex === 0 && activeCell.cellIndex === 0, "first cell");
+  await delay(60);
+  let snapshot = await getSnapshot();
+  const firstCellEarlyProgress = snapshot.activeCell?.progress ?? 100;
+  if (firstCellEarlyProgress > 20) {
+    throw new Error(`First column progress should restart from its own hold, got ${firstCellEarlyProgress}`);
+  }
+
+  await delay(760);
+  snapshot = await getSnapshot();
+  const firstCellMidProgress = snapshot.activeCell?.progress ?? 0;
+  if (firstCellMidProgress < 25 || firstCellMidProgress > 80) {
+    throw new Error(`First column progress should track firstCellPauseMs, got ${firstCellMidProgress}`);
+  }
+
+  await waitForActive(({ activeCell }) => activeCell?.rowIndex === 0 && activeCell.cellIndex === 1, "second cell", 3000);
+  await delay(60);
+  snapshot = await getSnapshot();
+  const secondCellEarlyProgress = snapshot.activeCell?.progress ?? 100;
+  if (secondCellEarlyProgress > 20) {
+    throw new Error(`Second column progress should still restart normally, got ${secondCellEarlyProgress}`);
+  }
+
+  steps.push(pass("first-column-progress", "first and later cell progress fills restart and track their own scan durations"));
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0
+    }));
+    location.reload();
+  `);
+  await waitForUi();
 }
 
 async function scenarioClearAndMovie() {

@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-10T14:33:48.688Z
+Generated: 2026-07-11T04:15:03.430Z
 
 Result: PASS
 
@@ -9,6 +9,7 @@ Result: PASS
 | server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
+| first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
 | undo-correction | PASS | undid WATER and selected FOOD |
 | clear | PASS | selected CLR from the visible board |

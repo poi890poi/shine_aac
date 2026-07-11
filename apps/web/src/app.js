@@ -50,6 +50,7 @@ let renderedTiles = [];
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
 let currentProgressFills = [];
+let progressTargetKey = "";
 let calibrationState = createCalibrationState();
 const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
@@ -231,10 +232,19 @@ function scheduleScan() {
 }
 
 function startProgressAnimation(duration) {
-  setProgressFills(0, 0);
+  const durationMs = Math.max(1, duration);
+  setProgressFills(progressForCurrentHighlight(durationMs), 0);
   animationFrameId = window.requestAnimationFrame(() => {
-    setProgressFills(1, Math.max(1, duration));
+    const progress = progressForCurrentHighlight(durationMs);
+    const remainingMs = Math.max(1, durationMs - (performance.now() - highlightStartedAt));
+    const progressFills = setProgressFills(progress, 0);
+    forceProgressLayout(progressFills);
+    setProgressFills(1, remainingMs);
   });
+}
+
+function progressForCurrentHighlight(durationMs) {
+  return clamp((performance.now() - highlightStartedAt) / Math.max(1, durationMs), 0, 1);
 }
 
 function setProgressFills(progress, durationMs) {
@@ -244,6 +254,13 @@ function setProgressFills(progress, durationMs) {
   for (const progressFill of progressFills) {
     progressFill.style.transitionDuration = `${durationMs}ms`;
     progressFill.style.transform = `scaleX(${progress})`;
+  }
+  return progressFills;
+}
+
+function forceProgressLayout(progressFills) {
+  for (const progressFill of progressFills) {
+    progressFill.getBoundingClientRect();
   }
 }
 
@@ -429,6 +446,7 @@ function renderFull(board, boardKey) {
 
 function updateScanPresentation(board) {
   const scanner = session.scannerState;
+  const nextProgressTargetKey = progressTargetKeyForScanner(scanner, reviewHoldActive);
   if (renderedPhaseElement) {
     renderedPhaseElement.textContent = reviewHoldActive ? "Review" : phaseLabel(scanner.stage);
   }
@@ -458,13 +476,34 @@ function updateScanPresentation(board) {
     }
   }
 
-  for (const previousProgressFill of previousProgressFills) {
-    if (!nextProgressFills.includes(previousProgressFill)) {
-      previousProgressFill.style.transitionDuration = "0ms";
-      previousProgressFill.style.transform = "scaleX(0)";
+  if (nextProgressTargetKey !== progressTargetKey) {
+    resetProgressFills([...previousProgressFills, ...nextProgressFills]);
+  } else {
+    for (const previousProgressFill of previousProgressFills) {
+      if (!nextProgressFills.includes(previousProgressFill)) {
+        resetProgressFills([previousProgressFill]);
+      }
     }
   }
   currentProgressFills = nextProgressFills;
+  progressTargetKey = nextProgressTargetKey;
+}
+
+function progressTargetKeyForScanner(scanner, isReviewHold) {
+  const prefix = isReviewHold ? "review" : "scan";
+  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
+    return `${prefix}:${scanner.stage}:${scanner.rowIndex}`;
+  }
+  return `${prefix}:${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}`;
+}
+
+function resetProgressFills(progressFills) {
+  const uniqueProgressFills = [...new Set(progressFills)].filter((fill) => fill?.isConnected);
+  for (const progressFill of uniqueProgressFills) {
+    progressFill.style.transitionDuration = "0ms";
+    progressFill.style.transform = "scaleX(0)";
+  }
+  forceProgressLayout(uniqueProgressFills);
 }
 
 function invalidateRenderedBoard() {
@@ -474,6 +513,7 @@ function invalidateRenderedBoard() {
   renderedPhaseElement = null;
   renderedVoiceElement = null;
   currentProgressFills = [];
+  progressTargetKey = "";
 }
 
 function boardSignature(board) {
