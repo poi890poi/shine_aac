@@ -24,6 +24,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.speech.tts.TextToSpeech
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
@@ -38,6 +39,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -60,13 +62,14 @@ class MainActivity : Activity() {
     private lateinit var reviewList: LinearLayout
     private lateinit var reviewStatsText: TextView
     private lateinit var autoThreshold: CheckBox
-    private lateinit var autoReview: CheckBox
 
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
     private var analysisSize = Size(320, 240)
 
     private var roiXPct = 28
@@ -112,6 +115,10 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         closeCamera()
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
+        ttsReady = false
         super.onDestroy()
     }
 
@@ -142,9 +149,12 @@ class MainActivity : Activity() {
             isChecked = true
             setOnCheckedChangeListener { _, _ -> updateReadout() }
         }
-        autoReview = CheckBox(this).apply {
-            text = "Auto capture review crops"
-            isChecked = true
+
+        tts = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                tts?.language = Locale.getDefault()
+            }
         }
 
         val previewFrame = FrameLayout(this).apply {
@@ -221,7 +231,6 @@ class MainActivity : Activity() {
                 button("Apply Tags Calibration") { applyTaggedCalibration() },
                 button("Clear Review") { clearReviewFrames() }
             ))
-            addView(autoReview)
             addView(slider("Target open crops", 1, 30, targetOpenCrops) { targetOpenCrops = it; updateReviewStats() })
             addView(slider("Target closed crops", 1, 30, targetClosedCrops) { targetClosedCrops = it; updateReviewStats() })
             addView(reviewList)
@@ -640,7 +649,6 @@ class MainActivity : Activity() {
     }
 
     private fun maybeAutoAddReviewFrame(now: Long) {
-        if (!autoReview.isChecked) return
         if (latestCropBitmap == null) return
         if (autoCalibrationRunning) {
             if (now - lastBurstFrameAt >= 200) {
@@ -656,12 +664,6 @@ class MainActivity : Activity() {
             }
             return
         }
-        if (reviewPredictedOpenCount() >= targetOpenCrops &&
-            reviewPredictedClosedCount() >= targetClosedCrops
-        ) return
-        if (now - lastReviewFrameAt < 1000) return
-        lastReviewFrameAt = now
-        addReviewFrame("auto")
     }
 
     private fun addReviewFrame(source: String) {
@@ -806,7 +808,6 @@ class MainActivity : Activity() {
         }
         startCamera()
         clearReviewFrames()
-        autoReview.isChecked = true
         autoCalibrationRunning = true
         autoCalibrationPhase = AutoPhase.Prepare
         autoCalibrationText.text = "starting"
@@ -824,6 +825,7 @@ class MainActivity : Activity() {
             applyTaggedCalibration()
             autoCalibrationText.text = "done: open ${reviewOpenCount()}, closed ${reviewClosedCount()}, bad ${reviewBadCropCount()}"
             addLog("auto calibration finished")
+            speakCue("Auto calibration complete")
         }, 26500)
     }
 
@@ -839,7 +841,13 @@ class MainActivity : Activity() {
             lastBurstFrameAt = 0L
             autoCalibrationText.text = "$message (${durationMs / 1000}s)"
             addLog("auto phase ${phase.id}: $message")
+            speakCue(message)
         }, delayMs)
+    }
+
+    private fun speakCue(message: String) {
+        if (!ttsReady) return
+        tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "blink-calibration-${System.currentTimeMillis()}")
     }
 
     private fun applyTaggedCalibration() {
@@ -920,7 +928,7 @@ class MainActivity : Activity() {
     private fun exportSummaryJson(): String {
         return """
             {
-              "versionCode": 12,
+              "versionCode": 13,
               "openTagged": ${reviewOpenCount()},
               "closedTagged": ${reviewClosedCount()},
               "badCropTagged": ${reviewBadCropCount()},
