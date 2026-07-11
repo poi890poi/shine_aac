@@ -63,7 +63,7 @@ class MainActivity : Activity() {
     private var roiYPct = 30
     private var roiWPct = 44
     private var roiHPct = 16
-    private var metric = Metric.ContrastDrop
+    private var metric = Metric.Sampled
     private var manualThreshold = 0.25
     private var hysteresis = 0.03
     private var longBlinkMs = 650L
@@ -146,9 +146,12 @@ class MainActivity : Activity() {
             addView(slider("Height", 5, 45, roiHPct) { roiHPct = it; updateRoi() })
             addView(sectionTitle("Detection"))
             addView(buttonRow(
+                button("Sampled") { metric = Metric.Sampled; addLog("metric: sampled") },
                 button("Contrast") { metric = Metric.ContrastDrop; addLog("metric: contrast") },
                 button("Bright +") { metric = Metric.BrightnessRise; addLog("metric: brightness rise") },
-                button("Bright -") { metric = Metric.BrightnessDrop; addLog("metric: brightness drop") },
+                button("Bright -") { metric = Metric.BrightnessDrop; addLog("metric: brightness drop") }
+            ))
+            addView(buttonRow(
                 button("Combined") { metric = Metric.Combined; addLog("metric: combined") }
             ))
             addView(autoThreshold)
@@ -406,6 +409,7 @@ class MainActivity : Activity() {
     private fun score(features: Features): Double {
         val open = openBaseline ?: features
         return when (metric) {
+            Metric.Sampled -> sampledClosedScore(features)
             Metric.BrightnessRise -> clamp(features.mean - open.mean + 0.5, 0.0, 1.0)
             Metric.BrightnessDrop -> clamp(open.mean - features.mean + 0.5, 0.0, 1.0)
             Metric.Combined -> {
@@ -430,6 +434,29 @@ class MainActivity : Activity() {
             closed = false
             handleClosure(now, now - closedStartedAt)
         }
+    }
+
+    private fun sampledClosedScore(features: Features): Double {
+        val open = openBaseline
+        val closedSample = closedBaseline
+        if (open == null || closedSample == null) {
+            return normalizedDrop(
+                features.contrast + features.edge,
+                (open ?: features).contrast + (open ?: features).edge
+            )
+        }
+        val distOpen = featureDistance(features, open)
+        val distClosed = featureDistance(features, closedSample)
+        val denominator = distOpen + distClosed
+        if (denominator <= 0.000001) return 0.0
+        return clamp(distOpen / denominator, 0.0, 1.0)
+    }
+
+    private fun featureDistance(a: Features, b: Features): Double {
+        val mean = (a.mean - b.mean) * 3.0
+        val contrast = (a.contrast - b.contrast) * 6.0
+        val edge = (a.edge - b.edge) * 10.0
+        return sqrt(mean * mean + contrast * contrast + edge * edge)
     }
 
     private fun handleClosure(now: Long, duration: Long) {
@@ -680,6 +707,7 @@ class MainActivity : Activity() {
     }
 
     private enum class Metric {
+        Sampled,
         ContrastDrop,
         BrightnessRise,
         BrightnessDrop,
@@ -696,18 +724,21 @@ class MainActivity : Activity() {
         private var y = 30
         private var w = 44
         private var h = 16
+        private var mirrorX = true
 
-        fun setRoi(xPct: Int, yPct: Int, wPct: Int, hPct: Int) {
+        fun setRoi(xPct: Int, yPct: Int, wPct: Int, hPct: Int, mirrorX: Boolean = true) {
             x = xPct
             y = yPct
             w = wPct
             h = hPct
+            this.mirrorX = mirrorX
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val left = width * x / 100f
+            val displayX = if (mirrorX) 100 - x - w else x
+            val left = width * displayX / 100f
             val top = height * y / 100f
             val right = left + width * w / 100f
             val bottom = top + height * h / 100f
