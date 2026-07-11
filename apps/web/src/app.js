@@ -185,11 +185,11 @@ function handleInputEvent(inputEvent = {}) {
   }
   if (isHardwareInput(inputEvent.source) && !hardwareInputEnabled()) return false;
   if (isCameraInput(inputEvent.source) && !cameraInputEnabled()) return false;
-  activateSwitch();
+  activateSwitch(inputEvent);
   return true;
 }
 
-function activateSwitch() {
+function activateSwitch(inputEvent = {}) {
   if (configOpen) return;
   cancelScheduledScan();
   if (reviewHoldActive) {
@@ -201,7 +201,10 @@ function activateSwitch() {
     return;
   }
   const elapsed = performance.now() - highlightStartedAt;
-  const nextSession = pressSwitch(session, elapsed);
+  const baseConfig = session.config;
+  const timedSession = { ...session, config: effectiveTimingConfigForInput(inputEvent.source) };
+  const nextSessionWithTiming = pressSwitch(timedSession, elapsed);
+  const nextSession = { ...nextSessionWithTiming, config: baseConfig };
   const selection = nextSession.lastSelection;
   session = uiConfig.restartScanFromTop && selection
     ? { ...nextSession, scannerState: { ...nextSession.scannerState, rowIndex: 0 } }
@@ -235,7 +238,7 @@ function scheduleScan() {
     return;
   }
 
-  const duration = scanDurationForStage(session.scannerState, session.config);
+  const duration = scanDurationForStage(session.scannerState, effectiveTimingConfigForScan());
   const token = scanScheduleToken;
   highlightStartedAt = performance.now();
   highlightDeadlineAt = highlightStartedAt + duration;
@@ -296,6 +299,28 @@ function shouldHoldForSuggestionReview(selection) {
   return uiConfig.holdAfterSuggestionChange &&
     selection &&
     ["message", "undo", "suggestion-page", "category"].includes(selection.effect);
+}
+
+function effectiveTimingConfigForScan() {
+  return cameraInputEnabled()
+    ? timingProfileConfig(session.config, ScanTimingPresets.cameraLongBlink)
+    : session.config;
+}
+
+function effectiveTimingConfigForInput(source = "") {
+  return isCameraInput(source)
+    ? timingProfileConfig(session.config, ScanTimingPresets.cameraLongBlink)
+    : session.config;
+}
+
+function timingProfileConfig(baseConfig, timingProfile) {
+  return {
+    ...baseConfig,
+    scanIntervalMs: timingProfile.scanIntervalMs,
+    transitionPauseMs: timingProfile.transitionPauseMs,
+    firstCellPauseMs: timingProfile.firstCellPauseMs,
+    inputLatencyCompensationMs: timingProfile.inputLatencyCompensationMs
+  };
 }
 
 function speak(text) {

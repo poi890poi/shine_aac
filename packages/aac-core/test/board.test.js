@@ -408,6 +408,12 @@ test("scan timing presets are named bundles over normal timing fields", () => {
   assert.equal(slowerConfig.firstCellPauseMs, ScanTimingPresets.slower.firstCellPauseMs);
   assert.equal(scanTimingPresetIdForConfig(slowerConfig), "slower");
 
+  const cameraConfig = applyScanTimingPreset(defaultConfig, "cameraLongBlink");
+  assert.equal(cameraConfig.scanIntervalMs, ScanTimingPresets.cameraLongBlink.scanIntervalMs);
+  assert.equal(cameraConfig.transitionPauseMs, ScanTimingPresets.cameraLongBlink.transitionPauseMs);
+  assert.equal(cameraConfig.inputLatencyCompensationMs, ScanTimingPresets.cameraLongBlink.inputLatencyCompensationMs);
+  assert.equal(scanTimingPresetIdForConfig(cameraConfig), "cameraLongBlink");
+
   const customConfig = createBoardConfig({ ...slowerConfig, firstCellPauseMs: slowerConfig.firstCellPauseMs + 50 });
   assert.equal(scanTimingPresetIdForConfig(customConfig), "custom");
 });

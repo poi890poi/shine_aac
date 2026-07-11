@@ -49,6 +49,14 @@ export const ScanTimingPresets = Object.freeze({
     firstCellPauseMs: 2300,
     inputLatencyCompensationMs: 300
   }),
+  cameraLongBlink: Object.freeze({
+    id: "cameraLongBlink",
+    label: "Camera long blink",
+    scanIntervalMs: 2600,
+    transitionPauseMs: 800,
+    firstCellPauseMs: 3200,
+    inputLatencyCompensationMs: 900
+  }),
   firstCellSupport: Object.freeze({
     id: "firstCellSupport",
     label: "First symbol support",
