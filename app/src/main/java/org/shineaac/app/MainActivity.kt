@@ -3,6 +3,7 @@ package org.shineaac.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -14,8 +15,9 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import org.shineaac.inputs.CameraSwitchCalibrationActivity
 import org.shineaac.inputs.CameraSwitchInputAdapter
-import org.shineaac.inputs.CameraSwitchSettings
+import org.shineaac.inputs.CameraSwitchPreferences
 import org.shineaac.inputs.InputSink
 import org.json.JSONObject
 import java.util.Locale
@@ -29,6 +31,7 @@ class MainActivity : ComponentActivity() {
     private val ttsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     @Volatile private var hardwareButtonsEnabled = true
     @Volatile private var cameraSwitchEnabled = false
+    @Volatile private var switchInputProfile = SwitchInputHardware
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -60,7 +63,7 @@ class MainActivity : ComponentActivity() {
         cameraSwitchInput = CameraSwitchInputAdapter(
             context = this,
             settingsProvider = {
-                CameraSwitchSettings(enabled = cameraSwitchEnabled)
+                CameraSwitchPreferences.read(this, enabled = cameraSwitchEnabled)
             },
             sink = InputSink { event ->
                 sendInputIntent(event.source, null)
@@ -220,6 +223,7 @@ class MainActivity : ComponentActivity() {
                 .put("scanVoice", prefs.getBoolean("scanVoice", true))
                 .put("activationVoice", prefs.getBoolean("activationVoice", true))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
+                .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
                 .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))
                 .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", true))
@@ -233,8 +237,9 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {
                 JSONObject()
             }
-            hardwareButtonsEnabled = config.optBoolean("hardwareButtons", true)
-            val nextCameraSwitchEnabled = config.optBoolean("cameraSwitch", false)
+            switchInputProfile = normalizedInputProfile(config)
+            hardwareButtonsEnabled = hardwareEnabledForProfile(switchInputProfile)
+            val nextCameraSwitchEnabled = cameraEnabledForProfile(switchInputProfile)
             if (nextCameraSwitchEnabled != cameraSwitchEnabled) {
                 cameraSwitchEnabled = nextCameraSwitchEnabled
                 if (cameraSwitchEnabled) {
@@ -250,6 +255,13 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
+        fun openCameraSwitchCalibration(profileId: String) {
+            val intent = Intent(this@MainActivity, CameraSwitchCalibrationActivity::class.java)
+                .putExtra(CameraCalibrationProfileExtra, profileId)
+            startActivity(intent)
+        }
+
+        @JavascriptInterface
         fun onRender(stateJson: String) {
             if (isE2E()) {
                 Log.i("ShineAacE2E", "SHINE_AAC_E2E_STATE $stateJson")
@@ -259,5 +271,36 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val CameraPermissionRequestCode = 2403
+        const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
+        const val SwitchInputOff = "off"
+        const val SwitchInputHardware = "hardware-buttons"
+        const val SwitchInputCameraLongBlink = "camera-long-blink"
+        const val SwitchInputHardwareAndCamera = "hardware-and-camera"
+
+        fun normalizedInputProfile(config: JSONObject): String {
+            val requested = config.optString("switchInputProfile", "")
+            return when (requested) {
+                SwitchInputOff,
+                SwitchInputHardware,
+                SwitchInputCameraLongBlink,
+                SwitchInputHardwareAndCamera -> requested
+                else -> {
+                    val hardware = config.optBoolean("hardwareButtons", true)
+                    val camera = config.optBoolean("cameraSwitch", false)
+                    when {
+                        hardware && camera -> SwitchInputHardwareAndCamera
+                        camera -> SwitchInputCameraLongBlink
+                        hardware -> SwitchInputHardware
+                        else -> SwitchInputOff
+                    }
+                }
+            }
+        }
+
+        fun hardwareEnabledForProfile(profile: String): Boolean =
+            profile == SwitchInputHardware || profile == SwitchInputHardwareAndCamera
+
+        fun cameraEnabledForProfile(profile: String): Boolean =
+            profile == SwitchInputCameraLongBlink || profile == SwitchInputHardwareAndCamera
     }
 }

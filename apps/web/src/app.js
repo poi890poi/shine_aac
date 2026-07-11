@@ -26,7 +26,7 @@ import {
 import { createDemoMode } from "./demo-mode.js";
 import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
 import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
-import { defaultUiConfig, loadUiConfig, saveUiConfig, syncNativeUiConfig } from "./ui-config.js";
+import { defaultUiConfig, loadUiConfig, normalizeUiConfig, saveUiConfig, syncNativeUiConfig } from "./ui-config.js";
 
 const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
@@ -183,8 +183,8 @@ function handleInputEvent(inputEvent = {}) {
     recordCalibrationInput(inputEvent);
     return true;
   }
-  if (isHardwareInput(inputEvent.source) && !uiConfig.hardwareButtons) return false;
-  if (isCameraInput(inputEvent.source) && !uiConfig.cameraSwitch) return false;
+  if (isHardwareInput(inputEvent.source) && !hardwareInputEnabled()) return false;
+  if (isCameraInput(inputEvent.source) && !cameraInputEnabled()) return false;
   activateSwitch();
   return true;
 }
@@ -729,14 +729,14 @@ function renderConfig() {
         <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
         Restart scan at top after input
       </label>
-      <label class="field check-field">
-        <input name="hardwareButtons" type="checkbox" ${uiConfig.hardwareButtons ? "checked" : ""}>
-        Phone/external buttons activate switch
+      <label class="field">Switch input
+        <select name="switchInputProfile">
+          ${switchInputProfileOptionsHtml(uiConfig.switchInputProfile)}
+        </select>
       </label>
-      <label class="field check-field">
-        <input name="cameraSwitch" type="checkbox" ${uiConfig.cameraSwitch ? "checked" : ""}>
-        Camera long blink activates switch
-      </label>
+      <div class="field">
+        <button class="secondary-button" type="button" data-action="camera-calibration">Camera setup</button>
+      </div>
       <label class="field check-field">
         <input name="holdAfterSuggestionChange" type="checkbox" ${uiConfig.holdAfterSuggestionChange ? "checked" : ""}>
         Hold after suggestion changes
@@ -808,11 +808,14 @@ function renderConfig() {
     const action = event.target?.dataset?.action;
     if (action === "cancel") closeConfig();
     if (action === "calibrate") openCalibration();
+    if (action === "camera-calibration") {
+      openCameraSwitchCalibration(String(form.elements.profileId.value || session.config.profileId || "en-US"));
+    }
     if (action === "reset") {
       const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
       const config = createBoardConfig({ profileId });
       saveConfig(config);
-      uiConfig = defaultUiConfig;
+      uiConfig = normalizeUiConfig(defaultUiConfig);
       saveUiConfig(uiStorageKey, uiConfig);
       session = createSession({ config });
       closeConfig();
@@ -837,15 +840,14 @@ function renderConfig() {
       symbols: parseSymbols(String(data.get("symbols") ?? ""))
     });
     saveConfig(config);
-    uiConfig = {
+    uiConfig = normalizeUiConfig({
       rowScanVoice: data.get("rowScanVoice") === "on",
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
       restartScanFromTop: data.get("restartScanFromTop") === "on",
-      hardwareButtons: data.get("hardwareButtons") === "on",
-      cameraSwitch: data.get("cameraSwitch") === "on",
+      switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
       holdAfterSuggestionChange: data.get("holdAfterSuggestionChange") === "on"
-    };
+    });
     saveUiConfig(uiStorageKey, uiConfig);
     session = createSession({ config });
     closeConfig();
@@ -888,8 +890,8 @@ function recordCalibrationInput(inputEvent) {
     keyCode: inputEvent.keyCode,
     confidence: Number.isFinite(Number(inputEvent.confidence)) ? Number(inputEvent.confidence) : null,
     deltaMs: previous > 0 ? now - previous : null,
-    disabledBySettings: (isHardwareInput(source) && !uiConfig.hardwareButtons) ||
-      (isCameraInput(source) && !uiConfig.cameraSwitch)
+    disabledBySettings: (isHardwareInput(source) && !hardwareInputEnabled()) ||
+      (isCameraInput(source) && !cameraInputEnabled())
   };
 
   calibrationState.lastEventAt = now;
@@ -988,7 +990,7 @@ function reliableCalibrationHtml() {
   const guidance = ready
     ? "This source is behaving like a reliable switch."
     : disabled
-      ? "Turn on phone/external buttons in Configuration or use a different source."
+      ? "Choose a switch input profile that includes this source."
       : duplicates > 0
         ? "The app saw repeated activations too close together. Increase debounce in the adapter or try sensor testing."
         : "Press the input five times at a comfortable pace.";
@@ -1124,12 +1126,12 @@ function calibrationStatsHtml() {
         <strong>${interval === null ? "-" : `${Math.round(interval)}ms`}</strong>
       </div>
       <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
-        <span>Hardware setting</span>
-        <strong>${uiConfig.hardwareButtons ? "On" : "Off"}</strong>
+        <span>Hardware input</span>
+        <strong>${hardwareInputEnabled() ? "On" : "Off"}</strong>
       </div>
       <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
-        <span>Camera setting</span>
-        <strong>${uiConfig.cameraSwitch ? "On" : "Off"}</strong>
+        <span>Camera input</span>
+        <strong>${cameraInputEnabled() ? "On" : "Off"}</strong>
       </div>
     </section>
   `;
@@ -1299,6 +1301,40 @@ function scanTimingPresetOptionsHtml(config) {
     presetOptions.push("<option value=\"custom\" selected>Custom</option>");
   }
   return presetOptions.join("");
+}
+
+function switchInputProfileOptionsHtml(selectedProfile) {
+  const options = [
+    ["hardware-buttons", "Phone/external buttons"],
+    ["camera-long-blink", "Camera long blink"],
+    ["hardware-and-camera", "Buttons + camera"],
+    ["off", "Off"]
+  ];
+  return options
+    .map(([value, label]) => {
+      const selected = value === selectedProfile ? " selected" : "";
+      return `<option value="${value}"${selected}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
+}
+
+function hardwareInputEnabled(config = uiConfig) {
+  return config.switchInputProfile === "hardware-buttons" ||
+    config.switchInputProfile === "hardware-and-camera";
+}
+
+function cameraInputEnabled(config = uiConfig) {
+  return config.switchInputProfile === "camera-long-blink" ||
+    config.switchInputProfile === "hardware-and-camera";
+}
+
+function openCameraSwitchCalibration(profileId) {
+  if (!globalThis.ShineAacAndroid?.openCameraSwitchCalibration) return;
+  try {
+    globalThis.ShineAacAndroid.openCameraSwitchCalibration(profileId);
+  } catch {
+    // Browser builds do not provide native camera calibration.
+  }
 }
 
 function attachDemoLongPress(element) {

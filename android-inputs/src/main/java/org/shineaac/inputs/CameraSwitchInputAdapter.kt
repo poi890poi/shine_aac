@@ -35,8 +35,8 @@ class CameraSwitchInputAdapter(
     private var handler: Handler? = null
     private val analysisSize = Size(320, 240)
     private var lastRoi: TrackedRoi? = null
-    private var openBaseline: Features? = null
-    private var closedBaseline: Features? = null
+    private var openBaseline: EyeFeatures? = null
+    private var closedBaseline: EyeFeatures? = null
     private var closedStartedAt = 0L
     private var closed = false
     private var lastActivationAt = 0L
@@ -46,6 +46,8 @@ class CameraSwitchInputAdapter(
         stop()
         val settings = settingsProvider()
         if (!settings.enabled) return
+        openBaseline = settings.openBaseline
+        closedBaseline = settings.closedBaseline
 
         thread = HandlerThread("ShineCameraSwitch").also { it.start() }
         handler = Handler(thread!!.looper)
@@ -146,7 +148,7 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private fun readFeatures(rawFrame: RawFrame): Features? {
+    private fun readFeatures(rawFrame: RawFrame): EyeFeatures? {
         val rotations = mutableListOf<Int>()
         lastRoi?.rotation?.let { rotations.add(it) }
         rotations.addAll(listOf(0, 90, 270, 180))
@@ -162,7 +164,7 @@ class CameraSwitchInputAdapter(
         return featuresFromRoi(frame, last.x, last.y, last.w, last.h)
     }
 
-    private fun sampledClosedScore(features: Features): Double {
+    private fun sampledClosedScore(features: EyeFeatures): Double {
         val open = openBaseline ?: return 0.0
         val closedSample = closedBaseline ?: return normalizedDrop(features.contrast + features.edge, open.contrast + open.edge)
         val distOpen = featureDistance(features, open)
@@ -203,7 +205,6 @@ class CameraSwitchInputAdapter(
         return TrackedRoi(rotation, x, y, roiW, roiH)
     }
 
-    private data class Features(val mean: Double, val contrast: Double, val edge: Double)
     private data class TrackedRoi(val rotation: Int, val x: Int, val y: Int, val w: Int, val h: Int)
     private data class OrientedFrame(val width: Int, val height: Int, val luma: ByteArray)
     private data class RawFrame(val width: Int, val height: Int, val luma: ByteArray) {
@@ -244,7 +245,7 @@ class CameraSwitchInputAdapter(
     }
 
     private companion object {
-        fun featuresFromRoi(frame: OrientedFrame, x0: Int, y0: Int, roiW: Int, roiH: Int): Features {
+        fun featuresFromRoi(frame: OrientedFrame, x0: Int, y0: Int, roiW: Int, roiH: Int): EyeFeatures {
             val x1 = min(frame.width, x0 + roiW)
             val y1 = min(frame.height, y0 + roiH)
             var sum = 0.0
@@ -266,10 +267,10 @@ class CameraSwitchInputAdapter(
             }
             val mean = if (count > 0) sum / count else 0.0
             val variance = if (count > 0) max(0.0, sumSquares / count - mean * mean) else 0.0
-            return Features(mean, sqrt(variance), if (count > 0) edge / count else 0.0)
+            return EyeFeatures(mean, sqrt(variance), if (count > 0) edge / count else 0.0)
         }
 
-        fun featureDistance(a: Features, b: Features): Double {
+        fun featureDistance(a: EyeFeatures, b: EyeFeatures): Double {
             val mean = (a.mean - b.mean) * 3.0
             val contrast = (a.contrast - b.contrast) * 6.0
             val edge = (a.edge - b.edge) * 10.0
