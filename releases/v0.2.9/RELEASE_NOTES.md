@@ -10,10 +10,11 @@ Android version code: 12
 ## Verification
 
 - `npm run test:web:e2e`
+- `npm run test:core`
 - `.\build-test.bat -SdkDir E:\Android\Sdk`
 - `.\package-release.bat -SdkDir E:\Android\Sdk`
 
-The full core test suite was not completed in this run because it exceeded the local timeout after many passing cases. The packaged Android E2E wrapper also hung before producing useful output, so it was not counted as passed for this release.
+The packaged Android E2E wrapper hung before producing useful output, so it was not counted as passed for this release.
 
 ## Notes
 

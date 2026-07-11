@@ -26,6 +26,26 @@ This document defines how SHINE AAC should be tested before release candidates. 
 | APK/build checks | Android package build, asset inclusion, native shell integration, installable artifact | Build-time plus selected device/emulator smoke flows | `docs/APK_REPORT.md` |
 | Human UX verification | Comfort, clarity, timing feel, speech output, and caregiver comprehension | Real device and real user/helper judgment | UX checklist in release notes/report |
 
+## Change-Scoped Test Selection
+
+Not every change needs the full test pyramid. Tests should match the modified surface first, then broaden only when the change crosses boundaries or is being prepared for publication.
+
+| Change Type | Examples | Required Before Commit | Required Before APK Handoff | Required Before Major Release / Publish |
+| --- | --- | --- | --- | --- |
+| Documentation/store text only | `docs/`, Play listing copy, release notes | spell/check affected docs; no app tests unless generated references changed | none | full release packet review |
+| Store assets only | feature graphic, screenshots, Play icon files not packaged in app | verify dimensions and visual output | none unless app resources changed | Play asset checklist |
+| Launcher/app resources | Android icon, strings, manifest resources | `.\gradlew.bat assembleDebug` | `.\build-test.bat -SdkDir <sdk>` if APK is handed off | full Android build/package |
+| Web UI rendering only | CSS/layout/progress animation/message display | `npm run test:web:e2e` or narrower browser scenario covering the changed UI | `.\build-test.bat -SdkDir <sdk>` plus APK install/smoke when handed off | full core, web, Android package, UX checklist |
+| Web integration behavior | demo activation, config modal, localStorage migration, UI event handling | targeted browser E2E scenario plus affected unit tests if core state changes | APK runtime smoke if WebView/touch/hardware path is involved | full core, web, Android runtime smoke |
+| Android native shell | TTS bridge, hardware keys, WebView setup, app lifecycle | `.\gradlew.bat testDebugUnitTest` and `.\build-test.bat -SdkDir <sdk>` | targeted APK runtime smoke or `.\e2e-switch-test.bat -SdkDir <sdk>` when stable | full Android package/runtime plus manual device check |
+| Core scanner/message/profile logic | `packages/aac-core`, scanner, suggestions, dictionary ranking, migration | targeted core test file or fixture plus relevant benchmark generator | full `npm run test:core` before APK handoff if behavior affects users | full core, benchmark, web, Android, UX checklist |
+| `zh-TW` dictionary/ranking/data | generated Chewing data, phonetic access rules, benchmark fixtures | targeted source/data analyzer and affected core tests | full `npm run test:core` before handing APK to Taiwan testers | full publish regression |
+| Cross-cutting release change | versioning, packaging, native plus web, profile defaults | affected targeted tests plus `.\package-release.bat -SdkDir <sdk>` | full handoff verification with SHA-256 and URL | full release gate |
+
+Default rule: run the smallest test set that can fail because of the change. Full regression is required for major changes, publish candidates, before public/closed testing submissions, and when a narrow test reveals unexplained behavior.
+
+When a command is expected to be long, give it a long timeout rather than reporting a harness timeout as a test failure. If a long-running command appears stalled, inspect process/log state and report it as an infrastructure issue separately from product quality.
+
 ## Core Unit Methods
 
 Core tests must run without Android SDK, browser APIs, WebView, network, audio devices, or platform storage. They should test pure functions and session transitions.
