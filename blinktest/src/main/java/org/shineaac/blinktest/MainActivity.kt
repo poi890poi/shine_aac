@@ -627,7 +627,9 @@ class MainActivity : Activity() {
     private fun maybeAutoAddReviewFrame(now: Long) {
         if (!autoReview.isChecked) return
         if (latestCropBitmap == null) return
-        if (reviewOpenCount() >= targetOpenCrops && reviewClosedCount() >= targetClosedCrops) return
+        if (reviewPredictedOpenCount() >= targetOpenCrops &&
+            reviewPredictedClosedCount() >= targetClosedCrops
+        ) return
         if (now - lastReviewFrameAt < 1000) return
         lastReviewFrameAt = now
         addReviewFrame("auto")
@@ -707,7 +709,11 @@ class MainActivity : Activity() {
     }
 
     private fun updateReviewStats() {
-        reviewStatsText.text = "$reviewCount frames, open ${reviewOpenCount()}/$targetOpenCrops, closed ${reviewClosedCount()}/$targetClosedCrops, bad ${reviewBadCropCount()}, $reviewCorrect correct, $reviewIncorrect incorrect"
+        reviewStatsText.text =
+            "captured open ${reviewPredictedOpenCount()}/$targetOpenCrops, " +
+            "closed ${reviewPredictedClosedCount()}/$targetClosedCrops; " +
+            "tagged open ${reviewOpenCount()}, closed ${reviewClosedCount()}, " +
+            "bad ${reviewBadCropCount()}; $reviewCorrect correct, $reviewIncorrect incorrect"
     }
 
     private fun setReviewTag(
@@ -780,6 +786,8 @@ class MainActivity : Activity() {
     private fun reviewOpenCount(): Int = taggedFrames.count { it.tag == ReviewTag.Open }
     private fun reviewClosedCount(): Int = taggedFrames.count { it.tag == ReviewTag.Closed }
     private fun reviewBadCropCount(): Int = taggedFrames.count { it.tag == ReviewTag.BadCrop }
+    private fun reviewPredictedOpenCount(): Int = taggedFrames.count { it.predicted == "open" }
+    private fun reviewPredictedClosedCount(): Int = taggedFrames.count { it.predicted == "closed" }
 
     private fun updateReadout() {
         stateText.text = if (closed) "closed" else "open"
