@@ -81,7 +81,13 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var restClosedStartedAt = 0L
     private var testLongBlinkClosed = false
     private var testLongBlinkClosedStartedAt = 0L
+    private var previewLongBlinkClosed = false
+    private var previewLongBlinkClosedStartedAt = 0L
+    private var previewLongBlinkCount = 0
+    private var previewLastDetectedDurationMs = 0L
+    private var previewLastCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = 800L
+    private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
     private var lastRoi: TrackedRoi? = null
     private var openBaseline: EyeFeatures? = null
     private var closedBaseline: EyeFeatures? = null
@@ -95,6 +101,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
         openBaseline = savedSettings.openBaseline
         closedBaseline = savedSettings.closedBaseline
+        savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
@@ -250,10 +257,13 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun updateSavedCalibrationUi() {
         if (openBaseline != null && closedBaseline != null) {
-            statusView?.text = "Saved calibration loaded. You can test it or recalibrate."
-            metricsView?.text = "Saved calibration | hold ${calibratedLongBlinkHoldMs}ms"
+            val quality = savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
+            statusView?.text = "Saved calibration loaded. Preview is listening for long blink."
+            metricsView?.text = "$quality | current position: blink to test"
             testButton?.isEnabled = true
         } else {
+            statusView?.text = "Position face in the preview."
+            metricsView?.text = "No saved calibration. Run auto calibration first."
             testButton?.isEnabled = false
         }
     }
@@ -318,6 +328,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         restClosedStartedAt = 0L
         testLongBlinkClosed = false
         testLongBlinkClosedStartedAt = 0L
+        previewLongBlinkClosed = false
+        previewLongBlinkClosedStartedAt = 0L
+        previewLongBlinkCount = 0
+        previewLastDetectedDurationMs = 0L
         openBaseline = null
         closedBaseline = null
         captureEndsAtMs = 0L
@@ -399,15 +413,18 @@ class CameraSwitchCalibrationActivity : Activity() {
         openBaseline = average(openSamples)
         closedBaseline = average(closedSamples)
         calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
+        val quality = calibrationQuality()
         CameraSwitchPreferences.saveCalibration(
             context = this,
             longBlinkMs = calibratedLongBlinkHoldMs,
             cooldownMs = 900L,
             mirrorOverlayX = mirrorOverlayX,
             openBaseline = openBaseline,
-            closedBaseline = closedBaseline
+            closedBaseline = closedBaseline,
+            qualityLabel = quality.label,
+            qualityDetail = quality.detail
         )
-        val quality = calibrationQuality()
+        savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         val message = "${cueSet.complete} ${quality.label}. Switch hold ${calibratedLongBlinkHoldMs}ms."
         statusView?.text = message
         metricsView?.text = quality.detail
@@ -611,9 +628,20 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (roi != null) lastRoi = roi
         if (features != null) collectCalibrationSample(features)
         val score = features?.let { closedScore(it) }
+        val previewDetected = features?.let { collectPreviewLongBlinkDuration(it) } ?: false
         mainHandler?.post {
             overlayView?.setRoi(roi, frame.width, frame.height, mirrorOverlayX)
-            if (phase != Phase.Complete) {
+            if (previewDetected) {
+                toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, PreviewCueMs)
+                statusView?.text = "Preview long blink detected. Current position works."
+            }
+            if (shouldPreviewMonitor()) {
+                metricsView?.text = if (score == null) {
+                    "${previousQualityText()} | current position: face not detected"
+                } else {
+                    "${previousQualityText()} | current position score ${"%.2f".format(score)} | preview detections $previewLongBlinkCount | last ${previewLastDetectedDurationMs}ms | hold ${calibratedLongBlinkHoldMs}ms"
+                }
+            } else if (phase != Phase.Complete) {
                 val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
                 metricsView?.text = if (score == null) {
                     "$ttsVoiceLabel | Face not detected"
@@ -625,6 +653,15 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
         }
     }
+
+    private fun shouldPreviewMonitor(): Boolean =
+        (phase == Phase.Idle || phase == Phase.Complete) &&
+            openBaseline != null &&
+            closedBaseline != null &&
+            currentSpeechId == null
+
+    private fun previousQualityText(): String =
+        savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
 
     private fun collectCalibrationSample(features: EyeFeatures) {
         when (phase) {
@@ -671,6 +708,32 @@ class CameraSwitchCalibrationActivity : Activity() {
             testLongBlinkDurations.add(now - testLongBlinkClosedStartedAt)
             testLongBlinkClosed = false
         }
+    }
+
+    private fun collectPreviewLongBlinkDuration(features: EyeFeatures): Boolean {
+        if (!shouldPreviewMonitor()) {
+            previewLongBlinkClosed = false
+            previewLongBlinkClosedStartedAt = 0L
+            return false
+        }
+        val score = closedScore(features) ?: return false
+        val now = System.currentTimeMillis()
+        if (!previewLongBlinkClosed && score >= 0.55) {
+            previewLongBlinkClosed = true
+            previewLongBlinkClosedStartedAt = now
+            return false
+        }
+        if (previewLongBlinkClosed && score < 0.35) {
+            val duration = now - previewLongBlinkClosedStartedAt
+            previewLongBlinkClosed = false
+            if (duration >= calibratedLongBlinkHoldMs && now - previewLastCueAtMs >= PreviewCueCooldownMs) {
+                previewLastCueAtMs = now
+                previewLastDetectedDurationMs = duration
+                previewLongBlinkCount += 1
+                return true
+            }
+        }
+        return false
     }
 
     private fun closedScore(features: EyeFeatures): Double? {
@@ -803,6 +866,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
         const val LongBlinkTestMs = 10000L
+        const val PreviewCueMs = 110
+        const val PreviewCueCooldownMs = 1500L
 
         fun average(samples: List<EyeFeatures>): EyeFeatures? {
             if (samples.isEmpty()) return null

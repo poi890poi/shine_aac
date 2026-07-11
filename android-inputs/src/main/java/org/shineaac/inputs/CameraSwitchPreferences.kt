@@ -30,7 +30,9 @@ object CameraSwitchPreferences {
         cooldownMs: Long,
         mirrorOverlayX: Boolean,
         openBaseline: EyeFeatures?,
-        closedBaseline: EyeFeatures?
+        closedBaseline: EyeFeatures?,
+        qualityLabel: String? = null,
+        qualityDetail: String? = null
     ) {
         val editor = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
             .edit()
@@ -40,7 +42,20 @@ object CameraSwitchPreferences {
             .putLong("calibratedAtMs", System.currentTimeMillis())
         writeFeatures(editor, "open", openBaseline)
         writeFeatures(editor, "closed", closedBaseline)
+        writeString(editor, "qualityLabel", qualityLabel)
+        writeString(editor, "qualityDetail", qualityDetail)
         editor.apply()
+    }
+
+    fun readCalibrationRecord(context: Context): CameraSwitchCalibrationRecord? {
+        val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+        val calibratedAtMs = prefs.getLong("calibratedAtMs", 0L)
+        if (calibratedAtMs <= 0L) return null
+        return CameraSwitchCalibrationRecord(
+            calibratedAtMs = calibratedAtMs,
+            qualityLabel = prefs.getString("qualityLabel", null),
+            qualityDetail = prefs.getString("qualityDetail", null)
+        )
     }
 
     fun saveMirrorOverlayX(context: Context, mirrorOverlayX: Boolean) {
@@ -80,6 +95,24 @@ object CameraSwitchPreferences {
             .putFloat("$prefix.edge", features.edge.toFloat())
     }
 
+    private fun writeString(
+        editor: android.content.SharedPreferences.Editor,
+        key: String,
+        value: String?
+    ) {
+        if (value.isNullOrBlank()) {
+            editor.remove(key)
+        } else {
+            editor.putString(key, value)
+        }
+    }
+
     private fun clampLong(value: Long, minValue: Long, maxValue: Long): Long =
         min(maxValue, max(minValue, value))
 }
+
+data class CameraSwitchCalibrationRecord(
+    val calibratedAtMs: Long,
+    val qualityLabel: String?,
+    val qualityDetail: String?
+)
