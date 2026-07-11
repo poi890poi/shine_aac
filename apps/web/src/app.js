@@ -36,6 +36,7 @@ const uiStorageKey = "shine-aac-web-ui-v1";
 let session = createSession({ config: loadConfig() });
 let uiConfig = loadUiConfig(uiStorageKey);
 let highlightStartedAt = performance.now();
+let highlightDeadlineAt = highlightStartedAt;
 let timerId = 0;
 let animationFrameId = 0;
 let configOpen = false;
@@ -47,10 +48,15 @@ let suppressNextConfigClick = false;
 let renderedBoardKey = "";
 let renderedMessage = "";
 let renderedTiles = [];
+let renderedTileGrid = [];
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
+let currentActiveTiles = [];
 let currentProgressFills = [];
 let progressTargetKey = "";
+let pendingAdvanceSession = null;
+let prepareAdvanceTimerId = 0;
+let scanScheduleToken = 0;
 let calibrationState = createCalibrationState();
 const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
@@ -184,6 +190,7 @@ function handleInputEvent(inputEvent = {}) {
 
 function activateSwitch() {
   if (configOpen) return;
+  cancelScheduledScan();
   if (reviewHoldActive) {
     reviewHoldActive = false;
     resetClock();
@@ -214,12 +221,13 @@ function activateSwitch() {
 
 function advanceScan() {
   if (configOpen) return;
-  setSession(advanceSession(session));
+  const nextSession = pendingAdvanceSession ?? advanceSession(session);
+  pendingAdvanceSession = null;
+  setSession(nextSession);
 }
 
 function scheduleScan() {
-  window.clearTimeout(timerId);
-  window.cancelAnimationFrame(animationFrameId);
+  cancelScheduledScan();
   if (configOpen) return;
   if (reviewHoldActive) {
     setProgressFills(1, 0);
@@ -227,24 +235,43 @@ function scheduleScan() {
   }
 
   const duration = scanDurationForStage(session.scannerState, session.config);
-  timerId = window.setTimeout(advanceScan, duration);
-  startProgressAnimation(duration);
-}
+  const token = scanScheduleToken;
+  highlightStartedAt = performance.now();
+  highlightDeadlineAt = highlightStartedAt + duration;
 
-function startProgressAnimation(duration) {
-  const durationMs = Math.max(1, duration);
-  setProgressFills(progressForCurrentHighlight(durationMs), 0);
   animationFrameId = window.requestAnimationFrame(() => {
-    const progress = progressForCurrentHighlight(durationMs);
-    const remainingMs = Math.max(1, durationMs - (performance.now() - highlightStartedAt));
-    const progressFills = setProgressFills(progress, 0);
-    forceProgressLayout(progressFills);
-    setProgressFills(1, remainingMs);
+    if (token !== scanScheduleToken || configOpen || reviewHoldActive) return;
+    resetProgressFills(currentProgressFills);
+    animationFrameId = window.requestAnimationFrame(() => {
+      if (token !== scanScheduleToken || configOpen || reviewHoldActive) return;
+      startScanClock(duration, token);
+    });
   });
 }
 
-function progressForCurrentHighlight(durationMs) {
-  return clamp((performance.now() - highlightStartedAt) / Math.max(1, durationMs), 0, 1);
+function cancelScheduledScan() {
+  window.clearTimeout(timerId);
+  window.clearTimeout(prepareAdvanceTimerId);
+  window.cancelAnimationFrame(animationFrameId);
+  timerId = 0;
+  prepareAdvanceTimerId = 0;
+  animationFrameId = 0;
+  pendingAdvanceSession = null;
+  scanScheduleToken += 1;
+}
+
+function startScanClock(duration, token) {
+  const durationMs = Math.max(1, duration);
+  highlightStartedAt = performance.now();
+  highlightDeadlineAt = highlightStartedAt + durationMs;
+  timerId = window.setTimeout(advanceScan, durationMs);
+  const progressFills = setProgressFills(0, 0);
+  forceProgressLayout(progressFills);
+  setProgressFills(1, durationMs);
+  prepareAdvanceTimerId = window.setTimeout(() => {
+    if (token !== scanScheduleToken || configOpen || reviewHoldActive) return;
+    pendingAdvanceSession = advanceSession(session);
+  }, 0);
 }
 
 function setProgressFills(progress, durationMs) {
@@ -411,6 +438,7 @@ function renderFull(board, boardKey) {
     const rowElement = document.createElement("div");
     rowElement.className = "row";
     rowElement.style.gridTemplateColumns = `repeat(${session.config.columns}, minmax(0, 1fr))`;
+    const renderedRow = [];
 
     row.forEach((candidate, cellIndex) => {
       const tile = document.createElement("div");
@@ -429,9 +457,12 @@ function renderFull(board, boardKey) {
 
       tile.append(progressFill, label);
       rowElement.append(tile);
-      renderedTiles.push({ element: tile, progressFill, candidate, rowIndex, cellIndex });
+      const renderedTile = { element: tile, progressFill, candidate, rowIndex, cellIndex };
+      renderedTiles.push(renderedTile);
+      renderedRow.push(renderedTile);
     });
 
+    renderedTileGrid.push(renderedRow);
     boardElement.append(rowElement);
   });
 
@@ -454,10 +485,13 @@ function updateScanPresentation(board) {
     renderedVoiceElement.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
   }
 
+  const previousActiveTiles = currentActiveTiles;
   const previousProgressFills = currentProgressFills;
-  const nextProgressFills = [];
+  const nextActiveTiles = activeRenderedTilesForScanner(scanner);
+  const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
+  const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles])];
 
-  for (const rendered of renderedTiles) {
+  for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
     const activeRow =
       (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) &&
@@ -471,9 +505,6 @@ function updateScanPresentation(board) {
     if (rendered.element.className !== nextClassName) {
       rendered.element.className = nextClassName;
     }
-    if (activeRow || activeCell || reviewHold) {
-      nextProgressFills.push(rendered.progressFill);
-    }
   }
 
   if (nextProgressTargetKey !== progressTargetKey) {
@@ -485,8 +516,18 @@ function updateScanPresentation(board) {
       }
     }
   }
+  currentActiveTiles = nextActiveTiles;
   currentProgressFills = nextProgressFills;
   progressTargetKey = nextProgressTargetKey;
+}
+
+function activeRenderedTilesForScanner(scanner) {
+  const row = renderedTileGrid[scanner.rowIndex] ?? [];
+  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
+    return row;
+  }
+  const renderedTile = row[scanner.cellIndex];
+  return renderedTile ? [renderedTile] : [];
 }
 
 function progressTargetKeyForScanner(scanner, isReviewHold) {
@@ -510,8 +551,10 @@ function invalidateRenderedBoard() {
   renderedBoardKey = "";
   renderedMessage = "";
   renderedTiles = [];
+  renderedTileGrid = [];
   renderedPhaseElement = null;
   renderedVoiceElement = null;
+  currentActiveTiles = [];
   currentProgressFills = [];
   progressTargetKey = "";
 }
@@ -597,8 +640,7 @@ function openConfig() {
   calibrationOpen = false;
   stopCalibrationTimer();
   reviewHoldActive = false;
-  window.clearTimeout(timerId);
-  window.cancelAnimationFrame(animationFrameId);
+  cancelScheduledScan();
   renderConfig();
 }
 
@@ -616,8 +658,7 @@ function openCalibration() {
   configOpen = true;
   calibrationOpen = true;
   reviewHoldActive = false;
-  window.clearTimeout(timerId);
-  window.cancelAnimationFrame(animationFrameId);
+  cancelScheduledScan();
   calibrationState = createCalibrationState(calibrationState.inputClass);
   renderCalibration();
 }

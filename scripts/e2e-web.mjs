@@ -168,6 +168,19 @@ async function scenarioFirstColumnProgressTiming() {
   `);
   await waitForUi();
 
+  let snapshot = await getSnapshot();
+  const initialRowProgress = snapshot.activeRow?.progress ?? 100;
+  if (initialRowProgress > 25) {
+    throw new Error(`Row progress should start from the post-render scan deadline, got ${initialRowProgress}`);
+  }
+
+  await delay(520);
+  snapshot = await getSnapshot();
+  const midRowProgress = snapshot.activeRow?.progress ?? 0;
+  if (midRowProgress < 25 || midRowProgress > 70) {
+    throw new Error(`Row progress should track scanIntervalMs before activation, got ${midRowProgress}`);
+  }
+
   const rowSnapshot = await waitForActive(
     ({ activeRow }) => activeRow?.rowIndex === 0 && activeRow.progress >= 85,
     "row 0 with late progress",
@@ -177,7 +190,7 @@ async function scenarioFirstColumnProgressTiming() {
 
   await waitForActive(({ activeCell }) => activeCell?.rowIndex === 0 && activeCell.cellIndex === 0, "first cell");
   await delay(60);
-  let snapshot = await getSnapshot();
+  snapshot = await getSnapshot();
   const firstCellEarlyProgress = snapshot.activeCell?.progress ?? 100;
   if (firstCellEarlyProgress > 20) {
     throw new Error(`First column progress should restart from its own hold, got ${firstCellEarlyProgress}`);
