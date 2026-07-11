@@ -1,1 +1,1 @@
-79314bf7dc31f6869249b2f656e99cf7fdf0befca9ee9fa18db37ab0f1462d27  shine-blink-input-test-debug.apk
+5eb07e1ecb77c9573c79322208016cab71e54ae713e6e45c49a757a89da04b66  shine-blink-input-test-debug.apk

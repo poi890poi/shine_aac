@@ -1,0 +1,186 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f6f8;
+  color: #172026;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+.camera-panel,
+.controls {
+  min-width: 0;
+}
+
+.preview {
+  position: relative;
+  overflow: hidden;
+  background: #101820;
+  border: 1px solid #2f3a42;
+  aspect-ratio: 4 / 3;
+}
+
+video,
+canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+video {
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+canvas {
+  display: none;
+}
+
+.roi-box {
+  position: absolute;
+  border: 3px solid #00a88f;
+  background: rgba(0, 168, 143, 0.12);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.status-strip > div,
+.readout,
+fieldset,
+.event-log {
+  background: #ffffff;
+  border: 1px solid #d4dbe2;
+  border-radius: 6px;
+}
+
+.status-strip > div {
+  padding: 10px;
+}
+
+.label {
+  display: block;
+  color: #66727d;
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+button {
+  min-height: 42px;
+  border: 1px solid #9aa8b3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172026;
+}
+
+button:first-child {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+}
+
+fieldset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+}
+
+legend {
+  color: #34424d;
+  font-weight: 700;
+}
+
+label {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+input[type="checkbox"] {
+  justify-self: start;
+}
+
+.readout {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.event-log {
+  min-height: 140px;
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 8px 8px 32px;
+}
+
+.event-log li {
+  padding: 4px 0;
+}
+
+.event-long {
+  color: #8a4b00;
+  font-weight: 700;
+}
+
+.event-double {
+  color: #006a55;
+  font-weight: 700;
+}
+
+.event-close {
+  color: #34424d;
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  label {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+}

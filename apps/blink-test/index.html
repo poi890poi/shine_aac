@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SHINE Blink Input Test</title>
+    <link rel="stylesheet" href="./src/styles.css">
+  </head>
+  <body>
+    <main class="app">
+      <section class="camera-panel" aria-label="Camera preview">
+        <div class="preview">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay"></canvas>
+          <div id="roiBox" class="roi-box" aria-hidden="true"></div>
+        </div>
+        <div class="status-strip">
+          <div>
+            <span class="label">State</span>
+            <strong id="eyeState">idle</strong>
+          </div>
+          <div>
+            <span class="label">Score</span>
+            <strong id="scoreText">0.000</strong>
+          </div>
+          <div>
+            <span class="label">Events</span>
+            <strong id="eventCount">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="controls" aria-label="Blink detection controls">
+        <div class="toolbar">
+          <button id="startButton" type="button">Start Camera</button>
+          <button id="calibrateOpenButton" type="button">Calibrate Open</button>
+          <button id="calibrateClosedButton" type="button">Sample Closed</button>
+          <button id="clearButton" type="button">Clear Log</button>
+        </div>
+
+        <fieldset>
+          <legend>Eye Region</legend>
+          <label>
+            X
+            <input id="roiX" type="range" min="0" max="90" value="28">
+          </label>
+          <label>
+            Y
+            <input id="roiY" type="range" min="0" max="80" value="30">
+          </label>
+          <label>
+            Width
+            <input id="roiW" type="range" min="8" max="80" value="44">
+          </label>
+          <label>
+            Height
+            <input id="roiH" type="range" min="5" max="45" value="16">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Detection</legend>
+          <label>
+            Metric
+            <select id="metric">
+              <option value="contrastDrop">Contrast drop</option>
+              <option value="brightnessRise">Brightness rise</option>
+              <option value="brightnessDrop">Brightness drop</option>
+              <option value="combined">Combined</option>
+            </select>
+          </label>
+          <label>
+            Auto threshold
+            <input id="autoThreshold" type="checkbox" checked>
+          </label>
+          <label>
+            Manual threshold
+            <input id="threshold" type="range" min="0" max="1" step="0.001" value="0.250">
+          </label>
+          <label>
+            Hysteresis
+            <input id="hysteresis" type="range" min="0" max="0.25" step="0.001" value="0.030">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Events</legend>
+          <label>
+            Long blink ms
+            <input id="longBlinkMs" type="number" min="250" max="3000" step="50" value="650">
+          </label>
+          <label>
+            Double gap ms
+            <input id="doubleGapMs" type="number" min="150" max="1500" step="50" value="650">
+          </label>
+          <label>
+            Ignore short ms
+            <input id="ignoreShortMs" type="number" min="0" max="500" step="10" value="70">
+          </label>
+          <label>
+            Cooldown ms
+            <input id="cooldownMs" type="number" min="0" max="2000" step="50" value="500">
+          </label>
+        </fieldset>
+
+        <section class="readout" aria-label="Calibration readout">
+          <div>Open baseline: <strong id="openText">not set</strong></div>
+          <div>Closed sample: <strong id="closedText">not set</strong></div>
+          <div>Threshold: <strong id="thresholdText">0.250</strong></div>
+          <div>Last closure: <strong id="closureText">none</strong></div>
+        </section>
+
+        <ol id="eventLog" class="event-log" aria-label="Detected blink events"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
