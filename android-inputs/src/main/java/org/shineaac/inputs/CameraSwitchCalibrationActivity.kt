@@ -17,13 +17,16 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.media.AudioManager
 import android.media.FaceDetector
 import android.media.Image
 import android.media.ImageReader
+import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Size
 import android.view.Gravity
 import android.view.Surface
@@ -55,9 +58,17 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraHandler: Handler? = null
     private var mainHandler: Handler? = null
     private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var toneGenerator: ToneGenerator? = null
+    private var currentSpeechId: String? = null
+    private var currentSpeechDone: (() -> Unit)? = null
     private var cueSet = CalibrationCueText.forProfile("en-US")
     private var mirrorOverlayX = true
     private var phase = Phase.Idle
+    private var captureEndsAtMs = 0L
+    private var activeStepLabel = ""
+    private var ttsVoiceLabel = "Voice pending"
+    private var calibrationRunId = 0
     private val openSamples = mutableListOf<EyeFeatures>()
     private val closedSamples = mutableListOf<EyeFeatures>()
     private val longBlinkDurations = mutableListOf<Long>()
@@ -72,14 +83,11 @@ class CameraSwitchCalibrationActivity : Activity() {
         mainHandler = Handler(mainLooper)
         cueSet = CalibrationCueText.forProfile(intent.getStringExtra(ExtraProfileId) ?: "en-US")
         mirrorOverlayX = CameraSwitchPreferences.read(this, enabled = false).mirrorOverlayX
+        toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
         tts = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val result = tts?.setLanguage(cueSet.locale)
-                if ((result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) &&
-                    cueSet.locale.language == "zh"
-                ) {
-                    tts?.setLanguage(Locale.TRADITIONAL_CHINESE)
-                }
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                configureTtsVoice()
             }
         }
         setContentView(createContentView())
@@ -103,6 +111,11 @@ class CameraSwitchCalibrationActivity : Activity() {
         tts?.stop()
         tts?.shutdown()
         tts = null
+        ttsReady = false
+        currentSpeechId = null
+        currentSpeechDone = null
+        toneGenerator?.release()
+        toneGenerator = null
         mainHandler?.removeCallbacksAndMessages(null)
         mainHandler = null
         super.onDestroy()
@@ -216,7 +229,55 @@ class CameraSwitchCalibrationActivity : Activity() {
         mirrorButton?.text = if (mirrorOverlayX) "Box X Flipped" else "Box X Normal"
     }
 
+    private fun configureTtsVoice() {
+        val engine = tts ?: return
+        engine.setSpeechRate(if (cueSet.locale.language == "zh") 0.82f else 0.88f)
+        val exactVoice = engine.voices
+            ?.filterNot { it.isNetworkConnectionRequired }
+            ?.firstOrNull { it.locale.toLanguageTag().equals(cueSet.locale.toLanguageTag(), ignoreCase = true) }
+        if (exactVoice != null) {
+            engine.setVoice(exactVoice)
+            ttsVoiceLabel = "Voice ${exactVoice.locale.toLanguageTag()}"
+        } else {
+            val result = engine.setLanguage(cueSet.locale)
+            if ((result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) &&
+                cueSet.locale.language == "zh"
+            ) {
+                engine.setLanguage(Locale.TRADITIONAL_CHINESE)
+                ttsVoiceLabel = "Voice ${engine.voice?.locale?.toLanguageTag() ?: Locale.TRADITIONAL_CHINESE.toLanguageTag()}"
+            } else {
+                val actualTag = engine.voice?.locale?.toLanguageTag() ?: cueSet.locale.toLanguageTag()
+                ttsVoiceLabel = if (cueSet.locale.toLanguageTag() == "zh-TW" && actualTag != "zh-TW") {
+                    "Voice $actualTag; Taiwan voice unavailable"
+                } else {
+                    "Voice $actualTag"
+                }
+            }
+        }
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+
+            override fun onDone(utteranceId: String?) {
+                finishSpeech(utteranceId)
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                finishSpeech(utteranceId)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                finishSpeech(utteranceId)
+            }
+        })
+        runOnUiThread { metricsView?.text = ttsVoiceLabel }
+    }
+
     private fun startAutoCalibration() {
+        calibrationRunId += 1
+        mainHandler?.removeCallbacksAndMessages(null)
+        currentSpeechId = null
+        currentSpeechDone = null
         openSamples.clear()
         closedSamples.clear()
         longBlinkDurations.clear()
@@ -224,27 +285,69 @@ class CameraSwitchCalibrationActivity : Activity() {
         longBlinkClosedStartedAt = 0L
         openBaseline = null
         closedBaseline = null
+        captureEndsAtMs = 0L
+        activeStepLabel = ""
         startButton?.isEnabled = false
-        runStep(0)
+        runStep(0, calibrationRunId)
     }
 
-    private fun runStep(index: Int) {
-        val steps = listOf(
-            CalibrationStep(Phase.Prepare, cueSet.prepare, 2500L),
-            CalibrationStep(Phase.Open, cueSet.open, 3000L),
-            CalibrationStep(Phase.Closed, cueSet.closed, 2200L),
-            CalibrationStep(Phase.Rest, cueSet.rest, 3000L),
-            CalibrationStep(Phase.LongBlink, cueSet.longBlink, 7000L)
-        )
+    private fun runStep(index: Int, runId: Int) {
+        if (runId != calibrationRunId) return
+        val steps = calibrationSteps()
         if (index >= steps.size) {
             finishAutoCalibration()
             return
         }
         val step = steps[index]
-        phase = step.phase
+        phase = Phase.Instruction
+        activeStepLabel = step.label
+        captureEndsAtMs = 0L
         statusView?.text = step.cue
-        speak(step.cue)
-        mainHandler?.postDelayed({ runStep(index + 1) }, step.durationMs)
+        metricsView?.text = "$ttsVoiceLabel | ${step.label} starts after the beep"
+        speakThen(step.cue) {
+            if (runId != calibrationRunId) return@speakThen
+            if (step.durationMs <= 0L) {
+                mainHandler?.postDelayed({ runStep(index + 1, runId) }, AfterSpeechPauseMs)
+                return@speakThen
+            }
+            mainHandler?.postDelayed({
+                if (runId == calibrationRunId) {
+                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                    statusView?.text = "${step.label}: capturing for ${step.durationMs / 1000} seconds"
+                    mainHandler?.postDelayed({
+                        if (runId == calibrationRunId) {
+                            beginCapture(step)
+                            mainHandler?.postDelayed({
+                                if (runId == calibrationRunId) {
+                                    endCapture()
+                                    runStep(index + 1, runId)
+                                }
+                            }, step.durationMs)
+                        }
+                    }, BeepLeadMs)
+                }
+            }, AfterSpeechPauseMs)
+        }
+    }
+
+    private fun calibrationSteps(): List<CalibrationStep> =
+        listOf(
+            CalibrationStep(Phase.Prepare, "Prepare", cueSet.prepare, 0L),
+            CalibrationStep(Phase.Open, "Open eyes", cueSet.open, 5000L),
+            CalibrationStep(Phase.Closed, "Closed eyes", cueSet.closed, 4000L),
+            CalibrationStep(Phase.Rest, "Rest", cueSet.rest, 8000L),
+            CalibrationStep(Phase.LongBlink, "Slow blink trials", cueSet.longBlink, 12000L)
+        )
+
+    private fun beginCapture(step: CalibrationStep) {
+        phase = step.phase
+        activeStepLabel = step.label
+        captureEndsAtMs = System.currentTimeMillis() + step.durationMs
+    }
+
+    private fun endCapture() {
+        phase = Phase.Instruction
+        captureEndsAtMs = 0L
     }
 
     private fun finishAutoCalibration() {
@@ -264,10 +367,10 @@ class CameraSwitchCalibrationActivity : Activity() {
             openBaseline = openBaseline,
             closedBaseline = closedBaseline
         )
-        val message = "${cueSet.complete} Long blink ${calibratedLongBlink}ms."
+        val message = "${cueSet.complete} Switch hold ${calibratedLongBlink}ms."
         statusView?.text = message
         metricsView?.text = "Open ${openSamples.size}, closed ${closedSamples.size}, long blinks ${longBlinkDurations.size}"
-        speak(message)
+        speakThen(message) {}
         startButton?.isEnabled = true
     }
 
@@ -279,8 +382,29 @@ class CameraSwitchCalibrationActivity : Activity() {
         return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
     }
 
-    private fun speak(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "camera-switch-calibration-${System.currentTimeMillis()}")
+    private fun speakThen(text: String, onDone: () -> Unit) {
+        val engine = tts
+        if (!ttsReady || engine == null) {
+            mainHandler?.postDelayed(onDone, 1000L)
+            return
+        }
+        val utteranceId = "camera-switch-calibration-${System.currentTimeMillis()}"
+        currentSpeechId = utteranceId
+        currentSpeechDone = onDone
+        val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle.EMPTY, utteranceId)
+        if (result == TextToSpeech.ERROR) {
+            finishSpeech(utteranceId)
+        }
+    }
+
+    private fun finishSpeech(utteranceId: String?) {
+        mainHandler?.post {
+            if (utteranceId != currentSpeechId) return@post
+            val callback = currentSpeechDone
+            currentSpeechId = null
+            currentSpeechDone = null
+            callback?.invoke()
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -366,10 +490,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         mainHandler?.post {
             overlayView?.setRoi(roi, frame.width, frame.height, mirrorOverlayX)
             if (phase != Phase.Complete) {
+                val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
                 metricsView?.text = if (score == null) {
-                    "Face not detected"
+                    "$ttsVoiceLabel | Face not detected"
+                } else if (captureEndsAtMs > 0L) {
+                    "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size}"
                 } else {
-                    "Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | long ${longBlinkDurations.size}"
+                    "$ttsVoiceLabel | Waiting | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size}"
                 }
             }
         }
@@ -478,8 +605,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
     }
 
-    private data class CalibrationStep(val phase: Phase, val cue: String, val durationMs: Long)
-    private enum class Phase { Idle, Prepare, Open, Closed, Rest, LongBlink, Complete }
+    private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
+    private enum class Phase { Idle, Instruction, Prepare, Open, Closed, Rest, LongBlink, Complete }
     private data class TrackedRoi(val x: Int, val y: Int, val w: Int, val h: Int)
     private data class OrientedFrame(val width: Int, val height: Int, val luma: ByteArray)
     private data class RawFrame(val width: Int, val height: Int, val luma: ByteArray) {
@@ -522,6 +649,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private companion object {
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
+        const val AfterSpeechPauseMs = 700L
+        const val BeepLeadMs = 260L
 
         fun average(samples: List<EyeFeatures>): EyeFeatures? {
             if (samples.isEmpty()) return null
