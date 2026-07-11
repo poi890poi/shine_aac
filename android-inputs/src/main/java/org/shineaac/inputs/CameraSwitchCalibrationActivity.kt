@@ -83,9 +83,12 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var testLongBlinkClosedStartedAt = 0L
     private var previewLongBlinkClosed = false
     private var previewLongBlinkClosedStartedAt = 0L
+    private var previewShortBlinkCount = 0
     private var previewLongBlinkCount = 0
+    private var previewLastShortDurationMs = 0L
     private var previewLastDetectedDurationMs = 0L
-    private var previewLastCueAtMs = 0L
+    private var previewLastShortCueAtMs = 0L
+    private var previewLastLongCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = 800L
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
     private var lastRoi: TrackedRoi? = null
@@ -330,7 +333,9 @@ class CameraSwitchCalibrationActivity : Activity() {
         testLongBlinkClosedStartedAt = 0L
         previewLongBlinkClosed = false
         previewLongBlinkClosedStartedAt = 0L
+        previewShortBlinkCount = 0
         previewLongBlinkCount = 0
+        previewLastShortDurationMs = 0L
         previewLastDetectedDurationMs = 0L
         openBaseline = null
         closedBaseline = null
@@ -628,18 +633,25 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (roi != null) lastRoi = roi
         if (features != null) collectCalibrationSample(features)
         val score = features?.let { closedScore(it) }
-        val previewDetected = features?.let { collectPreviewLongBlinkDuration(it) } ?: false
+        val previewBlink = features?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
         mainHandler?.post {
             overlayView?.setRoi(roi, frame.width, frame.height, mirrorOverlayX)
-            if (previewDetected) {
-                toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, PreviewCueMs)
-                statusView?.text = "Preview long blink detected. Current position works."
+            when (previewBlink) {
+                PreviewBlink.Short -> {
+                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, ShortPreviewCueMs)
+                    statusView?.text = "Preview short blink detected."
+                }
+                PreviewBlink.Long -> {
+                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, LongPreviewCueMs)
+                    statusView?.text = "Preview long blink detected. Current position works."
+                }
+                PreviewBlink.None -> Unit
             }
             if (shouldPreviewMonitor()) {
                 metricsView?.text = if (score == null) {
                     "${previousQualityText()} | current position: face not detected"
                 } else {
-                    "${previousQualityText()} | current position score ${"%.2f".format(score)} | preview detections $previewLongBlinkCount | last ${previewLastDetectedDurationMs}ms | hold ${calibratedLongBlinkHoldMs}ms"
+                    "${previousQualityText()} | score ${"%.2f".format(score)} | short $previewShortBlinkCount last ${previewLastShortDurationMs}ms | long $previewLongBlinkCount last ${previewLastDetectedDurationMs}ms | hold ${calibratedLongBlinkHoldMs}ms"
                 }
             } else if (phase != Phase.Complete) {
                 val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
@@ -710,30 +722,37 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
     }
 
-    private fun collectPreviewLongBlinkDuration(features: EyeFeatures): Boolean {
+    private fun collectPreviewBlinkDuration(features: EyeFeatures): PreviewBlink {
         if (!shouldPreviewMonitor()) {
             previewLongBlinkClosed = false
             previewLongBlinkClosedStartedAt = 0L
-            return false
+            return PreviewBlink.None
         }
-        val score = closedScore(features) ?: return false
+        val score = closedScore(features) ?: return PreviewBlink.None
         val now = System.currentTimeMillis()
         if (!previewLongBlinkClosed && score >= 0.55) {
             previewLongBlinkClosed = true
             previewLongBlinkClosedStartedAt = now
-            return false
+            return PreviewBlink.None
         }
         if (previewLongBlinkClosed && score < 0.35) {
             val duration = now - previewLongBlinkClosedStartedAt
             previewLongBlinkClosed = false
-            if (duration >= calibratedLongBlinkHoldMs && now - previewLastCueAtMs >= PreviewCueCooldownMs) {
-                previewLastCueAtMs = now
+            val shortMaxMs = max(ShortBlinkMinMs, calibratedLongBlinkHoldMs - LongBlinkGuardMs)
+            if (duration >= calibratedLongBlinkHoldMs && now - previewLastLongCueAtMs >= LongPreviewCueCooldownMs) {
+                previewLastLongCueAtMs = now
                 previewLastDetectedDurationMs = duration
                 previewLongBlinkCount += 1
-                return true
+                return PreviewBlink.Long
+            }
+            if (duration in ShortBlinkMinMs until shortMaxMs && now - previewLastShortCueAtMs >= ShortPreviewCueCooldownMs) {
+                previewLastShortCueAtMs = now
+                previewLastShortDurationMs = duration
+                previewShortBlinkCount += 1
+                return PreviewBlink.Short
             }
         }
-        return false
+        return PreviewBlink.None
     }
 
     private fun closedScore(features: EyeFeatures): Double? {
@@ -821,6 +840,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
     private data class CalibrationQuality(val label: String, val detail: String)
     private enum class Phase { Idle, Instruction, Prepare, Open, Closed, Rest, LongBlink, TestLongBlink, Complete }
+    private enum class PreviewBlink { None, Short, Long }
     private data class TrackedRoi(val x: Int, val y: Int, val w: Int, val h: Int)
     private data class OrientedFrame(val width: Int, val height: Int, val luma: ByteArray)
     private data class RawFrame(val width: Int, val height: Int, val luma: ByteArray) {
@@ -866,8 +886,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
         const val LongBlinkTestMs = 10000L
-        const val PreviewCueMs = 110
-        const val PreviewCueCooldownMs = 1500L
+        const val ShortBlinkMinMs = 80L
+        const val LongBlinkGuardMs = 150L
+        const val ShortPreviewCueMs = 70
+        const val LongPreviewCueMs = 130
+        const val ShortPreviewCueCooldownMs = 250L
+        const val LongPreviewCueCooldownMs = 1500L
 
         fun average(samples: List<EyeFeatures>): EyeFeatures? {
             if (samples.isEmpty()) return null
