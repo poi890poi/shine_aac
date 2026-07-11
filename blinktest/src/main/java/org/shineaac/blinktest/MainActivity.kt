@@ -30,6 +30,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -52,7 +53,10 @@ class MainActivity : Activity() {
     private lateinit var thresholdText: TextView
     private lateinit var closureText: TextView
     private lateinit var logText: TextView
+    private lateinit var reviewList: LinearLayout
+    private lateinit var reviewStatsText: TextView
     private lateinit var autoThreshold: CheckBox
+    private lateinit var autoReview: CheckBox
 
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
@@ -78,12 +82,18 @@ class MainActivity : Activity() {
     private var closedBaseline: Features? = null
     private var latestFeatures: Features? = null
     private var latestScore = 0.0
+    @Volatile private var latestCropBitmap: Bitmap? = null
+    @Volatile private var latestTrackingLabel = "manual"
     private var lastTrackedRoi: TrackedRoi? = null
     private var closed = false
     private var closedStartedAt = 0L
     private var lastShortBlinkAt = 0L
     private var lastEventAt = 0L
     private var eventCount = 0
+    private var reviewCount = 0
+    private var reviewCorrect = 0
+    private var reviewIncorrect = 0
+    private var lastReviewFrameAt = 0L
     private val logLines = java.util.ArrayDeque<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,10 +123,18 @@ class MainActivity : Activity() {
             setTextColor(Color.rgb(30, 38, 45))
             setPadding(12, 8, 12, 20)
         }
+        reviewStatsText = valueText("0 frames")
+        reviewList = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
         autoThreshold = CheckBox(this).apply {
             text = "Auto threshold"
             isChecked = true
             setOnCheckedChangeListener { _, _ -> updateReadout() }
+        }
+        autoReview = CheckBox(this).apply {
+            text = "Auto capture review crops"
+            isChecked = true
         }
 
         val previewFrame = FrameLayout(this).apply {
@@ -178,6 +196,14 @@ class MainActivity : Activity() {
             addView(row("Open", openText))
             addView(row("Closed", closedText))
             addView(row("Threshold", thresholdText, "Last closure", closureText))
+            addView(sectionTitle("Review Crops"))
+            addView(row("Review", reviewStatsText))
+            addView(buttonRow(
+                button("Capture Crop") { addReviewFrame("manual") },
+                button("Clear Review") { clearReviewFrames() }
+            ))
+            addView(autoReview)
+            addView(reviewList)
             addView(sectionTitle("Log"))
             addView(logText)
         }
@@ -313,7 +339,10 @@ class MainActivity : Activity() {
         latestScore = score(features)
         val now = System.currentTimeMillis()
         updateBlinkState(now, latestScore)
-        runOnUiThread { updateReadout() }
+        runOnUiThread {
+            updateReadout()
+            maybeAutoAddReviewFrame(now)
+        }
     }
 
     private fun readFeatures(image: Image): Features {
@@ -323,7 +352,8 @@ class MainActivity : Activity() {
             val frame = rawFrame.oriented(last.rotation)
             val heldFeatures = featuresFromRoi(frame, last.x, last.y, last.w, last.h)
             if (shouldHoldLastRoi(heldFeatures)) {
-                runOnUiThread { trackingText.text = "held face" }
+                latestTrackingLabel = "held face"
+                runOnUiThread { trackingText.text = latestTrackingLabel }
                 return heldFeatures
             }
         }
@@ -338,8 +368,9 @@ class MainActivity : Activity() {
             if (face != null) {
                 val roi = eyeBandForFace(frame, face, rotation)
                 lastTrackedRoi = roi
+                latestTrackingLabel = "face ${rotation}deg"
                 runOnUiThread {
-                    trackingText.text = "face ${rotation}deg"
+                    trackingText.text = latestTrackingLabel
                     roiOverlay.setRoi(
                         (roi.x * 100 / frame.width).coerceIn(0, 99),
                         (roi.y * 100 / frame.height).coerceIn(0, 99),
@@ -354,7 +385,8 @@ class MainActivity : Activity() {
 
         if (last != null && System.currentTimeMillis() - last.detectedAtMs < 1200) {
             val frame = rawFrame.oriented(last.rotation)
-            runOnUiThread { trackingText.text = "last face" }
+            latestTrackingLabel = "last face"
+            runOnUiThread { trackingText.text = latestTrackingLabel }
             return featuresFromRoi(frame, last.x, last.y, last.w, last.h)
         }
 
@@ -363,8 +395,9 @@ class MainActivity : Activity() {
         val y0 = frame.height * roiYPct / 100
         val roiW = max(4, frame.width * roiWPct / 100)
         val roiH = max(4, frame.height * roiHPct / 100)
+        latestTrackingLabel = "manual fallback"
         runOnUiThread {
-            trackingText.text = "manual fallback"
+            trackingText.text = latestTrackingLabel
             updateRoi()
         }
         return featuresFromRoi(frame, x0, y0, roiW, roiH)
@@ -410,6 +443,7 @@ class MainActivity : Activity() {
     private fun featuresFromRoi(frame: OrientedFrame, x0: Int, y0: Int, roiW: Int, roiH: Int): Features {
         val x1 = min(frame.width, x0 + roiW)
         val y1 = min(frame.height, y0 + roiH)
+        latestCropBitmap = cropBitmap(frame, x0, y0, x1, y1)
 
         var sum = 0.0
         var sumSquares = 0.0
@@ -433,6 +467,23 @@ class MainActivity : Activity() {
         val mean = if (count > 0) sum / count else 0.0
         val variance = if (count > 0) max(0.0, sumSquares / count - mean * mean) else 0.0
         return Features(mean, sqrt(variance), if (count > 0) edge / count else 0.0)
+    }
+
+    private fun cropBitmap(frame: OrientedFrame, x0: Int, y0: Int, x1: Int, y1: Int): Bitmap {
+        val width = max(1, x1 - x0)
+        val height = max(1, y1 - y0)
+        val pixels = IntArray(width * height)
+        var target = 0
+        for (y in y0 until y1) {
+            val row = y * frame.width
+            for (x in x0 until x1) {
+                val value = frame.luma[row + x].toInt() and 0xff
+                pixels[target++] = Color.rgb(value, value, value)
+            }
+        }
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+        return bitmap
     }
 
     private fun score(features: Features): Double {
@@ -565,6 +616,77 @@ class MainActivity : Activity() {
         eventCountText.text = "0"
         closureText.text = "none"
         logText.text = ""
+    }
+
+    private fun maybeAutoAddReviewFrame(now: Long) {
+        if (!autoReview.isChecked) return
+        if (latestCropBitmap == null) return
+        if (now - lastReviewFrameAt < 1000) return
+        lastReviewFrameAt = now
+        addReviewFrame("auto")
+    }
+
+    private fun addReviewFrame(source: String) {
+        val sourceBitmap = latestCropBitmap
+        if (sourceBitmap == null) {
+            addLog("no crop available yet")
+            return
+        }
+        val bitmap = sourceBitmap.copy(Bitmap.Config.RGB_565, false)
+        val threshold = activeThreshold()
+        val prediction = if (latestScore >= threshold) "closed" else "open"
+        val detail = "#${reviewCount + 1} $prediction score ${String.format("%.3f", latestScore)} / ${String.format("%.3f", threshold)} $latestTrackingLabel $source"
+
+        reviewCount += 1
+        updateReviewStats()
+
+        val image = ImageView(this).apply {
+            setImageBitmap(bitmap)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(Color.BLACK)
+        }
+        val label = TextView(this).apply {
+            text = detail
+            textSize = 14f
+            setTextColor(Color.rgb(24, 38, 45))
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 8, 0, 12)
+            addView(image, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(72)))
+            addView(label)
+            addView(buttonRow(
+                button("Correct") {
+                    reviewCorrect += 1
+                    label.text = "$detail | marked correct"
+                    updateReviewStats()
+                },
+                button("Incorrect") {
+                    reviewIncorrect += 1
+                    label.text = "$detail | marked incorrect"
+                    updateReviewStats()
+                }
+            ))
+        }
+
+        reviewList.addView(row, 0)
+        while (reviewList.childCount > 24) {
+            reviewList.removeViewAt(reviewList.childCount - 1)
+        }
+    }
+
+    private fun clearReviewFrames() {
+        reviewList.removeAllViews()
+        reviewCount = 0
+        reviewCorrect = 0
+        reviewIncorrect = 0
+        lastReviewFrameAt = 0L
+        updateReviewStats()
+    }
+
+    private fun updateReviewStats() {
+        reviewStatsText.text = "$reviewCount frames, $reviewCorrect correct, $reviewIncorrect incorrect"
     }
 
     private fun updateReadout() {
