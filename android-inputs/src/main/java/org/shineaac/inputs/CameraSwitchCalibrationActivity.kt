@@ -213,8 +213,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun updateMirrorButton() {
-        mirrorButton?.text = if (mirrorOverlayX) "Mirror X On" else "Mirror X Off"
-        textureView?.scaleX = if (mirrorOverlayX) -1f else 1f
+        mirrorButton?.text = if (mirrorOverlayX) "Box X Flipped" else "Box X Normal"
     }
 
     private fun startAutoCalibration() {
