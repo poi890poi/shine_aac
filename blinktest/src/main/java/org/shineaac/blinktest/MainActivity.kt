@@ -3,6 +3,7 @@ package org.shineaac.blinktest
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -35,6 +36,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -52,6 +55,7 @@ class MainActivity : Activity() {
     private lateinit var closedText: TextView
     private lateinit var thresholdText: TextView
     private lateinit var closureText: TextView
+    private lateinit var autoCalibrationText: TextView
     private lateinit var logText: TextView
     private lateinit var reviewList: LinearLayout
     private lateinit var reviewStatsText: TextView
@@ -96,6 +100,8 @@ class MainActivity : Activity() {
     private var lastReviewFrameAt = 0L
     private var burstCaptureUntilMs = 0L
     private var lastBurstFrameAt = 0L
+    private var autoCalibrationPhase = AutoPhase.None
+    private var autoCalibrationRunning = false
     private val taggedFrames = mutableListOf<ReviewFrame>()
     private val logLines = java.util.ArrayDeque<String>()
 
@@ -121,6 +127,7 @@ class MainActivity : Activity() {
         closedText = valueText("not set")
         thresholdText = valueText("0.250")
         closureText = valueText("none")
+        autoCalibrationText = valueText("not started")
         logText = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.rgb(30, 38, 45))
@@ -158,6 +165,13 @@ class MainActivity : Activity() {
             addView(previewFrame)
             addView(row("State", stateText, "Score", scoreText, "Events", eventCountText))
             addView(row("Tracking", trackingText, "Box X", boxModeText))
+            addView(sectionTitle("Helper Auto Calibration"))
+            addView(row("Auto", autoCalibrationText))
+            addView(buttonRow(
+                button("Auto Calibration") { startAutoCalibration() },
+                button("Export Results") { requestExportResults() }
+            ))
+            addView(sectionTitle("Developer Controls"))
             addView(buttonRow(
                 button("Start Camera") { startCameraFlow() },
                 button("Calibrate Open") { calibrateOpen() },
@@ -628,6 +642,13 @@ class MainActivity : Activity() {
     private fun maybeAutoAddReviewFrame(now: Long) {
         if (!autoReview.isChecked) return
         if (latestCropBitmap == null) return
+        if (autoCalibrationRunning) {
+            if (now - lastBurstFrameAt >= 200) {
+                lastBurstFrameAt = now
+                addReviewFrame("auto-${autoCalibrationPhase.id}")
+            }
+            return
+        }
         if (now < burstCaptureUntilMs) {
             if (now - lastBurstFrameAt >= 150) {
                 lastBurstFrameAt = now
@@ -653,7 +674,18 @@ class MainActivity : Activity() {
         val threshold = activeThreshold()
         val prediction = if (latestScore >= threshold) "closed" else "open"
         val detail = "#${reviewCount + 1} $prediction score ${String.format("%.3f", latestScore)} / ${String.format("%.3f", threshold)} $latestTrackingLabel $source"
-        val frame = ReviewFrame(features = latestFeatures, predicted = prediction)
+        val frame = ReviewFrame(
+            id = reviewCount + 1,
+            capturedAtMs = System.currentTimeMillis(),
+            features = latestFeatures,
+            predicted = prediction,
+            source = source,
+            score = latestScore,
+            threshold = threshold,
+            tracking = latestTrackingLabel,
+            bitmap = bitmap,
+            tag = autoTagForPhase()
+        )
         taggedFrames.add(frame)
 
         reviewCount += 1
@@ -671,10 +703,10 @@ class MainActivity : Activity() {
             setTextColor(Color.rgb(24, 38, 45))
         }
         val tagLabel = TextView(this).apply {
-            text = "UNTAGGED"
+            text = labelForTag(frame.tag)
             textSize = 18f
             setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(80, 91, 101))
+            setBackgroundColor(colorForTag(frame.tag))
             setPadding(12, 8, 12, 8)
         }
         val row = LinearLayout(this).apply {
@@ -728,26 +760,86 @@ class MainActivity : Activity() {
         detail: String
     ) {
         frame.tag = tag
-        tagLabel.text = when (tag) {
+        tagLabel.text = labelForTag(tag)
+        tagLabel.setBackgroundColor(colorForTag(tag))
+        label.text = "$detail | tagged ${tagLabel.text}"
+        updateReviewStats()
+    }
+
+    private fun autoTagForPhase(): ReviewTag {
+        return when (autoCalibrationPhase) {
+            AutoPhase.Open -> ReviewTag.Open
+            AutoPhase.Closed -> ReviewTag.Closed
+            else -> ReviewTag.Untagged
+        }
+    }
+
+    private fun labelForTag(tag: ReviewTag): String {
+        return when (tag) {
             ReviewTag.Open -> "OPEN"
             ReviewTag.Closed -> "CLOSED"
             ReviewTag.BadCrop -> "BAD CROP"
             ReviewTag.Untagged -> "UNTAGGED"
         }
-        tagLabel.setBackgroundColor(when (tag) {
+    }
+
+    private fun colorForTag(tag: ReviewTag): Int {
+        return when (tag) {
             ReviewTag.Open -> Color.rgb(0, 105, 180)
             ReviewTag.Closed -> Color.rgb(185, 72, 0)
             ReviewTag.BadCrop -> Color.rgb(120, 22, 30)
             ReviewTag.Untagged -> Color.rgb(80, 91, 101)
-        })
-        label.text = "$detail | tagged ${tagLabel.text}"
-        updateReviewStats()
+        }
     }
 
     private fun startBurstCapture() {
         burstCaptureUntilMs = System.currentTimeMillis() + 5000
         lastBurstFrameAt = 0L
         addLog("burst capture started; blink naturally for 5 seconds")
+    }
+
+    private fun startAutoCalibration() {
+        if (autoCalibrationRunning) return
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), CameraPermissionRequestCode)
+            return
+        }
+        startCamera()
+        clearReviewFrames()
+        autoReview.isChecked = true
+        autoCalibrationRunning = true
+        autoCalibrationPhase = AutoPhase.Prepare
+        autoCalibrationText.text = "starting"
+        addLog("auto calibration started")
+
+        val handler = Handler(Looper.getMainLooper())
+        scheduleAutoPhase(handler, 0, AutoPhase.Prepare, "Look at camera. Keep face visible.", 2000)
+        scheduleAutoPhase(handler, 2000, AutoPhase.Open, "Keep eyes open.", 5000)
+        scheduleAutoPhase(handler, 7000, AutoPhase.Closed, "Close eyes and hold.", 3500)
+        scheduleAutoPhase(handler, 10500, AutoPhase.Rest, "Rest normally. Normal blinks are okay.", 8000)
+        scheduleAutoPhase(handler, 18500, AutoPhase.LongBlink, "Do several long blinks.", 8000)
+        handler.postDelayed({
+            autoCalibrationPhase = AutoPhase.None
+            autoCalibrationRunning = false
+            applyTaggedCalibration()
+            autoCalibrationText.text = "done: open ${reviewOpenCount()}, closed ${reviewClosedCount()}, bad ${reviewBadCropCount()}"
+            addLog("auto calibration finished")
+        }, 26500)
+    }
+
+    private fun scheduleAutoPhase(
+        handler: Handler,
+        delayMs: Long,
+        phase: AutoPhase,
+        message: String,
+        durationMs: Long
+    ) {
+        handler.postDelayed({
+            autoCalibrationPhase = phase
+            lastBurstFrameAt = 0L
+            autoCalibrationText.text = "$message (${durationMs / 1000}s)"
+            addLog("auto phase ${phase.id}: $message")
+        }, delayMs)
     }
 
     private fun applyTaggedCalibration() {
@@ -778,6 +870,91 @@ class MainActivity : Activity() {
     private fun reviewBadCropCount(): Int = taggedFrames.count { it.tag == ReviewTag.BadCrop }
     private fun reviewPredictedOpenCount(): Int = taggedFrames.count { it.predicted == "open" }
     private fun reviewPredictedClosedCount(): Int = taggedFrames.count { it.predicted == "closed" }
+
+    private fun requestExportResults() {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/zip"
+            putExtra(Intent.EXTRA_TITLE, "blink-calibration-${System.currentTimeMillis()}.zip")
+        }
+        startActivityForResult(intent, ExportResultsRequestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == ExportResultsRequestCode && resultCode == RESULT_OK) {
+            val uri = data?.data
+            if (uri == null) {
+                addLog("export failed: no target")
+                return
+            }
+            exportResults(uri)
+        }
+    }
+
+    private fun exportResults(uri: android.net.Uri) {
+        try {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                ZipOutputStream(output).use { zip ->
+                    zip.writestr("summary.json", exportSummaryJson())
+                    zip.writestr("frames.jsonl", taggedFrames.joinToString("\n") { exportFrameJson(it) })
+                    for (frame in taggedFrames) {
+                        zip.putNextEntry(ZipEntry("crops/frame-${frame.id}.png"))
+                        frame.bitmap.compress(Bitmap.CompressFormat.PNG, 100, zip)
+                        zip.closeEntry()
+                    }
+                }
+            }
+            addLog("exported ${taggedFrames.size} frames")
+        } catch (error: Exception) {
+            addLog("export failed: ${error.message}")
+        }
+    }
+
+    private fun ZipOutputStream.writestr(name: String, content: String) {
+        putNextEntry(ZipEntry(name))
+        write(content.toByteArray(Charsets.UTF_8))
+        closeEntry()
+    }
+
+    private fun exportSummaryJson(): String {
+        return """
+            {
+              "versionCode": 12,
+              "openTagged": ${reviewOpenCount()},
+              "closedTagged": ${reviewClosedCount()},
+              "badCropTagged": ${reviewBadCropCount()},
+              "predictedOpen": ${reviewPredictedOpenCount()},
+              "predictedClosed": ${reviewPredictedClosedCount()},
+              "threshold": ${String.format("%.6f", activeThreshold())},
+              "longBlinkMs": $longBlinkMs,
+              "doubleGapMs": $doubleGapMs,
+              "ignoreShortMs": $ignoreShortMs,
+              "cooldownMs": $cooldownMs,
+              "mirrorOverlayX": $mirrorOverlayX
+            }
+        """.trimIndent()
+    }
+
+    private fun exportFrameJson(frame: ReviewFrame): String {
+        val features = frame.features
+        return "{" +
+            "\"id\":${frame.id}," +
+            "\"capturedAtMs\":${frame.capturedAtMs}," +
+            "\"predicted\":\"${json(frame.predicted)}\"," +
+            "\"tag\":\"${frame.tag.name}\"," +
+            "\"source\":\"${json(frame.source)}\"," +
+            "\"score\":${String.format("%.6f", frame.score)}," +
+            "\"threshold\":${String.format("%.6f", frame.threshold)}," +
+            "\"tracking\":\"${json(frame.tracking)}\"," +
+            "\"mean\":${features?.mean ?: "null"}," +
+            "\"contrast\":${features?.contrast ?: "null"}," +
+            "\"edge\":${features?.edge ?: "null"}" +
+            "}"
+    }
+
+    private fun json(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     private fun updateReadout() {
         stateText.text = if (closed) "closed" else "open"
@@ -883,10 +1060,26 @@ class MainActivity : Activity() {
     private data class Features(val mean: Double, val contrast: Double, val edge: Double)
 
     private data class ReviewFrame(
+        val id: Int,
+        val capturedAtMs: Long,
         val features: Features?,
         val predicted: String,
+        val source: String,
+        val score: Double,
+        val threshold: Double,
+        val tracking: String,
+        val bitmap: Bitmap,
         var tag: ReviewTag = ReviewTag.Untagged
     )
+
+    private enum class AutoPhase(val id: String) {
+        None("none"),
+        Prepare("prepare"),
+        Open("open"),
+        Closed("closed"),
+        Rest("rest"),
+        LongBlink("long-blink")
+    }
 
     private enum class ReviewTag {
         Untagged,
@@ -1009,6 +1202,7 @@ class MainActivity : Activity() {
 
     private companion object {
         const val CameraPermissionRequestCode = 2401
+        const val ExportResultsRequestCode = 2402
 
         fun clamp(value: Double, minValue: Double, maxValue: Double): Double =
             min(maxValue, max(minValue, value))
