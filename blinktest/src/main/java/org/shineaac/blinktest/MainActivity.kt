@@ -76,7 +76,7 @@ class MainActivity : Activity() {
     private var doubleGapMs = 650L
     private var ignoreShortMs = 70L
     private var cooldownMs = 500L
-    private var mirrorOverlayX = false
+    private var mirrorOverlayX = true
 
     private var openBaseline: Features? = null
     private var closedBaseline: Features? = null
@@ -116,7 +116,7 @@ class MainActivity : Activity() {
         scoreText = valueText("0.000")
         eventCountText = valueText("0")
         trackingText = valueText("manual")
-        boxModeText = valueText("normal")
+        boxModeText = valueText("flipped")
         openText = valueText("not set")
         closedText = valueText("not set")
         thresholdText = valueText("0.250")

@@ -1,1 +1,1 @@
-525d01711232eafb2824c761b61b8ad5f486e9e9058dfddcf0af43d71201ad86  blink-input-test-standalone-debug.apk
+efe62bdaacd1af45d53f7ea2685dab1f2cbc43f1a54729e77ab1902a300cc86f  blink-input-test-standalone-debug.apk
