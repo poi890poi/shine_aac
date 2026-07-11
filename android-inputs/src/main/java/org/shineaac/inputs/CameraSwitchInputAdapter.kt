@@ -124,6 +124,10 @@ class CameraSwitchInputAdapter(
     private fun analyze(image: Image) {
         val settings = settingsProvider()
         if (!settings.enabled) return
+        if (settings.openBaseline != null && settings.closedBaseline != null) {
+            openBaseline = settings.openBaseline
+            closedBaseline = settings.closedBaseline
+        }
         val frame = RawFrame.from(image)
         val features = readFeatures(frame) ?: return
 

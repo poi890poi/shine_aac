@@ -51,6 +51,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var metricsView: TextView? = null
     private var mirrorButton: Button? = null
     private var startButton: Button? = null
+    private var testButton: Button? = null
     private var cameraDevice: CameraDevice? = null
     private var session: CameraCaptureSession? = null
     private var reader: ImageReader? = null
@@ -72,8 +73,15 @@ class CameraSwitchCalibrationActivity : Activity() {
     private val openSamples = mutableListOf<EyeFeatures>()
     private val closedSamples = mutableListOf<EyeFeatures>()
     private val longBlinkDurations = mutableListOf<Long>()
+    private val restClosedDurations = mutableListOf<Long>()
+    private val testLongBlinkDurations = mutableListOf<Long>()
     private var longBlinkClosed = false
     private var longBlinkClosedStartedAt = 0L
+    private var restClosed = false
+    private var restClosedStartedAt = 0L
+    private var testLongBlinkClosed = false
+    private var testLongBlinkClosedStartedAt = 0L
+    private var calibratedLongBlinkHoldMs = 800L
     private var lastRoi: TrackedRoi? = null
     private var openBaseline: EyeFeatures? = null
     private var closedBaseline: EyeFeatures? = null
@@ -82,7 +90,11 @@ class CameraSwitchCalibrationActivity : Activity() {
         super.onCreate(savedInstanceState)
         mainHandler = Handler(mainLooper)
         cueSet = CalibrationCueText.forProfile(intent.getStringExtra(ExtraProfileId) ?: "en-US")
-        mirrorOverlayX = CameraSwitchPreferences.read(this, enabled = false).mirrorOverlayX
+        val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
+        mirrorOverlayX = savedSettings.mirrorOverlayX
+        calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
+        openBaseline = savedSettings.openBaseline
+        closedBaseline = savedSettings.closedBaseline
         toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
@@ -91,6 +103,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
         }
         setContentView(createContentView())
+        updateSavedCalibrationUi()
     }
 
     override fun onResume() {
@@ -200,6 +213,11 @@ class CameraSwitchCalibrationActivity : Activity() {
             text = "Auto Calibration"
             setOnClickListener { startAutoCalibration() }
         }
+        testButton = Button(this).apply {
+            text = "Test Long Blink"
+            isEnabled = false
+            setOnClickListener { startLongBlinkTest() }
+        }
         mirrorButton = Button(this).apply {
             setOnClickListener {
                 mirrorOverlayX = !mirrorOverlayX
@@ -213,6 +231,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             setOnClickListener { finish() }
         }
         actions.addView(startButton)
+        actions.addView(testButton)
         actions.addView(mirrorButton)
         actions.addView(closeButton)
         updateMirrorButton()
@@ -227,6 +246,16 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun updateMirrorButton() {
         mirrorButton?.text = if (mirrorOverlayX) "Box X Flipped" else "Box X Normal"
+    }
+
+    private fun updateSavedCalibrationUi() {
+        if (openBaseline != null && closedBaseline != null) {
+            statusView?.text = "Saved calibration loaded. You can test it or recalibrate."
+            metricsView?.text = "Saved calibration | hold ${calibratedLongBlinkHoldMs}ms"
+            testButton?.isEnabled = true
+        } else {
+            testButton?.isEnabled = false
+        }
     }
 
     private fun configureTtsVoice() {
@@ -281,13 +310,20 @@ class CameraSwitchCalibrationActivity : Activity() {
         openSamples.clear()
         closedSamples.clear()
         longBlinkDurations.clear()
+        restClosedDurations.clear()
+        testLongBlinkDurations.clear()
         longBlinkClosed = false
         longBlinkClosedStartedAt = 0L
+        restClosed = false
+        restClosedStartedAt = 0L
+        testLongBlinkClosed = false
+        testLongBlinkClosedStartedAt = 0L
         openBaseline = null
         closedBaseline = null
         captureEndsAtMs = 0L
         activeStepLabel = ""
         startButton?.isEnabled = false
+        testButton?.isEnabled = false
         runStep(0, calibrationRunId)
     }
 
@@ -355,23 +391,29 @@ class CameraSwitchCalibrationActivity : Activity() {
             longBlinkDurations.add(System.currentTimeMillis() - longBlinkClosedStartedAt)
             longBlinkClosed = false
         }
+        if (restClosed) {
+            restClosedDurations.add(System.currentTimeMillis() - restClosedStartedAt)
+            restClosed = false
+        }
         phase = Phase.Complete
         openBaseline = average(openSamples)
         closedBaseline = average(closedSamples)
-        val calibratedLongBlink = calibratedLongBlinkMs()
+        calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
         CameraSwitchPreferences.saveCalibration(
             context = this,
-            longBlinkMs = calibratedLongBlink,
+            longBlinkMs = calibratedLongBlinkHoldMs,
             cooldownMs = 900L,
             mirrorOverlayX = mirrorOverlayX,
             openBaseline = openBaseline,
             closedBaseline = closedBaseline
         )
-        val message = "${cueSet.complete} Switch hold ${calibratedLongBlink}ms."
+        val quality = calibrationQuality()
+        val message = "${cueSet.complete} ${quality.label}. Switch hold ${calibratedLongBlinkHoldMs}ms."
         statusView?.text = message
-        metricsView?.text = "Open ${openSamples.size}, closed ${closedSamples.size}, long blinks ${longBlinkDurations.size}"
+        metricsView?.text = quality.detail
         speakThen(message) {}
         startButton?.isEnabled = true
+        testButton?.isEnabled = openBaseline != null && closedBaseline != null
     }
 
     private fun calibratedLongBlinkMs(): Long {
@@ -380,6 +422,88 @@ class CameraSwitchCalibrationActivity : Activity() {
             .sorted()
         if (measured.isEmpty()) return 800L
         return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
+    }
+
+    private fun calibrationQuality(): CalibrationQuality {
+        val openOk = openSamples.size >= 12
+        val closedOk = closedSamples.size >= 8
+        val slowBlinkOk = longBlinkDurations.any { it in 450L..2500L }
+        val falseLongBlinks = restClosedDurations.count { it >= calibratedLongBlinkHoldMs }
+        val restOk = falseLongBlinks == 0
+        val label = when {
+            openOk && closedOk && slowBlinkOk && restOk -> "Quality good"
+            openOk && closedOk && restOk -> "Quality weak"
+            else -> "Quality needs retry"
+        }
+        val detail = buildString {
+            append(label)
+            append(" | open ").append(openSamples.size)
+            append(", closed ").append(closedSamples.size)
+            append(", slow blinks ").append(longBlinkDurations.size)
+            append(", rest false ").append(falseLongBlinks)
+            append(", hold ").append(calibratedLongBlinkHoldMs).append("ms")
+            if (!slowBlinkOk) append(" | no measured slow blink; default hold used")
+        }
+        return CalibrationQuality(label, detail)
+    }
+
+    private fun startLongBlinkTest() {
+        if (openBaseline == null || closedBaseline == null) {
+            statusView?.text = "Run auto calibration first."
+            return
+        }
+        calibrationRunId += 1
+        mainHandler?.removeCallbacksAndMessages(null)
+        currentSpeechId = null
+        currentSpeechDone = null
+        testLongBlinkDurations.clear()
+        testLongBlinkClosed = false
+        testLongBlinkClosedStartedAt = 0L
+        phase = Phase.Instruction
+        activeStepLabel = "Long blink test"
+        captureEndsAtMs = 0L
+        startButton?.isEnabled = false
+        testButton?.isEnabled = false
+        val runId = calibrationRunId
+        val holdSeconds = max(1L, (calibratedLongBlinkHoldMs + 999L) / 1000L)
+        val cue = "After the beep, close your eyes for at least $holdSeconds seconds, then open. The test runs for 10 seconds."
+        statusView?.text = cue
+        metricsView?.text = "Long blink test starts after the beep | hold ${calibratedLongBlinkHoldMs}ms"
+        speakThen(cue) {
+            if (runId != calibrationRunId) return@speakThen
+            mainHandler?.postDelayed({
+                if (runId == calibrationRunId) {
+                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                    mainHandler?.postDelayed({
+                        if (runId == calibrationRunId) {
+                            phase = Phase.TestLongBlink
+                            activeStepLabel = "Long blink test"
+                            captureEndsAtMs = System.currentTimeMillis() + LongBlinkTestMs
+                            statusView?.text = "Testing long blink for ${LongBlinkTestMs / 1000} seconds"
+                            mainHandler?.postDelayed({ finishLongBlinkTest(runId) }, LongBlinkTestMs)
+                        }
+                    }, BeepLeadMs)
+                }
+            }, AfterSpeechPauseMs)
+        }
+    }
+
+    private fun finishLongBlinkTest(runId: Int) {
+        if (runId != calibrationRunId) return
+        if (testLongBlinkClosed) {
+            testLongBlinkDurations.add(System.currentTimeMillis() - testLongBlinkClosedStartedAt)
+            testLongBlinkClosed = false
+        }
+        phase = Phase.Complete
+        captureEndsAtMs = 0L
+        val passed = testLongBlinkDurations.any { it >= calibratedLongBlinkHoldMs }
+        val best = testLongBlinkDurations.maxOrNull() ?: 0L
+        val result = if (passed) "Long blink test passed" else "Long blink test failed"
+        statusView?.text = result
+        metricsView?.text = "$result | detected ${testLongBlinkDurations.size}, longest ${best}ms, required ${calibratedLongBlinkHoldMs}ms"
+        speakThen(result) {}
+        startButton?.isEnabled = true
+        testButton?.isEnabled = true
     }
 
     private fun speakThen(text: String, onDone: () -> Unit) {
@@ -494,9 +618,9 @@ class CameraSwitchCalibrationActivity : Activity() {
                 metricsView?.text = if (score == null) {
                     "$ttsVoiceLabel | Face not detected"
                 } else if (captureEndsAtMs > 0L) {
-                    "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size}"
+                    "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
                 } else {
-                    "$ttsVoiceLabel | Waiting | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size}"
+                    "$ttsVoiceLabel | Waiting | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
                 }
             }
         }
@@ -506,7 +630,9 @@ class CameraSwitchCalibrationActivity : Activity() {
         when (phase) {
             Phase.Open -> openSamples.add(features)
             Phase.Closed -> closedSamples.add(features)
+            Phase.Rest -> collectRestClosedDuration(features)
             Phase.LongBlink -> collectLongBlinkDuration(features)
+            Phase.TestLongBlink -> collectTestLongBlinkDuration(features)
             else -> Unit
         }
     }
@@ -520,6 +646,30 @@ class CameraSwitchCalibrationActivity : Activity() {
         } else if (longBlinkClosed && score < 0.35) {
             longBlinkDurations.add(now - longBlinkClosedStartedAt)
             longBlinkClosed = false
+        }
+    }
+
+    private fun collectRestClosedDuration(features: EyeFeatures) {
+        val score = closedScore(features) ?: return
+        val now = System.currentTimeMillis()
+        if (!restClosed && score >= 0.55) {
+            restClosed = true
+            restClosedStartedAt = now
+        } else if (restClosed && score < 0.35) {
+            restClosedDurations.add(now - restClosedStartedAt)
+            restClosed = false
+        }
+    }
+
+    private fun collectTestLongBlinkDuration(features: EyeFeatures) {
+        val score = closedScore(features) ?: return
+        val now = System.currentTimeMillis()
+        if (!testLongBlinkClosed && score >= 0.55) {
+            testLongBlinkClosed = true
+            testLongBlinkClosedStartedAt = now
+        } else if (testLongBlinkClosed && score < 0.35) {
+            testLongBlinkDurations.add(now - testLongBlinkClosedStartedAt)
+            testLongBlinkClosed = false
         }
     }
 
@@ -606,7 +756,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
-    private enum class Phase { Idle, Instruction, Prepare, Open, Closed, Rest, LongBlink, Complete }
+    private data class CalibrationQuality(val label: String, val detail: String)
+    private enum class Phase { Idle, Instruction, Prepare, Open, Closed, Rest, LongBlink, TestLongBlink, Complete }
     private data class TrackedRoi(val x: Int, val y: Int, val w: Int, val h: Int)
     private data class OrientedFrame(val width: Int, val height: Int, val luma: ByteArray)
     private data class RawFrame(val width: Int, val height: Int, val luma: ByteArray) {
@@ -651,6 +802,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val CameraPermissionRequestCode = 2504
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
+        const val LongBlinkTestMs = 10000L
 
         fun average(samples: List<EyeFeatures>): EyeFeatures? {
             if (samples.isEmpty()) return null
