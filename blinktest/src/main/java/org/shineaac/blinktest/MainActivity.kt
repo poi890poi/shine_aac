@@ -4,10 +4,12 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ImageFormat
 import android.graphics.Paint
+import android.graphics.PointF
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -15,6 +17,7 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.Image
+import android.media.FaceDetector
 import android.media.ImageReader
 import android.os.Bundle
 import android.os.Handler
@@ -41,6 +44,7 @@ class MainActivity : Activity() {
     private lateinit var stateText: TextView
     private lateinit var scoreText: TextView
     private lateinit var eventCountText: TextView
+    private lateinit var trackingText: TextView
     private lateinit var openText: TextView
     private lateinit var closedText: TextView
     private lateinit var thresholdText: TextView
@@ -71,6 +75,7 @@ class MainActivity : Activity() {
     private var closedBaseline: Features? = null
     private var latestFeatures: Features? = null
     private var latestScore = 0.0
+    private var lastTrackedRoi: TrackedRoi? = null
     private var closed = false
     private var closedStartedAt = 0L
     private var lastShortBlinkAt = 0L
@@ -94,6 +99,7 @@ class MainActivity : Activity() {
         stateText = valueText("idle")
         scoreText = valueText("0.000")
         eventCountText = valueText("0")
+        trackingText = valueText("manual")
         openText = valueText("not set")
         closedText = valueText("not set")
         thresholdText = valueText("0.250")
@@ -126,13 +132,14 @@ class MainActivity : Activity() {
             setPadding(16, 16, 16, 16)
             addView(previewFrame)
             addView(row("State", stateText, "Score", scoreText, "Events", eventCountText))
+            addView(row("Tracking", trackingText))
             addView(buttonRow(
                 button("Start Camera") { startCameraFlow() },
                 button("Calibrate Open") { calibrateOpen() },
                 button("Sample Closed") { sampleClosed() },
                 button("Clear Log") { clearLog() }
             ))
-            addView(sectionTitle("Eye Region"))
+            addView(sectionTitle("Manual Fallback Region"))
             addView(slider("X", 0, 90, roiXPct) { roiXPct = it; updateRoi() })
             addView(slider("Y", 0, 80, roiYPct) { roiYPct = it; updateRoi() })
             addView(slider("Width", 8, 80, roiWPct) { roiWPct = it; updateRoi() })
@@ -294,18 +301,83 @@ class MainActivity : Activity() {
     }
 
     private fun readFeatures(image: Image): Features {
-        val plane = image.planes[0]
-        val buffer = plane.buffer
-        val rowStride = plane.rowStride
-        val pixelStride = plane.pixelStride
-        val width = image.width
-        val height = image.height
-        val x0 = width * roiXPct / 100
-        val y0 = height * roiYPct / 100
-        val roiW = max(4, width * roiWPct / 100)
-        val roiH = max(4, height * roiHPct / 100)
-        val x1 = min(width, x0 + roiW)
-        val y1 = min(height, y0 + roiH)
+        val rawFrame = RawFrame.from(image)
+        val rotations = mutableListOf<Int>()
+        lastTrackedRoi?.rotation?.let { rotations.add(it) }
+        rotations.addAll(listOf(0, 90, 270, 180))
+
+        for (rotation in rotations.distinct()) {
+            val frame = rawFrame.oriented(rotation)
+            val face = detectFace(frame)
+            if (face != null) {
+                val roi = eyeBandForFace(frame, face, rotation)
+                lastTrackedRoi = roi
+                runOnUiThread {
+                    trackingText.text = "face ${rotation}deg"
+                    roiOverlay.setRoi(
+                        (roi.x * 100 / frame.width).coerceIn(0, 99),
+                        (roi.y * 100 / frame.height).coerceIn(0, 99),
+                        (roi.w * 100 / frame.width).coerceIn(1, 100),
+                        (roi.h * 100 / frame.height).coerceIn(1, 100)
+                    )
+                }
+                return featuresFromRoi(frame, roi.x, roi.y, roi.w, roi.h)
+            }
+        }
+
+        val last = lastTrackedRoi
+        if (last != null && System.currentTimeMillis() - last.detectedAtMs < 1200) {
+            val frame = rawFrame.oriented(last.rotation)
+            runOnUiThread { trackingText.text = "last face" }
+            return featuresFromRoi(frame, last.x, last.y, last.w, last.h)
+        }
+
+        val frame = rawFrame.oriented(0)
+        val x0 = frame.width * roiXPct / 100
+        val y0 = frame.height * roiYPct / 100
+        val roiW = max(4, frame.width * roiWPct / 100)
+        val roiH = max(4, frame.height * roiHPct / 100)
+        runOnUiThread {
+            trackingText.text = "manual fallback"
+            updateRoi()
+        }
+        return featuresFromRoi(frame, x0, y0, roiW, roiH)
+    }
+
+    private fun detectFace(frame: OrientedFrame): FaceDetector.Face? {
+        val width = if (frame.width % 2 == 0) frame.width else frame.width - 1
+        if (width <= 0 || frame.height <= 0) return null
+        val pixels = IntArray(width * frame.height)
+        var target = 0
+        for (y in 0 until frame.height) {
+            val row = y * frame.width
+            for (x in 0 until width) {
+                val value = frame.luma[row + x].toInt() and 0xff
+                pixels[target++] = Color.rgb(value, value, value)
+            }
+        }
+        val bitmap = Bitmap.createBitmap(width, frame.height, Bitmap.Config.RGB_565)
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, frame.height)
+        val faces = arrayOfNulls<FaceDetector.Face>(1)
+        FaceDetector(width, frame.height, 1).findFaces(bitmap, faces)
+        bitmap.recycle()
+        return faces[0]
+    }
+
+    private fun eyeBandForFace(frame: OrientedFrame, face: FaceDetector.Face, rotation: Int): TrackedRoi {
+        val midpoint = PointF()
+        face.getMidPoint(midpoint)
+        val eyesDistance = max(18f, face.eyesDistance())
+        val roiW = clampInt((eyesDistance * 2.1f).toInt(), 20, frame.width)
+        val roiH = clampInt((eyesDistance * 0.65f).toInt(), 12, frame.height)
+        val x = clampInt((midpoint.x - roiW / 2f).toInt(), 0, frame.width - roiW)
+        val y = clampInt((midpoint.y - roiH * 0.55f).toInt(), 0, frame.height - roiH)
+        return TrackedRoi(rotation, x, y, roiW, roiH, System.currentTimeMillis())
+    }
+
+    private fun featuresFromRoi(frame: OrientedFrame, x0: Int, y0: Int, roiW: Int, roiH: Int): Features {
+        val x1 = min(frame.width, x0 + roiW)
+        val y1 = min(frame.height, y0 + roiH)
 
         var sum = 0.0
         var sumSquares = 0.0
@@ -314,13 +386,14 @@ class MainActivity : Activity() {
         var previous = -1
 
         for (y in y0 until y1) {
+            val row = y * frame.width
             for (x in x0 until x1) {
-                val index = y * rowStride + x * pixelStride
-                val value = (buffer.get(index).toInt() and 0xff) / 255.0
+                val raw = frame.luma[row + x].toInt() and 0xff
+                val value = raw / 255.0
                 sum += value
                 sumSquares += value * value
                 if (previous >= 0) edge += abs(value - previous / 255.0)
-                previous = (buffer.get(index).toInt() and 0xff)
+                previous = raw
                 count += 1
             }
         }
@@ -534,6 +607,78 @@ class MainActivity : Activity() {
 
     private data class Features(val mean: Double, val contrast: Double, val edge: Double)
 
+    private data class TrackedRoi(
+        val rotation: Int,
+        val x: Int,
+        val y: Int,
+        val w: Int,
+        val h: Int,
+        val detectedAtMs: Long
+    )
+
+    private data class OrientedFrame(
+        val width: Int,
+        val height: Int,
+        val luma: ByteArray
+    )
+
+    private data class RawFrame(
+        val width: Int,
+        val height: Int,
+        val luma: ByteArray
+    ) {
+        fun oriented(rotation: Int): OrientedFrame {
+            return when (rotation) {
+                90 -> {
+                    val out = ByteArray(width * height)
+                    var target = 0
+                    for (x in 0 until width) {
+                        for (y in height - 1 downTo 0) {
+                            out[target++] = luma[y * width + x]
+                        }
+                    }
+                    OrientedFrame(height, width, out)
+                }
+                180 -> {
+                    val out = ByteArray(width * height)
+                    var target = 0
+                    for (index in luma.indices.reversed()) {
+                        out[target++] = luma[index]
+                    }
+                    OrientedFrame(width, height, out)
+                }
+                270 -> {
+                    val out = ByteArray(width * height)
+                    var target = 0
+                    for (x in width - 1 downTo 0) {
+                        for (y in 0 until height) {
+                            out[target++] = luma[y * width + x]
+                        }
+                    }
+                    OrientedFrame(height, width, out)
+                }
+                else -> OrientedFrame(width, height, luma)
+            }
+        }
+
+        companion object {
+            fun from(image: Image): RawFrame {
+                val plane = image.planes[0]
+                val buffer = plane.buffer
+                val rowStride = plane.rowStride
+                val pixelStride = plane.pixelStride
+                val out = ByteArray(image.width * image.height)
+                var target = 0
+                for (y in 0 until image.height) {
+                    for (x in 0 until image.width) {
+                        out[target++] = buffer.get(y * rowStride + x * pixelStride)
+                    }
+                }
+                return RawFrame(image.width, image.height, out)
+            }
+        }
+    }
+
     private enum class Metric {
         ContrastDrop,
         BrightnessRise,
@@ -586,5 +731,8 @@ class MainActivity : Activity() {
             if (abs(distance) <= 0.0001) return 0.0
             return clamp((value - openValue) / distance, 0.0, 1.0)
         }
+
+        fun clampInt(value: Int, minValue: Int, maxValue: Int): Int =
+            min(maxValue, max(minValue, value))
     }
 }
