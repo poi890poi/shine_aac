@@ -5,6 +5,7 @@
   "scripts": {
     "test": "npm run test:core",
     "test:core": "npm --prefix packages/aac-core test",
+    "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
     "test:web:e2e": "node scripts/e2e-web.mjs"
   },
   "workspaces": [

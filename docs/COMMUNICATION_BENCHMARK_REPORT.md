@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-07-10T06:03:45.726Z
+Generated: 2026-07-11T03:45:10.606Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -12,7 +12,10 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 | Dynamic zh-TW continuation symbols | Zhuyin symbols | 13 | 13 | Hidden symbols that can appear as valid continuations |
 | Dead-end continuation symbols | Zhuyin symbols | 0 | 0 | Visible continuations that lead to no glyph/phrase candidate |
 | Top zh-TW glyph reachability | unique Han glyphs | 222 / 224 (99.11%) | >= 99% | Single-character entries reachable in the top 500 source-ranked dictionary slice |
-| Top zh-TW phrase reachability | unique phrases | 141 / 141 (100.00%) | >= 95% | Multi-character entries reachable in the top 500 source-ranked dictionary slice |
+| Top zh-TW direct phrase reachability | unique phrases | 141 / 141 (100.00%) | >= 95% | Multi-character entries directly reachable as phrase candidates; this is compression, not the only coverage path |
+| Top zh-TW phrase composability | unique phrases | 141 / 141 (100.00%) | >= 99% | Phrases whose component glyphs exist in the source dictionary and can be composed character by character |
+| Top zh-TW exact-or-composable phrase coverage | unique phrases | 141 / 141 (100.00%) | >= 99% | Phrase is either directly suggested or constructible from reachable component glyphs |
+| Direct phrase compression gaps | unique phrases | 0 | review downward | Top phrases not directly reachable but still composable from glyphs |
 | zh-TW functional phrase surface | phrases | 48 | 10 areas x 8-12 phrases = 80-120 | Built-in functional phrases for needs, comfort, care, positioning, people, preference, and repair |
 | Multi-concept utterance coverage | utterances / sentences | 16 | 10 areas x 12 utterances = 120 | Real communication sequences; this remains the main benchmark gap |
 | Corpus-style zh-TW sentence audit | source sentences | 0 | external reference: 400 | BASPRO/TMNews scale reference only; generated filler is not counted |
@@ -26,6 +29,13 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 | Output selections | selected tiles | 420 | 4.08 |
 | Switch activations | activations | 840 | 8.16 avg / 4.00 median |
 | Scanner advances | row/cell advances | 2032 | 19.73 |
+| Activations per target concept | activations/concept | 840 / 152 | 5.53 |
+| Selections per target concept | selections/concept | 420 / 152 | 2.76 |
+| Activations per output character | activations/character | 840 / 399 | 2.11 |
+| Estimated time per output character | seconds/character | 2783.20 / 399 | 6.98 |
+| Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
+| Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
+| Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
 
 ## Effort Targets
 
@@ -48,6 +58,26 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 | space | 3 |
 | undo | 1 |
 
+## Least-Cost zh-TW Path Comparison
+
+This comparison is evaluation-only. It searches dictionary-backed segmentations and visible UI paths for `zh-TW` benchmarks with expected final messages. It does not add app shortcuts.
+
+| Metric | Current Fixture Path | Least-Cost Estimate | Difference | Change |
+| --- | ---: | ---: | ---: | ---: |
+| Selections | 210 | 201 | -9 | -4.29% |
+| Switch activations | 420 | 402 | -18 | -4.29% |
+| Scanner advances | 985 | 934 | -51 | -5.18% |
+| Estimated scan time sec | 1350.10 | 1282.60 | -67.50 | -5.00% |
+
+| Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| zhtw-phonetic-home-podcast | 聽 新 資料 夾 | 聽 新 資料 夾 | 34 | 34 | 0 | 0.00% |
+| zhtw-multilingual-home-podcast | 聽  podcast  新 資料 夾 | 聽  podcast  新 資料 夾 | 56 | 56 | 0 | 0.00% |
+| zhtw-multilingual-audio-repair | podcast  音量 小 | podcast  音 量 小 | 42 | 38 | -4 | -9.52% |
+| zhtw-phonetic-home-drink | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 冰 紅茶 少 冰 不 要 太 甜 等一下 喝 用 吸管 | 102 | 98 | -4 | -3.92% |
+| zhtw-phonetic-home-audio-repair | 音量 小 從 剛剛 那裡 | 音 量 小 從 剛剛 那裡 | 52 | 48 | -4 | -7.69% |
+| zhtw-phonetic-home-feeling | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 今 天 比較 累 但 是 心情 好想 聽 你 講 這樣 很 舒服 謝謝 | 134 | 128 | -6 | -4.48% |
+
 ## Read This Correctly
 
 - Word-list reachability is still tracked: 36 / 36 Project Core words, but this is not a sentence metric.
@@ -55,8 +85,10 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 - Real multi-concept utterance coverage is 16 / 120; that denominator means 10 communication areas x 12 utterance probes each.
 - Source-licensed natural sentence audit coverage is 0. The 400-sentence number is an external Chinese phonetic-balanced script reference, not a SHINE release target.
 - zh-TW glyph and phrase reachability above comes from source-ranked dictionary entries, not generated sentences.
+- A long phrase does not need to be an early candidate if its component words or glyphs are reachable. Direct phrase candidates are measured as efficiency/compression, while exact-or-composable coverage is the core reachability metric.
 - Estimated time uses configured scanner timings along the actual selected path; it is not test runtime.
 - Switch activations are physical input activations. Output selections are selected tiles. Scanner advances are passive highlights before a selection.
+- Least-cost estimates search known dictionary labels and visible UI paths. They are better than scripted demos, but they are still test estimates, not proof of user comfort.
 
 ## Sentence Target Rationale
 
@@ -106,6 +138,12 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 - Average switch activations per passing task: 8.16
 - Total scan advances across passing tasks: 2032
 - Average scan advances per passing task: 19.73
+- Total target concepts across passing tasks: 152
+- Total output characters across passing tasks: 399
+- Activations per target concept: 5.53
+- Activations per output character: 2.11
+- Direct zh-TW phrase commits during benchmark composition: 17
+- Decomposed zh-TW phrase fallbacks during benchmark composition: 0
 
 ## Task Type Counts
 
@@ -288,6 +326,20 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | --- | ---: | ---: | ---: | ---: |
 | project-core-refuse-drink | 4 | 2 | 15 | 3 |
 | asha-feelings-sick | 4 | 4 | 33 | 19 |
+
+## Previous Report Comparison
+
+Static baseline: Previous static communication benchmark report before least-cost path comparison.
+
+| Metric | Previous | Current | Difference | Change |
+| --- | ---: | ---: | ---: | ---: |
+| Benchmark pass rate tasks | 103 | 103 | 0 | 0.00% |
+| Average benchmark time sec | 27.02 | 27.02 | +0.00 | 0.01% |
+| Median benchmark time sec | 13.80 | 13.80 | 0 | 0.00% |
+| Average switch activations | 8.16 | 8.16 | -0.00 | -0.06% |
+| Median switch activations | 4 | 4 | 0 | 0.00% |
+| Activations per target concept | 5.53 | 5.53 | -0.00 | -0.07% |
+| Activations per output character | 2.11 | 2.11 | -0.00 | -0.22% |
 
 ## Sources
 

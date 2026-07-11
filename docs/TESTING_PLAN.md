@@ -21,6 +21,7 @@ This document defines how SHINE AAC should be tested before release candidates. 
 | Layer | Purpose | Speed Model | Main Evidence |
 | --- | --- | --- | --- |
 | Core unit tests | Pure scanner, board, message, profile, migration, and suggestion behavior | Instant deterministic execution | `npm test` |
+| Fast zh-TW dictionary inventory | Broad source symbol/glyph/word inventory, estimated reachability, and estimated activation cost | Graph analysis only; no real sleeps and no full virtual utterance scanning | `docs/ZHTW_DICTIONARY_INVENTORY_REPORT.md` |
 | Virtual communication benchmarks | Reachability and efficiency for words, phrases, utterances, and multilingual paths | No real sleeps; count activations and advances, estimate configured scan time | `docs/COMMUNICATION_BENCHMARK_REPORT.md` |
 | Browser E2E | Rendered web UI, scanning loop, localStorage migration, viewport fit, demo/smoke flows | Normal UI event timing, reduced case count | `docs/WEB_E2E_REPORT.md` |
 | APK/build checks | Android package build, asset inclusion, native shell integration, installable artifact | Build-time plus selected device/emulator smoke flows | `docs/APK_REPORT.md` |
@@ -65,6 +66,8 @@ Core tests may call helpers that simulate visible tile selection. They must not 
 
 Virtual benchmarks are the primary place to measure whether communication is possible and efficient.
 
+For broad `zh-TW` dictionary quality, run the fast inventory report first. It should report total available Zhuyin symbols, source glyphs, source word/phrase labels, phonetic-path reachability, direct candidate reachability, composability from glyphs, and estimated activations. This report is allowed to estimate all dictionary labels quickly because it uses the access graph rather than full row/column scan simulation.
+
 The runner should:
 
 - start from a real profile configuration
@@ -82,6 +85,10 @@ The runner should not:
 - use browser or APK timing as a proxy for reachability
 
 `zh-TW` benchmarks should prefer composing through fundamental glyphs and source-backed phrases instead of adding long scripted phrases. Long conversation examples should be represented as token sequences that prove the core can combine smaller units.
+
+Long composite phrases are efficiency shortcuts, not mandatory coverage units. If the component glyphs or smaller words are reachable, the expression is possible; the report should measure the longer phrase as direct-candidate compression and separately report exact-or-composable coverage. Ranking changes must improve efficiency without hiding existing useful candidates.
+
+When a benchmark has an expected final message, the report should compare the scripted fixture path with a generic least-cost `zh-TW` path search. Scripted paths are useful regression examples, but the optimizer estimate is the better metric for minimum activations because it can compare direct phrases, smaller words, glyph composition, context-sensitive visible suggestions, and embedded Latin runs without adding special-case app logic.
 
 ## Browser E2E Methods
 

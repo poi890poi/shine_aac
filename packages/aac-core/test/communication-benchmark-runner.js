@@ -10,6 +10,12 @@ import {
   ZhTwFrequencyDictionary
 } from "../src/index.js";
 
+const MaxZhTwOptimizerSegmentLength = Math.max(
+  1,
+  ...ZhTwFrequencyDictionary.map((entry) => Array.from(entry.label).length)
+);
+const ZhTwOptimizerLabels = new Set(ZhTwFrequencyDictionary.map((entry) => entry.label));
+
 export function normalizeText(value) {
   return String(value)
     .toLowerCase()
@@ -73,7 +79,7 @@ function selectPosition(session, position) {
   let next = session.scannerState.stage === ScanStage.Rows
     ? session
     : { ...session, scannerState: createScannerState({ rowIndex: 0 }), lockedRow: null };
-  const metrics = { selections: 1, switches: 0, advances: 0, estimatedTimeMs: 0, tileActions: {} };
+  const metrics = { ...blankMetrics(), selections: 1 };
 
   for (let step = 0; step <= visibleBoard(next).length; step += 1) {
     if (next.scannerState.stage === ScanStage.Rows && next.scannerState.rowIndex === position.rowIndex) break;
@@ -124,12 +130,29 @@ function addMetrics(left, right) {
     switches: left.switches + right.switches,
     advances: left.advances + right.advances,
     estimatedTimeMs: left.estimatedTimeMs + right.estimatedTimeMs,
+    zhTwDirectPhraseCommits: left.zhTwDirectPhraseCommits + right.zhTwDirectPhraseCommits,
+    zhTwDecomposedPhraseFallbacks: left.zhTwDecomposedPhraseFallbacks + right.zhTwDecomposedPhraseFallbacks,
     tileActions: addActionCounts(left.tileActions, right.tileActions)
   };
 }
 
+function compareMetrics(left, right) {
+  return left.switches - right.switches ||
+    left.advances - right.advances ||
+    left.estimatedTimeMs - right.estimatedTimeMs ||
+    left.selections - right.selections;
+}
+
 function blankMetrics() {
-  return { selections: 0, switches: 0, advances: 0, estimatedTimeMs: 0, tileActions: {} };
+  return {
+    selections: 0,
+    switches: 0,
+    advances: 0,
+    estimatedTimeMs: 0,
+    zhTwDirectPhraseCommits: 0,
+    zhTwDecomposedPhraseFallbacks: 0,
+    tileActions: {}
+  };
 }
 
 function addActionCounts(left = {}, right = {}) {
@@ -140,7 +163,7 @@ function addActionCounts(left = {}, right = {}) {
   return merged;
 }
 
-function composeToken(session, token) {
+export function composeToken(session, token) {
   const direct = bestPositionForToken(session, token);
   if (direct) return selectPosition(session, direct);
 
@@ -235,6 +258,9 @@ function composeZhTwToken(session, token) {
     candidate.label === label
   );
   if (committed) {
+    if (Array.from(label).length > 1) {
+      committed.metrics.zhTwDirectPhraseCommits += 1;
+    }
     return {
       session: committed.session,
       metrics: addMetrics(metrics, committed.metrics)
@@ -257,6 +283,7 @@ function composeZhTwToken(session, token) {
     metrics = addMetrics(metrics, selected.metrics);
   }
 
+  metrics.zhTwDecomposedPhraseFallbacks += 1;
   return { session: next, metrics };
 }
 
@@ -322,6 +349,65 @@ export function composeSequence(startSession, tokens) {
   return { session, metrics };
 }
 
+export function optimizeZhTwText(startSession, targetText) {
+  if (startSession.config.profileId !== "zh-TW") {
+    throw new Error("optimizeZhTwText only supports the zh-TW profile");
+  }
+
+  const units = Array.from(String(targetText));
+  const best = new Map();
+  best.set(0, { session: startSession, metrics: blankMetrics(), sequence: [] });
+
+  for (let offset = 0; offset < units.length; offset += 1) {
+    const state = best.get(offset);
+    if (!state) continue;
+
+    for (const token of zhTwOptimizerTokensAt(units, offset)) {
+      try {
+        const selected = composeToken(state.session, token);
+        const nextOffset = offset + Array.from(token).length;
+        const candidate = {
+          session: selected.session,
+          metrics: addMetrics(state.metrics, selected.metrics),
+          sequence: [...state.sequence, token]
+        };
+        const existing = best.get(nextOffset);
+        if (!existing || compareMetrics(candidate.metrics, existing.metrics) < 0) {
+          best.set(nextOffset, candidate);
+        }
+      } catch {
+        // An optimizer branch can fail if a source-backed label is not reachable in the current UI state.
+      }
+    }
+  }
+
+  const result = best.get(units.length);
+  if (!result) {
+    throw new Error(`No optimized zh-TW path found for ${JSON.stringify(targetText)}`);
+  }
+  return result;
+}
+
+function zhTwOptimizerTokensAt(units, offset) {
+  if (isZhTwLatinCharacter(units[offset])) {
+    let end = offset;
+    while (end < units.length && isZhTwLatinCharacter(units[end])) end += 1;
+    return [units.slice(offset, end).join("")];
+  }
+
+  const tokens = [];
+  const maxLength = Math.min(MaxZhTwOptimizerSegmentLength, units.length - offset);
+  for (let length = 1; length <= maxLength; length += 1) {
+    const token = units.slice(offset, offset + length).join("");
+    if (ZhTwOptimizerLabels.has(token)) tokens.push(token);
+  }
+  return tokens.sort((left, right) => Array.from(right).length - Array.from(left).length);
+}
+
+function isZhTwLatinCharacter(character) {
+  return /^[A-Za-z ?]$/u.test(character);
+}
+
 export function evaluateBenchmark(benchmark) {
   const startSession = createSession({
     config: createBoardConfig({ profileId: benchmark.profileId ?? "en-US" })
@@ -337,7 +423,6 @@ export function evaluateBenchmark(benchmark) {
   return results
     .filter((result) => !result.error)
     .sort((left, right) =>
-      left.metrics.selections - right.metrics.selections ||
-      left.metrics.advances - right.metrics.advances
+      compareMetrics(left.metrics, right.metrics)
     )[0] ?? results[0];
 }

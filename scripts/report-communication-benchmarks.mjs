@@ -4,8 +4,14 @@ import {
   CommunicationBenchmarks,
   CommunicationBenchmarkSources
 } from "../packages/aac-core/test/communication-benchmarks.fixture.js";
-import { evaluateBenchmark } from "../packages/aac-core/test/communication-benchmark-runner.js";
 import {
+  composeSequence,
+  evaluateBenchmark,
+  optimizeZhTwText
+} from "../packages/aac-core/test/communication-benchmark-runner.js";
+import {
+  createBoardConfig,
+  createSession,
   ZhTwFrequencyDictionary,
   analyzeZhTwPhoneticAccess
 } from "../packages/aac-core/src/index.js";
@@ -40,6 +46,16 @@ const previousRunMetrics = Object.freeze({
   "project-core-refuse-drink": Object.freeze({ selections: 4, advances: 15 }),
   "asha-feelings-sick": Object.freeze({ selections: 4, advances: 33 })
 });
+const previousReportBaseline = Object.freeze({
+  label: "Previous static communication benchmark report before least-cost path comparison",
+  benchmarkPassCount: 103,
+  averageBenchmarkTimeSec: 27.02,
+  medianBenchmarkTimeSec: 13.80,
+  averageSwitchActivations: 8.16,
+  medianSwitchActivations: 4.00,
+  activationsPerConcept: 5.53,
+  activationsPerOutputCharacter: 2.11
+});
 
 const results = CommunicationBenchmarks.map((benchmark) => {
   const result = evaluateBenchmark(benchmark);
@@ -49,6 +65,18 @@ const results = CommunicationBenchmarks.map((benchmark) => {
     status: !result.error && result.metrics.selections <= benchmark.maxSelections ? "PASS" : "FAIL"
   };
 });
+const optimizedZhTwResults = results
+  .filter(({ benchmark, result }) =>
+    !result.error &&
+    (benchmark.profileId ?? "en-US") === "zh-TW" &&
+    (benchmark.expectedFinalMessages?.length ?? 0) > 0
+  )
+  .map(({ benchmark, result }) => ({
+    benchmark,
+    current: result,
+    optimized: optimizeBenchmarkFinalMessage(benchmark)
+  }))
+  .filter(({ optimized }) => !optimized.error);
 
 const zhTwAccess = analyzeZhTwPhoneticAccess({ topEntryLimit: 500 });
 const passedResults = results.filter(({ status }) => status === "PASS");
@@ -56,11 +84,21 @@ const totalSelections = sum(passedResults.map(({ result }) => result.metrics.sel
 const totalAdvances = sum(passedResults.map(({ result }) => result.metrics.advances));
 const totalActivations = sum(passedResults.map(({ result }) => result.metrics.switches));
 const totalEstimatedTimeMs = sum(passedResults.map(({ result }) => result.metrics.estimatedTimeMs));
+const totalTargetConcepts = sum(passedResults.map(({ benchmark }) => benchmark.targetConcepts?.length ?? 0));
+const totalOutputCharacters = sum(passedResults.map(({ result }) => textLength(result.session?.message ?? result.sequence.join(""))));
+const zhTwDirectPhraseCommits = sum(passedResults.map(({ result }) => result.metrics.zhTwDirectPhraseCommits ?? 0));
+const zhTwDecomposedPhraseFallbacks = sum(passedResults.map(({ result }) => result.metrics.zhTwDecomposedPhraseFallbacks ?? 0));
 const averageTimeSec = totalEstimatedTimeMs / Math.max(1, passedResults.length) / 1000;
 const medianTimeSec = median(passedResults.map(({ result }) => result.metrics.estimatedTimeMs / 1000));
 const averageActivations = totalActivations / Math.max(1, passedResults.length);
 const medianActivations = median(passedResults.map(({ result }) => result.metrics.switches));
+const activationsPerConcept = totalActivations / Math.max(1, totalTargetConcepts);
+const selectionsPerConcept = totalSelections / Math.max(1, totalTargetConcepts);
+const activationsPerOutputCharacter = totalActivations / Math.max(1, totalOutputCharacters);
+const secondsPerOutputCharacter = totalEstimatedTimeMs / Math.max(1, totalOutputCharacters) / 1000;
 const actionCounts = aggregateActionCounts(passedResults.map(({ result }) => result.metrics.tileActions));
+const optimizedCurrentTotals = metricTotals(optimizedZhTwResults.map(({ current }) => current.metrics));
+const optimizedLeastCostTotals = metricTotals(optimizedZhTwResults.map(({ optimized }) => optimized.metrics));
 const benchmarkProfiles = new Set(results.map(({ benchmark }) => benchmark.profileId ?? "en-US"));
 const purposeCounts = countBy(results, ({ benchmark }) => benchmark.purpose);
 const sourceCounts = countBy(results, ({ benchmark }) => benchmark.source);
@@ -90,11 +128,22 @@ const zhTwTopGlyphLabels = uniqueLabels(zhTwTopRankedEntries.filter((entry) => t
 const zhTwTopPhraseLabels = uniqueLabels(zhTwTopRankedEntries.filter((entry) => textLength(entry.label) > 1));
 const zhTwUnreachableTopGlyphLabels = uniqueLabels(zhTwAccess.unreachableTopEntries.filter((entry) => textLength(entry.label) === 1));
 const zhTwUnreachableTopPhraseLabels = uniqueLabels(zhTwAccess.unreachableTopEntries.filter((entry) => textLength(entry.label) > 1));
+const zhTwSourceGlyphLabels = uniqueLabels(ZhTwFrequencyDictionary.filter((entry) => textLength(entry.label) === 1));
 const zhTwReachableTopGlyphCount = zhTwTopGlyphLabels.size - zhTwUnreachableTopGlyphLabels.size;
 const zhTwReachableTopPhraseCount = zhTwTopPhraseLabels.size - zhTwUnreachableTopPhraseLabels.size;
+const zhTwComposableTopPhraseLabels = [...zhTwTopPhraseLabels].filter((label) => isPhraseComposableFromGlyphs(label));
+const zhTwExactOrComposableTopPhraseLabels = new Set([
+  ...[...zhTwTopPhraseLabels].filter((label) => !zhTwUnreachableTopPhraseLabels.has(label)),
+  ...zhTwComposableTopPhraseLabels
+]);
+const zhTwCompressionOnlyGapCount = [...zhTwTopPhraseLabels]
+  .filter((label) => zhTwUnreachableTopPhraseLabels.has(label) && isPhraseComposableFromGlyphs(label))
+  .length;
 const hiddenContinuationSymbolsWithPrefixes = zhTwAccess.hiddenSymbolStats.filter((stat) => stat.prefixCount > 0).length;
 const topGlyphCoverageRatio = ratio(zhTwReachableTopGlyphCount, zhTwTopGlyphLabels.size);
 const topPhraseCoverageRatio = ratio(zhTwReachableTopPhraseCount, zhTwTopPhraseLabels.size);
+const topPhraseComposableCoverageRatio = ratio(zhTwComposableTopPhraseLabels.length, zhTwTopPhraseLabels.size);
+const topPhraseExactOrComposableRatio = ratio(zhTwExactOrComposableTopPhraseLabels.size, zhTwTopPhraseLabels.size);
 
 const generated = new Date().toISOString();
 const lines = [
@@ -112,7 +161,10 @@ const lines = [
   `| Dynamic zh-TW continuation symbols | Zhuyin symbols | ${hiddenContinuationSymbolsWithPrefixes} | ${zhTwAccess.inputSymbolCount - zhTwAccess.staticSymbolCount} | Hidden symbols that can appear as valid continuations |`,
   `| Dead-end continuation symbols | Zhuyin symbols | ${zhTwAccess.visibleDeadEndContinuations.length} | 0 | Visible continuations that lead to no glyph/phrase candidate |`,
   `| Top zh-TW glyph reachability | unique Han glyphs | ${zhTwReachableTopGlyphCount} / ${zhTwTopGlyphLabels.size} (${percent(topGlyphCoverageRatio)}) | >= 99% | Single-character entries reachable in the top ${zhTwAccess.topEntryLimit} source-ranked dictionary slice |`,
-  `| Top zh-TW phrase reachability | unique phrases | ${zhTwReachableTopPhraseCount} / ${zhTwTopPhraseLabels.size} (${percent(topPhraseCoverageRatio)}) | >= 95% | Multi-character entries reachable in the top ${zhTwAccess.topEntryLimit} source-ranked dictionary slice |`,
+  `| Top zh-TW direct phrase reachability | unique phrases | ${zhTwReachableTopPhraseCount} / ${zhTwTopPhraseLabels.size} (${percent(topPhraseCoverageRatio)}) | >= 95% | Multi-character entries directly reachable as phrase candidates; this is compression, not the only coverage path |`,
+  `| Top zh-TW phrase composability | unique phrases | ${zhTwComposableTopPhraseLabels.length} / ${zhTwTopPhraseLabels.size} (${percent(topPhraseComposableCoverageRatio)}) | >= 99% | Phrases whose component glyphs exist in the source dictionary and can be composed character by character |`,
+  `| Top zh-TW exact-or-composable phrase coverage | unique phrases | ${zhTwExactOrComposableTopPhraseLabels.size} / ${zhTwTopPhraseLabels.size} (${percent(topPhraseExactOrComposableRatio)}) | >= 99% | Phrase is either directly suggested or constructible from reachable component glyphs |`,
+  `| Direct phrase compression gaps | unique phrases | ${zhTwCompressionOnlyGapCount} | review downward | Top phrases not directly reachable but still composable from glyphs |`,
   `| zh-TW functional phrase surface | phrases | ${zhTwFunctionalCount} | ${communicationAreaCount} areas x ${phraseTargetPerArea}-12 phrases = ${zhTwFunctionalSurfaceTarget}-120 | Built-in functional phrases for needs, comfort, care, positioning, people, preference, and repair |`,
   `| Multi-concept utterance coverage | utterances / sentences | ${sequenceLevelCount} | ${communicationAreaCount} areas x ${utteranceTargetPerArea} utterances = ${estimatedUtteranceTarget} | Real communication sequences; this remains the main benchmark gap |`,
   `| Corpus-style zh-TW sentence audit | source sentences | 0 | external reference: ${externalSentenceAuditReference} | BASPRO/TMNews scale reference only; generated filler is not counted |`,
@@ -126,6 +178,13 @@ const lines = [
   `| Output selections | selected tiles | ${totalSelections} | ${average(totalSelections, passedResults.length)} |`,
   `| Switch activations | activations | ${totalActivations} | ${averageActivations.toFixed(2)} avg / ${medianActivations.toFixed(2)} median |`,
   `| Scanner advances | row/cell advances | ${totalAdvances} | ${average(totalAdvances, passedResults.length)} |`,
+  `| Activations per target concept | activations/concept | ${totalActivations} / ${totalTargetConcepts} | ${activationsPerConcept.toFixed(2)} |`,
+  `| Selections per target concept | selections/concept | ${totalSelections} / ${totalTargetConcepts} | ${selectionsPerConcept.toFixed(2)} |`,
+  `| Activations per output character | activations/character | ${totalActivations} / ${totalOutputCharacters} | ${activationsPerOutputCharacter.toFixed(2)} |`,
+  `| Estimated time per output character | seconds/character | ${seconds(totalEstimatedTimeMs)} / ${totalOutputCharacters} | ${secondsPerOutputCharacter.toFixed(2)} |`,
+  `| Direct zh-TW phrase commits | phrase commits | ${zhTwDirectPhraseCommits} | compression wins during benchmark composition |`,
+  `| Decomposed zh-TW phrase fallbacks | phrase fallbacks | ${zhTwDecomposedPhraseFallbacks} | phrases completed by composing component glyphs |`,
+  `| Least-cost optimized zh-TW tasks | tasks | ${optimizedZhTwResults.length} | expected-final-message tasks with generic path optimization |`,
   "",
   "## Effort Targets",
   "",
@@ -142,6 +201,23 @@ const lines = [
   "| --- | ---: |",
   ...[...Object.entries(actionCounts)].sort(byKey).map(([action, count]) => `| ${escapeCell(action)} | ${count} |`),
   "",
+  "## Least-Cost zh-TW Path Comparison",
+  "",
+  "This comparison is evaluation-only. It searches dictionary-backed segmentations and visible UI paths for `zh-TW` benchmarks with expected final messages. It does not add app shortcuts.",
+  "",
+  "| Metric | Current Fixture Path | Least-Cost Estimate | Difference | Change |",
+  "| --- | ---: | ---: | ---: | ---: |",
+  comparisonRow("Selections", optimizedCurrentTotals.selections, optimizedLeastCostTotals.selections),
+  comparisonRow("Switch activations", optimizedCurrentTotals.switches, optimizedLeastCostTotals.switches),
+  comparisonRow("Scanner advances", optimizedCurrentTotals.advances, optimizedLeastCostTotals.advances),
+  comparisonRow("Estimated scan time sec", optimizedCurrentTotals.estimatedTimeMs / 1000, optimizedLeastCostTotals.estimatedTimeMs / 1000),
+  "",
+  "| Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |",
+  "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+  ...optimizedZhTwResults.map(({ benchmark, current, optimized }) =>
+    `| ${escapeCell(benchmark.id)} | ${escapeCell(current.sequence.join(" "))} | ${escapeCell(optimized.sequence.join(" "))} | ${current.metrics.switches} | ${optimized.metrics.switches} | ${signed(optimized.metrics.switches - current.metrics.switches)} | ${percentChange(optimized.metrics.switches, current.metrics.switches)} |`
+  ),
+  "",
   "## Read This Correctly",
   "",
   `- Word-list reachability is still tracked: ${projectCoreWordCount} / ${projectCoreWordTarget} Project Core words, but this is not a sentence metric.`,
@@ -149,8 +225,10 @@ const lines = [
   `- Real multi-concept utterance coverage is ${sequenceLevelCount} / ${estimatedUtteranceTarget}; that denominator means ${communicationAreaCount} communication areas x ${utteranceTargetPerArea} utterance probes each.`,
   `- Source-licensed natural sentence audit coverage is 0. The ${externalSentenceAuditReference}-sentence number is an external Chinese phonetic-balanced script reference, not a SHINE release target.`,
   `- zh-TW glyph and phrase reachability above comes from source-ranked dictionary entries, not generated sentences.`,
+  "- A long phrase does not need to be an early candidate if its component words or glyphs are reachable. Direct phrase candidates are measured as efficiency/compression, while exact-or-composable coverage is the core reachability metric.",
   `- Estimated time uses configured scanner timings along the actual selected path; it is not test runtime.`,
   `- Switch activations are physical input activations. Output selections are selected tiles. Scanner advances are passive highlights before a selection.`,
+  "- Least-cost estimates search known dictionary labels and visible UI paths. They are better than scripted demos, but they are still test estimates, not proof of user comfort.",
   "",
   "## Sentence Target Rationale",
   "",
@@ -200,6 +278,12 @@ const lines = [
   `- Average switch activations per passing task: ${average(totalActivations, passedResults.length)}`,
   `- Total scan advances across passing tasks: ${totalAdvances}`,
   `- Average scan advances per passing task: ${average(totalAdvances, passedResults.length)}`,
+  `- Total target concepts across passing tasks: ${totalTargetConcepts}`,
+  `- Total output characters across passing tasks: ${totalOutputCharacters}`,
+  `- Activations per target concept: ${activationsPerConcept.toFixed(2)}`,
+  `- Activations per output character: ${activationsPerOutputCharacter.toFixed(2)}`,
+  `- Direct zh-TW phrase commits during benchmark composition: ${zhTwDirectPhraseCommits}`,
+  `- Decomposed zh-TW phrase fallbacks during benchmark composition: ${zhTwDecomposedPhraseFallbacks}`,
   "",
   "## Task Type Counts",
   "",
@@ -252,6 +336,20 @@ const lines = [
       return `| ${escapeCell(benchmark.id)} | ${previous.selections} | ${result.metrics.selections} | ${previous.advances} | ${result.metrics.advances} |`;
     }),
   "",
+  "## Previous Report Comparison",
+  "",
+  `Static baseline: ${previousReportBaseline.label}.`,
+  "",
+  "| Metric | Previous | Current | Difference | Change |",
+  "| --- | ---: | ---: | ---: | ---: |",
+  previousComparisonRow("Benchmark pass rate tasks", previousReportBaseline.benchmarkPassCount, passedResults.length),
+  previousComparisonRow("Average benchmark time sec", previousReportBaseline.averageBenchmarkTimeSec, averageTimeSec),
+  previousComparisonRow("Median benchmark time sec", previousReportBaseline.medianBenchmarkTimeSec, medianTimeSec),
+  previousComparisonRow("Average switch activations", previousReportBaseline.averageSwitchActivations, averageActivations),
+  previousComparisonRow("Median switch activations", previousReportBaseline.medianSwitchActivations, medianActivations),
+  previousComparisonRow("Activations per target concept", previousReportBaseline.activationsPerConcept, activationsPerConcept),
+  previousComparisonRow("Activations per output character", previousReportBaseline.activationsPerOutputCharacter, activationsPerOutputCharacter),
+  "",
   "## Sources",
   "",
   ...Object.entries(CommunicationBenchmarkSources).flatMap(([id, source]) => [
@@ -264,6 +362,27 @@ const lines = [
 mkdirSync(dirname(reportPath), { recursive: true });
 writeFileSync(reportPath, lines.join("\n"), "utf8");
 console.log(`Wrote ${reportPath}`);
+
+function optimizeBenchmarkFinalMessage(benchmark) {
+  const startSession = createSession({
+    config: createBoardConfig({ profileId: benchmark.profileId ?? "en-US" })
+  });
+  const setup = composeSequence(startSession, benchmark.setupTokenSequence ?? []);
+  const results = benchmark.expectedFinalMessages.map((message) => {
+    const setupMessage = setup.session.message;
+    const suffix = String(message).startsWith(setupMessage)
+      ? String(message).slice(setupMessage.length)
+      : String(message);
+    try {
+      return optimizeZhTwText(setup.session, suffix);
+    } catch (error) {
+      return { error };
+    }
+  });
+  return results
+    .filter((result) => !result.error)
+    .sort((left, right) => compareMetrics(left.metrics, right.metrics))[0] ?? results[0];
+}
 
 function escapeCell(value) {
   return String(value).replaceAll("|", "\\|").replaceAll("\n", "<br>");
@@ -310,6 +429,22 @@ function aggregateActionCounts(actionMaps) {
   return counts;
 }
 
+function metricTotals(metrics) {
+  return metrics.reduce((totals, metric) => ({
+    selections: totals.selections + metric.selections,
+    switches: totals.switches + metric.switches,
+    advances: totals.advances + metric.advances,
+    estimatedTimeMs: totals.estimatedTimeMs + metric.estimatedTimeMs
+  }), { selections: 0, switches: 0, advances: 0, estimatedTimeMs: 0 });
+}
+
+function compareMetrics(left, right) {
+  return left.switches - right.switches ||
+    left.advances - right.advances ||
+    left.estimatedTimeMs - right.estimatedTimeMs ||
+    left.selections - right.selections;
+}
+
 function byKey([left], [right]) {
   return String(left).localeCompare(String(right));
 }
@@ -322,12 +457,41 @@ function seconds(valueMs) {
   return (valueMs / 1000).toFixed(2);
 }
 
+function signed(value) {
+  const rounded = Number.isInteger(value) ? value : Number(value).toFixed(2);
+  return value > 0 ? `+${rounded}` : String(rounded);
+}
+
+function percentChange(current, previous) {
+  if (!Number.isFinite(previous) || previous === 0) return "n/a";
+  return `${(((current - previous) / previous) * 100).toFixed(2)}%`;
+}
+
+function comparisonRow(label, current, optimized) {
+  return `| ${label} | ${formatNumber(current)} | ${formatNumber(optimized)} | ${signed(optimized - current)} | ${percentChange(optimized, current)} |`;
+}
+
+function previousComparisonRow(label, previous, current) {
+  return `| ${label} | ${formatNumber(previous)} | ${formatNumber(current)} | ${signed(current - previous)} | ${percentChange(current, previous)} |`;
+}
+
+function formatNumber(value) {
+  if (!Number.isFinite(value)) return "n/a";
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2);
+}
+
 function textLength(value) {
   return Array.from(String(value)).length;
 }
 
 function uniqueLabels(entries) {
   return new Set(entries.map((entry) => entry.label));
+}
+
+function isPhraseComposableFromGlyphs(label) {
+  const characters = Array.from(String(label));
+  return characters.length > 1 && characters.every((character) => zhTwSourceGlyphLabels.has(character));
 }
 
 function actionCountsText(actions = {}) {
