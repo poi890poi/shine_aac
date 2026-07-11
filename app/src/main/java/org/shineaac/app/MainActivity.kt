@@ -80,6 +80,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (cameraSwitchEnabled && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            cameraSwitchInput?.start()
+        }
+    }
+
+    override fun onPause() {
+        cameraSwitchInput?.stop()
+        super.onPause()
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!isHardwareActivationKey(event.keyCode)) {
             return super.dispatchKeyEvent(event)

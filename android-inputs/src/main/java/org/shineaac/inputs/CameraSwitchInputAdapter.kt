@@ -155,7 +155,7 @@ class CameraSwitchInputAdapter(
     private fun readFeatures(rawFrame: RawFrame): EyeFeatures? {
         val rotations = mutableListOf<Int>()
         lastRoi?.rotation?.let { rotations.add(it) }
-        rotations.addAll(listOf(0, 90, 270, 180))
+        rotations.addAll(listOf(270, 0, 90, 180))
         for (rotation in rotations.distinct()) {
             val frame = rawFrame.oriented(rotation)
             val face = detectFace(frame) ?: continue
