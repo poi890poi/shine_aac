@@ -93,7 +93,10 @@ class MainActivity : Activity() {
     private var reviewCount = 0
     private var reviewCorrect = 0
     private var reviewIncorrect = 0
+    private var targetOpenCrops = 8
+    private var targetClosedCrops = 8
     private var lastReviewFrameAt = 0L
+    private val taggedFrames = mutableListOf<ReviewFrame>()
     private val logLines = java.util.ArrayDeque<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -200,9 +203,12 @@ class MainActivity : Activity() {
             addView(row("Review", reviewStatsText))
             addView(buttonRow(
                 button("Capture Crop") { addReviewFrame("manual") },
+                button("Apply Tags Calibration") { applyTaggedCalibration() },
                 button("Clear Review") { clearReviewFrames() }
             ))
             addView(autoReview)
+            addView(slider("Target open crops", 1, 30, targetOpenCrops) { targetOpenCrops = it; updateReviewStats() })
+            addView(slider("Target closed crops", 1, 30, targetClosedCrops) { targetClosedCrops = it; updateReviewStats() })
             addView(reviewList)
             addView(sectionTitle("Log"))
             addView(logText)
@@ -621,6 +627,7 @@ class MainActivity : Activity() {
     private fun maybeAutoAddReviewFrame(now: Long) {
         if (!autoReview.isChecked) return
         if (latestCropBitmap == null) return
+        if (reviewOpenCount() >= targetOpenCrops && reviewClosedCount() >= targetClosedCrops) return
         if (now - lastReviewFrameAt < 1000) return
         lastReviewFrameAt = now
         addReviewFrame("auto")
@@ -636,6 +643,8 @@ class MainActivity : Activity() {
         val threshold = activeThreshold()
         val prediction = if (latestScore >= threshold) "closed" else "open"
         val detail = "#${reviewCount + 1} $prediction score ${String.format("%.3f", latestScore)} / ${String.format("%.3f", threshold)} $latestTrackingLabel $source"
+        val frame = ReviewFrame(features = latestFeatures, predicted = prediction)
+        taggedFrames.add(frame)
 
         reviewCount += 1
         updateReviewStats()
@@ -651,22 +660,33 @@ class MainActivity : Activity() {
             textSize = 14f
             setTextColor(Color.rgb(24, 38, 45))
         }
+        val tagLabel = TextView(this).apply {
+            text = "UNTAGGED"
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(80, 91, 101))
+            setPadding(12, 8, 12, 8)
+        }
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 8, 0, 12)
             addView(image, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(72)))
+            addView(tagLabel)
             addView(label)
             addView(buttonRow(
-                button("Correct") {
-                    reviewCorrect += 1
-                    label.text = "$detail | marked correct"
-                    updateReviewStats()
+                button("Tag Open") {
+                    setReviewTag(frame, ReviewTag.Open, tagLabel, label, detail)
                 },
-                button("Incorrect") {
-                    reviewIncorrect += 1
-                    label.text = "$detail | marked incorrect"
-                    updateReviewStats()
+                button("Tag Closed") {
+                    setReviewTag(frame, ReviewTag.Closed, tagLabel, label, detail)
+                },
+                button("Bad Crop") {
+                    setReviewTag(frame, ReviewTag.BadCrop, tagLabel, label, detail)
                 }
+            ))
+            addView(buttonRow(
+                button("Correct") { markReviewCorrect(frame, label, detail) },
+                button("Incorrect") { markReviewIncorrect(frame, label, detail) }
             ))
         }
 
@@ -682,12 +702,84 @@ class MainActivity : Activity() {
         reviewCorrect = 0
         reviewIncorrect = 0
         lastReviewFrameAt = 0L
+        taggedFrames.clear()
         updateReviewStats()
     }
 
     private fun updateReviewStats() {
-        reviewStatsText.text = "$reviewCount frames, $reviewCorrect correct, $reviewIncorrect incorrect"
+        reviewStatsText.text = "$reviewCount frames, open ${reviewOpenCount()}/$targetOpenCrops, closed ${reviewClosedCount()}/$targetClosedCrops, bad ${reviewBadCropCount()}, $reviewCorrect correct, $reviewIncorrect incorrect"
     }
+
+    private fun setReviewTag(
+        frame: ReviewFrame,
+        tag: ReviewTag,
+        tagLabel: TextView,
+        label: TextView,
+        detail: String
+    ) {
+        frame.tag = tag
+        tagLabel.text = when (tag) {
+            ReviewTag.Open -> "OPEN"
+            ReviewTag.Closed -> "CLOSED"
+            ReviewTag.BadCrop -> "BAD CROP"
+            ReviewTag.Untagged -> "UNTAGGED"
+        }
+        tagLabel.setBackgroundColor(when (tag) {
+            ReviewTag.Open -> Color.rgb(0, 105, 180)
+            ReviewTag.Closed -> Color.rgb(185, 72, 0)
+            ReviewTag.BadCrop -> Color.rgb(120, 22, 30)
+            ReviewTag.Untagged -> Color.rgb(80, 91, 101)
+        })
+        label.text = "$detail | tagged ${tagLabel.text}"
+        updateReviewStats()
+    }
+
+    private fun markReviewCorrect(frame: ReviewFrame, label: TextView, detail: String) {
+        if (!frame.markedCorrect) {
+            frame.markedCorrect = true
+            frame.markedIncorrect = false
+            reviewCorrect += 1
+        }
+        label.text = "$detail | marked correct"
+        updateReviewStats()
+    }
+
+    private fun markReviewIncorrect(frame: ReviewFrame, label: TextView, detail: String) {
+        if (!frame.markedIncorrect) {
+            frame.markedIncorrect = true
+            frame.markedCorrect = false
+            reviewIncorrect += 1
+        }
+        label.text = "$detail | marked incorrect"
+        updateReviewStats()
+    }
+
+    private fun applyTaggedCalibration() {
+        val openFrames = taggedFrames.mapNotNull { if (it.tag == ReviewTag.Open) it.features else null }
+        val closedFrames = taggedFrames.mapNotNull { if (it.tag == ReviewTag.Closed) it.features else null }
+        if (openFrames.size < 2 || closedFrames.size < 2) {
+            addLog("need at least 2 open and 2 closed tagged good crops")
+            return
+        }
+        openBaseline = averageFeatures(openFrames)
+        closedBaseline = averageFeatures(closedFrames)
+        metric = Metric.Sampled
+        autoThreshold.isChecked = true
+        addLog("applied tag calibration: ${openFrames.size} open, ${closedFrames.size} closed")
+        updateReadout()
+    }
+
+    private fun averageFeatures(frames: List<Features>): Features {
+        return Features(
+            frames.sumOf { it.mean } / frames.size,
+            frames.sumOf { it.contrast } / frames.size,
+            frames.sumOf { it.edge } / frames.size
+        )
+    }
+
+    private fun reviewOpenCount(): Int = taggedFrames.count { it.tag == ReviewTag.Open }
+    private fun reviewClosedCount(): Int = taggedFrames.count { it.tag == ReviewTag.Closed }
+    private fun reviewBadCropCount(): Int = taggedFrames.count { it.tag == ReviewTag.BadCrop }
 
     private fun updateReadout() {
         stateText.text = if (closed) "closed" else "open"
@@ -791,6 +883,21 @@ class MainActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private data class Features(val mean: Double, val contrast: Double, val edge: Double)
+
+    private data class ReviewFrame(
+        val features: Features?,
+        val predicted: String,
+        var tag: ReviewTag = ReviewTag.Untagged,
+        var markedCorrect: Boolean = false,
+        var markedIncorrect: Boolean = false
+    )
+
+    private enum class ReviewTag {
+        Untagged,
+        Open,
+        Closed,
+        BadCrop
+    }
 
     private data class TrackedRoi(
         val rotation: Int,
