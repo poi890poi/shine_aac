@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SHINE AAC"
 include(":app")
+include(":blinktest")

@@ -1,16 +1,13 @@
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outRoot = join(repoRoot, "app", "build", "generated", "assets", "shineWeb", "www", "apps", "web");
 const outSrc = join(outRoot, "src");
-const blinkOutRoot = join(repoRoot, "app", "build", "generated", "assets", "shineWeb", "www", "apps", "blink-test");
-const blinkOutSrc = join(blinkOutRoot, "src");
 
 rmSync(join(repoRoot, "app", "build", "generated", "assets", "shineWeb"), { recursive: true, force: true });
 mkdirSync(outSrc, { recursive: true });
-mkdirSync(blinkOutSrc, { recursive: true });
 
 const index = readFileSync(join(repoRoot, "apps", "web", "index.html"), "utf8")
   .replace('<script type="module" src="./src/app.js"></script>', '<script src="./src/bundle.js"></script>');
@@ -43,9 +40,5 @@ function bundleWebModule(relativePath, seen = new Set()) {
 writeFileSync(join(outRoot, "index.html"), index);
 writeFileSync(join(outSrc, "styles.css"), styles);
 writeFileSync(join(outSrc, "bundle.js"), `${zhTwChewingData}\n\n${core}\n\n${app}\n`);
-copyFileSync(join(repoRoot, "apps", "blink-test", "index.html"), join(blinkOutRoot, "index.html"));
-copyFileSync(join(repoRoot, "apps", "blink-test", "src", "styles.css"), join(blinkOutSrc, "styles.css"));
-copyFileSync(join(repoRoot, "apps", "blink-test", "src", "app.js"), join(blinkOutSrc, "app.js"));
 
 console.log(`Built WebView assets at ${outRoot}`);
-console.log(`Built blink test assets at ${blinkOutRoot}`);

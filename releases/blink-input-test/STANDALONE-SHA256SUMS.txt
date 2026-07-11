@@ -1,0 +1,1 @@
+be8302696ad973120be7a5da68bdd7bcc5bca7c4314ace6591ad6b130ff8b435  blink-input-test-standalone-debug.apk
