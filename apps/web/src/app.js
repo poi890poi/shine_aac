@@ -25,7 +25,7 @@ import {
 } from "../../../packages/aac-core/src/index.js";
 import { createDemoMode } from "./demo-mode.js";
 import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
-import { InputIntent, isHardwareInput } from "./input.js";
+import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
 import { defaultUiConfig, loadUiConfig, saveUiConfig, syncNativeUiConfig } from "./ui-config.js";
 
 const storageKey = "shine-aac-web-config-v1";
@@ -184,6 +184,7 @@ function handleInputEvent(inputEvent = {}) {
     return true;
   }
   if (isHardwareInput(inputEvent.source) && !uiConfig.hardwareButtons) return false;
+  if (isCameraInput(inputEvent.source) && !uiConfig.cameraSwitch) return false;
   activateSwitch();
   return true;
 }
@@ -733,6 +734,10 @@ function renderConfig() {
         Phone/external buttons activate switch
       </label>
       <label class="field check-field">
+        <input name="cameraSwitch" type="checkbox" ${uiConfig.cameraSwitch ? "checked" : ""}>
+        Camera long blink activates switch
+      </label>
+      <label class="field check-field">
         <input name="holdAfterSuggestionChange" type="checkbox" ${uiConfig.holdAfterSuggestionChange ? "checked" : ""}>
         Hold after suggestion changes
       </label>
@@ -838,6 +843,7 @@ function renderConfig() {
       activationVoice: data.get("activationVoice") === "on",
       restartScanFromTop: data.get("restartScanFromTop") === "on",
       hardwareButtons: data.get("hardwareButtons") === "on",
+      cameraSwitch: data.get("cameraSwitch") === "on",
       holdAfterSuggestionChange: data.get("holdAfterSuggestionChange") === "on"
     };
     saveUiConfig(uiStorageKey, uiConfig);
@@ -882,7 +888,8 @@ function recordCalibrationInput(inputEvent) {
     keyCode: inputEvent.keyCode,
     confidence: Number.isFinite(Number(inputEvent.confidence)) ? Number(inputEvent.confidence) : null,
     deltaMs: previous > 0 ? now - previous : null,
-    disabledBySettings: isHardwareInput(source) && !uiConfig.hardwareButtons
+    disabledBySettings: (isHardwareInput(source) && !uiConfig.hardwareButtons) ||
+      (isCameraInput(source) && !uiConfig.cameraSwitch)
   };
 
   calibrationState.lastEventAt = now;
@@ -1119,6 +1126,10 @@ function calibrationStatsHtml() {
       <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
         <span>Hardware setting</span>
         <strong>${uiConfig.hardwareButtons ? "On" : "Off"}</strong>
+      </div>
+      <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
+        <span>Camera setting</span>
+        <strong>${uiConfig.cameraSwitch ? "On" : "Off"}</strong>
       </div>
     </section>
   `;

@@ -4,6 +4,7 @@ export const defaultUiConfig = Object.freeze({
   activationVoice: true,
   restartScanFromTop: true,
   hardwareButtons: true,
+  cameraSwitch: false,
   holdAfterSuggestionChange: true
 });
 

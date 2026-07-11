@@ -11,3 +11,7 @@ export function isHardwareInput(source = "") {
     normalized.startsWith("android-volume") ||
     normalized.startsWith("android-media");
 }
+
+export function isCameraInput(source = "") {
+  return String(source).startsWith("android-camera");
+}

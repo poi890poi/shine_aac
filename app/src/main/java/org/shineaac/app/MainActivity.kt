@@ -1,7 +1,9 @@
 package org.shineaac.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -12,6 +14,9 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import org.shineaac.inputs.CameraSwitchInputAdapter
+import org.shineaac.inputs.CameraSwitchSettings
+import org.shineaac.inputs.InputSink
 import org.json.JSONObject
 import java.util.Locale
 import java.util.concurrent.ExecutorService
@@ -23,6 +28,8 @@ class MainActivity : ComponentActivity() {
     private var ttsReady = false
     private val ttsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     @Volatile private var hardwareButtonsEnabled = true
+    @Volatile private var cameraSwitchEnabled = false
+    private var cameraSwitchInput: CameraSwitchInputAdapter? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +56,16 @@ class MainActivity : ComponentActivity() {
 
         webView = shineWebView
         setContentView(shineWebView)
+
+        cameraSwitchInput = CameraSwitchInputAdapter(
+            context = this,
+            settingsProvider = {
+                CameraSwitchSettings(enabled = cameraSwitchEnabled)
+            },
+            sink = InputSink { event ->
+                sendInputIntent(event.source, null)
+            }
+        )
     }
 
     override fun onBackPressed() {
@@ -76,6 +93,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        cameraSwitchInput?.stop()
+        cameraSwitchInput = null
         webView?.destroy()
         webView = null
         val engine = tts
@@ -87,6 +106,20 @@ class MainActivity : ComponentActivity() {
         }
         ttsExecutor.shutdown()
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CameraPermissionRequestCode &&
+            grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED &&
+            cameraSwitchEnabled
+        ) {
+            cameraSwitchInput?.start()
+        }
     }
 
     private fun isHardwareActivationKey(keyCode: Int): Boolean {
@@ -121,10 +154,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun sendInputIntent(source: String, keyCode: Int) {
+    private fun sendInputIntent(source: String, keyCode: Int?) {
         val script = """
             window.ShineAacInput &&
-            window.ShineAacInput.receive({intent:"activate",source:"$source",keyCode:$keyCode});
+            window.ShineAacInput.receive({intent:"activate",source:"$source"${keyCode?.let { ",keyCode:$it" } ?: ""}});
         """.trimIndent()
         runOnUiThread {
             webView?.evaluateJavascript(script, null)
@@ -146,7 +179,12 @@ class MainActivity : ComponentActivity() {
             if (!ttsReady || languageTag.isBlank()) return
             val locale = Locale.forLanguageTag(languageTag)
             ttsExecutor.execute {
-                tts?.setLanguage(locale)
+                val result = tts?.setLanguage(locale)
+                if ((result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) &&
+                    locale.language == "zh"
+                ) {
+                    tts?.setLanguage(Locale.TRADITIONAL_CHINESE)
+                }
             }
         }
 
@@ -183,16 +221,31 @@ class MainActivity : ComponentActivity() {
                 .put("activationVoice", prefs.getBoolean("activationVoice", true))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
+                .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))
                 .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", true))
                 .toString()
         }
 
         @JavascriptInterface
         fun setUiConfigJson(uiConfigJson: String) {
-            hardwareButtonsEnabled = try {
-                JSONObject(uiConfigJson).optBoolean("hardwareButtons", true)
+            val config = try {
+                JSONObject(uiConfigJson)
             } catch (_: Exception) {
-                true
+                JSONObject()
+            }
+            hardwareButtonsEnabled = config.optBoolean("hardwareButtons", true)
+            val nextCameraSwitchEnabled = config.optBoolean("cameraSwitch", false)
+            if (nextCameraSwitchEnabled != cameraSwitchEnabled) {
+                cameraSwitchEnabled = nextCameraSwitchEnabled
+                if (cameraSwitchEnabled) {
+                    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        cameraSwitchInput?.start()
+                    } else {
+                        requestPermissions(arrayOf(Manifest.permission.CAMERA), CameraPermissionRequestCode)
+                    }
+                } else {
+                    cameraSwitchInput?.stop()
+                }
             }
         }
 
@@ -202,5 +255,9 @@ class MainActivity : ComponentActivity() {
                 Log.i("ShineAacE2E", "SHINE_AAC_E2E_STATE $stateJson")
             }
         }
+    }
+
+    private companion object {
+        const val CameraPermissionRequestCode = 2403
     }
 }
