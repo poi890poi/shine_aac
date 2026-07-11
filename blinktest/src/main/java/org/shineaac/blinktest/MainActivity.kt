@@ -91,11 +91,11 @@ class MainActivity : Activity() {
     private var lastEventAt = 0L
     private var eventCount = 0
     private var reviewCount = 0
-    private var reviewCorrect = 0
-    private var reviewIncorrect = 0
     private var targetOpenCrops = 8
     private var targetClosedCrops = 8
     private var lastReviewFrameAt = 0L
+    private var burstCaptureUntilMs = 0L
+    private var lastBurstFrameAt = 0L
     private val taggedFrames = mutableListOf<ReviewFrame>()
     private val logLines = java.util.ArrayDeque<String>()
 
@@ -203,6 +203,7 @@ class MainActivity : Activity() {
             addView(row("Review", reviewStatsText))
             addView(buttonRow(
                 button("Capture Crop") { addReviewFrame("manual") },
+                button("Blink Burst 5s") { startBurstCapture() },
                 button("Apply Tags Calibration") { applyTaggedCalibration() },
                 button("Clear Review") { clearReviewFrames() }
             ))
@@ -627,6 +628,13 @@ class MainActivity : Activity() {
     private fun maybeAutoAddReviewFrame(now: Long) {
         if (!autoReview.isChecked) return
         if (latestCropBitmap == null) return
+        if (now < burstCaptureUntilMs) {
+            if (now - lastBurstFrameAt >= 150) {
+                lastBurstFrameAt = now
+                addReviewFrame("burst")
+            }
+            return
+        }
         if (reviewPredictedOpenCount() >= targetOpenCrops &&
             reviewPredictedClosedCount() >= targetClosedCrops
         ) return
@@ -686,10 +694,6 @@ class MainActivity : Activity() {
                     setReviewTag(frame, ReviewTag.BadCrop, tagLabel, label, detail)
                 }
             ))
-            addView(buttonRow(
-                button("Correct") { markReviewCorrect(frame, label, detail) },
-                button("Incorrect") { markReviewIncorrect(frame, label, detail) }
-            ))
         }
 
         reviewList.addView(row, 0)
@@ -701,9 +705,9 @@ class MainActivity : Activity() {
     private fun clearReviewFrames() {
         reviewList.removeAllViews()
         reviewCount = 0
-        reviewCorrect = 0
-        reviewIncorrect = 0
         lastReviewFrameAt = 0L
+        burstCaptureUntilMs = 0L
+        lastBurstFrameAt = 0L
         taggedFrames.clear()
         updateReviewStats()
     }
@@ -713,7 +717,7 @@ class MainActivity : Activity() {
             "captured open ${reviewPredictedOpenCount()}/$targetOpenCrops, " +
             "closed ${reviewPredictedClosedCount()}/$targetClosedCrops; " +
             "tagged open ${reviewOpenCount()}, closed ${reviewClosedCount()}, " +
-            "bad ${reviewBadCropCount()}; $reviewCorrect correct, $reviewIncorrect incorrect"
+            "bad ${reviewBadCropCount()}"
     }
 
     private fun setReviewTag(
@@ -740,24 +744,10 @@ class MainActivity : Activity() {
         updateReviewStats()
     }
 
-    private fun markReviewCorrect(frame: ReviewFrame, label: TextView, detail: String) {
-        if (!frame.markedCorrect) {
-            frame.markedCorrect = true
-            frame.markedIncorrect = false
-            reviewCorrect += 1
-        }
-        label.text = "$detail | marked correct"
-        updateReviewStats()
-    }
-
-    private fun markReviewIncorrect(frame: ReviewFrame, label: TextView, detail: String) {
-        if (!frame.markedIncorrect) {
-            frame.markedIncorrect = true
-            frame.markedCorrect = false
-            reviewIncorrect += 1
-        }
-        label.text = "$detail | marked incorrect"
-        updateReviewStats()
+    private fun startBurstCapture() {
+        burstCaptureUntilMs = System.currentTimeMillis() + 5000
+        lastBurstFrameAt = 0L
+        addLog("burst capture started; blink naturally for 5 seconds")
     }
 
     private fun applyTaggedCalibration() {
@@ -895,9 +885,7 @@ class MainActivity : Activity() {
     private data class ReviewFrame(
         val features: Features?,
         val predicted: String,
-        var tag: ReviewTag = ReviewTag.Untagged,
-        var markedCorrect: Boolean = false,
-        var markedIncorrect: Boolean = false
+        var tag: ReviewTag = ReviewTag.Untagged
     )
 
     private enum class ReviewTag {
