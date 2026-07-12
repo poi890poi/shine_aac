@@ -4,13 +4,13 @@
 
 Use Google-supported delivery mechanisms rather than a custom APK/plugin loader.
 
-For camera blink detection, use the Google Play Services ML Kit face detector dependency:
+For camera blink detection test builds, use the bundled ML Kit face detector dependency:
 
 ```kotlin
-implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+implementation("com.google.mlkit:face-detection:16.1.7")
 ```
 
-This keeps the AAC app on the unbundled ML Kit path. The face model is downloaded by Google Play Services instead of being bundled into the APK.
+This keeps phone testing predictable because the face model is available immediately after install. The tradeoff is a larger APK. For Play Store production builds, we can revisit the Google Play Services unbundled model path or Play Feature Delivery once testing stabilizes.
 
 For future generic add-ons, use Play Feature Delivery dynamic feature modules when publishing as an Android App Bundle through Google Play. Dynamic feature modules are the Google-supported way to download, install, and remove app features on demand. They are not a good fit for local sideloaded debug APK testing, so debug builds should keep using normal module dependencies or separate test APKs.
 
@@ -18,7 +18,7 @@ For future generic add-ons, use Play Feature Delivery dynamic feature modules wh
 
 | Add-on | Runtime | Delivery |
 | --- | --- | --- |
-| Camera long-blink switch | `android-inputs` | Google Play Services ML Kit face model |
+| Camera long-blink switch | `android-inputs` | Bundled ML Kit face model |
 | Hardware buttons | base app | install-time |
 
 ## Notes

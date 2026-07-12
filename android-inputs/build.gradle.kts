@@ -21,5 +21,5 @@ android {
 }
 
 dependencies {
-    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+    implementation("com.google.mlkit:face-detection:16.1.7")
 }
