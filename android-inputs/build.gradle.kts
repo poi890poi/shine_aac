@@ -19,3 +19,7 @@ android {
         jvmTarget = "1.8"
     }
 }
+
+dependencies {
+    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+}

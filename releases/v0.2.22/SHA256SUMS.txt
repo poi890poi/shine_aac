@@ -1,0 +1,2 @@
+73abcc529fb89e4e48a88bf321c4354a40be0f62a0a5717d27f13771d435f405  shine-aac-v0.2.22-code25-debug.apk
+7ee57d46b684e5dabfd478eb34e984986678a1faa841f7d3a1fbabe032f0658b  shine-aac-v0.2.22-code25-debug.zip

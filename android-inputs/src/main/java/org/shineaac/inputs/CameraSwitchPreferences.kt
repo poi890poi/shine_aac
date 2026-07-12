@@ -17,10 +17,7 @@ object CameraSwitchPreferences {
             enabled = enabled,
             longBlinkMs = clampLong(prefs.getLong("longBlinkMs", 800L), MinLongBlinkMs, MaxLongBlinkMs),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
-            source = source,
-            mirrorOverlayX = prefs.getBoolean("mirrorOverlayX", true),
-            openBaseline = readFeatures(context, "open"),
-            closedBaseline = readFeatures(context, "closed")
+            source = source
         )
     }
 
@@ -28,9 +25,6 @@ object CameraSwitchPreferences {
         context: Context,
         longBlinkMs: Long,
         cooldownMs: Long,
-        mirrorOverlayX: Boolean,
-        openBaseline: EyeFeatures?,
-        closedBaseline: EyeFeatures?,
         qualityLabel: String? = null,
         qualityDetail: String? = null
     ) {
@@ -38,10 +32,7 @@ object CameraSwitchPreferences {
             .edit()
             .putLong("longBlinkMs", clampLong(longBlinkMs, MinLongBlinkMs, MaxLongBlinkMs))
             .putLong("cooldownMs", clampLong(cooldownMs, MinCooldownMs, MaxCooldownMs))
-            .putBoolean("mirrorOverlayX", mirrorOverlayX)
             .putLong("calibratedAtMs", System.currentTimeMillis())
-        writeFeatures(editor, "open", openBaseline)
-        writeFeatures(editor, "closed", closedBaseline)
         writeString(editor, "qualityLabel", qualityLabel)
         writeString(editor, "qualityDetail", qualityDetail)
         editor.apply()
@@ -56,43 +47,6 @@ object CameraSwitchPreferences {
             qualityLabel = prefs.getString("qualityLabel", null),
             qualityDetail = prefs.getString("qualityDetail", null)
         )
-    }
-
-    fun saveMirrorOverlayX(context: Context, mirrorOverlayX: Boolean) {
-        context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean("mirrorOverlayX", mirrorOverlayX)
-            .apply()
-    }
-
-    private fun readFeatures(context: Context, prefix: String): EyeFeatures? {
-        val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("$prefix.hasBaseline", false)) return null
-        return EyeFeatures(
-            mean = prefs.getFloat("$prefix.mean", 0f).toDouble(),
-            contrast = prefs.getFloat("$prefix.contrast", 0f).toDouble(),
-            edge = prefs.getFloat("$prefix.edge", 0f).toDouble()
-        )
-    }
-
-    private fun writeFeatures(
-        editor: android.content.SharedPreferences.Editor,
-        prefix: String,
-        features: EyeFeatures?
-    ) {
-        if (features == null) {
-            editor
-                .putBoolean("$prefix.hasBaseline", false)
-                .remove("$prefix.mean")
-                .remove("$prefix.contrast")
-                .remove("$prefix.edge")
-            return
-        }
-        editor
-            .putBoolean("$prefix.hasBaseline", true)
-            .putFloat("$prefix.mean", features.mean.toFloat())
-            .putFloat("$prefix.contrast", features.contrast.toFloat())
-            .putFloat("$prefix.edge", features.edge.toFloat())
     }
 
     private fun writeString(

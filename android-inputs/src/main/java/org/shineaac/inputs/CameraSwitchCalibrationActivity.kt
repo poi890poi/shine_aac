@@ -5,20 +5,17 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.AudioManager
-import android.media.FaceDetector
 import android.media.Image
 import android.media.ImageReader
 import android.media.ToneGenerator
@@ -36,20 +33,22 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.Face
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetector
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
-import kotlin.math.sqrt
 
 class CameraSwitchCalibrationActivity : Activity() {
     private val analysisSize = Size(320, 240)
     private var textureView: TextureView? = null
-    private var overlayView: EyeOverlayView? = null
+    private var overlayView: FaceOverlayView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
-    private var mirrorButton: Button? = null
     private var startButton: Button? = null
     private var testButton: Button? = null
     private var cameraDevice: CameraDevice? = null
@@ -58,20 +57,20 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
     private var mainHandler: Handler? = null
+    private var detector: FaceDetector? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var toneGenerator: ToneGenerator? = null
     private var currentSpeechId: String? = null
     private var currentSpeechDone: (() -> Unit)? = null
     private var cueSet = CalibrationCueText.forProfile("en-US")
-    private var mirrorOverlayX = true
     private var phase = Phase.Idle
     private var captureEndsAtMs = 0L
     private var activeStepLabel = ""
     private var ttsVoiceLabel = "Voice pending"
     private var calibrationRunId = 0
-    private val openSamples = mutableListOf<EyeFeatures>()
-    private val closedSamples = mutableListOf<EyeFeatures>()
+    private var mlKitInFlight = false
+    private var lastFrameAt = 0L
     private val longBlinkDurations = mutableListOf<Long>()
     private val restClosedDurations = mutableListOf<Long>()
     private val testLongBlinkDurations = mutableListOf<Long>()
@@ -91,26 +90,27 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var previewLastLongCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = 800L
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
-    private var lastRoi: TrackedRoi? = null
-    private var openBaseline: EyeFeatures? = null
-    private var closedBaseline: EyeFeatures? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mainHandler = Handler(mainLooper)
         cueSet = CalibrationCueText.forProfile(intent.getStringExtra(ExtraProfileId) ?: "en-US")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
-        mirrorOverlayX = savedSettings.mirrorOverlayX
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
-        openBaseline = savedSettings.openBaseline
-        closedBaseline = savedSettings.closedBaseline
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
+        detector = FaceDetection.getClient(
+            FaceDetectorOptions.Builder()
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                .enableTracking()
+                .setMinFaceSize(0.12f)
+                .build()
+        )
         toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) {
-                configureTtsVoice()
-            }
+            if (ttsReady) configureTtsVoice()
         }
         setContentView(createContentView())
         updateSavedCalibrationUi()
@@ -131,6 +131,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     override fun onDestroy() {
+        detector?.close()
+        detector = null
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -185,11 +187,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
         val previewFrame = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             setBackgroundColor(Color.BLACK)
         }
         textureView = TextureView(this).apply {
@@ -198,15 +196,15 @@ class CameraSwitchCalibrationActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
                     startCamera()
                 }
-                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) = Unit
+                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean = true
+                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
             }
         }
-        overlayView = EyeOverlayView(this).apply {
+        overlayView = FaceOverlayView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -225,16 +223,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         testButton = Button(this).apply {
             text = "Test Long Blink"
-            isEnabled = false
             setOnClickListener { startLongBlinkTest() }
-        }
-        mirrorButton = Button(this).apply {
-            setOnClickListener {
-                mirrorOverlayX = !mirrorOverlayX
-                CameraSwitchPreferences.saveMirrorOverlayX(this@CameraSwitchCalibrationActivity, mirrorOverlayX)
-                updateMirrorButton()
-                overlayView?.invalidate()
-            }
         }
         val closeButton = Button(this).apply {
             text = "Done"
@@ -242,9 +231,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         actions.addView(startButton)
         actions.addView(testButton)
-        actions.addView(mirrorButton)
         actions.addView(closeButton)
-        updateMirrorButton()
 
         root.addView(title)
         root.addView(statusView)
@@ -254,21 +241,16 @@ class CameraSwitchCalibrationActivity : Activity() {
         return root
     }
 
-    private fun updateMirrorButton() {
-        mirrorButton?.text = if (mirrorOverlayX) "Box X Flipped" else "Box X Normal"
-    }
-
     private fun updateSavedCalibrationUi() {
-        if (openBaseline != null && closedBaseline != null) {
-            val quality = savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
+        val quality = savedCalibrationRecord?.qualityDetail
+        if (quality != null) {
             statusView?.text = "Saved calibration loaded. Preview is listening for long blink."
             metricsView?.text = "$quality | current position: blink to test"
-            testButton?.isEnabled = true
         } else {
             statusView?.text = "Position face in the preview."
             metricsView?.text = "No saved calibration. Run auto calibration first."
-            testButton?.isEnabled = false
         }
+        testButton?.isEnabled = true
     }
 
     private fun configureTtsVoice() {
@@ -298,19 +280,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = Unit
-
-            override fun onDone(utteranceId: String?) {
-                finishSpeech(utteranceId)
-            }
-
+            override fun onDone(utteranceId: String?) = finishSpeech(utteranceId)
             @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                finishSpeech(utteranceId)
-            }
-
-            override fun onError(utteranceId: String?, errorCode: Int) {
-                finishSpeech(utteranceId)
-            }
+            override fun onError(utteranceId: String?) = finishSpeech(utteranceId)
+            override fun onError(utteranceId: String?, errorCode: Int) = finishSpeech(utteranceId)
         })
         runOnUiThread { metricsView?.text = ttsVoiceLabel }
     }
@@ -320,25 +293,17 @@ class CameraSwitchCalibrationActivity : Activity() {
         mainHandler?.removeCallbacksAndMessages(null)
         currentSpeechId = null
         currentSpeechDone = null
-        openSamples.clear()
-        closedSamples.clear()
         longBlinkDurations.clear()
         restClosedDurations.clear()
         testLongBlinkDurations.clear()
         longBlinkClosed = false
-        longBlinkClosedStartedAt = 0L
         restClosed = false
-        restClosedStartedAt = 0L
         testLongBlinkClosed = false
-        testLongBlinkClosedStartedAt = 0L
         previewLongBlinkClosed = false
-        previewLongBlinkClosedStartedAt = 0L
         previewShortBlinkCount = 0
         previewLongBlinkCount = 0
         previewLastShortDurationMs = 0L
         previewLastDetectedDurationMs = 0L
-        openBaseline = null
-        closedBaseline = null
         captureEndsAtMs = 0L
         activeStepLabel = ""
         startButton?.isEnabled = false
@@ -388,8 +353,6 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun calibrationSteps(): List<CalibrationStep> =
         listOf(
             CalibrationStep(Phase.Prepare, "Prepare", cueSet.prepare, 0L),
-            CalibrationStep(Phase.Open, "Open eyes", cueSet.open, 5000L),
-            CalibrationStep(Phase.Closed, "Closed eyes", cueSet.closed, 4000L),
             CalibrationStep(Phase.Rest, "Rest", cueSet.rest, 8000L),
             CalibrationStep(Phase.LongBlink, "Slow blink trials", cueSet.longBlink, 12000L)
         )
@@ -415,17 +378,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             restClosed = false
         }
         phase = Phase.Complete
-        openBaseline = average(openSamples)
-        closedBaseline = average(closedSamples)
         calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
         val quality = calibrationQuality()
         CameraSwitchPreferences.saveCalibration(
             context = this,
             longBlinkMs = calibratedLongBlinkHoldMs,
             cooldownMs = 900L,
-            mirrorOverlayX = mirrorOverlayX,
-            openBaseline = openBaseline,
-            closedBaseline = closedBaseline,
             qualityLabel = quality.label,
             qualityDetail = quality.detail
         )
@@ -435,33 +393,27 @@ class CameraSwitchCalibrationActivity : Activity() {
         metricsView?.text = quality.detail
         speakThen(message) {}
         startButton?.isEnabled = true
-        testButton?.isEnabled = openBaseline != null && closedBaseline != null
+        testButton?.isEnabled = true
     }
 
     private fun calibratedLongBlinkMs(): Long {
-        val measured = longBlinkDurations
-            .filter { it in 450L..2500L }
-            .sorted()
+        val measured = longBlinkDurations.filter { it in 450L..2500L }.sorted()
         if (measured.isEmpty()) return 800L
         return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
     }
 
     private fun calibrationQuality(): CalibrationQuality {
-        val openOk = openSamples.size >= 12
-        val closedOk = closedSamples.size >= 8
         val slowBlinkOk = longBlinkDurations.any { it in 450L..2500L }
         val falseLongBlinks = restClosedDurations.count { it >= calibratedLongBlinkHoldMs }
         val restOk = falseLongBlinks == 0
         val label = when {
-            openOk && closedOk && slowBlinkOk && restOk -> "Quality good"
-            openOk && closedOk && restOk -> "Quality weak"
+            slowBlinkOk && restOk -> "Quality good"
+            slowBlinkOk -> "Quality weak"
             else -> "Quality needs retry"
         }
         val detail = buildString {
             append(label)
-            append(" | open ").append(openSamples.size)
-            append(", closed ").append(closedSamples.size)
-            append(", slow blinks ").append(longBlinkDurations.size)
+            append(" | slow blinks ").append(longBlinkDurations.size)
             append(", rest false ").append(falseLongBlinks)
             append(", hold ").append(calibratedLongBlinkHoldMs).append("ms")
             if (!slowBlinkOk) append(" | no measured slow blink; default hold used")
@@ -470,10 +422,6 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun startLongBlinkTest() {
-        if (openBaseline == null || closedBaseline == null) {
-            statusView?.text = "Run auto calibration first."
-            return
-        }
         calibrationRunId += 1
         mainHandler?.removeCallbacksAndMessages(null)
         currentSpeechId = null
@@ -492,14 +440,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         statusView?.text = cue
         metricsView?.text = "Long blink test starts after the beep | hold ${calibratedLongBlinkHoldMs}ms"
         speakThen(cue) {
-            if (runId != calibrationRunId) return@speakThen
             mainHandler?.postDelayed({
                 if (runId == calibrationRunId) {
                     toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
                     mainHandler?.postDelayed({
                         if (runId == calibrationRunId) {
                             phase = Phase.TestLongBlink
-                            activeStepLabel = "Long blink test"
                             captureEndsAtMs = System.currentTimeMillis() + LongBlinkTestMs
                             statusView?.text = "Testing long blink for ${LongBlinkTestMs / 1000} seconds"
                             mainHandler?.postDelayed({ finishLongBlinkTest(runId) }, LongBlinkTestMs)
@@ -538,9 +484,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         currentSpeechId = utteranceId
         currentSpeechDone = onDone
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle.EMPTY, utteranceId)
-        if (result == TextToSpeech.ERROR) {
-            finishSpeech(utteranceId)
-        }
+        if (result == TextToSpeech.ERROR) finishSpeech(utteranceId)
     }
 
     private fun finishSpeech(utteranceId: String?) {
@@ -567,7 +511,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             2
         ).apply {
             setOnImageAvailableListener({ imageReader ->
-                imageReader.acquireLatestImage()?.use { analyze(it) }
+                val image = imageReader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                analyze(image)
             }, cameraHandler)
         }
 
@@ -623,54 +568,77 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraThread?.quitSafely()
         cameraThread = null
         cameraHandler = null
+        mlKitInFlight = false
     }
 
     private fun analyze(image: Image) {
-        val frame = RawFrame.from(image).oriented(270)
-        val face = detectFace(frame)
-        val roi = if (face == null) null else eyeBandForFace(frame, face)
-        val features = roi?.let { featuresFromRoi(frame, it.x, it.y, it.w, it.h) }
-        if (roi != null) lastRoi = roi
-        if (features != null) collectCalibrationSample(features)
-        val score = features?.let { closedScore(it) }
-        val previewBlink = features?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
-        mainHandler?.post {
-            overlayView?.setRoi(roi, frame.width, frame.height, mirrorOverlayX)
-            when (previewBlink) {
-                PreviewBlink.Short -> {
-                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, ShortPreviewCueMs)
-                    statusView?.text = "Preview short blink detected."
+        val now = System.currentTimeMillis()
+        if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
+            image.close()
+            return
+        }
+        val activeDetector = detector
+        if (activeDetector == null) {
+            image.close()
+            return
+        }
+        mlKitInFlight = true
+        lastFrameAt = now
+        val imageSize = orientedImageSize(image, MlKitRotation)
+        activeDetector.process(InputImage.fromMediaImage(image, MlKitRotation))
+            .addOnSuccessListener { faces ->
+                val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
+                val score = face?.closedScore()
+                if (score != null) collectCalibrationSample(score)
+                val previewBlink = score?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
+                mainHandler?.post {
+                    overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height)
+                    when (previewBlink) {
+                        PreviewBlink.Short -> {
+                            toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, ShortPreviewCueMs)
+                            statusView?.text = "Preview short blink detected."
+                        }
+                        PreviewBlink.Long -> {
+                            playLongPreviewCue()
+                            statusView?.text = "Preview long blink detected. Current position works."
+                        }
+                        PreviewBlink.None -> Unit
+                    }
+                    updateMetrics(score)
                 }
-                PreviewBlink.Long -> {
-                    playLongPreviewCue()
-                    statusView?.text = "Preview long blink detected. Current position works."
-                }
-                PreviewBlink.None -> Unit
             }
-            if (shouldPreviewMonitor()) {
-                metricsView?.text = if (score == null) {
-                    "${previousQualityText()} | current position: face not detected"
-                } else {
-                    "${previousQualityText()} | score ${"%.2f".format(score)} | short $previewShortBlinkCount last ${previewLastShortDurationMs}ms | long $previewLongBlinkCount last ${previewLastDetectedDurationMs}ms | hold ${calibratedLongBlinkHoldMs}ms"
-                }
-            } else if (phase != Phase.Complete) {
-                val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
-                metricsView?.text = if (score == null) {
-                    "$ttsVoiceLabel | Face not detected"
-                } else if (captureEndsAtMs > 0L) {
-                    "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
-                } else {
-                    "$ttsVoiceLabel | Waiting | Score ${"%.2f".format(score)} | open ${openSamples.size} | closed ${closedSamples.size} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
-                }
+            .addOnFailureListener {
+                mainHandler?.post { metricsView?.text = "ML Kit model unavailable or still downloading." }
+            }
+            .addOnCompleteListener {
+                image.close()
+                mlKitInFlight = false
+            }
+    }
+
+    private fun updateMetrics(score: Double?) {
+        if (shouldPreviewMonitor()) {
+            metricsView?.text = if (score == null) {
+                "${previousQualityText()} | current position: face not detected"
+            } else {
+                "${previousQualityText()} | score ${"%.2f".format(score)} | short $previewShortBlinkCount last ${previewLastShortDurationMs}ms | long $previewLongBlinkCount last ${previewLastDetectedDurationMs}ms | hold ${calibratedLongBlinkHoldMs}ms"
+            }
+            return
+        }
+        if (phase != Phase.Complete) {
+            val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
+            metricsView?.text = if (score == null) {
+                "$ttsVoiceLabel | Face not detected"
+            } else if (captureEndsAtMs > 0L) {
+                "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | Score ${"%.2f".format(score)} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
+            } else {
+                "$ttsVoiceLabel | Waiting | Score ${"%.2f".format(score)} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
             }
         }
     }
 
     private fun shouldPreviewMonitor(): Boolean =
-        (phase == Phase.Idle || phase == Phase.Complete) &&
-            openBaseline != null &&
-            closedBaseline != null &&
-            currentSpeechId == null
+        (phase == Phase.Idle || phase == Phase.Complete) && currentSpeechId == null
 
     private fun previousQualityText(): String =
         savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
@@ -682,67 +650,61 @@ class CameraSwitchCalibrationActivity : Activity() {
         }, LongPreviewCueGapMs)
     }
 
-    private fun collectCalibrationSample(features: EyeFeatures) {
+    private fun collectCalibrationSample(score: Double) {
         when (phase) {
-            Phase.Open -> openSamples.add(features)
-            Phase.Closed -> closedSamples.add(features)
-            Phase.Rest -> collectRestClosedDuration(features)
-            Phase.LongBlink -> collectLongBlinkDuration(features)
-            Phase.TestLongBlink -> collectTestLongBlinkDuration(features)
+            Phase.Rest -> collectRestClosedDuration(score)
+            Phase.LongBlink -> collectLongBlinkDuration(score)
+            Phase.TestLongBlink -> collectTestLongBlinkDuration(score)
             else -> Unit
         }
     }
 
-    private fun collectLongBlinkDuration(features: EyeFeatures) {
-        val score = closedScore(features) ?: return
+    private fun collectLongBlinkDuration(score: Double) {
         val now = System.currentTimeMillis()
-        if (!longBlinkClosed && score >= 0.55) {
+        if (!longBlinkClosed && score >= CloseScore) {
             longBlinkClosed = true
             longBlinkClosedStartedAt = now
-        } else if (longBlinkClosed && score < 0.35) {
+        } else if (longBlinkClosed && score <= OpenScore) {
             longBlinkDurations.add(now - longBlinkClosedStartedAt)
             longBlinkClosed = false
         }
     }
 
-    private fun collectRestClosedDuration(features: EyeFeatures) {
-        val score = closedScore(features) ?: return
+    private fun collectRestClosedDuration(score: Double) {
         val now = System.currentTimeMillis()
-        if (!restClosed && score >= 0.55) {
+        if (!restClosed && score >= CloseScore) {
             restClosed = true
             restClosedStartedAt = now
-        } else if (restClosed && score < 0.35) {
+        } else if (restClosed && score <= OpenScore) {
             restClosedDurations.add(now - restClosedStartedAt)
             restClosed = false
         }
     }
 
-    private fun collectTestLongBlinkDuration(features: EyeFeatures) {
-        val score = closedScore(features) ?: return
+    private fun collectTestLongBlinkDuration(score: Double) {
         val now = System.currentTimeMillis()
-        if (!testLongBlinkClosed && score >= 0.55) {
+        if (!testLongBlinkClosed && score >= CloseScore) {
             testLongBlinkClosed = true
             testLongBlinkClosedStartedAt = now
-        } else if (testLongBlinkClosed && score < 0.35) {
+        } else if (testLongBlinkClosed && score <= OpenScore) {
             testLongBlinkDurations.add(now - testLongBlinkClosedStartedAt)
             testLongBlinkClosed = false
         }
     }
 
-    private fun collectPreviewBlinkDuration(features: EyeFeatures): PreviewBlink {
+    private fun collectPreviewBlinkDuration(score: Double): PreviewBlink {
         if (!shouldPreviewMonitor()) {
             previewLongBlinkClosed = false
             previewLongBlinkClosedStartedAt = 0L
             return PreviewBlink.None
         }
-        val score = closedScore(features) ?: return PreviewBlink.None
         val now = System.currentTimeMillis()
-        if (!previewLongBlinkClosed && score >= 0.55) {
+        if (!previewLongBlinkClosed && score >= CloseScore) {
             previewLongBlinkClosed = true
             previewLongBlinkClosedStartedAt = now
             return PreviewBlink.None
         }
-        if (previewLongBlinkClosed && score < 0.35) {
+        if (previewLongBlinkClosed && score <= OpenScore) {
             val duration = now - previewLongBlinkClosedStartedAt
             previewLongBlinkClosed = false
             val shortMaxMs = max(ShortBlinkMinMs, calibratedLongBlinkHoldMs - LongBlinkGuardMs)
@@ -762,83 +724,48 @@ class CameraSwitchCalibrationActivity : Activity() {
         return PreviewBlink.None
     }
 
-    private fun closedScore(features: EyeFeatures): Double? {
-        val open = openBaseline ?: average(openSamples) ?: return null
-        val closed = closedBaseline ?: average(closedSamples) ?: return null
-        val distOpen = featureDistance(features, open)
-        val distClosed = featureDistance(features, closed)
-        val denominator = distOpen + distClosed
-        if (denominator <= 0.000001) return 0.0
-        return clamp(distOpen / denominator, 0.0, 1.0)
+    private fun Face.closedScore(): Double? {
+        val values = listOfNotNull(leftEyeOpenProbability, rightEyeOpenProbability).map { it.toDouble() }
+        if (values.isEmpty()) return null
+        return (1.0 - values.average()).coerceIn(0.0, 1.0)
     }
 
-    private fun detectFace(frame: OrientedFrame): FaceDetector.Face? {
-        val width = if (frame.width % 2 == 0) frame.width else frame.width - 1
-        if (width <= 0 || frame.height <= 0) return null
-        val pixels = IntArray(width * frame.height)
-        var target = 0
-        for (y in 0 until frame.height) {
-            val row = y * frame.width
-            for (x in 0 until width) {
-                val value = frame.luma[row + x].toInt() and 0xff
-                pixels[target++] = Color.rgb(value, value, value)
-            }
-        }
-        val bitmap = Bitmap.createBitmap(width, frame.height, Bitmap.Config.RGB_565)
-        bitmap.setPixels(pixels, 0, width, 0, 0, width, frame.height)
-        val faces = arrayOfNulls<FaceDetector.Face>(1)
-        FaceDetector(width, frame.height, 1).findFaces(bitmap, faces)
-        bitmap.recycle()
-        return faces[0]
-    }
-
-    private fun eyeBandForFace(frame: OrientedFrame, face: FaceDetector.Face): TrackedRoi {
-        val midpoint = PointF()
-        face.getMidPoint(midpoint)
-        val eyesDistance = max(18f, face.eyesDistance())
-        val roiW = clampInt((eyesDistance * 2.1f).toInt(), 20, frame.width)
-        val roiH = clampInt((eyesDistance * 0.65f).toInt(), 12, frame.height)
-        val x = clampInt((midpoint.x - roiW / 2f).toInt(), 0, frame.width - roiW)
-        val y = clampInt((midpoint.y - roiH * 0.55f).toInt(), 0, frame.height - roiH)
-        return TrackedRoi(x, y, roiW, roiH)
-    }
+    private fun orientedImageSize(image: Image, rotation: Int): Size =
+        if (rotation == 90 || rotation == 270) Size(image.height, image.width) else Size(image.width, image.height)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
 
-    private class EyeOverlayView(context: Context) : View(context) {
+    private class FaceOverlayView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(52, 211, 153)
             style = Paint.Style.STROKE
             strokeWidth = 5f
         }
-        private var roi: TrackedRoi? = null
+        private var face: Rect? = null
         private var frameWidth = 0
         private var frameHeight = 0
-        private var mirrorX = true
 
-        fun setRoi(nextRoi: TrackedRoi?, width: Int, height: Int, mirrorOverlayX: Boolean) {
-            roi = nextRoi
+        fun setFace(nextFace: Rect?, width: Int, height: Int) {
+            face = nextFace
             frameWidth = width
             frameHeight = height
-            mirrorX = mirrorOverlayX
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val box = roi ?: return
+            val box = face ?: return
             if (frameWidth <= 0 || frameHeight <= 0) return
             val scale = min(width / frameWidth.toFloat(), height / frameHeight.toFloat())
             val drawnWidth = frameWidth * scale
             val drawnHeight = frameHeight * scale
             val leftOffset = (width - drawnWidth) / 2f
             val topOffset = (height - drawnHeight) / 2f
-            val sourceX = if (mirrorX) frameWidth - box.x - box.w else box.x
             val rect = RectF(
-                leftOffset + sourceX * scale,
-                topOffset + box.y * scale,
-                leftOffset + (sourceX + box.w) * scale,
-                topOffset + (box.y + box.h) * scale
+                leftOffset + box.left * scale,
+                topOffset + box.top * scale,
+                leftOffset + box.right * scale,
+                topOffset + box.bottom * scale
             )
             canvas.drawRect(rect, paint)
         }
@@ -846,50 +773,16 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
     private data class CalibrationQuality(val label: String, val detail: String)
-    private enum class Phase { Idle, Instruction, Prepare, Open, Closed, Rest, LongBlink, TestLongBlink, Complete }
+    private enum class Phase { Idle, Instruction, Prepare, Rest, LongBlink, TestLongBlink, Complete }
     private enum class PreviewBlink { None, Short, Long }
-    private data class TrackedRoi(val x: Int, val y: Int, val w: Int, val h: Int)
-    private data class OrientedFrame(val width: Int, val height: Int, val luma: ByteArray)
-    private data class RawFrame(val width: Int, val height: Int, val luma: ByteArray) {
-        fun oriented(rotation: Int): OrientedFrame = when (rotation) {
-            90 -> {
-                val out = ByteArray(width * height)
-                var target = 0
-                for (x in 0 until width) for (y in height - 1 downTo 0) out[target++] = luma[y * width + x]
-                OrientedFrame(height, width, out)
-            }
-            180 -> OrientedFrame(width, height, ByteArray(width * height).also { out ->
-                var target = 0
-                for (index in luma.indices.reversed()) out[target++] = luma[index]
-            })
-            270 -> {
-                val out = ByteArray(width * height)
-                var target = 0
-                for (x in width - 1 downTo 0) for (y in 0 until height) out[target++] = luma[y * width + x]
-                OrientedFrame(height, width, out)
-            }
-            else -> OrientedFrame(width, height, luma)
-        }
-
-        companion object {
-            fun from(image: Image): RawFrame {
-                val plane = image.planes[0]
-                val buffer = plane.buffer
-                val out = ByteArray(image.width * image.height)
-                var target = 0
-                for (y in 0 until image.height) {
-                    for (x in 0 until image.width) {
-                        out[target++] = buffer.get(y * plane.rowStride + x * plane.pixelStride)
-                    }
-                }
-                return RawFrame(image.width, image.height, out)
-            }
-        }
-    }
 
     private companion object {
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
+        const val MlKitRotation = 270
+        const val MlKitFrameIntervalMs = 90L
+        const val CloseScore = 0.55
+        const val OpenScore = 0.35
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
         const val LongBlinkTestMs = 10000L
@@ -900,53 +793,6 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val LongPreviewCueGapMs = 180L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
-
-        fun average(samples: List<EyeFeatures>): EyeFeatures? {
-            if (samples.isEmpty()) return null
-            return EyeFeatures(
-                mean = samples.sumOf { it.mean } / samples.size,
-                contrast = samples.sumOf { it.contrast } / samples.size,
-                edge = samples.sumOf { it.edge } / samples.size
-            )
-        }
-
-        fun featuresFromRoi(frame: OrientedFrame, x0: Int, y0: Int, roiW: Int, roiH: Int): EyeFeatures {
-            val x1 = min(frame.width, x0 + roiW)
-            val y1 = min(frame.height, y0 + roiH)
-            var sum = 0.0
-            var sumSquares = 0.0
-            var edge = 0.0
-            var count = 0
-            var previous = -1
-            for (y in y0 until y1) {
-                val row = y * frame.width
-                for (x in x0 until x1) {
-                    val raw = frame.luma[row + x].toInt() and 0xff
-                    val value = raw / 255.0
-                    sum += value
-                    sumSquares += value * value
-                    if (previous >= 0) edge += abs(value - previous / 255.0)
-                    previous = raw
-                    count += 1
-                }
-            }
-            val mean = if (count > 0) sum / count else 0.0
-            val variance = if (count > 0) max(0.0, sumSquares / count - mean * mean) else 0.0
-            return EyeFeatures(mean, sqrt(variance), if (count > 0) edge / count else 0.0)
-        }
-
-        fun featureDistance(a: EyeFeatures, b: EyeFeatures): Double {
-            val mean = (a.mean - b.mean) * 3.0
-            val contrast = (a.contrast - b.contrast) * 6.0
-            val edge = (a.edge - b.edge) * 10.0
-            return sqrt(mean * mean + contrast * contrast + edge * edge)
-        }
-
-        fun clamp(value: Double, minValue: Double, maxValue: Double): Double =
-            min(maxValue, max(minValue, value))
-
-        fun clampInt(value: Int, minValue: Int, maxValue: Int): Int =
-            min(maxValue, max(minValue, value))
 
         fun clampLong(value: Long, minValue: Long, maxValue: Long): Long =
             min(maxValue, max(minValue, value))
