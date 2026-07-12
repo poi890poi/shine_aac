@@ -1,0 +1,41 @@
+name: Publish Blink Test APK
+
+on:
+  push:
+    tags:
+      - "blinktest-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Publish GitHub release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          release_dir="releases/${tag}"
+          apk="$(find "${release_dir}" -maxdepth 1 -name "*.apk" -print -quit)"
+          notes="${release_dir}/RELEASE_NOTES.md"
+          sums="${release_dir}/SHA256SUMS.txt"
+
+          if [[ -z "${apk}" ]]; then
+            echo "No APK found in ${release_dir}" >&2
+            exit 1
+          fi
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${apk}" "${sums}" "${notes}" --clobber
+          else
+            gh release create "${tag}" "${apk}" "${sums}" "${notes}" \
+              --title "Blink Input Test ${tag#blinktest-v}" \
+              --notes-file "${notes}"
+          fi
