@@ -38,6 +38,14 @@ object CameraSwitchPreferences {
         editor.apply()
     }
 
+    fun saveTiming(context: Context, longBlinkMs: Long, cooldownMs: Long) {
+        context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+            .edit()
+            .putLong("longBlinkMs", clampLong(longBlinkMs, MinLongBlinkMs, MaxLongBlinkMs))
+            .putLong("cooldownMs", clampLong(cooldownMs, MinCooldownMs, MaxCooldownMs))
+            .apply()
+    }
+
     fun readCalibrationRecord(context: Context): CameraSwitchCalibrationRecord? {
         val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
         val calibratedAtMs = prefs.getLong("calibratedAtMs", 0L)

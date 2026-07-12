@@ -10,6 +10,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -49,6 +51,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var overlayView: FaceOverlayView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
+    private var holdView: TextView? = null
+    private var feedbackView: TextView? = null
     private var startButton: Button? = null
     private var testButton: Button? = null
     private var cameraDevice: CameraDevice? = null
@@ -76,12 +80,15 @@ class CameraSwitchCalibrationActivity : Activity() {
     private val testLongBlinkDurations = mutableListOf<Long>()
     private var longBlinkClosed = false
     private var longBlinkClosedStartedAt = 0L
+    private var calibrationHoldCuePlayed = false
     private var restClosed = false
     private var restClosedStartedAt = 0L
     private var testLongBlinkClosed = false
     private var testLongBlinkClosedStartedAt = 0L
+    private var testHoldCuePlayed = false
     private var previewLongBlinkClosed = false
     private var previewLongBlinkClosedStartedAt = 0L
+    private var previewHoldCuePlayed = false
     private var previewShortBlinkCount = 0
     private var previewLongBlinkCount = 0
     private var previewLastShortDurationMs = 0L
@@ -169,12 +176,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
         val title = TextView(this).apply {
-            text = "Camera Switch Calibration"
+            text = "Camera switch setup"
             setTextColor(Color.WHITE)
             textSize = 22f
+            typeface = Typeface.DEFAULT_BOLD
         }
         statusView = TextView(this).apply {
-            text = "Position face in the preview."
+            text = "Position the phone so the face stays inside the box."
             setTextColor(Color.rgb(220, 227, 235))
             textSize = 16f
             setPadding(0, dp(8), 0, dp(8))
@@ -185,10 +193,22 @@ class CameraSwitchCalibrationActivity : Activity() {
             textSize = 14f
             setPadding(0, 0, 0, dp(12))
         }
+        holdView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(12), 0, dp(4))
+        }
+        feedbackView = TextView(this).apply {
+            text = "Tones: start = one prompt, short blink = one chirp, hold reached = long beep, long blink accepted = two beeps."
+            setTextColor(Color.rgb(183, 196, 210))
+            textSize = 14f
+            setPadding(0, 0, 0, dp(10))
+        }
 
         val previewFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            setBackgroundColor(Color.BLACK)
+            background = roundedBackground(Color.BLACK, dp(8), Color.rgb(58, 70, 82))
         }
         textureView = TextureView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -217,40 +237,54 @@ class CameraSwitchCalibrationActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        startButton = Button(this).apply {
-            text = "Auto Calibration"
+        startButton = actionButton("Start setup", primary = true) {
             setOnClickListener { startAutoCalibration() }
         }
-        testButton = Button(this).apply {
-            text = "Test Long Blink"
+        testButton = actionButton("Test blink", primary = false) {
             setOnClickListener { startLongBlinkTest() }
         }
-        val closeButton = Button(this).apply {
-            text = "Done"
+        val closeButton = actionButton("Done", primary = false) {
             setOnClickListener { finish() }
         }
-        actions.addView(startButton)
-        actions.addView(testButton)
-        actions.addView(closeButton)
+        actions.addView(startButton, actionButtonParams())
+        actions.addView(testButton, actionButtonParams())
+        actions.addView(closeButton, actionButtonParams())
+
+        val holdActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        }
+        holdActions.addView(actionButton("-100 ms", primary = false) {
+            setOnClickListener { adjustHoldMs(-100L) }
+        }, actionButtonParams())
+        holdActions.addView(actionButton("+100 ms", primary = false) {
+            setOnClickListener { adjustHoldMs(100L) }
+        }, actionButtonParams())
 
         root.addView(title)
         root.addView(statusView)
         root.addView(metricsView)
         root.addView(previewFrame)
+        root.addView(holdView)
+        root.addView(feedbackView)
+        root.addView(holdActions)
         root.addView(actions)
+        updateHoldUi()
         return root
     }
 
     private fun updateSavedCalibrationUi() {
         val quality = savedCalibrationRecord?.qualityDetail
         if (quality != null) {
-            statusView?.text = "Saved calibration loaded. Preview is listening for long blink."
-            metricsView?.text = "$quality | current position: blink to test"
+            statusView?.text = "Ready. Long blink is calibrated; use Test blink after moving the phone."
+            metricsView?.text = quality
         } else {
-            statusView?.text = "Position face in the preview."
-            metricsView?.text = "No saved calibration. Run auto calibration first."
+            statusView?.text = "Position the phone, then tap Start setup."
+            metricsView?.text = "No saved setup yet."
         }
         testButton?.isEnabled = true
+        updateHoldUi()
     }
 
     private fun configureTtsVoice() {
@@ -297,9 +331,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         restClosedDurations.clear()
         testLongBlinkDurations.clear()
         longBlinkClosed = false
+        calibrationHoldCuePlayed = false
         restClosed = false
         testLongBlinkClosed = false
+        testHoldCuePlayed = false
         previewLongBlinkClosed = false
+        previewHoldCuePlayed = false
         previewShortBlinkCount = 0
         previewLongBlinkCount = 0
         previewLastShortDurationMs = 0L
@@ -332,7 +369,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
             mainHandler?.postDelayed({
                 if (runId == calibrationRunId) {
-                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                    playStartCue()
                     statusView?.text = "${step.label}: capturing for ${step.durationMs / 1000} seconds"
                     mainHandler?.postDelayed({
                         if (runId == calibrationRunId) {
@@ -388,7 +425,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             qualityDetail = quality.detail
         )
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
-        val message = "${cueSet.complete} ${quality.label}. Switch hold ${calibratedLongBlinkHoldMs}ms."
+        updateHoldUi()
+        val message = "${cueSet.complete} ${quality.label}. Long blink hold ${calibratedLongBlinkHoldMs}ms."
         statusView?.text = message
         metricsView?.text = quality.detail
         speakThen(message) {}
@@ -400,6 +438,18 @@ class CameraSwitchCalibrationActivity : Activity() {
         val measured = longBlinkDurations.filter { it in 450L..2500L }.sorted()
         if (measured.isEmpty()) return 800L
         return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
+    }
+
+    private fun adjustHoldMs(deltaMs: Long) {
+        calibratedLongBlinkHoldMs = clampLong(calibratedLongBlinkHoldMs + deltaMs, MinLongBlinkMs, MaxLongBlinkMs)
+        CameraSwitchPreferences.saveTiming(this, calibratedLongBlinkHoldMs, 900L)
+        updateHoldUi()
+        statusView?.text = "Long blink hold updated."
+        metricsView?.text = "Test blink to confirm the new hold time works."
+    }
+
+    private fun updateHoldUi() {
+        holdView?.text = "Long blink hold: ${calibratedLongBlinkHoldMs} ms"
     }
 
     private fun calibrationQuality(): CalibrationQuality {
@@ -429,6 +479,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         testLongBlinkDurations.clear()
         testLongBlinkClosed = false
         testLongBlinkClosedStartedAt = 0L
+        testHoldCuePlayed = false
         phase = Phase.Instruction
         activeStepLabel = "Long blink test"
         captureEndsAtMs = 0L
@@ -436,13 +487,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         testButton?.isEnabled = false
         val runId = calibrationRunId
         val holdSeconds = max(1L, (calibratedLongBlinkHoldMs + 999L) / 1000L)
-        val cue = "After the beep, close your eyes for at least $holdSeconds seconds, then open. The test runs for 10 seconds."
+        val cue = "After the start tone, close your eyes until you hear the long beep, then open. The test runs for 10 seconds."
         statusView?.text = cue
-        metricsView?.text = "Long blink test starts after the beep | hold ${calibratedLongBlinkHoldMs}ms"
+        metricsView?.text = "Long blink test starts after the start tone | hold about $holdSeconds seconds"
         speakThen(cue) {
             mainHandler?.postDelayed({
                 if (runId == calibrationRunId) {
-                    toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                    playStartCue()
                     mainHandler?.postDelayed({
                         if (runId == calibrationRunId) {
                             phase = Phase.TestLongBlink
@@ -595,12 +646,12 @@ class CameraSwitchCalibrationActivity : Activity() {
                     overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height)
                     when (previewBlink) {
                         PreviewBlink.Short -> {
-                            toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, ShortPreviewCueMs)
-                            statusView?.text = "Preview short blink detected."
+                            playShortCue()
+                            statusView?.text = "Short blink detected."
                         }
                         PreviewBlink.Long -> {
-                            playLongPreviewCue()
-                            statusView?.text = "Preview long blink detected. Current position works."
+                            playLongAcceptedCue()
+                            statusView?.text = "Long blink accepted. Current position works."
                         }
                         PreviewBlink.None -> Unit
                     }
@@ -619,9 +670,9 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun updateMetrics(score: Double?) {
         if (shouldPreviewMonitor()) {
             metricsView?.text = if (score == null) {
-                "${previousQualityText()} | current position: face not detected"
+                "${previousQualityText()} | face not detected"
             } else {
-                "${previousQualityText()} | score ${"%.2f".format(score)} | short $previewShortBlinkCount last ${previewLastShortDurationMs}ms | long $previewLongBlinkCount last ${previewLastDetectedDurationMs}ms | hold ${calibratedLongBlinkHoldMs}ms"
+                "Score ${"%.2f".format(score)} | short $previewShortBlinkCount | long $previewLongBlinkCount | last ${previewLastDetectedDurationMs}ms"
             }
             return
         }
@@ -630,9 +681,9 @@ class CameraSwitchCalibrationActivity : Activity() {
             metricsView?.text = if (score == null) {
                 "$ttsVoiceLabel | Face not detected"
             } else if (captureEndsAtMs > 0L) {
-                "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | Score ${"%.2f".format(score)} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
+                "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | score ${"%.2f".format(score)} | long blinks ${longBlinkDurations.size}"
             } else {
-                "$ttsVoiceLabel | Waiting | Score ${"%.2f".format(score)} | slow ${longBlinkDurations.size} | test ${testLongBlinkDurations.size}"
+                "$ttsVoiceLabel | score ${"%.2f".format(score)}"
             }
         }
     }
@@ -643,11 +694,23 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun previousQualityText(): String =
         savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
 
-    private fun playLongPreviewCue() {
-        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, LongPreviewCueMs)
+    private fun playStartCue() {
+        toneGenerator?.startTone(ToneGenerator.TONE_PROP_PROMPT, StartCueMs)
+    }
+
+    private fun playShortCue() {
+        toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, ShortPreviewCueMs)
+    }
+
+    private fun playHoldReachedCue() {
+        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, HoldReachedCueMs)
+    }
+
+    private fun playLongAcceptedCue() {
+        toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, LongAcceptedCueMs)
         mainHandler?.postDelayed({
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, LongPreviewCueMs)
-        }, LongPreviewCueGapMs)
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, LongAcceptedCueMs)
+        }, LongAcceptedCueGapMs)
     }
 
     private fun collectCalibrationSample(score: Double) {
@@ -664,9 +727,14 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (!longBlinkClosed && score >= CloseScore) {
             longBlinkClosed = true
             longBlinkClosedStartedAt = now
+            calibrationHoldCuePlayed = false
+        } else if (longBlinkClosed && !calibrationHoldCuePlayed && now - longBlinkClosedStartedAt >= calibratedLongBlinkHoldMs) {
+            calibrationHoldCuePlayed = true
+            playHoldReachedCue()
         } else if (longBlinkClosed && score <= OpenScore) {
             longBlinkDurations.add(now - longBlinkClosedStartedAt)
             longBlinkClosed = false
+            calibrationHoldCuePlayed = false
         }
     }
 
@@ -686,9 +754,14 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (!testLongBlinkClosed && score >= CloseScore) {
             testLongBlinkClosed = true
             testLongBlinkClosedStartedAt = now
+            testHoldCuePlayed = false
+        } else if (testLongBlinkClosed && !testHoldCuePlayed && now - testLongBlinkClosedStartedAt >= calibratedLongBlinkHoldMs) {
+            testHoldCuePlayed = true
+            playHoldReachedCue()
         } else if (testLongBlinkClosed && score <= OpenScore) {
             testLongBlinkDurations.add(now - testLongBlinkClosedStartedAt)
             testLongBlinkClosed = false
+            testHoldCuePlayed = false
         }
     }
 
@@ -696,17 +769,24 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (!shouldPreviewMonitor()) {
             previewLongBlinkClosed = false
             previewLongBlinkClosedStartedAt = 0L
+            previewHoldCuePlayed = false
             return PreviewBlink.None
         }
         val now = System.currentTimeMillis()
         if (!previewLongBlinkClosed && score >= CloseScore) {
             previewLongBlinkClosed = true
             previewLongBlinkClosedStartedAt = now
+            previewHoldCuePlayed = false
             return PreviewBlink.None
+        }
+        if (previewLongBlinkClosed && !previewHoldCuePlayed && now - previewLongBlinkClosedStartedAt >= calibratedLongBlinkHoldMs) {
+            previewHoldCuePlayed = true
+            playHoldReachedCue()
         }
         if (previewLongBlinkClosed && score <= OpenScore) {
             val duration = now - previewLongBlinkClosedStartedAt
             previewLongBlinkClosed = false
+            previewHoldCuePlayed = false
             val shortMaxMs = max(ShortBlinkMinMs, calibratedLongBlinkHoldMs - LongBlinkGuardMs)
             if (duration >= calibratedLongBlinkHoldMs && now - previewLastLongCueAtMs >= LongPreviewCueCooldownMs) {
                 previewLastLongCueAtMs = now
@@ -734,6 +814,35 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (rotation == 90 || rotation == 270) Size(image.height, image.width) else Size(image.width, image.height)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
+
+    private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = Button(this).apply {
+        this.text = text
+        isAllCaps = false
+        minHeight = dp(44)
+        textSize = 14f
+        setTextColor(if (primary) Color.WHITE else Color.rgb(226, 234, 242))
+        background = roundedBackground(
+            if (primary) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64),
+            dp(8),
+            if (primary) Color.rgb(52, 211, 153) else Color.rgb(78, 92, 108)
+        )
+        configure()
+    }
+
+    private fun actionButtonParams() = LinearLayout.LayoutParams(
+        0,
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        1f
+    ).apply {
+        setMargins(dp(4), dp(4), dp(4), dp(4))
+    }
+
+    private fun roundedBackground(color: Int, radius: Int, strokeColor: Int? = null): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = radius.toFloat()
+            if (strokeColor != null) setStroke(dp(1), strokeColor)
+        }
 
     private class FaceOverlayView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -787,10 +896,14 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val BeepLeadMs = 260L
         const val LongBlinkTestMs = 10000L
         const val ShortBlinkMinMs = 80L
+        const val MinLongBlinkMs = 550L
+        const val MaxLongBlinkMs = 1600L
         const val LongBlinkGuardMs = 150L
+        const val StartCueMs = 180
         const val ShortPreviewCueMs = 70
-        const val LongPreviewCueMs = 130
-        const val LongPreviewCueGapMs = 180L
+        const val HoldReachedCueMs = 220
+        const val LongAcceptedCueMs = 95
+        const val LongAcceptedCueGapMs = 120L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
 
