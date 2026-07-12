@@ -25,6 +25,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.util.Size
 import android.view.Surface
@@ -67,6 +68,7 @@ class MainActivity : Activity() {
     private lateinit var reviewList: LinearLayout
     private lateinit var reviewStatsText: TextView
     private lateinit var detectorText: TextView
+    private lateinit var perfText: TextView
     private lateinit var autoThreshold: CheckBox
 
     private var cameraDevice: CameraDevice? = null
@@ -115,6 +117,16 @@ class MainActivity : Activity() {
     private var mlKitInFlight = false
     private var mlKitLastFrameAt = 0L
     private var mlKitLastLogAt = 0L
+    private var mlKitSubmittedFrames = 0L
+    private var mlKitCompletedFrames = 0L
+    private var mlKitDroppedBusyFrames = 0L
+    private var mlKitDroppedThrottleFrames = 0L
+    private var mlKitNoFaceFrames = 0L
+    private var mlKitNoEyeFrames = 0L
+    private var mlKitErrorFrames = 0L
+    private var mlKitLastPerfUpdateAt = 0L
+    private var pendingReviewFrameSource: String? = null
+    private val mlKitLatenciesMs = java.util.ArrayDeque<Long>()
     private val taggedFrames = mutableListOf<ReviewFrame>()
     private val logLines = java.util.ArrayDeque<String>()
     private val mlKitFaceDetector by lazy {
@@ -159,6 +171,7 @@ class MainActivity : Activity() {
         closureText = valueText("none")
         autoCalibrationText = valueText("not started")
         detectorText = valueText("Legacy ROI")
+        perfText = valueText("not started")
         logText = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.rgb(30, 38, 45))
@@ -228,6 +241,7 @@ class MainActivity : Activity() {
             addView(slider("Height", 5, 45, roiHPct) { roiHPct = it; updateRoi() })
             addView(sectionTitle("Detection"))
             addView(row("Detector", detectorText))
+            addView(row("Perf", perfText))
             addView(buttonRow(
                 button("Legacy ROI") { setDetectorMode(DetectorMode.LegacyRoi) },
                 button("ML Kit Eye") { setDetectorMode(DetectorMode.MlKitEyeProbability) }
@@ -255,7 +269,7 @@ class MainActivity : Activity() {
             addView(sectionTitle("Review Crops"))
             addView(row("Review", reviewStatsText))
             addView(buttonRow(
-                button("Capture Crop") { addReviewFrame("manual") },
+                button("Capture Crop") { requestReviewFrame("manual") },
                 button("Blink Burst 5s") { startBurstCapture() },
                 button("Apply Tags Calibration") { applyTaggedCalibration() },
                 button("Clear Review") { clearReviewFrames() }
@@ -329,7 +343,12 @@ class MainActivity : Activity() {
             2
         ).apply {
             setOnImageAvailableListener({ reader ->
-                reader.acquireLatestImage()?.use { analyzeImage(it) }
+                val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                if (detectorMode == DetectorMode.MlKitEyeProbability) {
+                    analyzeImageWithMlKit(image)
+                } else {
+                    image.use { analyzeImage(it) }
+                }
             }, cameraHandler)
         }
 
@@ -393,10 +412,6 @@ class MainActivity : Activity() {
     }
 
     private fun analyzeImage(image: Image) {
-        if (detectorMode == DetectorMode.MlKitEyeProbability) {
-            analyzeImageWithMlKit(image)
-            return
-        }
         val features = readFeatures(image)
         latestFeatures = features
         latestScore = score(features)
@@ -410,17 +425,28 @@ class MainActivity : Activity() {
 
     private fun analyzeImageWithMlKit(image: Image) {
         val now = System.currentTimeMillis()
-        if (mlKitInFlight || now - mlKitLastFrameAt < MlKitFrameIntervalMs) return
+        if (mlKitInFlight) {
+            mlKitDroppedBusyFrames += 1
+            image.close()
+            return
+        }
+        if (now - mlKitLastFrameAt < MlKitFrameIntervalMs) {
+            mlKitDroppedThrottleFrames += 1
+            image.close()
+            return
+        }
         mlKitInFlight = true
         mlKitLastFrameAt = now
+        mlKitSubmittedFrames += 1
+        val startedAt = SystemClock.elapsedRealtime()
 
-        val frame = RawFrame.from(image).oriented(MlKitRotation)
-        val bitmap = bitmapFromFrame(frame)
-        val input = InputImage.fromBitmap(bitmap, 0)
+        val input = InputImage.fromMediaImage(image, MlKitRotation)
+        val imageSize = orientedImageSize(image, MlKitRotation)
         mlKitFaceDetector.process(input)
             .addOnSuccessListener { faces ->
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 if (face == null) {
+                    mlKitNoFaceFrames += 1
                     latestTrackingLabel = "mlkit no face"
                     latestFeatures = null
                     latestScore = 0.0
@@ -432,6 +458,7 @@ class MainActivity : Activity() {
                 }
 
                 val features = featuresFromMlKitFace(face) ?: run {
+                    mlKitNoEyeFrames += 1
                     latestTrackingLabel = "mlkit no eye probability"
                     latestFeatures = null
                     latestScore = 0.0
@@ -445,24 +472,31 @@ class MainActivity : Activity() {
                 latestFeatures = features
                 latestScore = score(features)
                 latestTrackingLabel = mlKitTrackingLabel(face, features)
-                val faceBox = clampRect(face.boundingBox, bitmap.width, bitmap.height)
-                latestCropBitmap = cropBitmap(bitmap, eyeCropForFace(faceBox, bitmap.width, bitmap.height))
+                val faceBox = clampRect(face.boundingBox, imageSize.width, imageSize.height)
                 updateBlinkState(now, latestScore)
+                val reviewSource = nextReviewFrameSource(now)
+                if (reviewSource != null) {
+                    latestCropBitmap = cropBitmap(
+                        RawFrame.from(image).oriented(MlKitRotation),
+                        eyeCropForFace(faceBox, imageSize.width, imageSize.height)
+                    )
+                }
 
                 runOnUiThread {
                     trackingText.text = latestTrackingLabel
                     roiOverlay.setRoi(
-                        (faceBox.left * 100 / bitmap.width).coerceIn(0, 99),
-                        (faceBox.top * 100 / bitmap.height).coerceIn(0, 99),
-                        (faceBox.width() * 100 / bitmap.width).coerceIn(1, 100),
-                        (faceBox.height() * 100 / bitmap.height).coerceIn(1, 100),
+                        (faceBox.left * 100 / imageSize.width).coerceIn(0, 99),
+                        (faceBox.top * 100 / imageSize.height).coerceIn(0, 99),
+                        (faceBox.width() * 100 / imageSize.width).coerceIn(1, 100),
+                        (faceBox.height() * 100 / imageSize.height).coerceIn(1, 100),
                         mirrorOverlayX
                     )
                     updateReadout()
-                    maybeAutoAddReviewFrame(now)
+                    if (reviewSource != null) addReviewFrame(reviewSource)
                 }
             }
             .addOnFailureListener { error ->
+                mlKitErrorFrames += 1
                 latestTrackingLabel = "mlkit error"
                 val shouldLog = now - mlKitLastLogAt > 2000L
                 if (shouldLog) {
@@ -475,7 +509,9 @@ class MainActivity : Activity() {
                 }
             }
             .addOnCompleteListener {
-                bitmap.recycle()
+                mlKitCompletedFrames += 1
+                recordMlKitLatency(SystemClock.elapsedRealtime() - startedAt)
+                image.close()
                 mlKitInFlight = false
             }
     }
@@ -659,6 +695,14 @@ class MainActivity : Activity() {
         return Bitmap.createBitmap(bitmap, safe.left, safe.top, safe.width(), safe.height())
     }
 
+    private fun cropBitmap(frame: OrientedFrame, rect: Rect): Bitmap {
+        val safe = clampRect(rect, frame.width, frame.height)
+        return cropBitmap(frame, safe.left, safe.top, safe.right, safe.bottom)
+    }
+
+    private fun orientedImageSize(image: Image, rotation: Int): Size =
+        if (rotation == 90 || rotation == 270) Size(image.height, image.width) else Size(image.width, image.height)
+
     private fun eyeCropForFace(faceBox: Rect, imageWidth: Int, imageHeight: Int): Rect {
         val top = faceBox.top + (faceBox.height() * 0.18f).toInt()
         val bottom = faceBox.top + (faceBox.height() * 0.48f).toInt()
@@ -826,6 +870,36 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun requestReviewFrame(source: String) {
+        if (detectorMode == DetectorMode.MlKitEyeProbability) {
+            pendingReviewFrameSource = source
+            addLog("capture requested; waiting for next ML Kit face frame")
+        } else {
+            addReviewFrame(source)
+        }
+    }
+
+    private fun nextReviewFrameSource(now: Long): String? {
+        pendingReviewFrameSource?.let { source ->
+            pendingReviewFrameSource = null
+            return source
+        }
+        if (autoCalibrationRunning) {
+            if (now - lastBurstFrameAt >= 200) {
+                lastBurstFrameAt = now
+                return "auto-${autoCalibrationPhase.id}"
+            }
+            return null
+        }
+        if (now < burstCaptureUntilMs) {
+            if (now - lastBurstFrameAt >= 150) {
+                lastBurstFrameAt = now
+                return "burst"
+            }
+        }
+        return null
+    }
+
     private fun addReviewFrame(source: String) {
         val sourceBitmap = latestCropBitmap
         if (sourceBitmap == null) {
@@ -902,6 +976,7 @@ class MainActivity : Activity() {
         lastReviewFrameAt = 0L
         burstCaptureUntilMs = 0L
         lastBurstFrameAt = 0L
+        pendingReviewFrameSource = null
         taggedFrames.clear()
         updateReviewStats()
     }
@@ -1088,8 +1163,19 @@ class MainActivity : Activity() {
     private fun exportSummaryJson(): String {
         return """
             {
-              "versionCode": 14,
+              "versionCode": 15,
               "detectorMode": "${detectorMode.name}",
+              "analysisWidth": ${analysisSize.width},
+              "analysisHeight": ${analysisSize.height},
+              "mlKitSubmittedFrames": $mlKitSubmittedFrames,
+              "mlKitCompletedFrames": $mlKitCompletedFrames,
+              "mlKitDroppedBusyFrames": $mlKitDroppedBusyFrames,
+              "mlKitDroppedThrottleFrames": $mlKitDroppedThrottleFrames,
+              "mlKitNoFaceFrames": $mlKitNoFaceFrames,
+              "mlKitNoEyeFrames": $mlKitNoEyeFrames,
+              "mlKitErrorFrames": $mlKitErrorFrames,
+              "mlKitLatencyP50Ms": ${mlKitLatencyPercentile(0.50)},
+              "mlKitLatencyP95Ms": ${mlKitLatencyPercentile(0.95)},
               "openTagged": ${reviewOpenCount()},
               "closedTagged": ${reviewClosedCount()},
               "badCropTagged": ${reviewBadCropCount()},
@@ -1131,6 +1217,7 @@ class MainActivity : Activity() {
         openText.text = formatFeatures(openBaseline)
         closedText.text = formatFeatures(closedBaseline)
         thresholdText.text = String.format("%.3f", activeThreshold())
+        perfText.text = formatMlKitPerf()
     }
 
     private fun activeThreshold(): Double {
@@ -1162,12 +1249,55 @@ class MainActivity : Activity() {
         latestFeatures = null
         latestScore = 0.0
         latestCropBitmap = null
+        pendingReviewFrameSource = null
+        if (mode == DetectorMode.MlKitEyeProbability) resetMlKitPerf()
         detectorText.text = when (mode) {
             DetectorMode.LegacyRoi -> "Legacy ROI"
             DetectorMode.MlKitEyeProbability -> "ML Kit Eye"
         }
         addLog("detector: ${detectorText.text}")
         updateReadout()
+    }
+
+    private fun resetMlKitPerf() {
+        mlKitSubmittedFrames = 0L
+        mlKitCompletedFrames = 0L
+        mlKitDroppedBusyFrames = 0L
+        mlKitDroppedThrottleFrames = 0L
+        mlKitNoFaceFrames = 0L
+        mlKitNoEyeFrames = 0L
+        mlKitErrorFrames = 0L
+        mlKitLastPerfUpdateAt = 0L
+        mlKitLatenciesMs.clear()
+    }
+
+    private fun recordMlKitLatency(latencyMs: Long) {
+        mlKitLatenciesMs.addLast(latencyMs)
+        while (mlKitLatenciesMs.size > MlKitLatencyWindowSize) {
+            mlKitLatenciesMs.removeFirst()
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (now - mlKitLastPerfUpdateAt > 500L) {
+            mlKitLastPerfUpdateAt = now
+            runOnUiThread { perfText.text = formatMlKitPerf() }
+        }
+    }
+
+    private fun formatMlKitPerf(): String {
+        if (detectorMode != DetectorMode.MlKitEyeProbability) return "legacy"
+        if (mlKitSubmittedFrames == 0L) return "not started"
+        val p50 = mlKitLatencyPercentile(0.50)
+        val p95 = mlKitLatencyPercentile(0.95)
+        return "done $mlKitCompletedFrames p50/p95 ${p50}/${p95}ms " +
+            "drop busy/throttle ${mlKitDroppedBusyFrames}/${mlKitDroppedThrottleFrames} " +
+            "no face/eye ${mlKitNoFaceFrames}/${mlKitNoEyeFrames} err $mlKitErrorFrames"
+    }
+
+    private fun mlKitLatencyPercentile(percentile: Double): Long {
+        if (mlKitLatenciesMs.isEmpty()) return 0L
+        val sorted = mlKitLatenciesMs.toList().sorted()
+        val index = ((sorted.size - 1) * percentile).toInt().coerceIn(0, sorted.size - 1)
+        return sorted[index]
     }
 
     private fun updateRoi() {
@@ -1401,6 +1531,7 @@ class MainActivity : Activity() {
         const val ExportResultsRequestCode = 2402
         const val MlKitRotation = 270
         const val MlKitFrameIntervalMs = 90L
+        const val MlKitLatencyWindowSize = 120
 
         fun clamp(value: Double, minValue: Double, maxValue: Double): Double =
             min(maxValue, max(minValue, value))
