@@ -21,6 +21,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
     implementation("com.google.mlkit:face-detection:16.1.7")
     testImplementation(libs.junit)
 }

@@ -446,7 +446,7 @@ function scheduleCameraStatusStaleCheck() {
   cameraStatusTimerId = window.setTimeout(() => {
     if (!cameraInputEnabled() || !cameraStatus.monitorStale) return;
     if (performance.now() - cameraStatus.updatedAt >= CameraStatusStaleMs) {
-      setCameraStatus("stale", "Camera stale", false);
+      setCameraStatus("detectorStale", "Detect stale", false);
     } else {
       scheduleCameraStatusStaleCheck();
     }
@@ -474,8 +474,12 @@ function cameraStatusLabel(state) {
       return "Blink";
     case "restarting":
       return "Cam restart";
-    case "stale":
+    case "detectorStale":
+      return "Detect stale";
+    case "cameraStale":
       return "Cam stale";
+    case "stale":
+      return "Detect stale";
     case "stopped":
     case "off":
       return "Camera off";

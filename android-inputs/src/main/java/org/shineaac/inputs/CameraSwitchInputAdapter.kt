@@ -2,39 +2,41 @@ package org.shineaac.inputs
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.SurfaceTexture
-import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
-import android.hardware.camera2.CaptureRequest
-import android.media.Image
-import android.media.ImageReader
 import android.os.Handler
-import android.os.HandlerThread
+import android.os.Looper
 import android.util.Log
 import android.util.Size
-import android.view.Surface
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.lifecycle.LifecycleOwner
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class CameraSwitchInputAdapter(
     private val context: Context,
+    private val lifecycleOwner: LifecycleOwner,
     private val settingsProvider: () -> CameraSwitchSettings,
     private val sink: InputSink
 ) : InputAdapter {
-    private var cameraDevice: CameraDevice? = null
-    private var session: CameraCaptureSession? = null
-    private var reader: ImageReader? = null
-    private var thread: HandlerThread? = null
-    private var handler: Handler? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val mainExecutor = Executor { command -> mainHandler.post(command) }
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var imageAnalysis: ImageAnalysis? = null
+    private var analysisExecutor: ExecutorService? = null
     private var detector: FaceDetector? = null
     private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(320, 240)
-    private var mlKitInFlight = false
+    @Volatile private var mlKitInFlight = false
     private var lastFrameAt = 0L
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
@@ -45,6 +47,7 @@ class CameraSwitchInputAdapter(
     private var activeSource = "android-camera-long-blink"
     private var generation = 0
     private var watchdogScheduled = false
+    private var running = false
 
     @SuppressLint("MissingPermission")
     override fun start() {
@@ -54,6 +57,7 @@ class CameraSwitchInputAdapter(
         val settings = settingsProvider()
         if (!settings.enabled) return
         activeSource = settings.source
+        running = true
         lastImageReceivedAt = System.currentTimeMillis()
         lastAnalysisCompletedAt = lastImageReceivedAt
         sendStatus("starting", force = true)
@@ -68,62 +72,42 @@ class CameraSwitchInputAdapter(
                 .build()
         )
         tonePlayer = CameraSwitchTonePlayer()
-
-        thread = HandlerThread("ShineCameraSwitch").also { it.start() }
-        handler = Handler(thread!!.looper)
-        reader = ImageReader.newInstance(
-            analysisSize.width,
-            analysisSize.height,
-            android.graphics.ImageFormat.YUV_420_888,
-            2
-        ).apply {
-            setOnImageAvailableListener({ imageReader ->
-                val image = imageReader.acquireLatestImage() ?: return@setOnImageAvailableListener
-                analyze(image, startGeneration)
-            }, handler)
+        analysisExecutor = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "ShineCameraSwitchAnalysis").apply {
+                isDaemon = true
+            }
         }
 
-        val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraId = manager.cameraIdList.firstOrNull { id ->
-            manager.getCameraCharacteristics(id)
-                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-        } ?: return
-
-        manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                if (startGeneration != generation) {
-                    camera.close()
-                    return
-                }
-                cameraDevice = camera
-                createSession(camera)
+        val providerFuture = ProcessCameraProvider.getInstance(context)
+        providerFuture.addListener({
+            val provider = try {
+                providerFuture.get()
+            } catch (error: Exception) {
+                Log.w(Tag, "CameraX provider failed", error)
+                sendStatus("cameraStale", force = true)
+                return@addListener
             }
-
-            override fun onDisconnected(camera: CameraDevice) {
-                camera.close()
-                cameraDevice = null
-            }
-
-            override fun onError(camera: CameraDevice, error: Int) {
-                Log.w(Tag, "camera error $error")
-                camera.close()
-                cameraDevice = null
-                sendStatus("stale", force = true)
-            }
-        }, handler)
+            if (startGeneration != generation || !running) return@addListener
+            cameraProvider = provider
+            bindAnalysisUseCase(provider, startGeneration)
+        }, mainExecutor)
         scheduleWatchdog()
     }
 
     override fun stop() {
         generation += 1
+        running = false
         watchdogScheduled = false
-        handler?.removeCallbacksAndMessages(null)
-        session?.close()
-        session = null
-        cameraDevice?.close()
-        cameraDevice = null
-        reader?.close()
-        reader = null
+        imageAnalysis?.clearAnalyzer()
+        imageAnalysis?.let { analysis ->
+            try {
+                cameraProvider?.unbind(analysis)
+            } catch (error: Exception) {
+                Log.w(Tag, "CameraX unbind failed", error)
+            }
+        }
+        imageAnalysis = null
+        cameraProvider = null
         detector?.close()
         detector = null
         if (holdEventActive) {
@@ -132,9 +116,8 @@ class CameraSwitchInputAdapter(
         sendStatus("stopped", force = true)
         tonePlayer?.release()
         tonePlayer = null
-        thread?.quitSafely()
-        thread = null
-        handler = null
+        analysisExecutor?.shutdownNow()
+        analysisExecutor = null
         mlKitInFlight = false
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
@@ -143,59 +126,80 @@ class CameraSwitchInputAdapter(
         holdEventActive = false
     }
 
-    private fun createSession(camera: CameraDevice) {
-        val imageSurface = reader?.surface ?: return
-        val texture = SurfaceTexture(0).apply {
-            setDefaultBufferSize(analysisSize.width, analysisSize.height)
+    @SuppressLint("MissingPermission")
+    private fun bindAnalysisUseCase(provider: ProcessCameraProvider, bindGeneration: Int) {
+        val executor = analysisExecutor ?: return
+        try {
+            val analysis = ImageAnalysis.Builder()
+                .setResolutionSelector(
+                    ResolutionSelector.Builder()
+                        .setResolutionStrategy(
+                            ResolutionStrategy(
+                                analysisSize,
+                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
+                            )
+                        )
+                        .build()
+                )
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { useCase ->
+                    useCase.setAnalyzer(executor) { imageProxy ->
+                        analyze(imageProxy, bindGeneration)
+                    }
+                }
+            imageAnalysis = analysis
+            provider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_FRONT_CAMERA,
+                analysis
+            )
+            sendStatus("active", force = true)
+        } catch (error: Exception) {
+            Log.w(Tag, "CameraX bind failed", error)
+            imageAnalysis?.clearAnalyzer()
+            imageAnalysis = null
+            sendStatus("cameraStale", force = true)
         }
-        val previewSurface = Surface(texture)
-        val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-            addTarget(previewSurface)
-            addTarget(imageSurface)
-            set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-        }
-        camera.createCaptureSession(listOf(previewSurface, imageSurface), object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(captureSession: CameraCaptureSession) {
-                session = captureSession
-                captureSession.setRepeatingRequest(request.build(), null, handler)
-            }
-
-            override fun onConfigureFailed(captureSession: CameraCaptureSession) = Unit
-        }, handler)
     }
 
-    private fun analyze(image: Image, imageGeneration: Int) {
+    private fun analyze(imageProxy: ImageProxy, imageGeneration: Int) {
         if (imageGeneration != generation) {
-            safeClose(image)
+            imageProxy.close()
             return
         }
         lastImageReceivedAt = System.currentTimeMillis()
         val settings = settingsProvider()
         if (!settings.enabled) {
-            safeClose(image)
+            imageProxy.close()
             return
         }
         val now = System.currentTimeMillis()
         if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
-            safeClose(image)
+            imageProxy.close()
             return
         }
         val activeDetector = detector
         if (activeDetector == null) {
-            safeClose(image)
+            imageProxy.close()
+            return
+        }
+        val mediaImage = imageProxy.image
+        if (mediaImage == null) {
+            imageProxy.close()
             return
         }
 
         mlKitInFlight = true
         lastFrameAt = now
         val analysisGeneration = generation
-        handler?.postDelayed({
+        mainHandler.postDelayed({
             if (analysisGeneration == generation && mlKitInFlight) {
                 Log.w(Tag, "ML Kit frame timeout; marking detector stale")
-                sendStatus("stale", force = true)
+                sendStatus("detectorStale", force = true)
             }
         }, MlKitTimeoutMs)
-        activeDetector.process(InputImage.fromMediaImage(image, MlKitRotation))
+        activeDetector.process(InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees))
             .addOnSuccessListener { faces ->
                 if (analysisGeneration != generation) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
@@ -211,7 +215,7 @@ class CameraSwitchInputAdapter(
                     mlKitInFlight = false
                     sendStatus("analysis")
                 }
-                safeClose(image)
+                imageProxy.close()
             }
     }
 
@@ -254,32 +258,23 @@ class CameraSwitchInputAdapter(
     }
 
     private fun scheduleWatchdog() {
-        val activeHandler = handler ?: return
         if (watchdogScheduled) return
         watchdogScheduled = true
-        activeHandler.postDelayed(::runWatchdog, WatchdogIntervalMs)
+        mainHandler.postDelayed(::runWatchdog, WatchdogIntervalMs)
     }
 
     private fun runWatchdog() {
         watchdogScheduled = false
-        if (!settingsProvider().enabled || cameraDevice == null) return
+        if (!running || !settingsProvider().enabled) return
         val now = System.currentTimeMillis()
         val noImagesForMs = now - lastImageReceivedAt
         val noCompletedAnalysisForMs = now - lastAnalysisCompletedAt
         when {
-            noImagesForMs >= FrameStallMs -> sendStatus("stale", force = true)
-            noCompletedAnalysisForMs >= AnalysisStallMs -> sendStatus("stale", force = true)
+            noImagesForMs >= FrameStallMs -> sendStatus("cameraStale", force = true)
+            noCompletedAnalysisForMs >= AnalysisStallMs -> sendStatus("detectorStale", force = true)
             else -> scheduleWatchdog()
         }
-        if (settingsProvider().enabled && cameraDevice != null) scheduleWatchdog()
-    }
-
-    private fun safeClose(image: Image) {
-        try {
-            image.close()
-        } catch (_: Exception) {
-            // Image may already be closed by a timeout path.
-        }
+        if (running && settingsProvider().enabled) scheduleWatchdog()
     }
 
     private fun sendStatus(state: String, force: Boolean = false) {
@@ -302,7 +297,6 @@ class CameraSwitchInputAdapter(
     }
 
     private companion object {
-        const val MlKitRotation = 270
         const val MlKitFrameIntervalMs = 120L
         const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L

@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
 
         cameraSwitchInput = CameraSwitchInputAdapter(
             context = this,
+            lifecycleOwner = this,
             settingsProvider = {
                 CameraSwitchPreferences.read(this, enabled = cameraSwitchEnabled)
             },

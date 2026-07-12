@@ -158,12 +158,16 @@ body.demo-active .phase::after {
   background: #f08c00;
 }
 
-.camera-status-stale {
+.camera-status-stale,
+.camera-status-detectorStale,
+.camera-status-cameraStale {
   border-color: #b77970;
   background: #f4e4e1;
 }
 
-.camera-status-stale::before {
+.camera-status-stale::before,
+.camera-status-detectorStale::before,
+.camera-status-cameraStale::before {
   background: #c92a2a;
 }
 

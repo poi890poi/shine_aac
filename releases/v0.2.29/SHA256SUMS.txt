@@ -1,0 +1,2 @@
+9486eeec65724ccbf0b89e3ad088a7973c7837cfb165ddf4a460be56cf34063a  shine-aac-v0.2.29-code32-debug.apk
+aa4dbdff2dcc6f49c54038cd05829426c383b18058c96fb6917d54040c25793d  shine-aac-v0.2.29-code32-debug.zip
