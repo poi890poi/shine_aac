@@ -35,7 +35,7 @@ class CameraSwitchInputAdapter(
     private var analysisExecutor: ExecutorService? = null
     private var detector: FaceDetector? = null
     private var tonePlayer: CameraSwitchTonePlayer? = null
-    private val analysisSize = Size(320, 240)
+    private val analysisSize = Size(480, 360)
     @Volatile private var mlKitInFlight = false
     @Volatile private var activeFrameId = NoFrame
     private var frameSequence = 0L
@@ -183,7 +183,12 @@ class CameraSwitchInputAdapter(
             return
         }
         val activeDetector = detector
+        val callbackExecutor = analysisExecutor
         if (activeDetector == null) {
+            imageProxy.close()
+            return
+        }
+        if (callbackExecutor == null) {
             imageProxy.close()
             return
         }
@@ -211,16 +216,16 @@ class CameraSwitchInputAdapter(
             }
         }, MlKitTimeoutMs)
         activeDetector.process(InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees))
-            .addOnSuccessListener(mainExecutor) { faces ->
+            .addOnSuccessListener(callbackExecutor) { faces ->
                 if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val score = face?.closedScore()
                 updateBlinkState(score, settings)
             }
-            .addOnFailureListener(mainExecutor) { error ->
+            .addOnFailureListener(callbackExecutor) { error ->
                 Log.w(Tag, "ML Kit analysis failed", error)
             }
-            .addOnCompleteListener(mainExecutor) {
+            .addOnCompleteListener(callbackExecutor) {
                 if (analysisGeneration == generation && activeFrameId == frameId) {
                     lastAnalysisCompletedAt = System.currentTimeMillis()
                     mlKitInFlight = false
@@ -321,7 +326,7 @@ class CameraSwitchInputAdapter(
 
     private companion object {
         const val NoFrame = -1L
-        const val MlKitFrameIntervalMs = 120L
+        const val MlKitFrameIntervalMs = 200L
         const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L
         const val FrameStallMs = 3500L

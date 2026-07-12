@@ -1,0 +1,2 @@
+55cceba3760619270bf89b4093bb0d247b53e76bc3fda8267c725c23685a9d0a  shine-aac-v0.2.31-code34-debug.apk
+9821d1fcf4cd43c57dcce64a105ecc2b9844f550e5e8b279189a863d76772fb9  shine-aac-v0.2.31-code34-debug.zip
