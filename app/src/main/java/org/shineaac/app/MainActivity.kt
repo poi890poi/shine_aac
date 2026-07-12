@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
 import org.shineaac.inputs.CameraSwitchCalibrationActivity
 import org.shineaac.inputs.CameraSwitchInputAdapter
 import org.shineaac.inputs.CameraSwitchPreferences
+import org.shineaac.inputs.InputEvent
 import org.shineaac.inputs.InputSink
 import org.json.JSONObject
 import java.util.Locale
@@ -66,7 +67,7 @@ class MainActivity : ComponentActivity() {
                 CameraSwitchPreferences.read(this, enabled = cameraSwitchEnabled)
             },
             sink = InputSink { event ->
-                sendInputIntent(event.source, null)
+                sendInputEvent(event)
             }
         )
     }
@@ -102,7 +103,14 @@ class MainActivity : ComponentActivity() {
         }
 
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-            sendInputIntent(sourceForKey(event.keyCode), event.keyCode)
+            sendInputEvent(
+                InputEvent(
+                    intent = "activate",
+                    source = sourceForKey(event.keyCode),
+                    detail = "keyCode=${event.keyCode}"
+                ),
+                event.keyCode
+            )
         }
         return true
     }
@@ -169,10 +177,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun sendInputIntent(source: String, keyCode: Int?) {
+    private fun sendInputEvent(event: InputEvent, keyCode: Int? = null) {
+        val payload = JSONObject()
+            .put("intent", event.intent)
+            .put("source", event.source)
+        if (event.detail.isNotBlank()) payload.put("detail", event.detail)
+        if (keyCode != null) payload.put("keyCode", keyCode)
         val script = """
             window.ShineAacInput &&
-            window.ShineAacInput.receive({intent:"activate",source:"$source"${keyCode?.let { ",keyCode:$it" } ?: ""}});
+            window.ShineAacInput.receive($payload);
         """.trimIndent()
         runOnUiThread {
             webView?.evaluateJavascript(script, null)

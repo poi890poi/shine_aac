@@ -17,10 +17,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
-import android.media.AudioManager
 import android.media.Image
 import android.media.ImageReader
-import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -64,7 +62,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var detector: FaceDetector? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
-    private var toneGenerator: ToneGenerator? = null
+    private var tonePlayer: CameraSwitchTonePlayer? = null
     private var currentSpeechId: String? = null
     private var currentSpeechDone: (() -> Unit)? = null
     private var cueSet = CalibrationCueText.forProfile("en-US")
@@ -114,7 +112,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                 .setMinFaceSize(0.12f)
                 .build()
         )
-        toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
+        tonePlayer = CameraSwitchTonePlayer()
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) configureTtsVoice()
@@ -146,8 +144,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         ttsReady = false
         currentSpeechId = null
         currentSpeechDone = null
-        toneGenerator?.release()
-        toneGenerator = null
+        tonePlayer?.release()
+        tonePlayer = null
         mainHandler?.removeCallbacksAndMessages(null)
         mainHandler = null
         super.onDestroy()
@@ -200,7 +198,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             setPadding(0, dp(12), 0, dp(4))
         }
         feedbackView = TextView(this).apply {
-            text = "Tones: start = one prompt, short blink = one chirp, hold reached = long beep, long blink accepted = two beeps."
+            text = "Tones: start = mid tone, short blink = high chirp, hold reached = low tone, long accepted = rising two-tone."
             setTextColor(Color.rgb(183, 196, 210))
             textSize = 14f
             setPadding(0, 0, 0, dp(10))
@@ -360,7 +358,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         activeStepLabel = step.label
         captureEndsAtMs = 0L
         statusView?.text = step.cue
-        metricsView?.text = "$ttsVoiceLabel | ${step.label} starts after the beep"
+        metricsView?.text = "$ttsVoiceLabel | ${step.label} starts after the start tone"
         speakThen(step.cue) {
             if (runId != calibrationRunId) return@speakThen
             if (step.durationMs <= 0L) {
@@ -487,7 +485,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         testButton?.isEnabled = false
         val runId = calibrationRunId
         val holdSeconds = max(1L, (calibratedLongBlinkHoldMs + 999L) / 1000L)
-        val cue = "After the start tone, close your eyes until you hear the long beep, then open. The test runs for 10 seconds."
+        val cue = "After the start tone, close your eyes until you hear the low tone, then open. The test runs for 10 seconds."
         statusView?.text = cue
         metricsView?.text = "Long blink test starts after the start tone | hold about $holdSeconds seconds"
         speakThen(cue) {
@@ -695,22 +693,19 @@ class CameraSwitchCalibrationActivity : Activity() {
         savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
 
     private fun playStartCue() {
-        toneGenerator?.startTone(ToneGenerator.TONE_PROP_PROMPT, StartCueMs)
+        tonePlayer?.playStart()
     }
 
     private fun playShortCue() {
-        toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, ShortPreviewCueMs)
+        tonePlayer?.playSetupShortBlink()
     }
 
     private fun playHoldReachedCue() {
-        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, HoldReachedCueMs)
+        tonePlayer?.playHoldReached()
     }
 
     private fun playLongAcceptedCue() {
-        toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, LongAcceptedCueMs)
-        mainHandler?.postDelayed({
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, LongAcceptedCueMs)
-        }, LongAcceptedCueGapMs)
+        tonePlayer?.playLongAccepted()
     }
 
     private fun collectCalibrationSample(score: Double) {
@@ -899,11 +894,6 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val MinLongBlinkMs = 550L
         const val MaxLongBlinkMs = 1600L
         const val LongBlinkGuardMs = 150L
-        const val StartCueMs = 180
-        const val ShortPreviewCueMs = 70
-        const val HoldReachedCueMs = 220
-        const val LongAcceptedCueMs = 95
-        const val LongAcceptedCueGapMs = 120L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
 

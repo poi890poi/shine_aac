@@ -1,5 +1,7 @@
 export const InputIntent = Object.freeze({
   Activate: "activate",
+  HoldStart: "holdStart",
+  HoldEnd: "holdEnd",
   Next: "next",
   Previous: "previous",
   Pause: "pause"

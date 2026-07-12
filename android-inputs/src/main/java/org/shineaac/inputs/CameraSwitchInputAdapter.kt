@@ -8,10 +8,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
-import android.media.AudioManager
 import android.media.Image
 import android.media.ImageReader
-import android.media.ToneGenerator
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Size
@@ -33,20 +31,24 @@ class CameraSwitchInputAdapter(
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
     private var detector: FaceDetector? = null
-    private var toneGenerator: ToneGenerator? = null
+    private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(320, 240)
     private var mlKitInFlight = false
     private var lastFrameAt = 0L
     private var closedStartedAt = 0L
     private var closed = false
     private var holdCuePlayed = false
+    private var holdEventActive = false
+    private var holdTimedOutAwaitOpen = false
     private var lastActivationAt = 0L
+    private var activeSource = "android-camera-long-blink"
 
     @SuppressLint("MissingPermission")
     override fun start() {
         stop()
         val settings = settingsProvider()
         if (!settings.enabled) return
+        activeSource = settings.source
 
         detector = FaceDetection.getClient(
             FaceDetectorOptions.Builder()
@@ -57,7 +59,7 @@ class CameraSwitchInputAdapter(
                 .setMinFaceSize(0.12f)
                 .build()
         )
-        toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
+        tonePlayer = CameraSwitchTonePlayer()
 
         thread = HandlerThread("ShineCameraSwitch").also { it.start() }
         handler = Handler(thread!!.looper)
@@ -106,8 +108,11 @@ class CameraSwitchInputAdapter(
         reader = null
         detector?.close()
         detector = null
-        toneGenerator?.release()
-        toneGenerator = null
+        if (holdEventActive) {
+            sendHoldEnd(activeSource, "stop")
+        }
+        tonePlayer?.release()
+        tonePlayer = null
         thread?.quitSafely()
         thread = null
         handler = null
@@ -115,6 +120,8 @@ class CameraSwitchInputAdapter(
         closed = false
         closedStartedAt = 0L
         holdCuePlayed = false
+        holdEventActive = false
+        holdTimedOutAwaitOpen = false
     }
 
     private fun createSession(camera: CameraDevice) {
@@ -173,20 +180,36 @@ class CameraSwitchInputAdapter(
 
     private fun updateBlinkState(score: Double, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
+        if (holdTimedOutAwaitOpen) {
+            if (score <= OpenScore) {
+                holdTimedOutAwaitOpen = false
+            }
+            return
+        }
         if (!closed && score >= CloseScore) {
             closed = true
             closedStartedAt = now
             holdCuePlayed = false
+            sendHoldStart(settings.source)
             return
         }
         if (closed && !holdCuePlayed && now - closedStartedAt >= settings.longBlinkMs) {
             holdCuePlayed = true
             playHoldReachedCue()
         }
+        if (closed && now - closedStartedAt >= HardHoldTimeoutMs) {
+            closed = false
+            closedStartedAt = 0L
+            holdCuePlayed = false
+            holdTimedOutAwaitOpen = true
+            sendHoldEnd(settings.source, "timeoutMs=$HardHoldTimeoutMs")
+            return
+        }
         if (closed && score <= OpenScore) {
             val duration = now - closedStartedAt
             closed = false
             holdCuePlayed = false
+            sendHoldEnd(settings.source, "closedMs=$duration")
             if (duration >= settings.longBlinkMs && now - lastActivationAt >= settings.cooldownMs) {
                 lastActivationAt = now
                 sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=$duration"))
@@ -194,8 +217,20 @@ class CameraSwitchInputAdapter(
         }
     }
 
+    private fun sendHoldStart(source: String) {
+        if (holdEventActive) return
+        holdEventActive = true
+        sink.onInput(InputEvent(intent = "holdStart", source = source, detail = "eyesClosed"))
+    }
+
+    private fun sendHoldEnd(source: String, detail: String) {
+        if (!holdEventActive) return
+        holdEventActive = false
+        sink.onInput(InputEvent(intent = "holdEnd", source = source, detail = detail))
+    }
+
     private fun playHoldReachedCue() {
-        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, HoldReachedCueMs)
+        tonePlayer?.playHoldReached()
     }
 
     private fun Face.closedScore(): Double? {
@@ -207,8 +242,8 @@ class CameraSwitchInputAdapter(
     private companion object {
         const val MlKitRotation = 270
         const val MlKitFrameIntervalMs = 90L
+        const val HardHoldTimeoutMs = 8000L
         const val CloseScore = 0.55
         const val OpenScore = 0.35
-        const val HoldReachedCueMs = 220
     }
 }

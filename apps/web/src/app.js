@@ -44,6 +44,8 @@ let calibrationOpen = false;
 let calibrationTimerId = 0;
 let lastScanAnnouncementKey = "";
 let reviewHoldActive = false;
+let cameraHoldActive = false;
+let cameraHoldProgress = 0;
 let suppressNextConfigClick = false;
 let renderedBoardKey = "";
 let renderedMessage = "";
@@ -170,6 +172,8 @@ function resetClock() {
 function setSession(nextSession) {
   session = nextSession;
   reviewHoldActive = false;
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
   resetClock();
   render();
   scheduleScan();
@@ -178,19 +182,23 @@ function setSession(nextSession) {
 
 function handleInputEvent(inputEvent = {}) {
   const intent = inputEvent.intent ?? InputIntent.Activate;
-  if (intent !== InputIntent.Activate) return false;
   if (calibrationOpen) {
-    recordCalibrationInput(inputEvent);
+    if (intent === InputIntent.Activate) recordCalibrationInput(inputEvent);
     return true;
   }
   if (isHardwareInput(inputEvent.source) && !hardwareInputEnabled()) return false;
   if (isCameraInput(inputEvent.source) && !cameraInputEnabled()) return false;
+  if (intent === InputIntent.HoldStart) return startCameraHold(inputEvent);
+  if (intent === InputIntent.HoldEnd) return endCameraHold(inputEvent);
+  if (intent !== InputIntent.Activate) return false;
   activateSwitch(inputEvent);
   return true;
 }
 
 function activateSwitch(inputEvent = {}) {
   if (configOpen) return;
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
   cancelScheduledScan();
   if (reviewHoldActive) {
     reviewHoldActive = false;
@@ -223,8 +231,33 @@ function activateSwitch(inputEvent = {}) {
   }
 }
 
+function startCameraHold(inputEvent = {}) {
+  if (configOpen || !isCameraInput(inputEvent.source)) return false;
+  if (reviewHoldActive) return true;
+  if (cameraHoldActive) return true;
+
+  cameraHoldProgress = currentScanProgress();
+  cameraHoldActive = true;
+  cancelScheduledScan();
+  render();
+  setProgressFills(cameraHoldProgress, 0);
+  return true;
+}
+
+function endCameraHold(inputEvent = {}) {
+  if (!isCameraInput(inputEvent.source)) return false;
+  if (!cameraHoldActive) return true;
+
+  const resumeProgress = cameraHoldProgress;
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
+  render();
+  resumeScanFromProgress(resumeProgress);
+  return true;
+}
+
 function advanceScan() {
-  if (configOpen) return;
+  if (configOpen || cameraHoldActive) return;
   const nextSession = pendingAdvanceSession ?? advanceSession(session);
   pendingAdvanceSession = null;
   setSession(nextSession);
@@ -232,7 +265,7 @@ function advanceScan() {
 
 function scheduleScan() {
   cancelScheduledScan();
-  if (configOpen) return;
+  if (configOpen || cameraHoldActive) return;
   if (reviewHoldActive) {
     setProgressFills(1, 0);
     return;
@@ -244,13 +277,32 @@ function scheduleScan() {
   highlightDeadlineAt = highlightStartedAt + duration;
 
   animationFrameId = window.requestAnimationFrame(() => {
-    if (token !== scanScheduleToken || configOpen || reviewHoldActive) return;
+    if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
     resetProgressFills(currentProgressFills);
     animationFrameId = window.requestAnimationFrame(() => {
-      if (token !== scanScheduleToken || configOpen || reviewHoldActive) return;
+      if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
       startScanClock(duration, token);
     });
   });
+}
+
+function resumeScanFromProgress(progress) {
+  cancelScheduledScan();
+  if (configOpen || reviewHoldActive || cameraHoldActive) return;
+  const duration = scanDurationForStage(session.scannerState, effectiveTimingConfigForScan());
+  const clampedProgress = clamp(progress, 0, 0.98);
+  const remainingMs = Math.max(1, duration * (1 - clampedProgress));
+  const token = scanScheduleToken;
+  highlightStartedAt = performance.now() - duration * clampedProgress;
+  highlightDeadlineAt = highlightStartedAt + duration;
+  const progressFills = setProgressFills(clampedProgress, 0);
+  forceProgressLayout(progressFills);
+  setProgressFills(1, remainingMs);
+  timerId = window.setTimeout(advanceScan, remainingMs);
+  prepareAdvanceTimerId = window.setTimeout(() => {
+    if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
+    pendingAdvanceSession = advanceSession(session);
+  }, 0);
 }
 
 function cancelScheduledScan() {
@@ -273,9 +325,14 @@ function startScanClock(duration, token) {
   forceProgressLayout(progressFills);
   setProgressFills(1, durationMs);
   prepareAdvanceTimerId = window.setTimeout(() => {
-    if (token !== scanScheduleToken || configOpen || reviewHoldActive) return;
+    if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
     pendingAdvanceSession = advanceSession(session);
   }, 0);
+}
+
+function currentScanProgress() {
+  const duration = Math.max(1, highlightDeadlineAt - highlightStartedAt);
+  return clamp((performance.now() - highlightStartedAt) / duration, 0, 1);
 }
 
 function setProgressFills(progress, durationMs) {
@@ -429,7 +486,7 @@ function renderFull(board, boardKey) {
 
   const phase = document.createElement("div");
   phase.className = "phase";
-  phase.textContent = reviewHoldActive ? "Review" : phaseLabel(scanner.stage);
+  phase.textContent = statusPhaseLabel(scanner.stage);
   renderedPhaseElement = phase;
 
   const voice = document.createElement("div");
@@ -505,7 +562,7 @@ function updateScanPresentation(board) {
   const scanner = session.scannerState;
   const nextProgressTargetKey = progressTargetKeyForScanner(scanner, reviewHoldActive);
   if (renderedPhaseElement) {
-    renderedPhaseElement.textContent = reviewHoldActive ? "Review" : phaseLabel(scanner.stage);
+    renderedPhaseElement.textContent = statusPhaseLabel(scanner.stage);
   }
   if (renderedVoiceElement) {
     renderedVoiceElement.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
@@ -527,7 +584,8 @@ function updateScanPresentation(board) {
       scanner.rowIndex === rendered.rowIndex &&
       scanner.cellIndex === rendered.cellIndex;
     const reviewHold = reviewHoldActive && (activeRow || activeCell);
-    const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold);
+    const cameraHold = cameraHoldActive && (activeRow || activeCell);
+    const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold, cameraHold);
     if (rendered.element.className !== nextClassName) {
       rendered.element.className = nextClassName;
     }
@@ -618,7 +676,7 @@ function emitRenderState(board) {
   }
 }
 
-function tileClass(candidate, activeRow, activeCell, reviewHold = false) {
+function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraHold = false) {
   const classes = ["tile"];
   classes.push(`action-${candidate.action}`);
   if (candidate.action !== TileAction.Append) classes.push("command");
@@ -627,6 +685,7 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false) {
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");
   if (reviewHold) classes.push("review-hold");
+  if (cameraHold) classes.push("camera-hold");
   if (candidate.label.length >= 6) classes.push("tiny");
   else if (candidate.label.length >= 4) classes.push("small");
   return classes.join(" ");
@@ -661,11 +720,19 @@ function phaseLabel(stage) {
   }
 }
 
+function statusPhaseLabel(stage) {
+  if (cameraHoldActive) return "Blink";
+  if (reviewHoldActive) return "Review";
+  return phaseLabel(stage);
+}
+
 function openConfig() {
   configOpen = true;
   calibrationOpen = false;
   stopCalibrationTimer();
   reviewHoldActive = false;
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
   cancelScheduledScan();
   renderConfig();
 }
@@ -675,6 +742,8 @@ function closeConfig() {
   calibrationOpen = false;
   stopCalibrationTimer();
   reviewHoldActive = false;
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
   render();
   resetClock();
   scheduleScan();
@@ -684,6 +753,8 @@ function openCalibration() {
   configOpen = true;
   calibrationOpen = true;
   reviewHoldActive = false;
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
   cancelScheduledScan();
   calibrationState = createCalibrationState(calibrationState.inputClass);
   renderCalibration();

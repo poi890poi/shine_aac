@@ -92,6 +92,7 @@ try {
   steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
   await scenarioFirstColumnProgressTiming();
+  await scenarioCameraHoldPausesScan();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioReviewHold();
@@ -220,6 +221,84 @@ async function scenarioFirstColumnProgressTiming() {
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+}
+
+async function scenarioCameraHoldPausesScan() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: 1200,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 1200,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false,
+      switchInputProfile: "camera-long-blink"
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+  await delay(360);
+  let snapshot = await getSnapshot();
+  const heldRow = snapshot.activeRow?.rowIndex;
+  const heldProgress = snapshot.activeProgress;
+
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "holdStart", source: "android-camera-long-blink" });
+  `);
+  await delay(80);
+  snapshot = await getSnapshot();
+  if (snapshot.phase !== "Blink") throw new Error(`Expected Blink phase during camera hold, got ${snapshot.phase}`);
+  if (!snapshot.cameraHold) throw new Error("Expected active tile to show camera hold state");
+  if (snapshot.activeRow?.rowIndex !== heldRow) throw new Error("Camera hold should keep the active row fixed");
+  const frozenProgress = snapshot.activeProgress;
+  if (Math.abs(frozenProgress - heldProgress) > 18) {
+    throw new Error(`Camera hold should freeze near the detected progress, before=${heldProgress}, after=${frozenProgress}`);
+  }
+
+  await delay(620);
+  snapshot = await getSnapshot();
+  if (snapshot.activeRow?.rowIndex !== heldRow) throw new Error("Camera hold should not advance while eyes are closed");
+  if (Math.abs(snapshot.activeProgress - frozenProgress) > 8) {
+    throw new Error(`Camera hold progress should stay frozen, got ${snapshot.activeProgress}, expected ${frozenProgress}`);
+  }
+
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "holdEnd", source: "android-camera-long-blink" });
+  `);
+  await delay(320);
+  snapshot = await getSnapshot();
+  if (snapshot.phase === "Blink") throw new Error("Camera hold should clear after holdEnd");
+  if (snapshot.cameraHold) throw new Error("Camera hold class should clear after holdEnd");
+  if (snapshot.activeRow?.rowIndex !== heldRow) throw new Error("Camera hold resume should continue the same scan target first");
+  if (snapshot.activeProgress <= frozenProgress + 8) {
+    throw new Error(`Camera hold resume should continue progress, frozen=${frozenProgress}, resumed=${snapshot.activeProgress}`);
+  }
+  steps.push(pass("camera-hold-pause", "camera hold freezes current scan target and resumes progress after eyes open"));
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -960,6 +1039,7 @@ async function getSnapshot() {
             activeRow: tile.classList.contains("active-row"),
             activeCell: tile.classList.contains("active-cell"),
             reviewHold: tile.classList.contains("review-hold"),
+            cameraHold: tile.classList.contains("camera-hold"),
             progress,
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2
@@ -979,6 +1059,7 @@ async function getSnapshot() {
         activeCell,
         phase,
         reviewHold: rows.flat().some((tile) => tile.reviewHold),
+        cameraHold: rows.flat().some((tile) => tile.cameraHold),
         activeProgress: current?.progress ?? 0
       };
     })()
