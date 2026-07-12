@@ -39,15 +39,8 @@ class CameraSwitchInputAdapter(
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
-    private var pendingClosedStartedAt = 0L
-    private var closedFrameCount = 0
-    private var openFrameCount = 0
-    private var closedStartedAt = 0L
-    private var closed = false
-    private var holdCuePlayed = false
+    private val blinkClassifier = BlinkGestureClassifier()
     private var holdEventActive = false
-    private var holdTimedOutAwaitOpen = false
-    private var activatedAwaitOpen = false
     private var lastActivationAt = 0L
     private var activeSource = "android-camera-long-blink"
     private var generation = 0
@@ -146,15 +139,8 @@ class CameraSwitchInputAdapter(
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
-        pendingClosedStartedAt = 0L
-        closedFrameCount = 0
-        openFrameCount = 0
-        closed = false
-        closedStartedAt = 0L
-        holdCuePlayed = false
+        blinkClassifier.reset()
         holdEventActive = false
-        holdTimedOutAwaitOpen = false
-        activatedAwaitOpen = false
     }
 
     private fun createSession(camera: CameraDevice) {
@@ -214,9 +200,7 @@ class CameraSwitchInputAdapter(
                 if (analysisGeneration != generation) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val score = face?.closedScore()
-                if (score != null) {
-                    updateBlinkState(score, settings)
-                }
+                updateBlinkState(score, settings)
             }
             .addOnFailureListener { error ->
                 Log.w(Tag, "ML Kit analysis failed", error)
@@ -231,92 +215,26 @@ class CameraSwitchInputAdapter(
             }
     }
 
-    private fun updateBlinkState(score: Double, settings: CameraSwitchSettings) {
+    private fun updateBlinkState(score: Double?, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
-        if (holdTimedOutAwaitOpen) {
-            if (stableOpen(score)) {
-                holdTimedOutAwaitOpen = false
-                resetBlinkQualification()
+        for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs)) {
+            when (event) {
+                is BlinkGestureClassifier.Event.HoldStarted -> {
+                    sendHoldStart(settings.source)
+                }
+                is BlinkGestureClassifier.Event.Activated -> {
+                    playHoldReachedCue()
+                    if (now - lastActivationAt >= settings.cooldownMs) {
+                        lastActivationAt = now
+                        holdEventActive = false
+                        sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=${event.durationMs}"))
+                    }
+                }
+                is BlinkGestureClassifier.Event.HoldEnded -> {
+                    sendHoldEnd(settings.source, "closedMs=${event.durationMs};reason=${event.reason.name}")
+                }
             }
-            return
         }
-        if (activatedAwaitOpen) {
-            if (stableOpen(score)) {
-                activatedAwaitOpen = false
-                resetBlinkQualification()
-            }
-            return
-        }
-        if (!closed) {
-            if (stableClosed(score, now)) {
-                closed = true
-                closedStartedAt = pendingClosedStartedAt
-                holdCuePlayed = false
-                openFrameCount = 0
-                sendHoldStart(settings.source)
-            }
-            return
-        }
-        if (closed && !holdCuePlayed && now - closedStartedAt >= settings.longBlinkMs) {
-            val duration = now - closedStartedAt
-            holdCuePlayed = true
-            playHoldReachedCue()
-            if (now - lastActivationAt >= settings.cooldownMs) {
-                lastActivationAt = now
-                closed = false
-                closedStartedAt = 0L
-                activatedAwaitOpen = true
-                holdEventActive = false
-                sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=$duration"))
-            }
-            return
-        }
-        if (closed && now - closedStartedAt >= HardHoldTimeoutMs) {
-            closed = false
-            closedStartedAt = 0L
-            holdCuePlayed = false
-            holdTimedOutAwaitOpen = true
-            sendHoldEnd(settings.source, "timeoutMs=$HardHoldTimeoutMs")
-            return
-        }
-        if (closed && score <= OpenScore) {
-            if (stableOpen(score)) {
-                val duration = now - closedStartedAt
-                closed = false
-                holdCuePlayed = false
-                resetBlinkQualification()
-                sendHoldEnd(settings.source, "closedMs=$duration")
-            }
-        } else {
-            openFrameCount = 0
-        }
-    }
-
-    private fun stableClosed(score: Double, now: Long): Boolean {
-        if (score < CloseScore) {
-            resetBlinkQualification()
-            return false
-        }
-        if (closedFrameCount == 0) {
-            pendingClosedStartedAt = now
-        }
-        closedFrameCount += 1
-        return closedFrameCount >= RequiredClosedFrames
-    }
-
-    private fun stableOpen(score: Double): Boolean {
-        if (score > OpenScore) {
-            openFrameCount = 0
-            return false
-        }
-        openFrameCount += 1
-        return openFrameCount >= RequiredOpenFrames
-    }
-
-    private fun resetBlinkQualification() {
-        pendingClosedStartedAt = 0L
-        closedFrameCount = 0
-        openFrameCount = 0
     }
 
     private fun sendHoldStart(source: String) {
@@ -391,11 +309,6 @@ class CameraSwitchInputAdapter(
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
-        const val HardHoldTimeoutMs = 8000L
-        const val CloseScore = 0.78
-        const val OpenScore = 0.28
-        const val RequiredClosedFrames = 2
-        const val RequiredOpenFrames = 2
         const val Tag = "ShineCameraSwitch"
     }
 }
