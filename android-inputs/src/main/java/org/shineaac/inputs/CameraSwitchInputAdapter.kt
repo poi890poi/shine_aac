@@ -162,11 +162,12 @@ class CameraSwitchInputAdapter(
                     }
                 }
             imageAnalysis = analysis
-            provider.bindToLifecycle(
+            val camera = provider.bindToLifecycle(
                 lifecycleOwner,
                 CameraSelector.DEFAULT_FRONT_CAMERA,
                 analysis
             )
+            applyZoom(camera, settingsProvider().zoomRatio)
             sendStatus("active", force = true)
         } catch (error: Exception) {
             Log.w(Tag, "CameraX bind failed", error)
@@ -174,6 +175,14 @@ class CameraSwitchInputAdapter(
             imageAnalysis = null
             sendStatus("cameraStale", force = true)
         }
+    }
+
+    private fun applyZoom(camera: androidx.camera.core.Camera, requestedZoomRatio: Float) {
+        val zoomState = camera.cameraInfo.zoomState.value
+        val minZoom = zoomState?.minZoomRatio ?: 1.0f
+        val maxZoom = zoomState?.maxZoomRatio ?: requestedZoomRatio
+        val zoom = requestedZoomRatio.coerceIn(minZoom, maxZoom)
+        camera.cameraControl.setZoomRatio(zoom)
     }
 
     private fun targetFpsRange(): Range<Int>? {

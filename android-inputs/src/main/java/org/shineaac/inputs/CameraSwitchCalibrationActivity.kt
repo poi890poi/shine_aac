@@ -51,6 +51,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
     private var holdView: TextView? = null
+    private var zoomView: TextView? = null
     private var feedbackView: TextView? = null
     private var startButton: Button? = null
     private var testButton: Button? = null
@@ -58,6 +59,9 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraOpening = false
     private var cameraOpenGeneration = 0
     private var session: CameraCaptureSession? = null
+    private var repeatingRequestBuilder: CaptureRequest.Builder? = null
+    private var activeArraySize: Rect? = null
+    private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
@@ -97,6 +101,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var previewLastShortCueAtMs = 0L
     private var previewLastLongCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = 800L
+    private var calibratedZoomRatio = 1.6f
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +110,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         cueSet = CalibrationCueText.forProfile(intent.getStringExtra(ExtraProfileId) ?: "en-US")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
+        calibratedZoomRatio = savedSettings.zoomRatio
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         detector = FaceDetection.getClient(
             FaceDetectorOptions.Builder()
@@ -200,6 +206,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, dp(12), 0, dp(4))
         }
+        zoomView = TextView(this).apply {
+            setTextColor(Color.rgb(226, 234, 242))
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, dp(4))
+        }
         feedbackView = TextView(this).apply {
             text = "Box: green = eyes usable, amber = face only. Tones: start = mid tone, short blink = high chirp, hold reached = low tone, long accepted = rising two-tone."
             setTextColor(Color.rgb(183, 196, 210))
@@ -263,15 +275,30 @@ class CameraSwitchCalibrationActivity : Activity() {
             setOnClickListener { adjustHoldMs(100L) }
         }, actionButtonParams())
 
+        val zoomActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        }
+        zoomActions.addView(actionButton("Zoom -", primary = false) {
+            setOnClickListener { adjustZoomRatio(-0.2f) }
+        }, actionButtonParams())
+        zoomActions.addView(actionButton("Zoom +", primary = false) {
+            setOnClickListener { adjustZoomRatio(0.2f) }
+        }, actionButtonParams())
+
         root.addView(title)
         root.addView(statusView)
         root.addView(metricsView)
         root.addView(previewFrame)
         root.addView(holdView)
+        root.addView(zoomView)
         root.addView(feedbackView)
         root.addView(holdActions)
+        root.addView(zoomActions)
         root.addView(actions)
         updateHoldUi()
+        updateZoomUi()
         return root
     }
 
@@ -422,6 +449,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             context = this,
             longBlinkMs = calibratedLongBlinkHoldMs,
             cooldownMs = 900L,
+            zoomRatio = calibratedZoomRatio,
             qualityLabel = quality.label,
             qualityDetail = quality.detail
         )
@@ -453,6 +481,20 @@ class CameraSwitchCalibrationActivity : Activity() {
         holdView?.text = "Long blink hold: ${calibratedLongBlinkHoldMs} ms"
     }
 
+    private fun adjustZoomRatio(delta: Float) {
+        val maxZoom = max(1.0f, maxCameraZoomRatio)
+        calibratedZoomRatio = (calibratedZoomRatio + delta).coerceIn(1.0f, min(maxZoom, MaxSavedZoomRatio))
+        CameraSwitchPreferences.saveZoom(this, calibratedZoomRatio)
+        applyZoomToRepeatingRequest()
+        updateZoomUi()
+        statusView?.text = "Camera zoom updated."
+        metricsView?.text = "Keep the face centered; green box means ML Kit can read the eyes."
+    }
+
+    private fun updateZoomUi() {
+        zoomView?.text = "Camera zoom: ${"%.1f".format(calibratedZoomRatio)}x"
+    }
+
     private fun calibrationQuality(): CalibrationQuality {
         val slowBlinkOk = longBlinkDurations.any { it in 450L..2500L }
         val falseLongBlinks = restClosedDurations.count { it >= calibratedLongBlinkHoldMs }
@@ -467,6 +509,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             append(" | slow blinks ").append(longBlinkDurations.size)
             append(", rest false ").append(falseLongBlinks)
             append(", hold ").append(calibratedLongBlinkHoldMs).append("ms")
+            append(", zoom ").append("%.1f".format(calibratedZoomRatio)).append("x")
             if (!slowBlinkOk) append(" | no measured slow blink; default hold used")
         }
         return CalibrationQuality(label, detail)
@@ -580,6 +623,14 @@ class CameraSwitchCalibrationActivity : Activity() {
             runOnUiThread { statusView?.text = "Front camera unavailable." }
             return
         }
+        val characteristics = manager.getCameraCharacteristics(cameraId)
+        activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+        maxCameraZoomRatio = characteristics
+            .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
+            ?.coerceAtLeast(1.0f)
+            ?: 1.0f
+        calibratedZoomRatio = calibratedZoomRatio.coerceIn(1.0f, min(maxCameraZoomRatio, MaxSavedZoomRatio))
+        updateZoomUi()
         val fpsRange = targetFpsRange(manager, cameraId)
         try {
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
@@ -621,7 +672,9 @@ class CameraSwitchCalibrationActivity : Activity() {
             if (fpsRange != null) {
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
             }
+            set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
         }
+        repeatingRequestBuilder = request
         camera.createCaptureSession(listOf(previewSurface, imageSurface), object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(captureSession: CameraCaptureSession) {
                 if (cameraDevice == null) {
@@ -642,6 +695,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraOpenGeneration += 1
         cameraOpening = false
         cameraHandler?.removeCallbacksAndMessages(null)
+        repeatingRequestBuilder = null
         session?.close()
         session = null
         cameraDevice?.close()
@@ -652,6 +706,29 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraThread = null
         cameraHandler = null
         mlKitInFlight = false
+    }
+
+    private fun applyZoomToRepeatingRequest() {
+        val builder = repeatingRequestBuilder ?: return
+        val captureSession = session ?: return
+        val handler = cameraHandler ?: return
+        builder.set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
+        try {
+            captureSession.setRepeatingRequest(builder.build(), null, handler)
+        } catch (_: Exception) {
+            runOnUiThread { statusView?.text = "Camera zoom could not be applied." }
+        }
+    }
+
+    private fun zoomCropRegion(): Rect? {
+        val activeArray = activeArraySize ?: return null
+        val zoom = calibratedZoomRatio.coerceIn(1.0f, min(maxCameraZoomRatio, MaxSavedZoomRatio))
+        if (zoom <= 1.01f) return activeArray
+        val cropWidth = (activeArray.width() / zoom).toInt()
+        val cropHeight = (activeArray.height() / zoom).toInt()
+        val left = activeArray.left + (activeArray.width() - cropWidth) / 2
+        val top = activeArray.top + (activeArray.height() - cropHeight) / 2
+        return Rect(left, top, left + cropWidth, top + cropHeight)
     }
 
     private fun targetFpsRange(manager: CameraManager, cameraId: String): Range<Int>? {
@@ -948,6 +1025,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val LongBlinkGuardMs = 150L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
+        const val MaxSavedZoomRatio = 4.0f
 
         fun clampLong(value: Long, minValue: Long, maxValue: Long): Long =
             min(maxValue, max(minValue, value))

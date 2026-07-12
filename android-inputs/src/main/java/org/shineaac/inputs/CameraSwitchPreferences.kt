@@ -10,6 +10,9 @@ object CameraSwitchPreferences {
     private const val MaxLongBlinkMs = 1600L
     private const val MinCooldownMs = 300L
     private const val MaxCooldownMs = 2500L
+    private const val DefaultZoomRatio = 1.6f
+    private const val MinZoomRatio = 1.0f
+    private const val MaxZoomRatio = 4.0f
 
     fun read(context: Context, enabled: Boolean, source: String = "android-camera-long-blink"): CameraSwitchSettings {
         val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
@@ -17,6 +20,7 @@ object CameraSwitchPreferences {
             enabled = enabled,
             longBlinkMs = clampLong(prefs.getLong("longBlinkMs", 800L), MinLongBlinkMs, MaxLongBlinkMs),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
+            zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio),
             source = source
         )
     }
@@ -25,6 +29,7 @@ object CameraSwitchPreferences {
         context: Context,
         longBlinkMs: Long,
         cooldownMs: Long,
+        zoomRatio: Float = DefaultZoomRatio,
         qualityLabel: String? = null,
         qualityDetail: String? = null
     ) {
@@ -32,6 +37,7 @@ object CameraSwitchPreferences {
             .edit()
             .putLong("longBlinkMs", clampLong(longBlinkMs, MinLongBlinkMs, MaxLongBlinkMs))
             .putLong("cooldownMs", clampLong(cooldownMs, MinCooldownMs, MaxCooldownMs))
+            .putFloat("zoomRatio", clampFloat(zoomRatio, MinZoomRatio, MaxZoomRatio))
             .putLong("calibratedAtMs", System.currentTimeMillis())
         writeString(editor, "qualityLabel", qualityLabel)
         writeString(editor, "qualityDetail", qualityDetail)
@@ -46,6 +52,13 @@ object CameraSwitchPreferences {
             .apply()
     }
 
+    fun saveZoom(context: Context, zoomRatio: Float) {
+        context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+            .edit()
+            .putFloat("zoomRatio", clampFloat(zoomRatio, MinZoomRatio, MaxZoomRatio))
+            .apply()
+    }
+
     fun readCalibrationRecord(context: Context): CameraSwitchCalibrationRecord? {
         val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
         val calibratedAtMs = prefs.getLong("calibratedAtMs", 0L)
@@ -53,7 +66,8 @@ object CameraSwitchPreferences {
         return CameraSwitchCalibrationRecord(
             calibratedAtMs = calibratedAtMs,
             qualityLabel = prefs.getString("qualityLabel", null),
-            qualityDetail = prefs.getString("qualityDetail", null)
+            qualityDetail = prefs.getString("qualityDetail", null),
+            zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio)
         )
     }
 
@@ -71,10 +85,14 @@ object CameraSwitchPreferences {
 
     private fun clampLong(value: Long, minValue: Long, maxValue: Long): Long =
         min(maxValue, max(minValue, value))
+
+    private fun clampFloat(value: Float, minValue: Float, maxValue: Float): Float =
+        min(maxValue, max(minValue, value))
 }
 
 data class CameraSwitchCalibrationRecord(
     val calibratedAtMs: Long,
     val qualityLabel: String?,
-    val qualityDetail: String?
+    val qualityDetail: String?,
+    val zoomRatio: Float
 )
