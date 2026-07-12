@@ -24,6 +24,7 @@ jobs:
           tag="${GITHUB_REF_NAME}"
           release_dir="releases/${tag}"
           apk="$(find "${release_dir}" -maxdepth 1 -name "*.apk" -print -quit)"
+          zip="$(find "${release_dir}" -maxdepth 1 -name "*.zip" -print -quit)"
           notes="${release_dir}/RELEASE_NOTES.md"
           sums="${release_dir}/SHA256SUMS.txt"
 
@@ -33,9 +34,19 @@ jobs:
           fi
 
           if gh release view "${tag}" >/dev/null 2>&1; then
-            gh release upload "${tag}" "${apk}" "${sums}" "${notes}" --clobber
+            if [[ -n "${zip}" ]]; then
+              gh release upload "${tag}" "${apk}" "${zip}" "${sums}" "${notes}" --clobber
+            else
+              gh release upload "${tag}" "${apk}" "${sums}" "${notes}" --clobber
+            fi
           else
-            gh release create "${tag}" "${apk}" "${sums}" "${notes}" \
-              --title "Blink Input Test ${tag#blinktest-v}" \
-              --notes-file "${notes}"
+            if [[ -n "${zip}" ]]; then
+              gh release create "${tag}" "${apk}" "${zip}" "${sums}" "${notes}" \
+                --title "Blink Input Test ${tag#blinktest-v}" \
+                --notes-file "${notes}"
+            else
+              gh release create "${tag}" "${apk}" "${sums}" "${notes}" \
+                --title "Blink Input Test ${tag#blinktest-v}" \
+                --notes-file "${notes}"
+            fi
           fi

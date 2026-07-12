@@ -9,15 +9,18 @@ Standalone developer test app for camera blink input. This release does not chan
 - Kept crop bitmap generation only when a review frame is requested by manual capture, burst capture, or auto calibration.
 - Added an on-screen ML Kit performance row with completed frames, p50/p95 latency, dropped frames, no-face/no-eye counts, and errors.
 - Added ML Kit performance counters to `summary.json` export.
+- Added a zipped APK fallback for Android browsers that stall or hide APK download completion.
 
 ## How to test
 
-1. Install `blink-input-test-v0.15.0-code15-debug.apk`.
-2. Open Blink Input Test and tap Start Camera.
-3. Tap ML Kit Eye.
-4. Watch the Perf row after 10-20 seconds.
-5. Test normal blinks and long blinks while watching Score and Perf.
-6. Use Capture Crop or Blink Burst 5s to collect examples, then export results.
+1. Download `blink-input-test-v0.15.0-code15-debug.zip` if direct APK download stalls.
+2. Extract the APK from the zip on the phone.
+3. Install `blink-input-test-v0.15.0-code15-debug.apk`.
+4. Open Blink Input Test and tap Start Camera.
+5. Tap ML Kit Eye.
+6. Watch the Perf row after 10-20 seconds.
+7. Test normal blinks and long blinks while watching Score and Perf.
+8. Use Capture Crop or Blink Burst 5s to collect examples, then export results.
 
 ## Notes
 
