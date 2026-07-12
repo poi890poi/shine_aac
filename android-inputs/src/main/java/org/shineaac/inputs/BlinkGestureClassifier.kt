@@ -8,6 +8,8 @@ class BlinkGestureClassifier(
     private var closedStartedAtMs = NoTime
     private var openCandidateStartedAtMs = NoTime
     private var signalLostStartedAtMs = NoTime
+    private var openBaselineStartedAtMs = NoTime
+    private var hasOpenBaseline = config.requiredOpenBeforeCloseMs <= 0
 
     fun reset() {
         state = State.Open
@@ -15,6 +17,8 @@ class BlinkGestureClassifier(
         closedStartedAtMs = NoTime
         openCandidateStartedAtMs = NoTime
         signalLostStartedAtMs = NoTime
+        openBaselineStartedAtMs = NoTime
+        hasOpenBaseline = config.requiredOpenBeforeCloseMs <= 0
     }
 
     fun onSignal(closedScore: Double?, nowMs: Long, longBlinkMs: Long): List<Event> {
@@ -26,7 +30,22 @@ class BlinkGestureClassifier(
     }
 
     private fun handleOpen(closedScore: Double?, nowMs: Long): List<Event> {
-        if (closedScore == null || closedScore < config.closeThreshold) {
+        if (closedScore == null) {
+            closingStartedAtMs = NoTime
+            return emptyList()
+        }
+        if (closedScore <= config.openThreshold) {
+            closingStartedAtMs = NoTime
+            if (openBaselineStartedAtMs == NoTime) {
+                openBaselineStartedAtMs = nowMs
+            }
+            if (nowMs - openBaselineStartedAtMs >= config.requiredOpenBeforeCloseMs) {
+                hasOpenBaseline = true
+            }
+            return emptyList()
+        }
+        openBaselineStartedAtMs = NoTime
+        if (!hasOpenBaseline || closedScore < config.closeThreshold) {
             closingStartedAtMs = NoTime
             return emptyList()
         }
@@ -96,6 +115,7 @@ class BlinkGestureClassifier(
     data class Config(
         val closeThreshold: Double = 0.78,
         val openThreshold: Double = 0.28,
+        val requiredOpenBeforeCloseMs: Long = 350L,
         val minClosedStableMs: Long = 120L,
         val openStableMs: Long = 220L,
         val signalLostCancelMs: Long = 700L

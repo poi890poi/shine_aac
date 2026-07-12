@@ -37,6 +37,8 @@ class CameraSwitchInputAdapter(
     private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(320, 240)
     @Volatile private var mlKitInFlight = false
+    @Volatile private var activeFrameId = NoFrame
+    private var frameSequence = 0L
     private var lastFrameAt = 0L
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
@@ -119,6 +121,7 @@ class CameraSwitchInputAdapter(
         analysisExecutor?.shutdownNow()
         analysisExecutor = null
         mlKitInFlight = false
+        activeFrameId = NoFrame
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
@@ -191,31 +194,40 @@ class CameraSwitchInputAdapter(
         }
 
         mlKitInFlight = true
+        val frameId = ++frameSequence
+        activeFrameId = frameId
         lastFrameAt = now
         val analysisGeneration = generation
         mainHandler.postDelayed({
-            if (analysisGeneration == generation && mlKitInFlight) {
+            if (analysisGeneration == generation && activeFrameId == frameId && mlKitInFlight) {
                 Log.w(Tag, "ML Kit frame timeout; marking detector stale")
+                activeFrameId = NoFrame
+                mlKitInFlight = false
+                lastAnalysisCompletedAt = System.currentTimeMillis()
+                blinkClassifier.reset()
+                sendHoldEnd(activeSource, "reason=detectorTimeout")
                 sendStatus("detectorStale", force = true)
+                safeClose(imageProxy)
             }
         }, MlKitTimeoutMs)
         activeDetector.process(InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees))
-            .addOnSuccessListener { faces ->
-                if (analysisGeneration != generation) return@addOnSuccessListener
+            .addOnSuccessListener(mainExecutor) { faces ->
+                if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val score = face?.closedScore()
                 updateBlinkState(score, settings)
             }
-            .addOnFailureListener { error ->
+            .addOnFailureListener(mainExecutor) { error ->
                 Log.w(Tag, "ML Kit analysis failed", error)
             }
-            .addOnCompleteListener {
-                if (analysisGeneration == generation) {
+            .addOnCompleteListener(mainExecutor) {
+                if (analysisGeneration == generation && activeFrameId == frameId) {
                     lastAnalysisCompletedAt = System.currentTimeMillis()
                     mlKitInFlight = false
+                    activeFrameId = NoFrame
                     sendStatus("analysis")
                 }
-                imageProxy.close()
+                safeClose(imageProxy)
             }
     }
 
@@ -290,19 +302,35 @@ class CameraSwitchInputAdapter(
         )
     }
 
+    private fun safeClose(imageProxy: ImageProxy) {
+        try {
+            imageProxy.close()
+        } catch (_: Exception) {
+            // Late ML Kit completions can race with timeout cleanup.
+        }
+    }
+
     private fun Face.closedScore(): Double? {
-        val values = listOfNotNull(leftEyeOpenProbability, rightEyeOpenProbability).map { it.toDouble() }
-        if (values.isEmpty()) return null
-        return (1.0 - values.average()).coerceIn(0.0, 1.0)
+        val left = leftEyeOpenProbability ?: return null
+        val right = rightEyeOpenProbability ?: return null
+        if (kotlin.math.abs(headEulerAngleY) > MaxYawDegrees) return null
+        if (kotlin.math.abs(headEulerAngleZ) > MaxRollDegrees) return null
+        if (boundingBox.width() < MinFaceWidthPx || boundingBox.height() < MinFaceHeightPx) return null
+        return (1.0 - ((left + right) / 2.0)).coerceIn(0.0, 1.0)
     }
 
     private companion object {
+        const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 120L
         const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
+        const val MaxYawDegrees = 25f
+        const val MaxRollDegrees = 25f
+        const val MinFaceWidthPx = 40
+        const val MinFaceHeightPx = 48
         const val Tag = "ShineCameraSwitch"
     }
 }
