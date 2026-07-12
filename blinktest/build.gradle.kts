@@ -11,8 +11,8 @@ android {
         applicationId = "org.shineaac.blinktest"
         minSdk = 25
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.13.0"
+        versionCode = 14
+        versionName = "0.14.0"
     }
 
     compileOptions {
@@ -22,4 +22,8 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+}
+
+dependencies {
+    implementation("com.google.mlkit:face-detection:16.1.7")
 }
