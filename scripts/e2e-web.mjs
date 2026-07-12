@@ -93,6 +93,7 @@ try {
 
   await scenarioFirstColumnProgressTiming();
   await scenarioCameraHoldPausesScan();
+  await scenarioCameraHoldActivationIsImmediate();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioReviewHold();
@@ -284,6 +285,70 @@ async function scenarioCameraHoldPausesScan() {
     throw new Error(`Camera hold resume should continue progress, frozen=${frozenProgress}, resumed=${snapshot.activeProgress}`);
   }
   steps.push(pass("camera-hold-pause", "camera hold freezes current scan target and resumes progress after eyes open"));
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+}
+
+async function scenarioCameraHoldActivationIsImmediate() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      columns: 4,
+      scanIntervalMs: 1200,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 1200,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false,
+      switchInputProfile: "camera-long-blink"
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+  await delay(420);
+  let snapshot = await getSnapshot();
+  const heldRow = snapshot.activeRow?.rowIndex;
+
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "holdStart", source: "android-camera-long-blink" });
+  `);
+  await delay(620);
+  snapshot = await getSnapshot();
+  if (snapshot.phase !== "Blink") throw new Error(`Expected Blink phase before camera activation, got ${snapshot.phase}`);
+  if (snapshot.activeRow?.rowIndex !== heldRow) throw new Error("Camera hold should keep the row fixed before activation");
+
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "activate", source: "android-camera-long-blink", detail: "longBlinkMs=900" });
+  `);
+  await delay(80);
+  snapshot = await getSnapshot();
+  if (snapshot.phase === "Blink") throw new Error("Camera activation should clear Blink phase immediately");
+  if (snapshot.cameraHold) throw new Error("Camera activation should clear camera hold styling immediately");
+  if (snapshot.phase === "Rows") {
+    throw new Error("Camera activation should advance scanner without waiting for holdEnd progress resume");
+  }
+  steps.push(pass("camera-hold-activation", "accepted long blink activates from frozen scan position without a holdEnd resume delay"));
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({

@@ -55,7 +55,7 @@ export const ScanTimingPresets = Object.freeze({
     scanIntervalMs: 2600,
     transitionPauseMs: 800,
     firstCellPauseMs: 3200,
-    inputLatencyCompensationMs: 900
+    inputLatencyCompensationMs: 200
   }),
   firstCellSupport: Object.freeze({
     id: "firstCellSupport",

@@ -32,6 +32,7 @@ const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
+const CameraStatusStaleMs = 2200;
 
 let session = createSession({ config: loadConfig() });
 let uiConfig = loadUiConfig(uiStorageKey);
@@ -53,12 +54,15 @@ let renderedTiles = [];
 let renderedTileGrid = [];
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
+let renderedCameraStatusElement = null;
 let currentActiveTiles = [];
 let currentProgressFills = [];
 let progressTargetKey = "";
 let pendingAdvanceSession = null;
 let prepareAdvanceTimerId = 0;
 let scanScheduleToken = 0;
+let cameraStatus = { state: "off", label: "Camera off", updatedAt: 0 };
+let cameraStatusTimerId = 0;
 let calibrationState = createCalibrationState();
 const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
@@ -188,6 +192,7 @@ function handleInputEvent(inputEvent = {}) {
   }
   if (isHardwareInput(inputEvent.source) && !hardwareInputEnabled()) return false;
   if (isCameraInput(inputEvent.source) && !cameraInputEnabled()) return false;
+  if (intent === InputIntent.CameraStatus) return updateCameraStatus(inputEvent);
   if (intent === InputIntent.HoldStart) return startCameraHold(inputEvent);
   if (intent === InputIntent.HoldEnd) return endCameraHold(inputEvent);
   if (intent !== InputIntent.Activate) return false;
@@ -197,6 +202,8 @@ function handleInputEvent(inputEvent = {}) {
 
 function activateSwitch(inputEvent = {}) {
   if (configOpen) return;
+  const cameraHoldWasActive = cameraHoldActive && isCameraInput(inputEvent.source);
+  const frozenCameraProgress = cameraHoldProgress;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
   cancelScheduledScan();
@@ -208,7 +215,9 @@ function activateSwitch(inputEvent = {}) {
     announceCurrentScanTarget();
     return;
   }
-  const elapsed = performance.now() - highlightStartedAt;
+  const elapsed = cameraHoldWasActive
+    ? frozenElapsedForCurrentScan(frozenCameraProgress)
+    : performance.now() - highlightStartedAt;
   const baseConfig = session.config;
   const timedSession = { ...session, config: effectiveTimingConfigForInput(inputEvent.source) };
   const nextSessionWithTiming = pressSwitch(timedSession, elapsed);
@@ -236,6 +245,7 @@ function startCameraHold(inputEvent = {}) {
   if (reviewHoldActive) return true;
   if (cameraHoldActive) return true;
 
+  setCameraStatus("blink", "Blink", false);
   cameraHoldProgress = currentScanProgress();
   cameraHoldActive = true;
   cancelScheduledScan();
@@ -248,6 +258,7 @@ function endCameraHold(inputEvent = {}) {
   if (!isCameraInput(inputEvent.source)) return false;
   if (!cameraHoldActive) return true;
 
+  setCameraStatus("live", "Cam live", true);
   const resumeProgress = cameraHoldProgress;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
@@ -335,6 +346,11 @@ function currentScanProgress() {
   return clamp((performance.now() - highlightStartedAt) / duration, 0, 1);
 }
 
+function frozenElapsedForCurrentScan(progress) {
+  const duration = scanDurationForStage(session.scannerState, effectiveTimingConfigForScan());
+  return clamp(progress, 0, 1) * duration;
+}
+
 function setProgressFills(progress, durationMs) {
   const progressFills = currentProgressFills.some((fill) => fill?.isConnected)
     ? currentProgressFills.filter((fill) => fill?.isConnected)
@@ -410,6 +426,70 @@ function speakFeedback(text) {
 function speakActivation(tile) {
   if (!uiConfig.activationVoice) return;
   speakFeedback(labelForSpeech(tile));
+}
+
+function updateCameraStatus(inputEvent = {}) {
+  const state = String(inputEvent.state ?? detailValue(inputEvent.detail, "state") ?? "live");
+  const label = String(inputEvent.label ?? cameraStatusLabel(state));
+  setCameraStatus(state, label, state === "live" || state === "analysis");
+  return true;
+}
+
+function setCameraStatus(state, label, monitorStale) {
+  cameraStatus = { state, label, updatedAt: performance.now(), monitorStale };
+  updateCameraStatusPresentation();
+  if (monitorStale) scheduleCameraStatusStaleCheck();
+}
+
+function scheduleCameraStatusStaleCheck() {
+  window.clearTimeout(cameraStatusTimerId);
+  cameraStatusTimerId = window.setTimeout(() => {
+    if (!cameraInputEnabled() || !cameraStatus.monitorStale) return;
+    if (performance.now() - cameraStatus.updatedAt >= CameraStatusStaleMs) {
+      setCameraStatus("stale", "Camera stale", false);
+    } else {
+      scheduleCameraStatusStaleCheck();
+    }
+  }, CameraStatusStaleMs);
+}
+
+function updateCameraStatusPresentation() {
+  const element = renderedCameraStatusElement;
+  if (!element) return;
+  const visible = cameraInputEnabled();
+  element.hidden = !visible;
+  element.className = `camera-status camera-status-${cameraStatus.state}`;
+  element.textContent = visible ? cameraStatus.label : "";
+}
+
+function cameraStatusLabel(state) {
+  switch (state) {
+    case "starting":
+      return "Cam start";
+    case "live":
+      return "Cam live";
+    case "analysis":
+      return "Cam live";
+    case "blink":
+      return "Blink";
+    case "restarting":
+      return "Cam restart";
+    case "stale":
+      return "Cam stale";
+    case "stopped":
+    case "off":
+      return "Camera off";
+    default:
+      return "Camera status";
+  }
+}
+
+function detailValue(detail = "", key = "") {
+  const prefix = `${key}=`;
+  return String(detail)
+    .split(/[;, ]+/)
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length);
 }
 
 function announceCurrentScanTarget() {
@@ -494,6 +574,11 @@ function renderFull(board, boardKey) {
   voice.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
   renderedVoiceElement = voice;
 
+  const cameraStatusElement = document.createElement("div");
+  cameraStatusElement.className = "camera-status";
+  cameraStatusElement.hidden = true;
+  renderedCameraStatusElement = cameraStatusElement;
+
   const configButton = document.createElement("button");
   configButton.className = "config-button";
   configButton.type = "button";
@@ -508,7 +593,7 @@ function renderFull(board, boardKey) {
   });
   attachDemoLongPress(configButton);
 
-  status.append(phase, voice, configButton);
+  status.append(phase, cameraStatusElement, voice, configButton);
   topPanel.append(message, status);
 
   const boardElement = document.createElement("section");
@@ -567,6 +652,7 @@ function updateScanPresentation(board) {
   if (renderedVoiceElement) {
     renderedVoiceElement.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
   }
+  updateCameraStatusPresentation();
 
   const previousActiveTiles = currentActiveTiles;
   const previousProgressFills = currentProgressFills;
@@ -638,6 +724,7 @@ function invalidateRenderedBoard() {
   renderedTileGrid = [];
   renderedPhaseElement = null;
   renderedVoiceElement = null;
+  renderedCameraStatusElement = null;
   currentActiveTiles = [];
   currentProgressFills = [];
   progressTargetKey = "";

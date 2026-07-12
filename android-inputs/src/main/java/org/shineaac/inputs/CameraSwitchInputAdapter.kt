@@ -12,6 +12,8 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
+import android.util.Log
 import android.util.Size
 import android.view.Surface
 import com.google.mlkit.vision.common.InputImage
@@ -32,23 +34,36 @@ class CameraSwitchInputAdapter(
     private var handler: Handler? = null
     private var detector: FaceDetector? = null
     private var tonePlayer: CameraSwitchTonePlayer? = null
+    private val controlHandler = Handler(Looper.getMainLooper())
     private val analysisSize = Size(320, 240)
     private var mlKitInFlight = false
     private var lastFrameAt = 0L
+    private var lastImageReceivedAt = 0L
+    private var lastAnalysisCompletedAt = 0L
+    private var lastStatusSentAt = 0L
     private var closedStartedAt = 0L
     private var closed = false
     private var holdCuePlayed = false
     private var holdEventActive = false
     private var holdTimedOutAwaitOpen = false
+    private var activatedAwaitOpen = false
     private var lastActivationAt = 0L
     private var activeSource = "android-camera-long-blink"
+    private var generation = 0
+    private var watchdogScheduled = false
+    private var restarting = false
 
     @SuppressLint("MissingPermission")
     override fun start() {
         stop()
+        generation += 1
+        val startGeneration = generation
         val settings = settingsProvider()
         if (!settings.enabled) return
         activeSource = settings.source
+        lastImageReceivedAt = System.currentTimeMillis()
+        lastAnalysisCompletedAt = lastImageReceivedAt
+        sendStatus("starting", force = true)
 
         detector = FaceDetection.getClient(
             FaceDetectorOptions.Builder()
@@ -71,7 +86,7 @@ class CameraSwitchInputAdapter(
         ).apply {
             setOnImageAvailableListener({ imageReader ->
                 val image = imageReader.acquireLatestImage() ?: return@setOnImageAvailableListener
-                analyze(image)
+                analyze(image, startGeneration)
             }, handler)
         }
 
@@ -83,6 +98,10 @@ class CameraSwitchInputAdapter(
 
         manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
+                if (startGeneration != generation) {
+                    camera.close()
+                    return
+                }
                 cameraDevice = camera
                 createSession(camera)
             }
@@ -93,13 +112,20 @@ class CameraSwitchInputAdapter(
             }
 
             override fun onError(camera: CameraDevice, error: Int) {
+                Log.w(Tag, "camera error $error")
                 camera.close()
                 cameraDevice = null
+                requestRestart("cameraError=$error")
             }
         }, handler)
+        scheduleWatchdog()
     }
 
     override fun stop() {
+        generation += 1
+        controlHandler.removeCallbacksAndMessages(null)
+        watchdogScheduled = false
+        restarting = false
         session?.close()
         session = null
         cameraDevice?.close()
@@ -111,17 +137,22 @@ class CameraSwitchInputAdapter(
         if (holdEventActive) {
             sendHoldEnd(activeSource, "stop")
         }
+        sendStatus("stopped", force = true)
         tonePlayer?.release()
         tonePlayer = null
         thread?.quitSafely()
         thread = null
         handler = null
         mlKitInFlight = false
+        lastImageReceivedAt = 0L
+        lastAnalysisCompletedAt = 0L
+        lastStatusSentAt = 0L
         closed = false
         closedStartedAt = 0L
         holdCuePlayed = false
         holdEventActive = false
         holdTimedOutAwaitOpen = false
+        activatedAwaitOpen = false
     }
 
     private fun createSession(camera: CameraDevice) {
@@ -145,36 +176,58 @@ class CameraSwitchInputAdapter(
         }, handler)
     }
 
-    private fun analyze(image: Image) {
+    private fun analyze(image: Image, imageGeneration: Int) {
+        if (imageGeneration != generation) {
+            safeClose(image)
+            return
+        }
+        lastImageReceivedAt = System.currentTimeMillis()
         val settings = settingsProvider()
         if (!settings.enabled) {
-            image.close()
+            safeClose(image)
             return
         }
         val now = System.currentTimeMillis()
         if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
-            image.close()
+            safeClose(image)
             return
         }
         val activeDetector = detector
         if (activeDetector == null) {
-            image.close()
+            safeClose(image)
             return
         }
 
         mlKitInFlight = true
         lastFrameAt = now
+        val analysisGeneration = generation
+        handler?.postDelayed({
+            if (analysisGeneration == generation && mlKitInFlight) {
+                Log.w(Tag, "ML Kit frame timeout; clearing in-flight analysis")
+                mlKitInFlight = false
+                safeClose(image)
+                requestRestart("mlKitTimeout")
+            }
+        }, MlKitTimeoutMs)
         activeDetector.process(InputImage.fromMediaImage(image, MlKitRotation))
             .addOnSuccessListener { faces ->
+                if (analysisGeneration != generation) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val score = face?.closedScore()
                 if (score != null) {
                     updateBlinkState(score, settings)
                 }
             }
+            .addOnFailureListener { error ->
+                Log.w(Tag, "ML Kit analysis failed", error)
+            }
             .addOnCompleteListener {
-                image.close()
-                mlKitInFlight = false
+                if (analysisGeneration == generation) {
+                    lastAnalysisCompletedAt = System.currentTimeMillis()
+                    mlKitInFlight = false
+                    sendStatus("analysis")
+                }
+                safeClose(image)
             }
     }
 
@@ -186,6 +239,12 @@ class CameraSwitchInputAdapter(
             }
             return
         }
+        if (activatedAwaitOpen) {
+            if (score <= OpenScore) {
+                activatedAwaitOpen = false
+            }
+            return
+        }
         if (!closed && score >= CloseScore) {
             closed = true
             closedStartedAt = now
@@ -194,8 +253,18 @@ class CameraSwitchInputAdapter(
             return
         }
         if (closed && !holdCuePlayed && now - closedStartedAt >= settings.longBlinkMs) {
+            val duration = now - closedStartedAt
             holdCuePlayed = true
             playHoldReachedCue()
+            if (now - lastActivationAt >= settings.cooldownMs) {
+                lastActivationAt = now
+                closed = false
+                closedStartedAt = 0L
+                activatedAwaitOpen = true
+                holdEventActive = false
+                sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=$duration"))
+            }
+            return
         }
         if (closed && now - closedStartedAt >= HardHoldTimeoutMs) {
             closed = false
@@ -210,10 +279,6 @@ class CameraSwitchInputAdapter(
             closed = false
             holdCuePlayed = false
             sendHoldEnd(settings.source, "closedMs=$duration")
-            if (duration >= settings.longBlinkMs && now - lastActivationAt >= settings.cooldownMs) {
-                lastActivationAt = now
-                sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=$duration"))
-            }
         }
     }
 
@@ -233,6 +298,61 @@ class CameraSwitchInputAdapter(
         tonePlayer?.playHoldReached()
     }
 
+    private fun scheduleWatchdog() {
+        if (watchdogScheduled) return
+        watchdogScheduled = true
+        controlHandler.postDelayed(::runWatchdog, WatchdogIntervalMs)
+    }
+
+    private fun runWatchdog() {
+        watchdogScheduled = false
+        if (!settingsProvider().enabled || cameraDevice == null) return
+        val now = System.currentTimeMillis()
+        val noImagesForMs = now - lastImageReceivedAt
+        val noCompletedAnalysisForMs = now - lastAnalysisCompletedAt
+        when {
+            noImagesForMs >= FrameStallRestartMs -> requestRestart("frameStallMs=$noImagesForMs")
+            noCompletedAnalysisForMs >= AnalysisStallRestartMs -> requestRestart("analysisStallMs=$noCompletedAnalysisForMs")
+            else -> scheduleWatchdog()
+        }
+    }
+
+    private fun requestRestart(reason: String) {
+        if (restarting || !settingsProvider().enabled) return
+        restarting = true
+        Log.w(Tag, "restarting camera switch runtime: $reason")
+        sendStatus("restarting", force = true)
+        controlHandler.post {
+            if (!settingsProvider().enabled) {
+                restarting = false
+                return@post
+            }
+            stop()
+            controlHandler.postDelayed({ start() }, RestartDelayMs)
+        }
+    }
+
+    private fun safeClose(image: Image) {
+        try {
+            image.close()
+        } catch (_: Exception) {
+            // Image may already be closed by a timeout path.
+        }
+    }
+
+    private fun sendStatus(state: String, force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastStatusSentAt < StatusIntervalMs) return
+        lastStatusSentAt = now
+        sink.onInput(
+            InputEvent(
+                intent = "cameraStatus",
+                source = activeSource,
+                detail = "state=$state"
+            )
+        )
+    }
+
     private fun Face.closedScore(): Double? {
         val values = listOfNotNull(leftEyeOpenProbability, rightEyeOpenProbability).map { it.toDouble() }
         if (values.isEmpty()) return null
@@ -242,8 +362,15 @@ class CameraSwitchInputAdapter(
     private companion object {
         const val MlKitRotation = 270
         const val MlKitFrameIntervalMs = 90L
+        const val MlKitTimeoutMs = 1800L
+        const val WatchdogIntervalMs = 1000L
+        const val FrameStallRestartMs = 2500L
+        const val AnalysisStallRestartMs = 2500L
+        const val RestartDelayMs = 250L
+        const val StatusIntervalMs = 650L
         const val HardHoldTimeoutMs = 8000L
         const val CloseScore = 0.55
         const val OpenScore = 0.35
+        const val Tag = "ShineCameraSwitch"
     }
 }

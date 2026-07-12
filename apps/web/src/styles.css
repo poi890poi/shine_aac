@@ -95,7 +95,7 @@ textarea {
 
 .status-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 12px;
   align-items: center;
 }
@@ -114,6 +114,57 @@ body.demo-active .phase::after {
 .voice {
   font-size: 16px;
   font-weight: 800;
+}
+
+.camera-status {
+  min-width: 82px;
+  padding: 6px 10px;
+  border: 1px solid #9aa4ae;
+  border-radius: 999px;
+  background: #eef3f7;
+  color: #2b2f36;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.camera-status::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: #9aa4ae;
+}
+
+.camera-status-live::before,
+.camera-status-analysis::before {
+  background: #2f9e44;
+}
+
+.camera-status-blink {
+  border-color: #1f6f78;
+  background: #d8f3f1;
+}
+
+.camera-status-blink::before {
+  background: #1f6f78;
+}
+
+.camera-status-restarting::before,
+.camera-status-starting::before {
+  background: #f08c00;
+}
+
+.camera-status-stale {
+  border-color: #b77970;
+  background: #f4e4e1;
+}
+
+.camera-status-stale::before {
+  background: #c92a2a;
 }
 
 .config-button,
@@ -671,6 +722,12 @@ body.demo-active .phase::after {
 
   .voice {
     font-size: 15px;
+  }
+
+  .camera-status {
+    min-width: 74px;
+    padding: 5px 8px;
+    font-size: 12px;
   }
 
   .tile {

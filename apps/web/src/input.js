@@ -2,6 +2,7 @@ export const InputIntent = Object.freeze({
   Activate: "activate",
   HoldStart: "holdStart",
   HoldEnd: "holdEnd",
+  CameraStatus: "cameraStatus",
   Next: "next",
   Previous: "previous",
   Pause: "pause"
