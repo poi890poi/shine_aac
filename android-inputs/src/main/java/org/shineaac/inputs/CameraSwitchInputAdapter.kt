@@ -12,7 +12,6 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.Looper
 import android.util.Log
 import android.util.Size
 import android.view.Surface
@@ -34,13 +33,15 @@ class CameraSwitchInputAdapter(
     private var handler: Handler? = null
     private var detector: FaceDetector? = null
     private var tonePlayer: CameraSwitchTonePlayer? = null
-    private val controlHandler = Handler(Looper.getMainLooper())
     private val analysisSize = Size(320, 240)
     private var mlKitInFlight = false
     private var lastFrameAt = 0L
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
+    private var pendingClosedStartedAt = 0L
+    private var closedFrameCount = 0
+    private var openFrameCount = 0
     private var closedStartedAt = 0L
     private var closed = false
     private var holdCuePlayed = false
@@ -51,7 +52,6 @@ class CameraSwitchInputAdapter(
     private var activeSource = "android-camera-long-blink"
     private var generation = 0
     private var watchdogScheduled = false
-    private var restarting = false
 
     @SuppressLint("MissingPermission")
     override fun start() {
@@ -115,7 +115,7 @@ class CameraSwitchInputAdapter(
                 Log.w(Tag, "camera error $error")
                 camera.close()
                 cameraDevice = null
-                requestRestart("cameraError=$error")
+                sendStatus("stale", force = true)
             }
         }, handler)
         scheduleWatchdog()
@@ -123,9 +123,8 @@ class CameraSwitchInputAdapter(
 
     override fun stop() {
         generation += 1
-        controlHandler.removeCallbacksAndMessages(null)
         watchdogScheduled = false
-        restarting = false
+        handler?.removeCallbacksAndMessages(null)
         session?.close()
         session = null
         cameraDevice?.close()
@@ -147,6 +146,9 @@ class CameraSwitchInputAdapter(
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
+        pendingClosedStartedAt = 0L
+        closedFrameCount = 0
+        openFrameCount = 0
         closed = false
         closedStartedAt = 0L
         holdCuePlayed = false
@@ -203,10 +205,8 @@ class CameraSwitchInputAdapter(
         val analysisGeneration = generation
         handler?.postDelayed({
             if (analysisGeneration == generation && mlKitInFlight) {
-                Log.w(Tag, "ML Kit frame timeout; clearing in-flight analysis")
-                mlKitInFlight = false
-                safeClose(image)
-                requestRestart("mlKitTimeout")
+                Log.w(Tag, "ML Kit frame timeout; marking detector stale")
+                sendStatus("stale", force = true)
             }
         }, MlKitTimeoutMs)
         activeDetector.process(InputImage.fromMediaImage(image, MlKitRotation))
@@ -234,22 +234,27 @@ class CameraSwitchInputAdapter(
     private fun updateBlinkState(score: Double, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
         if (holdTimedOutAwaitOpen) {
-            if (score <= OpenScore) {
+            if (stableOpen(score)) {
                 holdTimedOutAwaitOpen = false
+                resetBlinkQualification()
             }
             return
         }
         if (activatedAwaitOpen) {
-            if (score <= OpenScore) {
+            if (stableOpen(score)) {
                 activatedAwaitOpen = false
+                resetBlinkQualification()
             }
             return
         }
-        if (!closed && score >= CloseScore) {
-            closed = true
-            closedStartedAt = now
-            holdCuePlayed = false
-            sendHoldStart(settings.source)
+        if (!closed) {
+            if (stableClosed(score, now)) {
+                closed = true
+                closedStartedAt = pendingClosedStartedAt
+                holdCuePlayed = false
+                openFrameCount = 0
+                sendHoldStart(settings.source)
+            }
             return
         }
         if (closed && !holdCuePlayed && now - closedStartedAt >= settings.longBlinkMs) {
@@ -275,11 +280,43 @@ class CameraSwitchInputAdapter(
             return
         }
         if (closed && score <= OpenScore) {
-            val duration = now - closedStartedAt
-            closed = false
-            holdCuePlayed = false
-            sendHoldEnd(settings.source, "closedMs=$duration")
+            if (stableOpen(score)) {
+                val duration = now - closedStartedAt
+                closed = false
+                holdCuePlayed = false
+                resetBlinkQualification()
+                sendHoldEnd(settings.source, "closedMs=$duration")
+            }
+        } else {
+            openFrameCount = 0
         }
+    }
+
+    private fun stableClosed(score: Double, now: Long): Boolean {
+        if (score < CloseScore) {
+            resetBlinkQualification()
+            return false
+        }
+        if (closedFrameCount == 0) {
+            pendingClosedStartedAt = now
+        }
+        closedFrameCount += 1
+        return closedFrameCount >= RequiredClosedFrames
+    }
+
+    private fun stableOpen(score: Double): Boolean {
+        if (score > OpenScore) {
+            openFrameCount = 0
+            return false
+        }
+        openFrameCount += 1
+        return openFrameCount >= RequiredOpenFrames
+    }
+
+    private fun resetBlinkQualification() {
+        pendingClosedStartedAt = 0L
+        closedFrameCount = 0
+        openFrameCount = 0
     }
 
     private fun sendHoldStart(source: String) {
@@ -299,9 +336,10 @@ class CameraSwitchInputAdapter(
     }
 
     private fun scheduleWatchdog() {
+        val activeHandler = handler ?: return
         if (watchdogScheduled) return
         watchdogScheduled = true
-        controlHandler.postDelayed(::runWatchdog, WatchdogIntervalMs)
+        activeHandler.postDelayed(::runWatchdog, WatchdogIntervalMs)
     }
 
     private fun runWatchdog() {
@@ -311,25 +349,11 @@ class CameraSwitchInputAdapter(
         val noImagesForMs = now - lastImageReceivedAt
         val noCompletedAnalysisForMs = now - lastAnalysisCompletedAt
         when {
-            noImagesForMs >= FrameStallRestartMs -> requestRestart("frameStallMs=$noImagesForMs")
-            noCompletedAnalysisForMs >= AnalysisStallRestartMs -> requestRestart("analysisStallMs=$noCompletedAnalysisForMs")
+            noImagesForMs >= FrameStallMs -> sendStatus("stale", force = true)
+            noCompletedAnalysisForMs >= AnalysisStallMs -> sendStatus("stale", force = true)
             else -> scheduleWatchdog()
         }
-    }
-
-    private fun requestRestart(reason: String) {
-        if (restarting || !settingsProvider().enabled) return
-        restarting = true
-        Log.w(Tag, "restarting camera switch runtime: $reason")
-        sendStatus("restarting", force = true)
-        controlHandler.post {
-            if (!settingsProvider().enabled) {
-                restarting = false
-                return@post
-            }
-            stop()
-            controlHandler.postDelayed({ start() }, RestartDelayMs)
-        }
+        if (settingsProvider().enabled && cameraDevice != null) scheduleWatchdog()
     }
 
     private fun safeClose(image: Image) {
@@ -361,16 +385,17 @@ class CameraSwitchInputAdapter(
 
     private companion object {
         const val MlKitRotation = 270
-        const val MlKitFrameIntervalMs = 90L
-        const val MlKitTimeoutMs = 1800L
+        const val MlKitFrameIntervalMs = 120L
+        const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L
-        const val FrameStallRestartMs = 2500L
-        const val AnalysisStallRestartMs = 2500L
-        const val RestartDelayMs = 250L
+        const val FrameStallMs = 3500L
+        const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
         const val HardHoldTimeoutMs = 8000L
-        const val CloseScore = 0.55
-        const val OpenScore = 0.35
+        const val CloseScore = 0.78
+        const val OpenScore = 0.28
+        const val RequiredClosedFrames = 2
+        const val RequiredOpenFrames = 2
         const val Tag = "ShineCameraSwitch"
     }
 }
