@@ -24,6 +24,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Range
 import android.util.Size
 import android.view.Gravity
 import android.view.Surface
@@ -44,7 +45,7 @@ import kotlin.math.min
 import kotlin.math.roundToLong
 
 class CameraSwitchCalibrationActivity : Activity() {
-    private val analysisSize = Size(320, 240)
+    private val analysisSize = Size(480, 360)
     private var textureView: TextureView? = null
     private var overlayView: FaceOverlayView? = null
     private var statusView: TextView? = null
@@ -54,6 +55,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var startButton: Button? = null
     private var testButton: Button? = null
     private var cameraDevice: CameraDevice? = null
+    private var cameraOpening = false
+    private var cameraOpenGeneration = 0
     private var session: CameraCaptureSession? = null
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
@@ -198,7 +201,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             setPadding(0, dp(12), 0, dp(4))
         }
         feedbackView = TextView(this).apply {
-            text = "Tones: start = mid tone, short blink = high chirp, hold reached = low tone, long accepted = rising two-tone."
+            text = "Box: green = eyes usable, amber = face only. Tones: start = mid tone, short blink = high chirp, hold reached = low tone, long accepted = rising two-tone."
             setTextColor(Color.rgb(183, 196, 210))
             textSize = 14f
             setPadding(0, 0, 0, dp(10))
@@ -548,9 +551,11 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     @SuppressLint("MissingPermission")
     private fun startCamera() {
-        if (cameraDevice != null || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
+        if (cameraDevice != null || cameraOpening || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
         val texture = textureView?.surfaceTexture ?: return
         texture.setDefaultBufferSize(640, 480)
+        val openGeneration = ++cameraOpenGeneration
+        cameraOpening = true
         cameraThread = HandlerThread("ShineCameraCalibration").also { it.start() }
         cameraHandler = Handler(cameraThread!!.looper)
         reader = ImageReader.newInstance(
@@ -569,34 +574,60 @@ class CameraSwitchCalibrationActivity : Activity() {
         val cameraId = manager.cameraIdList.firstOrNull { id ->
             manager.getCameraCharacteristics(id)
                 .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-        } ?: return
-        manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                cameraDevice = camera
-                createCameraSession(camera, Surface(texture), reader?.surface ?: return)
-            }
+        } ?: run {
+            cameraOpening = false
+            stopCamera()
+            runOnUiThread { statusView?.text = "Front camera unavailable." }
+            return
+        }
+        val fpsRange = targetFpsRange(manager, cameraId)
+        try {
+            manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    cameraOpening = false
+                    if (openGeneration != cameraOpenGeneration) {
+                        camera.close()
+                        return
+                    }
+                    cameraDevice = camera
+                    createCameraSession(camera, Surface(texture), reader?.surface ?: return, fpsRange)
+                }
 
-            override fun onDisconnected(camera: CameraDevice) {
-                camera.close()
-                cameraDevice = null
-            }
+                override fun onDisconnected(camera: CameraDevice) {
+                    cameraOpening = false
+                    camera.close()
+                    cameraDevice = null
+                }
 
-            override fun onError(camera: CameraDevice, error: Int) {
-                camera.close()
-                cameraDevice = null
-                runOnUiThread { statusView?.text = "Camera error $error" }
-            }
-        }, cameraHandler)
+                override fun onError(camera: CameraDevice, error: Int) {
+                    cameraOpening = false
+                    camera.close()
+                    cameraDevice = null
+                    runOnUiThread { statusView?.text = "Camera error $error" }
+                }
+            }, cameraHandler)
+        } catch (error: Exception) {
+            cameraOpening = false
+            stopCamera()
+            runOnUiThread { statusView?.text = "Camera setup failed: ${error.javaClass.simpleName}" }
+        }
     }
 
-    private fun createCameraSession(camera: CameraDevice, previewSurface: Surface, imageSurface: Surface) {
+    private fun createCameraSession(camera: CameraDevice, previewSurface: Surface, imageSurface: Surface, fpsRange: Range<Int>?) {
         val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
             addTarget(previewSurface)
             addTarget(imageSurface)
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            if (fpsRange != null) {
+                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+            }
         }
         camera.createCaptureSession(listOf(previewSurface, imageSurface), object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(captureSession: CameraCaptureSession) {
+                if (cameraDevice == null) {
+                    captureSession.close()
+                    return
+                }
                 session = captureSession
                 captureSession.setRepeatingRequest(request.build(), null, cameraHandler)
             }
@@ -608,6 +639,9 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun stopCamera() {
+        cameraOpenGeneration += 1
+        cameraOpening = false
+        cameraHandler?.removeCallbacksAndMessages(null)
         session?.close()
         session = null
         cameraDevice?.close()
@@ -618,6 +652,16 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraThread = null
         cameraHandler = null
         mlKitInFlight = false
+    }
+
+    private fun targetFpsRange(manager: CameraManager, cameraId: String): Range<Int>? {
+        val ranges = manager.getCameraCharacteristics(cameraId)
+            .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+            ?: return null
+        return ranges
+            .filter { it.upper <= MaxCameraFps && it.upper >= MinCameraFps }
+            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - TargetCameraFps) }.thenBy { it.lower })
+            ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
     private fun analyze(image: Image) {
@@ -641,7 +685,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                 if (score != null) collectCalibrationSample(score)
                 val previewBlink = score?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
                 mainHandler?.post {
-                    overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height)
+                    overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height, score != null)
                     when (previewBlink) {
                         PreviewBlink.Short -> {
                             playShortCue()
@@ -848,11 +892,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         private var face: Rect? = null
         private var frameWidth = 0
         private var frameHeight = 0
+        private var hasEyeSignal = false
 
-        fun setFace(nextFace: Rect?, width: Int, height: Int) {
+        fun setFace(nextFace: Rect?, width: Int, height: Int, nextHasEyeSignal: Boolean) {
             face = nextFace
             frameWidth = width
             frameHeight = height
+            hasEyeSignal = nextHasEyeSignal
             invalidate()
         }
 
@@ -865,10 +911,13 @@ class CameraSwitchCalibrationActivity : Activity() {
             val drawnHeight = frameHeight * scale
             val leftOffset = (width - drawnWidth) / 2f
             val topOffset = (height - drawnHeight) / 2f
+            paint.color = if (hasEyeSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
+            val mirroredLeft = frameWidth - box.right
+            val mirroredRight = frameWidth - box.left
             val rect = RectF(
-                leftOffset + box.left * scale,
+                leftOffset + mirroredLeft * scale,
                 topOffset + box.top * scale,
-                leftOffset + box.right * scale,
+                leftOffset + mirroredRight * scale,
                 topOffset + box.bottom * scale
             )
             canvas.drawRect(rect, paint)
@@ -884,7 +933,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
         const val MlKitRotation = 270
-        const val MlKitFrameIntervalMs = 90L
+        const val MlKitFrameIntervalMs = 200L
+        const val TargetCameraFps = 10
+        const val MinCameraFps = 5
+        const val MaxCameraFps = 15
         const val CloseScore = 0.55
         const val OpenScore = 0.35
         const val AfterSpeechPauseMs = 700L

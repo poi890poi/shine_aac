@@ -2,10 +2,15 @@ package org.shineaac.inputs
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.util.Range
 import android.util.Size
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -133,7 +138,7 @@ class CameraSwitchInputAdapter(
     private fun bindAnalysisUseCase(provider: ProcessCameraProvider, bindGeneration: Int) {
         val executor = analysisExecutor ?: return
         try {
-            val analysis = ImageAnalysis.Builder()
+            val builder = ImageAnalysis.Builder()
                 .setResolutionSelector(
                     ResolutionSelector.Builder()
                         .setResolutionStrategy(
@@ -145,6 +150,11 @@ class CameraSwitchInputAdapter(
                         .build()
                 )
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            targetFpsRange()?.let { range ->
+                Camera2Interop.Extender(builder)
+                    .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+            }
+            val analysis = builder
                 .build()
                 .also { useCase ->
                     useCase.setAnalyzer(executor) { imageProxy ->
@@ -164,6 +174,21 @@ class CameraSwitchInputAdapter(
             imageAnalysis = null
             sendStatus("cameraStale", force = true)
         }
+    }
+
+    private fun targetFpsRange(): Range<Int>? {
+        val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraId = manager.cameraIdList.firstOrNull { id ->
+            manager.getCameraCharacteristics(id)
+                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+        } ?: return null
+        val ranges = manager.getCameraCharacteristics(cameraId)
+            .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+            ?: return null
+        return ranges
+            .filter { it.upper <= MaxCameraFps && it.upper >= MinCameraFps }
+            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - TargetCameraFps) }.thenBy { it.lower })
+            ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
     private fun analyze(imageProxy: ImageProxy, imageGeneration: Int) {
@@ -327,6 +352,9 @@ class CameraSwitchInputAdapter(
     private companion object {
         const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 200L
+        const val TargetCameraFps = 10
+        const val MinCameraFps = 5
+        const val MaxCameraFps = 15
         const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L
         const val FrameStallMs = 3500L
