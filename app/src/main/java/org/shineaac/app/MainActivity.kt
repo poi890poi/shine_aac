@@ -9,12 +9,17 @@ import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.KeyEvent
+import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import org.shineaac.inputs.CameraSwitchCalibrationActivity
 import org.shineaac.inputs.CameraSwitchInputAdapter
 import org.shineaac.inputs.CameraSwitchPreferences
@@ -38,6 +43,7 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
@@ -59,7 +65,7 @@ class MainActivity : ComponentActivity() {
         }
 
         webView = shineWebView
-        setContentView(shineWebView)
+        setContentView(createInsetAwareWebViewHost(shineWebView))
 
         cameraSwitchInput = CameraSwitchInputAdapter(
             context = this,
@@ -71,6 +77,26 @@ class MainActivity : ComponentActivity() {
                 sendInputEvent(event)
             }
         )
+    }
+
+    private fun createInsetAwareWebViewHost(shineWebView: WebView): FrameLayout {
+        return FrameLayout(this).apply {
+            setBackgroundColor(android.graphics.Color.rgb(246, 244, 238))
+            addView(
+                shineWebView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val systemInsets = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                )
+                view.setPadding(systemInsets.left, systemInsets.top, systemInsets.right, systemInsets.bottom)
+                insets
+            }
+        }
     }
 
     override fun onBackPressed() {
@@ -298,6 +324,10 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val CameraPermissionRequestCode = 2403
         const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
+        const val CurrentConfigVersion = 18
+        const val DefaultScanIntervalMs = 1300f
+        const val DefaultTransitionPauseMs = 0f
+        const val DefaultFirstCellPauseMs = 1700f
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
         const val SwitchInputCameraLongBlink = "camera-long-blink"
