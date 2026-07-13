@@ -19,6 +19,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.Image
 import android.media.ImageReader
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -30,6 +31,9 @@ import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
+import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -106,6 +110,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         mainHandler = Handler(mainLooper)
         cueSet = CalibrationCueText.forProfile(intent.getStringExtra(ExtraProfileId) ?: "en-US")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
@@ -126,8 +131,37 @@ class CameraSwitchCalibrationActivity : Activity() {
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) configureTtsVoice()
         }
-        setContentView(createContentView())
+        setContentView(createInsetAwareContentHost(createContentView()))
         updateSavedCalibrationUi()
+    }
+
+    private fun createInsetAwareContentHost(content: View): FrameLayout {
+        return FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(19, 24, 31))
+            addView(
+                content,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            setOnApplyWindowInsetsListener { view, insets ->
+                val padding = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val systemInsets = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                    intArrayOf(systemInsets.left, systemInsets.top, systemInsets.right, systemInsets.bottom)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intArrayOf(
+                        insets.systemWindowInsetLeft,
+                        insets.systemWindowInsetTop,
+                        insets.systemWindowInsetRight,
+                        insets.systemWindowInsetBottom
+                    )
+                }
+                view.setPadding(padding[0], padding[1], padding[2], padding[3])
+                insets
+            }
+        }
     }
 
     override fun onResume() {
