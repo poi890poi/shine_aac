@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyOrientationPolicy()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         tts = TextToSpeech(this) { status ->
@@ -77,6 +79,14 @@ class MainActivity : ComponentActivity() {
                 sendInputEvent(event)
             }
         )
+    }
+
+    private fun applyOrientationPolicy() {
+        requestedOrientation = if (resources.configuration.smallestScreenWidthDp < TabletSmallestWidthDp) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
     }
 
     private fun createInsetAwareWebViewHost(shineWebView: WebView): FrameLayout {
@@ -328,6 +338,7 @@ class MainActivity : ComponentActivity() {
         const val DefaultScanIntervalMs = 1300f
         const val DefaultTransitionPauseMs = 0f
         const val DefaultFirstCellPauseMs = 1700f
+        const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
         const val SwitchInputCameraLongBlink = "camera-long-blink"

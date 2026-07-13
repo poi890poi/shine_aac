@@ -1,7 +1,7 @@
 # Device Compatibility Review
 
 Generated: 2026-07-13
-Commit reviewed: 77b5520
+Commit reviewed: pending post-c17f05f compatibility hardening
 Version reviewed: 0.2.34 (37)
 
 This review replaces the previous informal UX/design review gate for device behavior. The prior review missed foreseeable Android integration risks because it checked app logic, screenshots, and store assets, but did not require every Activity to be tested against system bars, screen timeout, lifecycle recreation, orientation, and tablet-class windows.
@@ -36,7 +36,7 @@ That made the review dependent on whichever phone condition happened to be teste
 
 | Activity | Module | User-visible in release app | Current status |
 | --- | --- | --- | --- |
-| `org.shineaac.app.MainActivity` | `app` | Yes | Insets handled, keep-awake enabled, portrait locked for phone release |
+| `org.shineaac.app.MainActivity` | `app` | Yes | Insets handled, keep-awake enabled, phone portrait policy only below 600dp |
 | `org.shineaac.inputs.CameraSwitchCalibrationActivity` | `android-inputs` | Yes, through Camera setup | Insets handled, keep-awake enabled |
 | `org.shineaac.blinktest.MainActivity` | `blinktest` | No, separate developer diagnostic app | Not release-gated |
 
@@ -48,11 +48,11 @@ That made the review dependent on whichever phone condition happened to be teste
 | DC-002 | Critical | Main AAC screen | Display timeout could interrupt active AAC use. | Fixed in `6e54589`; needs device confirmation | Verify screen remains awake for at least the device timeout period |
 | DC-003 | Critical | Camera setup | Native camera setup had the same system-control and timeout class of risk. | Fixed in `77b5520`; needs device confirmation | Open Camera setup on device and verify bottom controls remain reachable |
 | DC-004 | High | Rotation/recreation | Composed message was lost when Android recreated/reloaded the WebView. | Fixed in `066fc34`; browser E2E covers reload persistence | Verify on Android by rotating/locking/unlocking once a new APK is built |
-| DC-005 | High | Tablet/large screen | The app is currently phone-first and portrait locked. This is acceptable for internal phone testing, but not enough to claim tablet readiness. | Open | Add tablet emulator smoke: Pixel Tablet portrait and landscape, main board/config/input test/camera setup |
+| DC-005 | High | Tablet/large screen | The app was phone-first and manifest-locked to portrait. | Partially fixed | Manifest lock removed; phones are portrait-locked at runtime below 600dp, tablet-class screens can rotate. Still needs tablet emulator smoke for native runtime |
 | DC-006 | High | Future Android target SDK | `screenOrientation="portrait"` is a temporary phone release mitigation. Large-screen Android behavior can ignore orientation restrictions for newer target SDKs. | Open | Design and verify adaptive landscape/tablet layout before API 36/production tablet support |
 | DC-007 | High | Camera switch on tablet/landscape | Camera setup uses a fixed ML Kit rotation and preview/overlay assumptions. Tablet landscape and different sensor orientations are not proven. | Open | Verify and, if needed, derive image rotation from camera/display orientation before claiming camera switch tablet support |
-| DC-008 | Medium | Web viewport sizing | Web CSS uses `100vh` for the shell. Native insets now protect Android WebView, but browser/tablet viewport tests should include dynamic/short-height cases. | Open | Extend browser E2E with tablet portrait, tablet landscape, and short-height viewport fit assertions |
-| DC-009 | Medium | Config/input-test panels | Config and calibration panels are scrollable, but bottom action reachability under system UI needs direct device/emulator evidence. | Open | Capture screenshots with system controls visible |
+| DC-008 | Medium | Web viewport sizing | Web CSS used `100vh` for the shell and lacked tablet landscape coverage. | Fixed in web/E2E; needs device confirmation | Uses dynamic viewport units and tablet landscape split layout; browser E2E covers phone, tablet portrait, and tablet landscape overflow |
+| DC-009 | Medium | Config/input-test panels | Config and calibration panels are scrollable, but bottom action reachability under system UI needs direct device/emulator evidence. | Partially fixed | Browser E2E verifies config actions on tablet portrait/landscape; native system-bar confirmation still needs APK smoke |
 | DC-010 | Medium | Accessibility scaling | Large font/display-size behavior has not been reviewed. AAC users and helpers may use enlarged UI settings. | Open | Add manual Android smoke with increased font/display size |
 
 ## Release Decision
@@ -64,7 +64,7 @@ Internal phone testing may continue after a new APK build only if the tester che
 - screen stays awake
 - composed text survives rotation/reload/background
 
-Tablet support should not be claimed as verified yet. Because no physical tablet is available, tablet compatibility must be tested with an Android tablet emulator before wider release. Store tablet screenshots are not sufficient evidence; they prove visual marketing assets, not runtime compatibility with Android system UI, activity lifecycle, camera orientation, or resizable windows.
+Tablet support should not be claimed as fully verified yet. Browser viewport checks now cover tablet portrait and tablet landscape, and the manifest no longer locks tablet-class screens to portrait. Because no physical tablet is available, native Android tablet compatibility still needs Android tablet emulator smoke before wider release. Store tablet screenshots are not sufficient evidence; they prove visual marketing assets, not runtime compatibility with Android system UI, activity lifecycle, camera orientation, or resizable windows.
 
 ## Required Next Review Run
 

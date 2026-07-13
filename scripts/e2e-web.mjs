@@ -102,6 +102,7 @@ try {
   await scenarioInputCalibration();
   await scenarioDeveloperDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
+  await scenarioTabletViewportCompatibility();
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
   await scenarioZhTwLanguageSwitchReviewHold();
@@ -478,6 +479,53 @@ async function scenarioReviewHold() {
     localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
+  await waitForUi();
+}
+
+async function scenarioTabletViewportCompatibility() {
+  const viewports = [
+    { name: "tablet-portrait-layout", width: 800, height: 1280, deviceScaleFactor: 1.5 },
+    { name: "tablet-landscape-layout", width: 1280, height: 800, deviceScaleFactor: 1.5 }
+  ];
+
+  for (const viewport of viewports) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
+      width: viewport.width,
+      height: viewport.height,
+      deviceScaleFactor: viewport.deviceScaleFactor,
+      mobile: true
+    });
+    await evaluate(`
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+        profileId: "en-US",
+        columns: 4,
+        scanIntervalMs: ${BrowserSmokeScanMs},
+        transitionPauseMs: 0,
+        firstCellPauseMs: ${BrowserSmokeScanMs},
+        inputLatencyCompensationMs: 0
+      }));
+      localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+        rowScanVoice: false,
+        scanVoice: false,
+        activationVoice: false,
+        restartScanFromTop: true,
+        holdAfterSuggestionChange: false
+      }));
+      localStorage.removeItem("shine-aac-session-draft-v1");
+      location.reload();
+    `);
+    await waitForUi();
+    await assertNoViewportOverflow(viewport.name);
+    await assertConfigActionsVisible(viewport.name);
+  }
+
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 393,
+    height: 851,
+    deviceScaleFactor: 2.75,
+    mobile: true
+  });
+  await evaluate(`location.reload()`);
   await waitForUi();
 }
 
@@ -1059,6 +1107,29 @@ async function assertCalibrationActionsVisible() {
     })()
   `);
   if (!layout.visible) throw new Error(`Calibration actions are not visible: ${JSON.stringify(layout)}`);
+}
+
+async function assertConfigActionsVisible(name) {
+  await evaluate(`document.querySelector(".config-button")?.click()`);
+  const layout = await evaluate(`
+    (() => {
+      const panel = document.querySelector(".config-panel");
+      const actions = document.querySelector(".config-panel .config-actions");
+      if (!panel || !actions) throw new Error("config panel actions not found");
+      panel.scrollTop = panel.scrollHeight;
+      const rect = actions.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        height: rect.height,
+        innerHeight,
+        visible: rect.top >= 0 && rect.bottom <= innerHeight && rect.height > 0
+      };
+    })()
+  `);
+  await evaluate(`document.querySelector('[data-action="cancel"]')?.click()`);
+  if (!layout.visible) throw new Error(`${name} config actions are not visible: ${JSON.stringify(layout)}`);
+  steps.push(pass(`${name}-config-actions`, "config action bar remains reachable"));
 }
 
 async function isDemoActive() {
