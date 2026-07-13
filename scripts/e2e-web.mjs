@@ -86,6 +86,8 @@ try {
       restartScanFromTop: true,
       holdAfterSuggestionChange: false
     }));
+    localStorage.removeItem("shine-aac-text-history-v1");
+    localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
   await waitForUi();
@@ -148,6 +150,31 @@ async function scenarioPhraseAndUndo() {
   await selectLabel("FOOD", { rowIndex: 0 });
   await assertMessage("I want food ");
   steps.push(pass("undo-correction", "undid WATER and selected FOOD"));
+
+  const history = await evaluate(`
+    (() => {
+      const stored = JSON.parse(localStorage.getItem("shine-aac-text-history-v1") ?? "{}");
+      return {
+        version: stored.version,
+        entries: stored.entries ?? [],
+        exported: globalThis.ShineAacTextHistory.exportText()
+      };
+    })()
+  `);
+  if (history.version !== 1) throw new Error(`Text history version missing: ${JSON.stringify(history)}`);
+  if (history.entries.length < 3) throw new Error(`Text history did not capture message changes: ${JSON.stringify(history)}`);
+  if (!history.entries.some((entry) => entry.text === "I want water ")) {
+    throw new Error(`Text history missing composed phrase: ${JSON.stringify(history.entries)}`);
+  }
+  if (!history.exported.includes("I want food ")) {
+    throw new Error(`Text history export missing latest message: ${history.exported}`);
+  }
+  steps.push(pass("text-history", "saved local message snapshots and exported plain-text history"));
+
+  await evaluate(`location.reload()`);
+  await waitForUi();
+  await assertMessage("I want food ");
+  steps.push(pass("session-draft", "restored current composed message after reload"));
 }
 
 async function scenarioFirstColumnProgressTiming() {
@@ -405,6 +432,7 @@ async function scenarioReviewHold() {
       restartScanFromTop: true,
       holdAfterSuggestionChange: true
     }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
   await waitForUi();
@@ -447,6 +475,7 @@ async function scenarioReviewHold() {
       restartScanFromTop: true,
       holdAfterSuggestionChange: false
     }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
   await waitForUi();

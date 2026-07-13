@@ -32,9 +32,19 @@ const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
+const textHistoryStorageKey = "shine-aac-text-history-v1";
+const sessionDraftStorageKey = "shine-aac-session-draft-v1";
 const CameraStatusStaleMs = 2200;
+const TextHistoryVersion = 1;
+const TextHistoryMaxEntries = 1000;
+const TextHistoryMaxChars = 220000;
+const TextHistoryMaxStorageChars = 480000;
+const SessionDraftVersion = 1;
+const SessionDraftMaxHistoryEntries = 24;
+const SessionDraftMaxMessageChars = 10000;
 
-let session = createSession({ config: loadConfig() });
+const initialConfig = loadConfig();
+let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
 let uiConfig = loadUiConfig(uiStorageKey);
 let highlightStartedAt = performance.now();
 let highlightDeadlineAt = highlightStartedAt;
@@ -73,6 +83,11 @@ const demoMode = createDemoMode({
 
 globalThis.ShineAacInput = {
   receive: handleInputEvent
+};
+
+globalThis.ShineAacTextHistory = {
+  exportText: exportTextHistoryText,
+  record: () => recordTextHistory("manual", "manual")
 };
 
 function loadConfig() {
@@ -168,6 +183,186 @@ function saveConfig(config) {
   }));
 }
 
+function loadSessionDraft(config) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(sessionDraftStorageKey) ?? "null");
+    if (!stored || stored.version !== SessionDraftVersion) return {};
+    if (stored.profileId !== config.profileId) return {};
+    const message = sanitizeDraftText(stored.message);
+    const messageHistory = Array.isArray(stored.messageHistory)
+      ? stored.messageHistory
+        .filter((entry) => typeof entry === "string")
+        .map(sanitizeDraftText)
+        .slice(-SessionDraftMaxHistoryEntries)
+      : [];
+    return {
+      message,
+      messageHistory,
+      inputMode: typeof stored.inputMode === "string" ? stored.inputMode : "board",
+      activeCategory: typeof stored.activeCategory === "string" ? stored.activeCategory : null,
+      zhuyinBuffer: sanitizeDraftText(stored.zhuyinBuffer),
+      zhuyinStage: typeof stored.zhuyinStage === "string" ? stored.zhuyinStage : "initialGroup",
+      zhuyinGroup: typeof stored.zhuyinGroup === "string" ? stored.zhuyinGroup : null,
+      suggestionPage: Number.isInteger(stored.suggestionPage) ? stored.suggestionPage : 0
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveSessionDraft() {
+  try {
+    localStorage.setItem(sessionDraftStorageKey, JSON.stringify({
+      version: SessionDraftVersion,
+      profileId: session.config.profileId,
+      message: sanitizeDraftText(session.message),
+      messageHistory: session.messageHistory
+        .map(sanitizeDraftText)
+        .slice(-SessionDraftMaxHistoryEntries),
+      inputMode: session.inputMode,
+      activeCategory: session.activeCategory,
+      zhuyinBuffer: sanitizeDraftText(session.zhuyinBuffer),
+      zhuyinStage: session.zhuyinStage,
+      zhuyinGroup: session.zhuyinGroup,
+      suggestionPage: session.suggestionPage
+    }));
+  } catch {
+    // Draft persistence is best effort; communication must continue if storage is unavailable.
+  }
+}
+
+function clearSessionDraft() {
+  try {
+    localStorage.removeItem(sessionDraftStorageKey);
+  } catch {
+    // Storage may be unavailable.
+  }
+}
+
+function sanitizeDraftText(value) {
+  return String(value ?? "").slice(0, SessionDraftMaxMessageChars);
+}
+
+function loadTextHistory() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(textHistoryStorageKey) ?? "null");
+    if (!stored || !Array.isArray(stored.entries)) return [];
+    return stored.entries
+      .filter((entry) => typeof entry.text === "string" && entry.text.length > 0)
+      .map((entry) => ({
+        id: String(entry.id ?? ""),
+        at: String(entry.at ?? ""),
+        profileId: String(entry.profileId ?? ""),
+        source: String(entry.source ?? ""),
+        effect: String(entry.effect ?? ""),
+        text: String(entry.text)
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function saveTextHistory(entries) {
+  let pruned = pruneTextHistory(entries);
+  while (pruned.length > 0) {
+    try {
+      localStorage.setItem(textHistoryStorageKey, JSON.stringify({
+        version: TextHistoryVersion,
+        entries: pruned
+      }));
+      return pruned;
+    } catch {
+      pruned = pruned.slice(Math.max(1, Math.ceil(pruned.length * 0.1)));
+    }
+  }
+  try {
+    localStorage.removeItem(textHistoryStorageKey);
+  } catch {
+    // Storage may be unavailable; transcript persistence is best effort.
+  }
+  return [];
+}
+
+function pruneTextHistory(entries) {
+  let pruned = entries.slice(-TextHistoryMaxEntries);
+  while (totalTextHistoryChars(pruned) > TextHistoryMaxChars && pruned.length > 1) {
+    pruned = pruned.slice(1);
+  }
+  while (JSON.stringify({ version: TextHistoryVersion, entries: pruned }).length > TextHistoryMaxStorageChars && pruned.length > 1) {
+    pruned = pruned.slice(1);
+  }
+  return pruned;
+}
+
+function totalTextHistoryChars(entries) {
+  return entries.reduce((total, entry) => total + entry.text.length, 0);
+}
+
+function recordTextHistory(effect, source) {
+  const text = session.message;
+  if (!text || text.trim().length === 0) return;
+
+  const entries = loadTextHistory();
+  const last = entries.at(-1);
+  if (last?.text === text && last?.profileId === session.config.profileId) {
+    last.at = new Date().toISOString();
+    last.source = String(source ?? last.source ?? "");
+    last.effect = String(effect ?? last.effect ?? "");
+    saveTextHistory(entries);
+    return;
+  }
+
+  saveTextHistory([
+    ...entries,
+    {
+      id: `${Date.now()}-${entries.length}`,
+      at: new Date().toISOString(),
+      profileId: session.config.profileId,
+      source: String(source ?? ""),
+      effect: String(effect ?? ""),
+      text
+    }
+  ]);
+}
+
+function exportTextHistory() {
+  recordTextHistory("export", "config");
+  const text = exportTextHistoryText();
+  if (globalThis.ShineAacAndroid?.exportTextHistory) {
+    try {
+      globalThis.ShineAacAndroid.exportTextHistory(text);
+      return;
+    } catch {
+      // Fall back to browser download when the native bridge is unavailable.
+    }
+  }
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `saytome-aac-text-history-${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportTextHistoryText() {
+  const entries = loadTextHistory();
+  const lines = [
+    "SayToMe AAC Text History",
+    `Exported: ${new Date().toISOString()}`,
+    `Entries: ${entries.length}`,
+    ""
+  ];
+  for (const entry of entries) {
+    lines.push(`[${entry.at || "unknown time"}] profile=${entry.profileId || "unknown"} source=${entry.source || "unknown"} effect=${entry.effect || "unknown"}`);
+    lines.push(entry.text);
+    lines.push("");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 function resetClock() {
   highlightStartedAt = performance.now();
   lastScanAnnouncementKey = "";
@@ -226,6 +421,12 @@ function activateSwitch(inputEvent = {}) {
   session = uiConfig.restartScanFromTop && selection
     ? { ...nextSession, scannerState: { ...nextSession.scannerState, rowIndex: 0 } }
     : nextSession;
+  if (selection && !["none", "speak"].includes(selection.effect)) {
+    saveSessionDraft();
+  }
+  if (selection && ["message", "undo"].includes(selection.effect)) {
+    recordTextHistory(selection.effect, inputEvent.source ?? "switch");
+  }
   reviewHoldActive = shouldHoldForSuggestionReview(selection);
   resetClock();
   render();
@@ -936,6 +1137,7 @@ function renderConfig() {
     <div class="config-actions">
       <button class="secondary-button" type="button" data-action="reset">Reset</button>
       <button class="secondary-button" type="button" data-action="calibrate">Input test</button>
+      <button class="secondary-button" type="button" data-action="export-text">Export text</button>
       <button class="secondary-button" type="button" data-action="cancel">Cancel</button>
       <button class="primary-button" type="submit">Save</button>
     </div>
@@ -998,6 +1200,9 @@ function renderConfig() {
     if (action === "camera-calibration") {
       openCameraSwitchCalibration(String(form.elements.profileId.value || session.config.profileId || "en-US"));
     }
+    if (action === "export-text") {
+      exportTextHistory();
+    }
     if (action === "reset") {
       const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
       const config = createBoardConfig({ profileId });
@@ -1005,6 +1210,7 @@ function renderConfig() {
       uiConfig = normalizeUiConfig(defaultUiConfig);
       saveUiConfig(uiStorageKey, uiConfig);
       session = createSession({ config });
+      clearSessionDraft();
       closeConfig();
     }
   });
@@ -1037,6 +1243,7 @@ function renderConfig() {
     });
     saveUiConfig(uiStorageKey, uiConfig);
     session = createSession({ config });
+    clearSessionDraft();
     closeConfig();
   });
 
