@@ -3,115 +3,684 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>我想說 SayToMe AAC</title>
+  <meta name="description" content="我想說 SayToMe AAC 繁體中文操作說明：觸控、單一開關掃描、注音、語音、相機開關、設定與文字匯出。">
+  <title>操作說明｜我想說 SayToMe AAC</title>
   <style>
     :root {
       color-scheme: light;
-      --ink: #1f2933;
-      --muted: #52616f;
-      --line: #d9e2ec;
-      --paper: #f7f9fb;
-      --accent: #1f6f78;
+      --ink: #172027;
+      --muted: #53616c;
+      --line: #d4dce2;
+      --paper: #f4f6f7;
+      --teal: #1f747b;
+      --teal-dark: #15575d;
+      --teal-soft: #e7f3f3;
+      --amber: #9b6300;
+      --amber-soft: #fff4d6;
+      --red: #9b3d36;
+      --red-soft: #f9e9e6;
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
       color: var(--ink);
       background: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
       line-height: 1.65;
     }
-    main {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 32px 20px 48px;
-    }
-    header {
-      padding: 28px 0 22px;
-      border-bottom: 1px solid var(--line);
-    }
-    h1 {
-      margin: 0 0 10px;
-      font-size: 2rem;
-      line-height: 1.2;
-    }
-    h2 {
-      margin-top: 32px;
-      font-size: 1.25rem;
-    }
+
     a {
-      color: var(--accent);
+      color: var(--teal-dark);
+      text-underline-offset: 3px;
     }
-    .lead {
+
+    a:focus-visible,
+    summary:focus-visible {
+      outline: 3px solid #e5a000;
+      outline-offset: 3px;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 12px;
+      top: -80px;
+      z-index: 10;
+      padding: 10px 14px;
+      color: #fff;
+      background: var(--teal-dark);
+    }
+
+    .skip-link:focus {
+      top: 12px;
+    }
+
+    .site-header {
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .header-inner,
+    .section-inner,
+    .footer-inner {
+      width: min(1120px, calc(100% - 36px));
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      padding: 24px 0 20px;
+    }
+
+    .app-icon {
+      width: 78px;
+      height: 78px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0 0 5px;
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .quick-nav {
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+    }
+
+    .quick-nav .section-inner {
+      display: flex;
+      gap: 8px 20px;
+      flex-wrap: wrap;
+      padding: 11px 0;
+    }
+
+    .quick-nav a {
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .intro {
+      padding: 34px 0 28px;
+    }
+
+    .intro-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      gap: 42px;
+      align-items: start;
+    }
+
+    .intro h2,
+    .guide-section h2 {
+      margin: 0 0 12px;
+      font-size: clamp(1.45rem, 3vw, 1.9rem);
+    }
+
+    .intro p {
+      margin: 0;
       color: var(--muted);
       font-size: 1.08rem;
+    }
+
+    .start-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: steps;
+    }
+
+    .start-list li {
+      position: relative;
+      min-height: 42px;
+      padding-left: 54px;
+      counter-increment: steps;
+    }
+
+    .start-list li::before {
+      content: counter(steps);
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--teal);
+      font-weight: 800;
+    }
+
+    .guide-section {
+      border-top: 1px solid var(--line);
+      padding: 38px 0;
+    }
+
+    .guide-section.alt {
+      background: var(--paper);
+    }
+
+    .section-lead {
+      max-width: 72ch;
+      margin: -3px 0 24px;
+      color: var(--muted);
+    }
+
+    .instruction-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 390px);
+      gap: 46px;
+      align-items: start;
+    }
+
+    .instruction-grid.reverse {
+      grid-template-columns: minmax(260px, 390px) minmax(0, 1fr);
+    }
+
+    .steps h3,
+    .settings-copy h3 {
+      margin: 0 0 8px;
+      font-size: 1.16rem;
+    }
+
+    .steps ol,
+    .settings-copy ol {
+      margin: 0 0 24px;
+      padding-left: 1.4rem;
+    }
+
+    .steps li,
+    .settings-copy li {
+      margin-bottom: 9px;
+    }
+
+    figure {
       margin: 0;
     }
-    .notice {
-      background: var(--paper);
+
+    .phone-shot {
+      width: min(100%, 360px);
+      margin-inline: auto;
+      overflow: hidden;
+      border: 1px solid #aeb9c2;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(23, 32, 39, .12);
+    }
+
+    .phone-shot img {
+      width: 100%;
+      height: auto;
+    }
+
+    .phone-shot a {
+      display: block;
+    }
+
+    figcaption {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: .94rem;
+      text-align: center;
+    }
+
+    .image-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .callout {
+      margin: 20px 0 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .callout strong {
+      color: #724900;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .button-item {
+      min-width: 0;
+      padding: 14px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 16px 18px;
-      margin: 22px 0;
+      background: #fff;
     }
-    nav {
+
+    .button-item strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--teal-dark);
+      font-size: 1.08rem;
+    }
+
+    .button-item.command {
+      border-color: #dfb4ae;
+      background: var(--red-soft);
+    }
+
+    .button-item.command strong {
+      color: var(--red);
+    }
+
+    .settings-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 36px;
+      align-items: start;
+    }
+
+    .settings-copy {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 32px;
+    }
+
+    details {
+      border-top: 1px solid var(--line);
+      padding: 14px 0;
+    }
+
+    details:last-child {
+      border-bottom: 1px solid var(--line);
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    details p,
+    details ul {
+      margin-bottom: 0;
+    }
+
+    .safety {
+      border-top: 1px solid #e0b5af;
+      border-bottom: 1px solid #e0b5af;
+      background: #fff7f5;
+    }
+
+    .safety .section-inner {
+      padding: 22px 0;
+    }
+
+    .safety p {
+      margin: 0;
+    }
+
+    footer {
+      background: #172027;
+      color: #dce3e7;
+    }
+
+    .footer-inner {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
-      margin-top: 18px;
+      gap: 8px 24px;
+      justify-content: space-between;
+      padding: 24px 0 30px;
     }
-    ul {
-      padding-left: 1.3rem;
+
+    footer p {
+      margin: 0;
     }
-    footer {
-      margin-top: 36px;
-      padding-top: 18px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-      font-size: .95rem;
+
+    footer a {
+      color: #9edadd;
+    }
+
+    @media (max-width: 820px) {
+      .intro-grid,
+      .instruction-grid,
+      .instruction-grid.reverse,
+      .settings-layout,
+      .settings-copy {
+        grid-template-columns: 1fr;
+      }
+
+      .instruction-grid.reverse figure {
+        order: 2;
+      }
+
+      .button-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .settings-copy {
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .header-inner,
+      .section-inner,
+      .footer-inner {
+        width: min(100% - 24px, 1120px);
+      }
+
+      .header-inner {
+        gap: 12px;
+        padding-top: 18px;
+      }
+
+      .app-icon {
+        width: 60px;
+        height: 60px;
+      }
+
+      .quick-nav .section-inner {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px 5px;
+      }
+
+      .quick-nav a {
+        min-width: 0;
+        font-size: .9rem;
+        text-align: center;
+      }
+
+      .intro,
+      .guide-section {
+        padding: 28px 0;
+      }
+
+      .intro-grid,
+      .instruction-grid,
+      .settings-layout {
+        gap: 28px;
+      }
+
+      .image-pair {
+        gap: 10px;
+      }
+
+      figcaption {
+        font-size: .84rem;
+      }
     }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <h1>我想說 SayToMe AAC</h1>
-      <p class="lead">面向台灣繁體中文使用情境的早期 AAC 輔助溝通工具。</p>
-      <nav>
-        <a href="./privacy-policy/">隱私權政策</a>
-        <a href="./support/">支援與回饋</a>
-        <a href="https://github.com/poi890poi/shine_aac">GitHub 專案</a>
-      </nav>
-    </header>
+  <a class="skip-link" href="#main">跳到操作說明</a>
 
-    <section class="notice">
-      <strong>早期測試提醒：</strong>
-      我想說 SayToMe AAC 目前是早期開發中的溝通輔助工具。它不是醫療建議，不是完成的臨床產品，也不能取代專業 AAC 評估、語言治療、醫療照護或緊急溝通計畫。
+  <header class="site-header">
+    <div class="header-inner">
+      <img class="app-icon" src="./assets/saytome-aac-icon.png" alt="我想說 SayToMe AAC 應用程式圖示" width="512" height="512">
+      <div>
+        <h1>我想說 SayToMe AAC</h1>
+        <p class="subtitle">簡明操作說明｜繁體中文（台灣）</p>
+      </div>
+    </div>
+    <nav class="quick-nav" aria-label="本頁段落">
+      <div class="section-inner">
+        <a href="#start">快速開始</a>
+        <a href="#touch">觸控操作</a>
+        <a href="#switch">開關掃描</a>
+        <a href="#buttons">常用按鈕</a>
+        <a href="#settings">設定與相機</a>
+        <a href="#help">問題排除</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="intro" id="start">
+      <div class="section-inner intro-grid">
+        <div>
+          <h2>快速開始</h2>
+          <p>用觸控直接點選，或等待掃描框移動後用音量鍵、外接按鈕或眨眼選擇。已選文字會出現在畫面最上方。</p>
+        </div>
+        <ol class="start-list">
+          <li><strong>選擇內容：</strong>點選常用詞、注音或候選字詞。</li>
+          <li><strong>確認文字：</strong>查看畫面最上方的訊息欄。</li>
+          <li><strong>說出訊息：</strong>選擇「說」，由裝置朗讀完整訊息。</li>
+        </ol>
+      </div>
     </section>
 
-    <h2>用途</h2>
-    <p>
-      我想說 SayToMe AAC 目標是協助說話困難，或無法穩定使用語音的人，用較簡單的方式表達需求、感受、想法與選擇。
-      目前版本主要支援台灣繁體中文、注音輸入、候選字詞、語音輸出，以及單一開關掃描操作。
-    </p>
+    <section class="guide-section alt" id="touch">
+      <div class="section-inner">
+        <h2>觸控操作</h2>
+        <p class="section-lead">可以直接點選任何格子，不必等待掃描。常用需求在上方，注音在下方。</p>
+        <div class="instruction-grid">
+          <div class="steps">
+            <h3>輸入常用詞</h3>
+            <ol>
+              <li>直接點選「喝水」、「吃飯」、「廁所」、「休息」等常用詞。</li>
+              <li>文字會加入上方訊息欄；新候選字詞會顯示在最上面的格子。</li>
+              <li>要找下一頁候選詞時，選擇「更多」。</li>
+            </ol>
 
-    <h2>目前功能</h2>
-    <ul>
-      <li>繁體中文與注音輸入</li>
-      <li>單一開關列掃描與符號掃描</li>
-      <li>候選字詞、刪除、清除、復原與語音輸出</li>
-      <li>可調整掃描速度、語音與輸入設定</li>
-      <li>本機文字歷史儲存與匯出</li>
-      <li>選用的本機相機開關輸入，例如眨眼啟動</li>
-    </ul>
+            <h3>使用注音</h3>
+            <ol>
+              <li>依序點選注音符號。</li>
+              <li>從上方候選格選擇正確的字或詞。</li>
+              <li>需要輸入英文時，選擇「EN」。</li>
+            </ol>
+          </div>
+          <figure>
+            <div class="phone-shot">
+              <a href="./assets/guide-current.png" aria-label="開啟完整尺寸的主畫面圖片">
+                <img src="./assets/guide-current.png" alt="我想說 AAC 繁體中文主畫面，上方是訊息欄，中間是常用詞，下方是注音與說、刪、清除按鈕" width="1080" height="2400" loading="eager">
+              </a>
+            </div>
+            <figcaption>主畫面：訊息欄、常用詞、注音及修正按鈕。</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
 
-    <h2>English Summary</h2>
-    <p>
-      SayToMe AAC is an early-development augmentative and alternative communication app focused on Taiwan Traditional Chinese use. It is intended for supervised testing and feedback, not as a finished clinical product or emergency communication replacement.
-    </p>
+    <section class="guide-section" id="switch">
+      <div class="section-inner">
+        <h2>單一開關掃描</h2>
+        <p class="section-lead">適合使用音量鍵、外接按鈕或相機眨眼輸入。操作分成「選整列」和「選列內格子」兩步。</p>
+        <div class="instruction-grid reverse">
+          <figure>
+            <div class="image-pair">
+              <div>
+                <div class="phone-shot">
+                  <a href="./assets/guide-current.png" aria-label="開啟完整尺寸的逐列掃描圖片">
+                    <img src="./assets/guide-current.png" alt="青綠色框正在逐列掃描 AAC 格子" width="1080" height="2400" loading="lazy">
+                  </a>
+                </div>
+                <figcaption>1. 青綠色框逐列移動。</figcaption>
+              </div>
+              <div>
+                <div class="phone-shot">
+                  <a href="./assets/guide-symbol-current.png" aria-label="開啟完整尺寸的逐格掃描圖片">
+                    <img src="./assets/guide-symbol-current.png" alt="選定一列後，AAC 格子在列內逐格掃描" width="1080" height="2400" loading="lazy">
+                  </a>
+                </div>
+                <figcaption>2. 選定整列後，再選格子。</figcaption>
+              </div>
+            </div>
+          </figure>
+          <div class="steps">
+            <h3>每次選擇的步驟</h3>
+            <ol>
+              <li>等待青綠色框移到目標所在的整列。</li>
+              <li>按一次音量鍵或外接按鈕；使用相機輸入時，完成一次有效長眨眼。</li>
+              <li>掃描會改成在該列內逐格移動。</li>
+              <li>框移到目標格子時，再啟動一次。</li>
+            </ol>
 
-    <footer>
-      <p>Project: <a href="https://github.com/poi890poi/shine_aac">github.com/poi890poi/shine_aac</a></p>
-    </footer>
+            <h3>候選詞更新後</h3>
+            <p>如果啟用了 <strong>Hold after suggestion changes</strong>，候選詞更新後會暫停。先啟動一次恢復掃描，再依照上面的兩步選擇。</p>
+
+            <div class="callout">
+              <strong>音量鍵沒有作用？</strong><br>
+              到「Config」確認 <strong>Switch input</strong> 是 <strong>Phone/external buttons</strong>，並按「Save」。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-section alt" id="buttons">
+      <div class="section-inner">
+        <h2>常用按鈕</h2>
+        <p class="section-lead">這些按鈕不會加入一般文字，而是執行操作。</p>
+        <div class="button-grid">
+          <div class="button-item"><strong>說</strong>朗讀目前完整訊息。</div>
+          <div class="button-item command"><strong>刪</strong>刪除最後一個字或符號。</div>
+          <div class="button-item command"><strong>清除</strong>清空目前訊息。</div>
+          <div class="button-item command"><strong>復原</strong>回到上一次訊息狀態。</div>
+          <div class="button-item"><strong>更多</strong>顯示下一頁候選字詞。</div>
+          <div class="button-item"><strong>EN</strong>開啟英文輸入格。</div>
+          <div class="button-item"><strong>Audio／Silent</strong>切換掃描提示音。</div>
+          <div class="button-item"><strong>Config</strong>開啟設定、測試與匯出。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-section" id="settings">
+      <div class="section-inner">
+        <h2>設定、相機輸入與文字匯出</h2>
+        <p class="section-lead">在主畫面選擇「Config」。修改後要選擇「Save」，「Cancel」則放棄本次修改。</p>
+
+        <div class="settings-layout">
+          <figure>
+            <div class="phone-shot">
+              <a href="./assets/guide-config-current.png" aria-label="開啟完整尺寸的設定畫面圖片">
+                <img src="./assets/guide-config-current.png" alt="設定畫面包含語言、欄數、掃描速度、應用程式資訊、輸入測試、文字匯出與儲存" width="1080" height="2400" loading="lazy">
+              </a>
+            </div>
+            <figcaption>設定上半部與固定操作列。</figcaption>
+          </figure>
+          <figure>
+            <div class="phone-shot">
+              <a href="./assets/guide-input-current.png" aria-label="開啟完整尺寸的輸入方式設定圖片">
+                <img src="./assets/guide-input-current.png" alt="設定畫面的 Switch input 輸入方式和 Camera setup 相機設定按鈕" width="1080" height="2400" loading="lazy">
+              </a>
+            </div>
+            <figcaption>向下捲動可找到開關輸入與相機設定。</figcaption>
+          </figure>
+
+          <div class="settings-copy">
+            <div>
+              <h3>調整開關掃描</h3>
+              <ol>
+                <li>先用 <strong>Scan preset</strong> 選擇預設速度。</li>
+                <li>需要微調時，再改 <strong>Switch speed ms</strong>；數字越大，掃描越慢。</li>
+                <li>選擇 <strong>Input test</strong>，確認按鈕或感應輸入穩定。</li>
+                <li>選擇 <strong>Save</strong> 儲存。</li>
+              </ol>
+            </div>
+            <div>
+              <h3>設定相機眨眼輸入</h3>
+              <ol>
+                <li>在 <strong>Switch input</strong> 選擇相機長眨眼，或按鈕與相機並用。</li>
+                <li>選擇 <strong>Camera setup</strong> 並允許相機權限。</li>
+                <li>固定裝置位置，讓臉部和雙眼清楚出現在預覽中。</li>
+                <li>選擇 <strong>Start setup</strong>，再用 <strong>Test blink</strong> 測試。</li>
+                <li>確認穩定後選擇 <strong>Done</strong>，回設定頁按 <strong>Save</strong>。</li>
+              </ol>
+            </div>
+            <div>
+              <h3>文字紀錄與匯出</h3>
+              <p>訊息歷史只儲存在裝置內。選擇 <strong>Export text</strong> 後，再從 Android 分享選單選擇目的地。只有在你主動匯出時，文字才會交給所選的其他應用程式。</p>
+            </div>
+            <div>
+              <h3>版本與基本資訊</h3>
+              <p>選擇 <strong>App info</strong> 可查看目前版本、資料處理方式、隱私權政策與支援連結。回報問題時請一併提供版本號碼。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-section alt" id="help">
+      <div class="section-inner">
+        <h2>常見問題排除</h2>
+        <details>
+          <summary>按音量鍵只改變音量，沒有選擇格子</summary>
+          <p>開啟「Config」，把 <strong>Switch input</strong> 設為 <strong>Phone/external buttons</strong> 或按鈕與相機並用，然後選擇「Save」。</p>
+        </details>
+        <details>
+          <summary>沒有語音或掃描提示音</summary>
+          <ul>
+            <li>確認媒體音量不是零。</li>
+            <li>主畫面顯示「Silent」時，選擇它切回 Audio。</li>
+            <li>在 Config 檢查 Voice while scanning 和 Voice on activation。</li>
+          </ul>
+        </details>
+        <details>
+          <summary>相機找不到臉或眨眼不穩定</summary>
+          <ul>
+            <li>確認光線充足、鏡頭乾淨，臉部不要超出預覽。</li>
+            <li>固定手機或平板，不要手持晃動。</li>
+            <li>重新執行 Camera setup，調整長眨眼時間和相機縮放。</li>
+            <li>仍不穩定時，先改用實體按鈕或觸控。</li>
+          </ul>
+        </details>
+        <details>
+          <summary>回報問題時要提供什麼？</summary>
+          <p>請提供裝置型號、Android 版本、App info 中的版本號碼、操作方式、發生步驟，以及不含敏感文字的畫面截圖。請勿在公開頁面張貼個人或健康資訊。</p>
+        </details>
+      </div>
+    </section>
+
+    <aside class="safety" aria-label="使用提醒">
+      <div class="section-inner">
+        <p><strong>使用提醒：</strong>我想說 SayToMe AAC 目前是早期測試中的溝通輔助工具。它不能取代專業 AAC 評估、語言治療、醫療照護或可靠的緊急溝通方式。</p>
+      </div>
+    </aside>
   </main>
+
+  <footer>
+    <div class="footer-inner">
+      <p>我想說 SayToMe AAC</p>
+      <p>
+        <a href="./privacy-policy/">隱私權政策</a> ·
+        <a href="./support/">支援與回饋</a> ·
+        <a href="https://github.com/poi890poi/shine_aac">GitHub 專案</a>
+      </p>
+    </div>
+  </footer>
 </body>
 </html>
