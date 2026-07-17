@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="我想說 SayToMe AAC 繁體中文操作說明：單一開關掃描、AAC 訊息輸入、語音、相機開關、設定與文字匯出。">
+  <meta name="description" content="我想說 SayToMe AAC 繁體中文操作說明：全畫面觸碰開關、單一開關掃描、AAC 訊息輸入、語音、相機開關、設定與文字匯出。">
   <title>操作說明｜我想說 SayToMe AAC</title>
   <style>
     :root {
@@ -274,6 +274,10 @@
       color: #724900;
     }
 
+    .callout + h3 {
+      margin-top: 24px;
+    }
+
     .button-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -472,7 +476,7 @@
       <div class="section-inner intro-grid">
         <div>
           <h2>快速開始</h2>
-          <p>等待掃描框移動，再用音量鍵、外接按鈕或眨眼選擇 AAC 內容。已選文字會出現在畫面最上方，完成後可由裝置朗讀。</p>
+          <p>等待掃描框移動，再用單一開關確認目前的掃描項目。開關可以是觸碰溝通畫面任意位置、音量鍵、外接按鈕或眨眼。已選文字會出現在畫面最上方，完成後可由裝置朗讀。</p>
         </div>
         <ol class="start-list">
           <li><strong>選擇內容：</strong>使用掃描依序選擇常用詞、注音或候選字詞。</li>
@@ -485,7 +489,7 @@
     <section class="guide-section alt" id="switch">
       <div class="section-inner">
         <h2>單一開關掃描</h2>
-        <p class="section-lead">適合使用音量鍵、外接按鈕或相機眨眼輸入。操作分成「選整列」和「選列內格子」兩步。</p>
+        <p class="section-lead">可將整個溝通畫面當作大型觸碰開關，也可使用音量鍵、外接按鈕或相機眨眼。操作分成「選整列」和「選列內格子」兩步。</p>
         <div class="instruction-grid reverse">
           <figure>
             <div class="image-pair">
@@ -511,10 +515,15 @@
             <h3>每次選擇的步驟</h3>
             <ol>
               <li>等待青綠色框移到目標所在的整列。</li>
-              <li>按一次音量鍵或外接按鈕；使用相機輸入時，完成一次有效長眨眼。</li>
+              <li>觸碰溝通畫面任意位置、按一次音量鍵或外接按鈕；使用相機輸入時，完成一次有效長眨眼。</li>
               <li>掃描會改成在該列內逐格移動。</li>
               <li>框移到目標格子時，再啟動一次。</li>
             </ol>
+
+            <div class="callout">
+              <strong>觸碰畫面是「開關」，不是直接點選。</strong><br>
+              在 AAC 溝通主畫面，無論觸碰哪個位置，都只會啟動青綠色掃描框目前所在的列或格子，不會直接選擇手指下的內容。「Config」和設定頁面才是供協助者直接操作的控制項目。
+            </div>
 
             <h3>組合並說出 AAC 訊息</h3>
             <ol>
