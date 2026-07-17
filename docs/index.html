@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="我想說 SayToMe AAC 繁體中文操作說明：觸控、單一開關掃描、注音、語音、相機開關、設定與文字匯出。">
+  <meta name="description" content="我想說 SayToMe AAC 繁體中文操作說明：單一開關掃描、AAC 訊息輸入、語音、相機開關、設定與文字匯出。">
   <title>操作說明｜我想說 SayToMe AAC</title>
   <style>
     :root {
@@ -459,7 +459,6 @@
     <nav class="quick-nav" aria-label="本頁段落">
       <div class="section-inner">
         <a href="#start">快速開始</a>
-        <a href="#touch">觸控操作</a>
         <a href="#switch">開關掃描</a>
         <a href="#buttons">常用按鈕</a>
         <a href="#settings">設定與相機</a>
@@ -473,49 +472,17 @@
       <div class="section-inner intro-grid">
         <div>
           <h2>快速開始</h2>
-          <p>用觸控直接點選，或等待掃描框移動後用音量鍵、外接按鈕或眨眼選擇。已選文字會出現在畫面最上方。</p>
+          <p>等待掃描框移動，再用音量鍵、外接按鈕或眨眼選擇 AAC 內容。已選文字會出現在畫面最上方，完成後可由裝置朗讀。</p>
         </div>
         <ol class="start-list">
-          <li><strong>選擇內容：</strong>點選常用詞、注音或候選字詞。</li>
+          <li><strong>選擇內容：</strong>使用掃描依序選擇常用詞、注音或候選字詞。</li>
           <li><strong>確認文字：</strong>查看畫面最上方的訊息欄。</li>
           <li><strong>說出訊息：</strong>選擇「說」，由裝置朗讀完整訊息。</li>
         </ol>
       </div>
     </section>
 
-    <section class="guide-section alt" id="touch">
-      <div class="section-inner">
-        <h2>觸控操作</h2>
-        <p class="section-lead">可以直接點選任何格子，不必等待掃描。常用需求在上方，注音在下方。</p>
-        <div class="instruction-grid">
-          <div class="steps">
-            <h3>輸入常用詞</h3>
-            <ol>
-              <li>直接點選「喝水」、「吃飯」、「廁所」、「休息」等常用詞。</li>
-              <li>文字會加入上方訊息欄；新候選字詞會顯示在最上面的格子。</li>
-              <li>要找下一頁候選詞時，選擇「更多」。</li>
-            </ol>
-
-            <h3>使用注音</h3>
-            <ol>
-              <li>依序點選注音符號。</li>
-              <li>從上方候選格選擇正確的字或詞。</li>
-              <li>需要輸入英文時，選擇「EN」。</li>
-            </ol>
-          </div>
-          <figure>
-            <div class="phone-shot">
-              <a href="./assets/guide-current.png" aria-label="開啟完整尺寸的主畫面圖片">
-                <img src="./assets/guide-current.png" alt="我想說 AAC 繁體中文主畫面，上方是訊息欄，中間是常用詞，下方是注音與說、刪、清除按鈕" width="1080" height="2400" loading="eager">
-              </a>
-            </div>
-            <figcaption>主畫面：訊息欄、常用詞、注音及修正按鈕。</figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <section class="guide-section" id="switch">
+    <section class="guide-section alt" id="switch">
       <div class="section-inner">
         <h2>單一開關掃描</h2>
         <p class="section-lead">適合使用音量鍵、外接按鈕或相機眨眼輸入。操作分成「選整列」和「選列內格子」兩步。</p>
@@ -549,6 +516,14 @@
               <li>框移到目標格子時，再啟動一次。</li>
             </ol>
 
+            <h3>組合並說出 AAC 訊息</h3>
+            <ol>
+              <li>要快速表達需求時，掃描並選擇「喝水」、「吃飯」、「廁所」、「休息」等常用詞。</li>
+              <li>要輸入其他內容時，依序選擇注音，再從候選格選擇正確的字或詞；選擇「更多」可查看下一頁候選詞。</li>
+              <li>在畫面上方確認完整訊息。需要修正時，選擇「刪」、「清除」或「復原」。</li>
+              <li>訊息完成後選擇「說」，由裝置替使用者朗讀。</li>
+            </ol>
+
             <h3>候選詞更新後</h3>
             <p>如果啟用了 <strong>Hold after suggestion changes</strong>，候選詞更新後會暫停。先啟動一次恢復掃描，再依照上面的兩步選擇。</p>
 
@@ -561,7 +536,7 @@
       </div>
     </section>
 
-    <section class="guide-section alt" id="buttons">
+    <section class="guide-section" id="buttons">
       <div class="section-inner">
         <h2>常用按鈕</h2>
         <p class="section-lead">這些按鈕不會加入一般文字，而是執行操作。</p>
@@ -578,7 +553,7 @@
       </div>
     </section>
 
-    <section class="guide-section" id="settings">
+    <section class="guide-section alt" id="settings">
       <div class="section-inner">
         <h2>設定、相機輸入與文字匯出</h2>
         <p class="section-lead">在主畫面選擇「Config」。修改後要選擇「Save」，「Cancel」則放棄本次修改。</p>
@@ -634,7 +609,7 @@
       </div>
     </section>
 
-    <section class="guide-section alt" id="help">
+    <section class="guide-section" id="help">
       <div class="section-inner">
         <h2>常見問題排除</h2>
         <details>
@@ -655,7 +630,7 @@
             <li>確認光線充足、鏡頭乾淨，臉部不要超出預覽。</li>
             <li>固定手機或平板，不要手持晃動。</li>
             <li>重新執行 Camera setup，調整長眨眼時間和相機縮放。</li>
-            <li>仍不穩定時，先改用實體按鈕或觸控。</li>
+            <li>仍不穩定時，先改用實體按鈕。</li>
           </ul>
         </details>
         <details>
