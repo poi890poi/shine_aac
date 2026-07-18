@@ -131,6 +131,8 @@ Allowed fillers:
 
 - exact candidates for the current buffer
 - valid next Zhuyin symbols whose resulting prefix exists in source data
+- source-backed one-edit repair candidates when the complete buffer has no candidate or continuation path
+- contextual `重選` after two or more trailing Zhuyin symbols; it removes only that buffer and never clears committed text
 - bounded `更多` paging when more useful candidates exist
 - repair actions such as `UNDO` when the user has history
 
@@ -141,6 +143,10 @@ Not allowed:
 - broad parent-prefix candidates that replace a more specific buffer unless a separate general ranking rule justifies them
 
 If a very specific prefix has only one or two source-backed candidates, blank cells are better than misleading cells. The report still tracks these sparse pages so future ranking/data changes can improve them without adding special cases.
+
+A source-empty buffer is different from a sparse valid prefix. It is treated as a recoverable input error. Repairs may delete, substitute, transpose, or insert one Zhuyin symbol at any position, but the newest symbol position is ranked first because it is the most recent selection. Repair candidates must resolve to a Chewing-backed prefix, replace the complete erroneous buffer when committed, remain within the normal page bound, and never introduce unrelated global defaults.
+
+`重選` is a contextual composition-repair affordance, not a second full-message clear action. It is hidden for zero or one Zhuyin symbol, appears immediately after `復原` for longer buffers, and becomes especially valuable on sparse or source-empty suggestion pages. Its spoken label is `重選注音`; the static `清除` control retains the distinct meaning of clearing the complete message.
 
 ## Reports And Tests
 
@@ -154,6 +160,6 @@ Tests protect:
 - hidden continuation reachability
 - bounded top-entry blocked paths
 - progressive navigation through visible symbols or suggestions
-- no unrelated replacement backfill for source-empty finals
+- source-backed whole-buffer repair for source-empty input without unrelated global backfill
 
 These reports are intended to guide future ranking and layout changes. They are not product copy and should not be shown to AAC users.

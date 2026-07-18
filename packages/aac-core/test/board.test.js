@@ -566,6 +566,43 @@ test("zh-TW function labels are localized in runtime rows and persisted defaults
   assert.equal(serializedSymbols.includes("CLR=<clear>"), false);
 });
 
+test("zh-TW offers 重選 only for multi-symbol Zhuyin buffers", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const emptySuggestions = boardRows(config, "", false, {}).slice(0, 4).flat();
+  const singleSuggestions = boardRows(config, "ㄅ", true, {}).slice(0, 4).flat();
+  const multipleSuggestions = boardRows(config, "ㄅㄧ", true, {}).slice(0, 4).flat();
+
+  assert.equal(emptySuggestions.some((candidate) => candidate.action === TileAction.ZhuyinClear), false);
+  assert.equal(singleSuggestions.some((candidate) => candidate.action === TileAction.ZhuyinClear), false);
+  assert.deepEqual(multipleSuggestions.slice(0, 2).map((candidate) => candidate.label), ["復原", "重選"]);
+  assert.equal(speechLabelForTile(multipleSuggestions[1], "zh-TW"), "重選注音");
+});
+
+test("zh-TW 重選 removes only the trailing Zhuyin buffer and can be undone", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const message = "我想ㄅㄆㄅ";
+  const history = ["我想ㄅㄆ"];
+  const clearBuffer = findActionTile(boardRows(config, message, true, {}), "重選", TileAction.ZhuyinClear);
+  const cleared = applyTile(message, history, clearBuffer, config, {});
+
+  assert.equal(cleared.message, "我想");
+  assert.deepEqual(cleared.messageHistory, ["我想ㄅㄆ", message]);
+  assert.equal(cleared.effect, "message");
+  assert.equal(cleared.suggestionPage, 0);
+
+  const undo = findActionTile(boardRows(config, cleared.message, true, cleared), "復原", TileAction.Undo);
+  const restored = applyTile(cleared.message, cleared.messageHistory, undo, config, cleared);
+  assert.equal(restored.message, message);
+});
+
+test("zh-TW dead-end repair suggestions keep 重選 ahead of corrected candidates", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const suggestions = boardRows(config, "ㄅㄆㄅ", true, {}).slice(0, 4).flat();
+
+  assert.deepEqual(suggestions.slice(0, 2).map((candidate) => candidate.label), ["復原", "重選"]);
+  assert.equal(suggestions.some((candidate) => candidate.matchType === "repair"), true);
+});
+
 test("zh-TW MVP board with English MORE migrates away from static more control", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const oldMvpSymbols = [...config.symbols, tile("MORE", "MORE", TileAction.MoreSuggestions)];
@@ -1035,7 +1072,47 @@ test("zh-TW suggestion rows do not show unrelated replacement backfill for sourc
     .flat()
     .filter((candidate) => candidate.action === TileAction.CommitCandidate);
 
-  assert.deepEqual(replacements, []);
+  assert.ok(replacements.length > 0);
+  assert.equal(replacements.every((candidate) => candidate.matchType === "repair"), true);
+  assert.equal(replacements.every((candidate) => candidate.originalBuffer === "ㄝ"), true);
+  assert.equal(replacements.every((candidate) => candidate.replaceLength === 1), true);
+});
+
+test("zh-TW source-empty buffers offer whole-buffer repairs with the last symbol tried first", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const buffer = "ㄅㄆㄅ";
+  const repairs = suggestionTilesAcrossPages(config, buffer, true)
+    .filter((candidate) => candidate.action === TileAction.CommitCandidate);
+
+  assert.ok(repairs.length > 0);
+  assert.equal(repairs.every((candidate) => candidate.matchType === "repair"), true);
+  assert.equal(repairs.every((candidate) => candidate.originalBuffer === buffer), true);
+  assert.equal(repairs.every((candidate) => candidate.replaceLength === buffer.length), true);
+  assert.equal(repairs[0].repairIndex, buffer.length - 1);
+  assert.deepEqual(new Set(repairs.map((candidate) => candidate.repairIndex)), new Set([0, 1, 2]));
+  assert.equal(repairs.some((candidate) => candidate.repairKind === "substitute" && candidate.repairIndex === 0), true);
+});
+
+test("zh-TW repairs can discard an accidental last symbol and commit a corrected candidate", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const buffer = "ㄅㄚㄆ";
+  const rows = boardRows(config, buffer, true, {});
+  const candidate = findActionTile(rows, "把", TileAction.CommitCandidate);
+
+  assert.equal(candidate.matchType, "repair");
+  assert.equal(candidate.correctedKey, "ㄅㄚ");
+  assert.equal(candidate.repairKind, "delete");
+  assert.equal(candidate.repairIndex, 2);
+  assert.equal(applyTile(buffer, ["ㄅㄚ"], candidate, config, {}).message, "把");
+});
+
+test("zh-TW valid buffers keep exact suggestions without fuzzy repair candidates", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const candidates = suggestionTilesAcrossPages(config, "ㄅㄚ", true)
+    .filter((candidate) => candidate.action === TileAction.CommitCandidate);
+
+  assert.ok(candidates.length > 0);
+  assert.equal(candidates.some((candidate) => candidate.matchType === "repair"), false);
 });
 
 test("language profiles do not share mutable default arrays", () => {

@@ -141,7 +141,7 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
     if (candidate.action === TileAction.ZhuyinGroup || candidate.action === TileAction.ZhuyinSymbol) {
       return zhuyinSpeech(candidate.label || candidate.output);
     }
-    if (candidate.action === TileAction.ZhuyinClear) return "重選";
+    if (candidate.action === TileAction.ZhuyinClear) return "重選注音";
     if (candidate.action === TileAction.CommitCandidate) return candidate.output.trim() || candidate.label;
     if (candidate.action === TileAction.MoreSuggestions) return "更多";
     if (isZhuyinLabel(candidate.label || candidate.output)) return zhuyinSpeech(candidate.label || candidate.output);
@@ -1028,7 +1028,7 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
 function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const commandSuggestions = canUndo ? [zhTwUndoSuggestionTile] : [];
+  const commandSuggestions = zhTwCommandSuggestionTiles(message, canUndo);
   const allSuggestions = zhTwSuggestionTiles(message, dictionary, safeColumns);
   const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
@@ -1041,6 +1041,14 @@ function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, input
     : pageSuggestions;
 
   return chunk(padSuggestions(visibleSuggestions, pageSize), safeColumns);
+}
+
+function zhTwCommandSuggestionTiles(message, canUndo) {
+  const buffer = trailingZhuyinBuffer(message);
+  return [
+    ...(canUndo ? [zhTwUndoSuggestionTile] : []),
+    ...(buffer.length > 1 ? [zhuyinClearTile] : [])
+  ];
 }
 
 function zhTwSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary, columns = DefaultColumns) {
@@ -1076,6 +1084,9 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
     (candidate) => `${candidate.label}\u0000${candidate.output}`
   );
   const nextSymbols = zhTwNextSymbolTiles(buffer);
+  if (rankedCandidates.length === 0 && nextSymbols.length === 0) {
+    return zhTwRepairSuggestionTiles(buffer, columns);
+  }
   const immediateCandidateCount = zhTwImmediateCandidateCount(buffer, columns, nextSymbols.length);
   const firstPageNextSymbolCount = zhTwFirstPageNextSymbolCount(buffer, columns, nextSymbols.length, immediateCandidateCount);
   const firstPageNextSymbols = nextSymbols.slice(0, firstPageNextSymbolCount);
@@ -1103,6 +1114,133 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
     orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwRepairSuggestionTiles(buffer, columns) {
+  const safeColumns = clampInt(columns, 2, 8);
+  const repairs = zhTwRepairPrefixes(buffer)
+    .map((repair) => ({
+      ...repair,
+      candidates: distinctBy(
+        (ZhTwDictionaryByPrefix.get(repair.correctedKey) ?? [])
+          .map((entry) => zhTwRepairCandidateForBuffer(entry, buffer, repair))
+          .filter(Boolean)
+          .sort((left, right) => zhTwCandidateRankForBuffer(left, right, repair.correctedKey)),
+        (candidate) => `${candidate.label}\u0000${candidate.output}`
+      )
+    }))
+    .filter((repair) => repair.candidates.length > 0);
+  const repairsByDistance = new Map();
+  for (const repair of repairs) {
+    if (!repairsByDistance.has(repair.distanceFromEnd)) repairsByDistance.set(repair.distanceFromEnd, []);
+    repairsByDistance.get(repair.distanceFromEnd).push(repair);
+  }
+  const candidateGroups = [...repairsByDistance.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([, group]) => zhTwInterleaveRepairCandidates(group, safeColumns));
+  const pageSize = safeColumns * ZhTwSuggestionRowCount;
+  const maxRepairCandidates = Math.max(1, (pageSize - 1) * MaxZhTwSuggestionPages - 1);
+  const ordered = [];
+
+  for (let index = 0; ordered.length < maxRepairCandidates; index += 1) {
+    let added = false;
+    for (const group of candidateGroups) {
+      const candidate = group[index];
+      if (!candidate) continue;
+      added = true;
+      if (ordered.some((existing) => existing.label === candidate.label && existing.output === candidate.output)) continue;
+      ordered.push(candidate);
+      if (ordered.length >= maxRepairCandidates) break;
+    }
+    if (!added) break;
+  }
+
+  return ordered;
+}
+
+function zhTwInterleaveRepairCandidates(repairs, preferredCandidateCount) {
+  const orderedRepairs = repairs.slice().sort((left, right) =>
+    left.kindRank - right.kindRank ||
+    left.bestFrequencyRank - right.bestFrequencyRank ||
+    left.correctedKey.localeCompare(right.correctedKey)
+  );
+  const candidates = [];
+  for (const repair of orderedRepairs) {
+    candidates.push(...repair.candidates.slice(0, preferredCandidateCount));
+  }
+  for (let index = preferredCandidateCount; ; index += 1) {
+    let added = false;
+    for (const repair of orderedRepairs) {
+      const candidate = repair.candidates[index];
+      if (!candidate) continue;
+      candidates.push(candidate);
+      added = true;
+    }
+    if (!added) return candidates;
+  }
+}
+
+function zhTwRepairPrefixes(buffer) {
+  const repairsByKey = new Map();
+  const addRepair = (correctedKey, repairKind, repairIndex, kindRank) => {
+    if (!correctedKey || correctedKey === buffer || !ZhTwDictionaryByPrefix.has(correctedKey)) return;
+    const distanceFromEnd = Math.max(0, buffer.length - 1 - repairIndex);
+    const bestFrequencyRank = (ZhTwDictionaryByPrefix.get(correctedKey) ?? [])
+      .reduce((best, entry) => Math.min(best, entry.frequencyRank), Number.POSITIVE_INFINITY);
+    const repair = Object.freeze({
+      correctedKey,
+      repairKind,
+      repairIndex,
+      distanceFromEnd,
+      kindRank,
+      bestFrequencyRank
+    });
+    const existing = repairsByKey.get(correctedKey);
+    if (!existing || zhTwRepairPrefixRank(repair, existing) < 0) repairsByKey.set(correctedKey, repair);
+  };
+
+  for (let index = buffer.length - 1; index >= 0; index -= 1) {
+    addRepair(`${buffer.slice(0, index)}${buffer.slice(index + 1)}`, "delete", index, 0);
+    for (const symbol of ZhuyinInputSymbols) {
+      addRepair(`${buffer.slice(0, index)}${symbol}${buffer.slice(index + 1)}`, "substitute", index, 1);
+    }
+  }
+  for (let index = buffer.length - 2; index >= 0; index -= 1) {
+    addRepair(
+      `${buffer.slice(0, index)}${buffer.at(index + 1)}${buffer.at(index)}${buffer.slice(index + 2)}`,
+      "transpose",
+      index + 1,
+      2
+    );
+  }
+  for (let index = buffer.length; index >= 0; index -= 1) {
+    for (const symbol of ZhuyinInputSymbols) {
+      addRepair(`${buffer.slice(0, index)}${symbol}${buffer.slice(index)}`, "insert", Math.min(index, buffer.length - 1), 3);
+    }
+  }
+
+  return [...repairsByKey.values()].sort(zhTwRepairPrefixRank);
+}
+
+function zhTwRepairPrefixRank(left, right) {
+  return left.distanceFromEnd - right.distanceFromEnd ||
+    left.kindRank - right.kindRank ||
+    left.bestFrequencyRank - right.bestFrequencyRank ||
+    left.correctedKey.localeCompare(right.correctedKey);
+}
+
+function zhTwRepairCandidateForBuffer(entry, buffer, repair) {
+  const matchingKey = entryKeys(entry)
+    .filter((key) => key.startsWith(repair.correctedKey))
+    .sort((left, right) => left.length - right.length)[0];
+  if (!matchingKey) return null;
+  return Object.freeze({
+    ...zhTwCandidateTile(entry, buffer.length, matchingKey, "repair"),
+    originalBuffer: buffer,
+    correctedKey: repair.correctedKey,
+    repairKind: repair.repairKind,
+    repairIndex: repair.repairIndex
+  });
 }
 
 function zhTwImmediateCandidateCount(buffer, columns, nextSymbolCount = 0) {
@@ -1246,7 +1384,8 @@ function isHanCharacter(character) {
 function zhTwSuggestionPageCount(message, dictionary, columns, canUndo = false) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const count = zhTwSuggestionTiles(message, dictionary, safeColumns).length + (canUndo ? 1 : 0);
+  const count = zhTwSuggestionTiles(message, dictionary, safeColumns).length +
+    zhTwCommandSuggestionTiles(message, canUndo).length;
   return zhTwSuggestionPageCountForTotal(count, pageSize);
 }
 
@@ -1862,6 +2001,19 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     };
   }
   if (selectedTile.action === TileAction.ZhuyinClear) {
+    const directBuffer = trailingZhuyinBuffer(message);
+    if (directBuffer.length > 0) {
+      const nextMessage = message.slice(0, message.length - directBuffer.length);
+      return {
+        message: nextMessage,
+        messageHistory: [...messageHistory, message].slice(-24),
+        effect: "message",
+        inputMode: "board",
+        activeCategory: null,
+        suggestionPage: 0,
+        ...emptyZhuyinState()
+      };
+    }
     return {
       message,
       messageHistory,
