@@ -99,7 +99,7 @@ const demoScenarios = Object.freeze({
   })
 });
 
-export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHoldActive, receiveInput }) {
+export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHoldActive, receiveInput, resetSession }) {
   let active = false;
   let stopped = false;
   let runId = 0;
@@ -113,6 +113,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   function start(scenarioId) {
     const selectedScenarioId = scenarioId ?? (getSession().config.profileId === "zh-TW" ? "zh-tw-home" : "water");
     const scenario = demoScenarios[selectedScenarioId] ?? demoScenarios.water;
+    resetSession();
     const currentRunId = ++runId;
     active = true;
     stopped = false;

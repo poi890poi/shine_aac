@@ -741,20 +741,42 @@ async function scenarioDeveloperDemoMode() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
+      holdAfterSuggestionChange: false,
+      switchInputProfile: "camera-long-blink"
     }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
     location.href = ${JSON.stringify(appUrl)};
   `);
   await waitForUi();
+  await selectLabel("I", { rowIndex: 0 });
+  await assertMessage("I ");
+  let snapshot = await getSnapshot();
+  await clickTarget(snapshot.activeRow);
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "holdStart", source: "android-camera-long-blink" });
+  `);
+  await delay(80);
+  snapshot = await getSnapshot();
+  if (!snapshot.activeCell || snapshot.phase !== "Blink") {
+    throw new Error(`Demo reset precondition did not freeze cell scanning: ${JSON.stringify(snapshot)}`);
+  }
   await longPressSelector(".config-button", 2000);
   await waitForDemoActive();
-  await assertMessage("I need help ", 20000);
+  snapshot = await getSnapshot();
+  if (snapshot.message !== "") throw new Error(`Demo activation should clear the text area, got ${snapshot.message}`);
+  if (snapshot.phase !== "Rows" || snapshot.activeRow?.rowIndex !== 0 || snapshot.activeCell) {
+    throw new Error(`Demo activation should restart row scanning from the top: ${JSON.stringify(snapshot)}`);
+  }
+  if (snapshot.reviewHold || snapshot.cameraHold) throw new Error("Demo activation should release all scanning holds");
+  const storedDraft = await evaluate(`localStorage.getItem("shine-aac-session-draft-v1")`);
+  if (storedDraft !== null) throw new Error(`Demo activation should clear the saved draft, got ${storedDraft}`);
+  await assertMessage("I need help ", 30000);
   await delay(3000);
   if (!await isDemoActive()) throw new Error("Rich demo should remain active after the first utterance");
-  const snapshot = await getSnapshot();
+  snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
   await waitForDemoInactive();
-  steps.push(pass("demo-mode", "hidden Config long-press starts extended conversation demo and tap exits it"));
+  steps.push(pass("demo-mode", "activation clears the draft and holds, restarts top-row scanning, runs the demo, and tap exits it"));
 }
 
 async function scenarioZhTwHomeDemoMode() {

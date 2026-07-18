@@ -1,12 +1,13 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-18T04:34:38.258Z
+Generated: 2026-07-18T04:56:49.462Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5173/apps/web/ |
+| packaged-webview-build | PASS | built Android WebView assets with esbuild |
+| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW communication board |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
@@ -23,7 +24,7 @@ Result: PASS
 | review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
 | app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
-| demo-mode | PASS | hidden Config long-press starts extended conversation demo and tap exits it |
+| demo-mode | PASS | activation clears the draft and holds, restarts top-row scanning, runs the demo, and tap exits it |
 | pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
 | tablet-portrait-layout | PASS | fits 12 rows in 1280px viewport without scrolling |
 | tablet-portrait-layout-config-actions | PASS | config action bar remains reachable |

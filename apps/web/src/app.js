@@ -84,7 +84,8 @@ const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
   getSession: () => session,
   isReviewHoldActive: () => reviewHoldActive,
-  receiveInput: handleInputEvent
+  receiveInput: handleInputEvent,
+  resetSession: resetSessionForDemo
 });
 
 globalThis.ShineAacInput = {
@@ -409,6 +410,11 @@ function setSession(nextSession) {
   render();
   scheduleScan();
   announceCurrentScanTarget();
+}
+
+function resetSessionForDemo() {
+  clearSessionDraft();
+  setSession(createSession({ config: session.config }));
 }
 
 function handleInputEvent(inputEvent = {}) {
