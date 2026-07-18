@@ -11,17 +11,20 @@ Generated: 2026-07-18T20:59:36+08:00
 - Artifact: `shine-aac-v0.2.37-code40-debug.apk`
 - Size: 43,318,907 bytes
 - SHA-256: `9229b2557d34b63225fd2265d4ddaffb927d6b4ab602b9b45030c75340e84ec7`
+- Play Internal testing AAB: `shine-aac-v0.2.37-code40-release.aab`
+- AAB size: 21,815,396 bytes
+- AAB SHA-256: `940abb9cecb618dffe4a3057e69c37a4afe49b35c84ec99f3f38616a847b4aa9`
 
 ## Decision
 
-PASS for local owner/internal UX testing. The artifact is debug-signed and is not the signed Play Store AAB.
+PASS for Google Play Internal testing upload and subsequent owner/helper/user testing.
 
-Internal handoff is ready using these two local files:
+Upload this file to Play Console:
 
-- `.artifacts/releases/v0.2.37/shine-aac-v0.2.37-code40-debug.apk`
-- `.artifacts/releases/v0.2.37/SHA256SUMS.txt`
+- `.artifacts/releases/v0.2.37/shine-aac-v0.2.37-code40-release.aab`
+- `.artifacts/releases/v0.2.37/PLAY_AAB_SHA256SUMS.txt`
 
-The source tag is `v0.2.37`. GitHub Release publication is unavailable and is not a gate for this internal debug test.
+The debug APK remains separate runtime-test evidence and must not be uploaded to Google Play. Confirm in Play Console that version code 40 is unused before uploading the AAB.
 
 ## Changes Since 0.2.36
 
@@ -53,6 +56,7 @@ The source tag is `v0.2.37`. GitHub Release publication is unavailable and is no
 | Android hardware input | PASS | entered `I want water ` through volume-key switch input |
 | Native draft persistence | PASS | draft survived forced process stop and restart |
 | Packaged zh-TW render | PASS | direct Zhuyin first layer and `更多` rendered after restart |
+| Signed Play AAB | PASS | `bundleRelease`; upload-key signature, required bundle entries, byte identity, and SHA-256 verified |
 
 ## Emulator Infrastructure Note
 
@@ -75,6 +79,6 @@ After recovery, the complete combined APK flow passed in one run in 135.7 second
 
 - Physical Samsung/device-owner/helper UX review.
 - Real-person camera and Mandarin TTS validation.
-- Signed AAB and Play Store readiness; not required for this internal debug candidate.
+- Play Console owner upload, tester assignment, and Internal testing rollout.
 
-GitHub CI publication remains an infrastructure limitation, not an unresolved product-test result.
+GitHub CI publication is unrelated to the Google Play Internal testing upload.

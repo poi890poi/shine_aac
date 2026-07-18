@@ -77,7 +77,7 @@ That made the review dependent on whichever phone condition happened to be teste
 
 ## Release Decision
 
-The code-40 debug APK passed current automated and emulator pre-release checks and may proceed to owner/internal UX testing. The physical-device checklist still includes:
+The code-40 debug APK passed automated and emulator runtime checks. The corresponding signed code-40 AAB is the Google Play Internal testing upload artifact. The physical-device checklist for testers still includes:
 
 - main board bottom row clear of system controls
 - camera setup controls clear of system controls

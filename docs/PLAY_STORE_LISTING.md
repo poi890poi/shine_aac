@@ -8,8 +8,8 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說 SayToMe AAC`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current source candidate: `v0.2.35`, Android version code `38`
-- Final Play upload candidate should be rebuilt after UX review and final pre-release verification.
+- Current source candidate: `v0.2.37`, Android version code `40`
+- Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing
 
@@ -46,10 +46,10 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 早期測試版本 主要給台灣繁體中文使用者與協助者試用。
 
-- 新增乾淨背景的我想說吉祥物圖示
-- 準備 Google Play 內部測試用 AAB
-- 加入繁體中文 注音掃描 候選建議與設定畫面的商店截圖
-- 保留 zh-TW 使用中偶爾輸入英文的 EN 入口
+- 改善注音輸入錯誤的容忍與整組修正建議
+- 多符號注音輸入加入重選 並保留已輸入的訊息文字
+- 依候選數量調整候選字與後續注音配置
+- 開始示範模式前會重設訊息與掃描狀態
 - 這仍是早期開發版本 不能作為唯一或緊急溝通方式
 
 ### Screenshot Captions
@@ -96,4 +96,4 @@ Please keep another reliable communication method available during testing, espe
 - Phone screenshots: `store-assets/screenshots/phone/*.png`
 - Screenshot source captures: `store-assets/screenshots/source/*.jpg`
 - Screenshot cleanup script: `scripts/clean-store-screenshots.ps1`
-- Signed Play AAB: `app/build/outputs/bundle/release/app-release.aab`
+- Signed Play AAB: `.artifacts/releases/v0.2.37/shine-aac-v0.2.37-code40-release.aab`

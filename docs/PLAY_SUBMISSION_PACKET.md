@@ -6,15 +6,16 @@ This packet is the review checklist for the first Google Play internal testing s
 
 - Track: Internal testing first
 - Package id: `org.shineaac.app`
-- Current source version: `0.2.35`
-- Current source version code: `38`
-- Final upload version, Git commit, Git tag, and hashes must be regenerated after UX review and final release packaging.
-- Signed AAB: `app/build/outputs/bundle/release/app-release.aab`
-- Signed AAB SHA-256: regenerate with the final AAB before upload.
+- Current source version: `0.2.37`
+- Current source version code: `40`
+- Source tag: `v0.2.37`
+- Signed AAB: `.artifacts/releases/v0.2.37/shine-aac-v0.2.37-code40-release.aab`
+- Signed AAB SHA-256: `940abb9cecb618dffe4a3057e69c37a4afe49b35c84ec99f3f38616a847b4aa9`
+- AAB checksum file: `.artifacts/releases/v0.2.37/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload the debug APK to Google Play. Use a signed release AAB generated after the final UX review changes are accepted.
+Do not upload the debug APK to Google Play. Upload the versioned signed release AAB above, after confirming version code 40 is unused in Play Console.
 
 ## Store Listing
 
@@ -33,10 +34,10 @@ Use this for internal testing:
 ```text
 早期測試版本 主要給台灣繁體中文使用者與協助者試用。
 
-- 新增乾淨背景的我想說吉祥物圖示
-- 準備 Google Play 內部測試用 AAB
-- 加入繁體中文 注音掃描 候選建議與設定畫面的商店截圖
-- 保留 zh-TW 使用中偶爾輸入英文的 EN 入口
+- 改善注音輸入錯誤的容忍與整組修正建議
+- 多符號注音輸入加入重選 並保留已輸入的訊息文字
+- 依候選數量調整候選字與後續注音配置
+- 開始示範模式前會重設訊息與掃描狀態
 - 這仍是早期開發版本 不能作為唯一或緊急溝通方式
 ```
 
@@ -125,15 +126,14 @@ SayToMe AAC / 我想說 is an early development communication support tool. It i
 
 ## Verification To Refresh Before Upload
 
-- Complete owner UX review on the current candidate.
-- Fix only release-blocking UX issues.
+- Confirm in Play Console that version code 40 has not already been used.
 - Rerun the full pre-release verification gate.
 - Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 - Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.
 
 Known caveat:
 
-- Real-device UX verification is required for this internal testing submission, especially scan timing, speech output, text history/export, and optional camera switch setup.
+- Use the Internal testing rollout for real-device UX verification, especially scan timing, speech output, text history/export, and optional camera switch setup. Complete that review before promotion to a broader track.
 
 ## Owner-Side Tasks In Play Console
 

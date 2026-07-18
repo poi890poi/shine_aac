@@ -16,10 +16,10 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Source and packaged browser E2E | PASS | 31 steps in each run |
 | Android APK lifecycle | PASS | packaged demo, hardware input, native draft, forced process recreation, zh-TW render |
 | APK package | PASS | `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Internal artifact handoff | PASS | versioned local APK plus adjacent `SHA256SUMS.txt`; GitHub publication is not a gate |
+| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.37-code40-release.aab`; checksum and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
-The local APK is approved for owner/internal UX testing, not production or Google Play upload. Hand off the exact versioned APK together with its adjacent checksum file through the approved internal channel. GitHub Release publication is currently unavailable and does not block this internal test.
+The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
 
 ## 2026-07-18 0.2.37 Candidate
 
@@ -30,6 +30,7 @@ The local APK is approved for owner/internal UX testing, not production or Googl
 - Android lint: PASS, 0 errors; existing warnings remain documented.
 - Exact APK runtime: PASS on a rebuilt API 34 test AVD, including packaged demo, hardware keys, persistence, and zh-TW render.
 - Artifact metadata, v2 signature, ZIP alignment, installed version, byte identity, and SHA-256: PASS.
+- Signed Play AAB: PASS; 21,815,396 bytes, JAR signature and required bundle entries verified, SHA-256 `940abb9cecb618dffe4a3057e69c37a4afe49b35c84ec99f3f38616a847b4aa9`.
 
 ## 2026-07-15 Large-text Compatibility Rerun
 
@@ -42,4 +43,4 @@ The local APK is approved for owner/internal UX testing, not production or Googl
 - Live emulated front camera: PASS with aspect-correct 3:4 portrait and 4:3 landscape preview.
 - Narrow-phone controls: PASS; preview remains fixed while actions remain reachable in the independent scroll pane.
 
-These fixes are included in the versioned 0.2.37 code-40 artifact. Older versioned APKs remain historical builds and do not contain the current Zhuyin and evaluator changes.
+These fixes are included in the versioned 0.2.37 code-40 AAB and debug APK. Older versioned artifacts remain historical builds and do not contain the current Zhuyin and evaluator changes.

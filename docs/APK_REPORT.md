@@ -1,4 +1,4 @@
-# SHINE AAC APK Report
+# SHINE AAC Side-load APK Report
 
 Generated: 2026-07-18T20:59:36+08:00
 
@@ -17,8 +17,8 @@ Generated: 2026-07-18T20:59:36+08:00
 - Installation: exact artifact installed successfully on an API 34 emulator
 - Runtime smoke: packaged demo, hardware-key composition, native draft recreation, and zh-TW rendering passed
 - Source tag: `https://github.com/poi890poi/shine_aac/tree/v0.2.37`
-- Internal handoff: use the local versioned APK and adjacent `SHA256SUMS.txt`; GitHub Release publication is unavailable and is not an internal-test gate
+- Purpose: emulator/device side-load runtime verification; this is not the Google Play Internal testing upload
 
-This APK is for owner/internal UX testing. It is not the signed release AAB used by Google Play.
+Do not upload this APK to Google Play. The Internal testing upload is the signed AAB recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 Full verification details: `docs/PRE_RELEASE_TEST_REPORT_0.2.37.md`.
