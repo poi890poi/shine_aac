@@ -26,7 +26,7 @@ v0.3.0
 
 Avoid new milestone-style tags such as `zh-tw-mvp-v1`. Put milestone notes in release notes instead.
 
-Pushing a `vX.Y.Z` tag runs CI and publishes a GitHub Release with the versioned APK attached.
+Pushing a `vX.Y.Z` tag starts the GitHub release workflow. Treat its publication as best-effort infrastructure, not as the gate for an internal debug test.
 
 ## APK Files
 
@@ -50,10 +50,10 @@ This creates ignored local artifacts:
 .artifacts\releases\v0.2.35\RELEASE_NOTES.md
 ```
 
-When `docs\releases\vX.Y.Z.md` exists, packaging copies it into the artifact directory and tagged-release CI uses it as the GitHub Release notes. Otherwise the package script creates a minimal fallback note.
+When `docs\releases\vX.Y.Z.md` exists, packaging copies it into the artifact directory and tagged-release CI can use it as the GitHub Release notes. Otherwise the package script creates a minimal fallback note.
 
 Do not share `app-debug.apk` directly. It is an intermediate build output and is overwritten on every build.
-Do not commit APK, AAB, or ZIP files. Tagged release CI builds the APK from the tagged source and uploads it directly to GitHub Releases.
+Do not commit APK, AAB, or ZIP files. For internal testing, share the exact versioned APK together with the adjacent `SHA256SUMS.txt` through the approved internal channel. If tagged CI succeeds, it can additionally publish equivalent release assets on GitHub.
 
 ## Google Play AAB
 
@@ -81,7 +81,8 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
 4. Run `npm run test:web:e2e` and `npm run test:web:packaged`.
 5. Run `.\package-release.bat -SdkDir E:\Android\Sdk`.
 6. Create tag `vX.Y.Z` on the exact commit.
-7. Push the tag. GitHub Actions rebuilds from that exact tag and publishes the versioned APK plus `SHA256SUMS.txt`.
+7. Hand off the versioned APK and `SHA256SUMS.txt` through the approved internal channel.
+8. Push the tag. GitHub Actions may additionally rebuild and publish release assets, but CI publication is not required for internal testing.
 
 ```powershell
 git tag v0.2.35

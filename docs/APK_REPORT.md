@@ -16,9 +16,8 @@ Generated: 2026-07-18T20:59:36+08:00
 - ZIP alignment: verified
 - Installation: exact artifact installed successfully on an API 34 emulator
 - Runtime smoke: packaged demo, hardware-key composition, native draft recreation, and zh-TW rendering passed
-- Release page: `https://github.com/poi890poi/shine_aac/releases/tag/v0.2.37` (pending tag publication)
-- APK URL: `https://github.com/poi890poi/shine_aac/releases/download/v0.2.37/shine-aac-v0.2.37-code40-debug.apk` (pending CI publication)
-- Checksum URL: `https://github.com/poi890poi/shine_aac/releases/download/v0.2.37/SHA256SUMS.txt` (pending CI publication)
+- Source tag: `https://github.com/poi890poi/shine_aac/tree/v0.2.37`
+- Internal handoff: use the local versioned APK and adjacent `SHA256SUMS.txt`; GitHub Release publication is unavailable and is not an internal-test gate
 
 This APK is for owner/internal UX testing. It is not the signed release AAB used by Google Play.
 
