@@ -1,20 +1,23 @@
 # SHINE AAC APK Report
 
-Generated: 2026-07-17T20:16:00+08:00
+Generated: 2026-07-18T20:59:36+08:00
 
 ## Artifact
 
-- File: `shine-aac-v0.2.36-code39-debug.apk`
-- Local path: `.artifacts/releases/v0.2.36/shine-aac-v0.2.36-code39-debug.apk`
-- Size: 43,316,963 bytes
-- SHA-256: `4b0ae1a502bf8615fd2ef60b8ad9aba6571c01d7a4b2692df852b92b281dd845`
+- Tested source commit: `b48860b35c3a3517988b7f703c3953268713671a`
+- File: `shine-aac-v0.2.37-code40-debug.apk`
+- Local path: `.artifacts/releases/v0.2.37/shine-aac-v0.2.37-code40-debug.apk`
+- Size: 43,318,907 bytes
+- SHA-256: `9229b2557d34b63225fd2265d4ddaffb927d6b4ab602b9b45030c75340e84ec7`
 - Package: `org.shineaac.app`
-- Version: 0.2.36 (39)
+- Version: 0.2.37 (40)
 - SDK: min 25, target 35, compile 35
 - Signature: Android debug certificate, APK Signature Scheme v2 verified
 - ZIP alignment: verified
 - Installation: exact artifact installed successfully on an API 34 emulator
+- Runtime smoke: packaged demo, hardware-key composition, native draft recreation, and zh-TW rendering passed
+- Stable download URL: OPEN; required before tester handoff
 
 This APK is for owner/internal UX testing. It is not the signed release AAB used by Google Play.
 
-Full verification details: `docs/PRE_RELEASE_TEST_REPORT_0.2.36.md`.
+Full verification details: `docs/PRE_RELEASE_TEST_REPORT_0.2.37.md`.

@@ -1,8 +1,14 @@
 # Device Compatibility Review
 
-Generated: 2026-07-14
-Commit reviewed: `3ac103c` plus current uncommitted candidate changes
-Version reviewed: 0.2.35 (38)
+Generated: 2026-07-18
+Current automated candidate commit: `b48860b35c3a3517988b7f703c3953268713671a`
+Current automated candidate version: 0.2.37 (40)
+
+## 0.2.37 Automated Candidate Rerun
+
+Source and packaged browser viewport checks passed for phone portrait, tablet portrait, tablet landscape, and large text. The exact code-40 APK passed install, packaged demo activation, hardware-key composition, native draft recreation, and zh-TW render checks on the dedicated API 34 emulator after its unhealthy saved state was wiped and rebuilt.
+
+This rerun does not close the physical Samsung, real-person camera, Mandarin TTS, or human AAC UX items below.
 
 ## 0.2.35 Pre-release Rerun
 
@@ -71,7 +77,7 @@ That made the review dependent on whichever phone condition happened to be teste
 
 ## Release Decision
 
-The code-38 debug APK passed automated and emulator pre-release checks and may proceed to owner/internal UX testing. The physical-device checklist still includes:
+The code-40 debug APK passed current automated and emulator pre-release checks and may proceed to owner/internal UX testing. The physical-device checklist still includes:
 
 - main board bottom row clear of system controls
 - camera setup controls clear of system controls
