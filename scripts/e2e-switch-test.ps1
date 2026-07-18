@@ -91,7 +91,7 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="16" />
+    <int name="configVersion" value="18" />
     <string name="profileId">en-US</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
@@ -117,7 +117,7 @@ function Write-ZhTwTestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="16" />
+    <int name="configVersion" value="18" />
     <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
@@ -147,14 +147,42 @@ function Get-E2ELog {
     }
 }
 
+function Dismiss-SystemAnrDialogIfPresent {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $windowState = (& $script:adb shell dumpsys window) -join "`n"
+        if ($LASTEXITCODE -ne 0) {
+            return $false
+        }
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($windowState -notmatch 'mCurrentFocus=.*Application Not Responding: (com\.google\.android\.apps\.nexuslauncher|system|android)') {
+        return $false
+    }
+
+    Invoke-AdbQuiet shell input keyevent KEYCODE_DPAD_DOWN
+    Invoke-AdbQuiet shell input keyevent KEYCODE_ENTER
+    Write-Host "dismissed emulator system ANR dialog with Wait"
+    Start-Sleep -Milliseconds 750
+    return $true
+}
+
 function Wait-E2EReady([int]$TimeoutMs = 30000) {
     $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
     while ((Get-Date) -lt $deadline) {
         $logText = (Get-E2ELog) -join "`n"
         if ($logText -match 'SHINE_AAC_E2E_STATE' -and
             $logText -match '"stage":"Rows"' -and
             $logText -match '"WANT"') {
             return
+        }
+        if ((Get-Date) -ge $nextSystemDialogCheck) {
+            $null = Dismiss-SystemAnrDialogIfPresent
+            $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
         }
         Start-Sleep -Milliseconds 500
     }
@@ -165,6 +193,7 @@ function Wait-E2EReady([int]$TimeoutMs = 30000) {
 function Wait-RenderState([string]$Description, [string[]]$Patterns, [int]$TimeoutMs = 30000) {
     Invoke-AdbQuiet logcat -c
     $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
     while ((Get-Date) -lt $deadline) {
         $logText = (Get-E2ELog) -join "`n"
         $matched = $true
@@ -177,6 +206,10 @@ function Wait-RenderState([string]$Description, [string[]]$Patterns, [int]$Timeo
         if ($matched) {
             return
         }
+        if ((Get-Date) -ge $nextSystemDialogCheck) {
+            $null = Dismiss-SystemAnrDialogIfPresent
+            $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
+        }
         Start-Sleep -Milliseconds 50
     }
 
@@ -188,10 +221,15 @@ function Wait-RenderState([string]$Description, [string[]]$Patterns, [int]$Timeo
 function Wait-LoggedMessage([string]$ExpectedMessage, [int]$TimeoutMs = 10000) {
     $needle = '"message":"' + ($ExpectedMessage -replace '\\', '\\' -replace '"', '\"') + '"'
     $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
     while ((Get-Date) -lt $deadline) {
         $logText = (Get-E2ELog) -join "`n"
         if ($logText.Contains($needle)) {
             return
+        }
+        if ((Get-Date) -ge $nextSystemDialogCheck) {
+            $null = Dismiss-SystemAnrDialogIfPresent
+            $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
         }
         Start-Sleep -Milliseconds 300
     }
@@ -219,6 +257,7 @@ function Get-ScreenSize {
 }
 
 function LongPress-ConfigButton {
+    $null = Dismiss-SystemAnrDialogIfPresent
     $size = Get-ScreenSize
     $x = [int]($size[0] * 0.82)
     $y = [int]($size[1] * 0.17)
@@ -227,13 +266,16 @@ function LongPress-ConfigButton {
 }
 
 function Select-SuggestionCell([int]$CellIndex, [string]$ExpectedLabel) {
+    $null = Dismiss-SystemAnrDialogIfPresent
     Wait-RenderState "suggestion row for $ExpectedLabel" @('"stage":"Rows"', '"rowIndex":0')
     Switch-Activate "suggestion row for $ExpectedLabel"
 
     if ($CellIndex -eq 0) {
+        $null = Dismiss-SystemAnrDialogIfPresent
         Wait-RenderState "suggestion cell 0 ($ExpectedLabel)" @('"rowIndex":0', '"cellIndex":0')
         Start-Sleep -Milliseconds 300
     } else {
+        $null = Dismiss-SystemAnrDialogIfPresent
         Wait-RenderState "suggestion cell $CellIndex ($ExpectedLabel)" @('"stage":"Cells"', '"rowIndex":0', ('"cellIndex":' + $CellIndex))
         Start-Sleep -Milliseconds 300
     }
