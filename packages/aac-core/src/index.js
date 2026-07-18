@@ -1087,7 +1087,19 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
   if (rankedCandidates.length === 0 && nextSymbols.length === 0) {
     return zhTwRepairSuggestionTiles(buffer, columns);
   }
-  const immediateCandidateCount = zhTwImmediateCandidateCount(buffer, columns, nextSymbols.length);
+  const exactCandidateCount = rankedCandidates
+    .filter((candidate) => candidate.zhuyinKey.length === buffer.length)
+    .length;
+  const priorityNextSymbolCount = nextSymbols
+    .filter((candidate) => !ZhuyinInitialSymbolSet.has(candidate.output))
+    .length;
+  const immediateCandidateCount = zhTwImmediateCandidateCount(
+    buffer,
+    columns,
+    nextSymbols.length,
+    exactCandidateCount,
+    priorityNextSymbolCount
+  );
   const firstPageNextSymbolCount = zhTwFirstPageNextSymbolCount(buffer, columns, nextSymbols.length, immediateCandidateCount);
   const firstPageNextSymbols = nextSymbols.slice(0, firstPageNextSymbolCount);
   const overflowNextSymbols = nextSymbols.slice(firstPageNextSymbolCount);
@@ -1243,9 +1255,20 @@ function zhTwRepairCandidateForBuffer(entry, buffer, repair) {
   });
 }
 
-function zhTwImmediateCandidateCount(buffer, columns, nextSymbolCount = 0) {
+function zhTwImmediateCandidateCount(
+  buffer,
+  columns,
+  nextSymbolCount = 0,
+  exactCandidateCount = 0,
+  priorityNextSymbolCount = nextSymbolCount
+) {
   const safeColumns = clampInt(columns, 2, 8);
-  const preferredCount = safeColumns * zhTwPreferredCandidateRowsBeforeNextSymbols(buffer);
+  const preferredCount = zhTwPreferredCandidateCountBeforeNextSymbols(
+    buffer,
+    safeColumns,
+    exactCandidateCount,
+    priorityNextSymbolCount
+  );
   if (!zhTwNeedsPhoneticContinuationSpace(buffer)) return preferredCount;
 
   const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
@@ -1291,8 +1314,25 @@ function zhTwNextSymbolTiles(buffer) {
   return orderedSymbols.map((symbol) => tile(symbol, symbol, TileAction.Append));
 }
 
-function zhTwPreferredCandidateRowsBeforeNextSymbols(buffer) {
-  return 2;
+function zhTwPreferredCandidateCountBeforeNextSymbols(
+  buffer,
+  columns,
+  exactCandidateCount,
+  priorityNextSymbolCount
+) {
+  const establishedCount = columns * 2;
+  if (buffer.length <= 1) return establishedCount;
+  const firstPageUsableCount = columns * ZhTwSuggestionRowCount - 1;
+  // Multi-symbol buffers always show 重選 and may also show 復原, so reserve both command slots.
+  const availableWithCommandsAndContinuations = firstPageUsableCount - 2 - priorityNextSymbolCount;
+  if (
+    exactCandidateCount >= columns * 3 &&
+    availableWithCommandsAndContinuations >= establishedCount + 2
+  ) {
+    return establishedCount + 2;
+  }
+  if (exactCandidateCount < columns) return Math.max(columns, establishedCount - 2);
+  return establishedCount;
 }
 
 function zhTwMinimumCandidateCountBeforeNextSymbols(buffer, columns) {

@@ -691,6 +691,30 @@ test("zh-TW initial-only suggestions prioritize reachable phonetic continuations
   assert.equal(candidates.some((candidate) => candidate.action === TileAction.CommitCandidate), true);
 });
 
+test("zh-TW multi-symbol suggestions adapt candidate space to exact-match ambiguity", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const candidateCountBeforeContinuation = (buffer) => {
+    const suggestions = boardRows(config, buffer, false, {}).slice(0, 4).flat();
+    const firstContinuationIndex = suggestions.findIndex((candidate) => candidate.action === TileAction.Append);
+    return suggestions
+      .slice(0, firstContinuationIndex)
+      .filter((candidate) => candidate.action === TileAction.CommitCandidate)
+      .length;
+  };
+
+  assert.equal(candidateCountBeforeContinuation("ㄅ"), 8, "single-symbol allocation should remain established");
+  assert.equal(candidateCountBeforeContinuation("ㄧㄡ"), 8, "dense input should not displace six continuations");
+  assert.equal(candidateCountBeforeContinuation("ㄩㄝ"), 10, "dense exact matches should use otherwise free first-page slots");
+  assert.equal(candidateCountBeforeContinuation("ㄒㄧㄣㄨ"), 6, "sparse exact matches should gain two continuation slots");
+  assert.deepEqual(
+    boardRows(config, "ㄩㄝ", true, {}).slice(0, 4).flat()
+      .filter((candidate) => candidate.action === TileAction.Append)
+      .map((candidate) => candidate.output),
+    ["ㄨ", "ㄧ", "ㄩ"],
+    "dense allocation should preserve every priority continuation when undo is visible"
+  );
+});
+
 test("zh-TW phrase-initial shortcuts such as ㄅㄧ suggest 不要", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const rows = boardRows(config, "ㄅㄧ", false, {});
