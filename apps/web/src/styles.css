@@ -8,6 +8,8 @@
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 @supports (height: 100dvh) {
@@ -171,14 +173,16 @@ body.demo-active .phase::after {
 
 .camera-status-stale,
 .camera-status-detectorStale,
-.camera-status-cameraStale {
+.camera-status-cameraStale,
+.camera-status-permissionDenied {
   border-color: #b77970;
   background: #f4e4e1;
 }
 
 .camera-status-stale::before,
 .camera-status-detectorStale::before,
-.camera-status-cameraStale::before {
+.camera-status-cameraStale::before,
+.camera-status-permissionDenied::before {
   background: #c92a2a;
 }
 
@@ -267,13 +271,15 @@ body.demo-active .phase::after {
 
 .tile.active-row {
   border-color: #1f7a8c;
-  border-width: 4px;
+  outline: 3px solid #1f7a8c;
+  outline-offset: -4px;
   background: #9bc1bc;
 }
 
 .tile.active-cell {
   border-color: #111111;
-  border-width: 4px;
+  outline: 3px solid #111111;
+  outline-offset: -4px;
   background: #f4d35e;
 }
 
@@ -318,15 +324,8 @@ body.demo-active .phase::after {
   line-height: 1.08;
   white-space: normal;
   overflow-wrap: anywhere;
+  word-break: break-word;
   overflow: hidden;
-}
-
-.tile.small .tile-label {
-  font-size: 20px;
-}
-
-.tile.tiny .tile-label {
-  font-size: 16px;
 }
 
 .board.dense-board,
@@ -345,13 +344,6 @@ body.demo-active .phase::after {
   line-height: 1;
 }
 
-.board.dense-board .tile.small .tile-label {
-  font-size: 15px;
-}
-
-.board.dense-board .tile.tiny .tile-label {
-  font-size: 12px;
-}
 
 .config-backdrop {
   position: fixed;
@@ -381,6 +373,79 @@ body.demo-active .phase::after {
 .config-panel h1 {
   margin: 0 0 14px;
   font-size: 26px;
+}
+
+.info-panel {
+  width: min(760px, 100%);
+}
+
+.info-header {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d3d9df;
+}
+
+.info-header h1 {
+  margin: 0;
+}
+
+.info-header strong {
+  color: #1f6f78;
+  font-size: 18px;
+}
+
+.info-header p {
+  max-width: 62ch;
+  margin: 0;
+  color: #4f5c66;
+  line-height: 1.5;
+}
+
+.info-section {
+  padding: 14px 0 0;
+}
+
+.info-section h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.info-list {
+  margin: 0;
+}
+
+.info-list > div {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.4fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #e2e6ea;
+}
+
+.info-list dt {
+  color: #4e5964;
+  font-weight: 800;
+}
+
+.info-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.info-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.info-links .secondary-button {
+  min-height: 42px;
+}
+
+.info-actions .primary-button {
+  min-width: 120px;
 }
 
 .config-grid {
@@ -753,13 +818,6 @@ body.demo-active .phase::after {
     font-size: 16px;
   }
 
-  .tile.small .tile-label {
-    font-size: 15px;
-  }
-
-  .tile.tiny .tile-label {
-    font-size: 12px;
-  }
 
   .board,
   .row {
@@ -791,6 +849,11 @@ body.demo-active .phase::after {
   .config-actions .secondary-button,
   .config-actions .primary-button {
     flex: 1 1 130px;
+  }
+
+  .info-list > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .calibration-steps {
@@ -876,11 +939,4 @@ body.demo-active .phase::after {
     font-size: 15px;
   }
 
-  .tile.small .tile-label {
-    font-size: 13px;
-  }
-
-  .tile.tiny .tile-label {
-    font-size: 11px;
-  }
 }

@@ -1,7 +1,9 @@
 param(
     [string]$SdkDir,
     [switch]$NoBuild,
-    [switch]$ColdBoot
+    [switch]$ColdBoot,
+    [switch]$SkipDemo,
+    [switch]$SkipZhTw
 )
 
 $ErrorActionPreference = "Stop"
@@ -206,7 +208,10 @@ function Switch-Activate([string]$Label) {
 
 function Get-ScreenSize {
     $sizeText = (& $script:adb shell wm size) -join "`n"
-    if ($sizeText -match "(\d+)x(\d+)") {
+    if ($sizeText -match "Override size:\s*(\d+)x(\d+)") {
+        return @([int]$Matches[1], [int]$Matches[2])
+    }
+    if ($sizeText -match "Physical size:\s*(\d+)x(\d+)") {
         return @([int]$Matches[1], [int]$Matches[2])
     }
 
@@ -276,18 +281,20 @@ Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
 Wait-E2EReady
 Start-Sleep -Milliseconds 300
 
-Write-Step "Verifying packaged Config long-press Demo activation"
-Invoke-AdbQuiet logcat -c
-LongPress-ConfigButton
-Wait-LoggedMessage "I need help " 30000
+if (-not $SkipDemo) {
+    Write-Step "Verifying packaged Config long-press Demo activation"
+    Invoke-AdbQuiet logcat -c
+    LongPress-ConfigButton
+    Wait-LoggedMessage "I need help " 30000
 
-Write-Step "Resetting app data after Demo E2E"
-Invoke-AdbQuiet shell pm clear org.shineaac.app
-Invoke-AdbQuiet logcat -c
-Write-TestPreferences
-Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
-Wait-E2EReady
-Start-Sleep -Milliseconds 300
+    Write-Step "Resetting app data after Demo E2E"
+    Invoke-AdbQuiet shell pm clear org.shineaac.app
+    Invoke-AdbQuiet logcat -c
+    Write-TestPreferences
+    Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
+    Wait-E2EReady
+    Start-Sleep -Milliseconds 300
+}
 
 Write-Step "Entering complete phrase with Android hardware-button input"
 Select-SuggestionCell 0 "I"
@@ -297,22 +304,39 @@ Select-SuggestionCell 2 "WATER"
 Start-Sleep -Milliseconds 800
 Wait-LoggedMessage "I want water "
 
+Write-Step "Verifying native draft persistence and process recreation"
+$draftXml = (& $script:adb shell "run-as org.shineaac.app cat shared_prefs/shine_aac_session_draft.xml") -join "`n"
+if (-not $draftXml.Contains("I want water")) {
+    throw "Native session draft does not contain the composed message."
+}
+Invoke-AdbQuiet logcat -c
+Invoke-AdbQuiet shell am force-stop org.shineaac.app
+Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
+Wait-LoggedMessage "I want water " 30000
+
 $screenshotDevicePath = "/sdcard/shine-hardware-button-final.png"
 $screenshotHostPath = Join-Path $artifactDir "hardware-button-final.png"
 Invoke-AdbQuiet shell screencap -p $screenshotDevicePath
 Invoke-AdbQuiet pull $screenshotDevicePath $screenshotHostPath
 
-Write-Step "Verifying zh-TW first-layer render state in packaged APK"
-Invoke-AdbQuiet logcat -c
-Write-ZhTwTestPreferences
-Invoke-AdbQuiet shell am force-stop org.shineaac.app
-Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
-$zhuyinBo = -join ([char]0x3105)
-$zhuyinYi = -join ([char]0x3127)
-$zhuyinYu = -join ([char]0x3129)
-$zhTwMore = -join ([char]0x66F4, [char]0x591A)
-Wait-RenderState "zh-TW direct Zhuyin board and 更多" @($zhuyinBo, $zhuyinYi, $zhuyinYu, $zhTwMore)
+if (-not $SkipZhTw) {
+    Write-Step "Verifying zh-TW first-layer render state in packaged APK"
+    Invoke-AdbQuiet logcat -c
+    Write-ZhTwTestPreferences
+    Invoke-AdbQuiet shell am force-stop org.shineaac.app
+    Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
+    $zhuyinBo = -join ([char]0x3105)
+    $zhuyinYi = -join ([char]0x3127)
+    $zhuyinYu = -join ([char]0x3129)
+    $zhTwMore = -join ([char]0x66F4, [char]0x591A)
+    Wait-RenderState "zh-TW direct Zhuyin board and More action" @($zhuyinBo, $zhuyinYi, $zhuyinYu, $zhTwMore)
+}
 
 Write-Host ""
-Write-Host "E2E PASS: Android hardware-button input entered 'I want water ' and zh-TW direct Zhuyin render state was verified." -ForegroundColor Green
+$passDetail = if ($SkipZhTw) {
+    "Android hardware-button input entered 'I want water ', saved it to native storage, and restored it after process recreation."
+} else {
+    "Android hardware-button input entered 'I want water ', restored it after process recreation, and verified the zh-TW direct Zhuyin render state."
+}
+Write-Host "E2E PASS: $passDetail" -ForegroundColor Green
 Write-Host "Artifacts: $artifactDir"

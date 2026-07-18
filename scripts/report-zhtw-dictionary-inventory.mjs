@@ -4,9 +4,30 @@ import { analyzeZhTwDictionaryInventory } from "./lib/zhtw-dictionary-inventory.
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
 const reportPath = join(repoRoot, "docs", "ZHTW_DICTIONARY_INVENTORY_REPORT.md");
+const previousInventoryBaseline = Object.freeze({
+  label: "Previous pre-efficiency baseline",
+  sourceEntryCount: 60000,
+  uniqueLabelCount: 33523,
+  pathReachableEntryRatio: 0.9846,
+  weightedPathReachabilityRatio: 0.9887,
+  sourceGlyphDirectRatio: 0.8530,
+  sourceWordDirectRatio: 0.9822,
+  sourceWordDirectOrComposableRatio: 0.9841,
+  sourceLabelDirectOrComposableRatio: 0.9604,
+  top500GlyphDirectRatio: 0.9860,
+  top500WordDirectRatio: 0.9920,
+  glyphMedianActivations: 8,
+  directWordMedianActivations: 8,
+  bestAllLabelMedianActivations: 8,
+  glyphP90Activations: 10,
+  directWordP90Activations: 12,
+  bestAllLabelP90Activations: 10
+});
 const startedAt = performance.now();
 const analysis = analyzeZhTwDictionaryInventory();
 const elapsedMs = performance.now() - startedAt;
+const top500GlyphBucket = analysis.topEntityBuckets.find((bucket) => bucket.label === "Top 500 glyphs");
+const top500WordBucket = analysis.topEntityBuckets.find((bucket) => bucket.label === "Top 500 words/phrases");
 
 const lines = [
   "# zh-TW Dictionary Inventory Report",
@@ -58,6 +79,29 @@ const lines = [
   efficiencyRow("Best word/phrase direct-or-composed", analysis.bestWordEfficiency),
   efficiencyRow("Best all-label direct-or-composed", analysis.allLabelEfficiency),
   "",
+  "## Previous-Version Comparison",
+  "",
+  `Baseline: ${previousInventoryBaseline.label}. Use this section to review systemic dictionary, coverage, and efficiency movement before accepting ranking/data changes.`,
+  "",
+  "| Metric | Previous | Current | Difference | Change |",
+  "| --- | ---: | ---: | ---: | ---: |",
+  comparisonRow("Source dictionary entries", previousInventoryBaseline.sourceEntryCount, analysis.sourceEntryCount),
+  comparisonRow("Unique source labels", previousInventoryBaseline.uniqueLabelCount, analysis.uniqueLabelCount),
+  comparisonPercentRow("Entry phonetic-path reachability", previousInventoryBaseline.pathReachableEntryRatio, analysis.pathReachableEntryRatio),
+  comparisonPercentRow("Weighted phonetic-path reachability", previousInventoryBaseline.weightedPathReachabilityRatio, analysis.weightedPathReachabilityRatio),
+  comparisonPercentRow("Direct glyph candidate reachability", previousInventoryBaseline.sourceGlyphDirectRatio, analysis.sourceGlyphDirectRatio),
+  comparisonPercentRow("Direct word/phrase candidate reachability", previousInventoryBaseline.sourceWordDirectRatio, analysis.sourceWordDirectRatio),
+  comparisonPercentRow("Word/phrase direct-or-composable reachability", previousInventoryBaseline.sourceWordDirectOrComposableRatio, analysis.sourceWordDirectOrComposableRatio),
+  comparisonPercentRow("All-label direct-or-composable reachability", previousInventoryBaseline.sourceLabelDirectOrComposableRatio, analysis.sourceLabelDirectOrComposableRatio),
+  comparisonPercentRow("Top 500 glyph direct reachability", previousInventoryBaseline.top500GlyphDirectRatio, top500GlyphBucket?.directReachabilityRatio ?? 0),
+  comparisonPercentRow("Top 500 word/phrase direct reachability", previousInventoryBaseline.top500WordDirectRatio, top500WordBucket?.directReachabilityRatio ?? 0),
+  comparisonRow("Direct glyph median activations", previousInventoryBaseline.glyphMedianActivations, analysis.glyphEfficiency.medianActivations),
+  comparisonRow("Direct word/phrase median activations", previousInventoryBaseline.directWordMedianActivations, analysis.directWordEfficiency.medianActivations),
+  comparisonRow("Best all-label median activations", previousInventoryBaseline.bestAllLabelMedianActivations, analysis.allLabelEfficiency.medianActivations),
+  comparisonRow("Direct glyph P90 activations", previousInventoryBaseline.glyphP90Activations, analysis.glyphEfficiency.p90Activations),
+  comparisonRow("Direct word/phrase P90 activations", previousInventoryBaseline.directWordP90Activations, analysis.directWordEfficiency.p90Activations),
+  comparisonRow("Best all-label P90 activations", previousInventoryBaseline.bestAllLabelP90Activations, analysis.allLabelEfficiency.p90Activations),
+  "",
   "## Sample Gaps",
   "",
   "These samples are diagnostic, not hand-tuning instructions.",
@@ -106,4 +150,28 @@ function efficiencyRow(label, stats) {
 
 function topEntityRow(bucket) {
   return `| ${bucket.label} | ${bucket.count} | ${bucket.directReachable} | ${percent(bucket.directReachabilityRatio)} | ${bucket.directOrComposableReachable} | ${percent(bucket.directOrComposableReachabilityRatio)} | ${bucket.bestEfficiency.medianActivations.toFixed(0)} | ${bucket.bestEfficiency.p90Activations.toFixed(0)} |`;
+}
+
+function comparisonRow(label, previous, current) {
+  return `| ${label} | ${formatNumber(previous)} | ${formatNumber(current)} | ${signed(current - previous)} | ${percentChange(current, previous)} |`;
+}
+
+function comparisonPercentRow(label, previous, current) {
+  return `| ${label} | ${percent(previous)} | ${percent(current)} | ${signed((current - previous) * 100)} pp | ${percentChange(current, previous)} |`;
+}
+
+function formatNumber(value) {
+  if (!Number.isFinite(value)) return "n/a";
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2);
+}
+
+function signed(value) {
+  const rounded = Number.isInteger(value) ? value : Number(value).toFixed(2);
+  return value > 0 ? `+${rounded}` : String(rounded);
+}
+
+function percentChange(current, previous) {
+  if (!Number.isFinite(previous) || previous === 0) return "n/a";
+  return `${(((current - previous) / previous) * 100).toFixed(2)}%`;
 }

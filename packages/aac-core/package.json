@@ -8,6 +8,8 @@
     ".": "./src/index.js"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:quick": "node --test test/board.test.js test/human-sequences.test.js test/scanner.test.js test/session.test.js",
+    "test:benchmarks": "node --test test/communication-benchmarks.test.js"
   }
 }

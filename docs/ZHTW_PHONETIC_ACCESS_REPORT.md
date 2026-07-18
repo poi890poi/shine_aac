@@ -1,6 +1,6 @@
 # zh-TW Phonetic Access Report
 
-Generated: 2026-07-05T14:08:55.955Z
+Generated: 2026-07-14T15:23:49.670Z
 
 This report treats Zhuyin input as a constrained AAC access graph, not as a full keyboard IME.
 It measures whether static first-level symbols and dynamic continuation suggestions keep dictionary-backed paths reachable without hand-crafted phrase shortcuts.
@@ -13,7 +13,7 @@ It measures whether static first-level symbols and dynamic continuation suggesti
 - Dictionary entries analyzed: 60000
 - Weighted first-symbol coverage: 98.87%
 - Hidden continuation symbols with dictionary prefixes: 13
-- Hidden continuation symbols with at least one blocked prefix: 12
+- Hidden continuation symbols with at least one blocked prefix: 0
 - Visible dead-end continuations: 0
 - Unreachable entries among top 500 source-ranked entries: 2
 
@@ -42,19 +42,19 @@ It measures whether static first-level symbols and dynamic continuation suggesti
 
 | Symbol | Entries | Prefixes | Visible Prefixes | All Visible |
 | --- | ---: | ---: | ---: | --- |
-| ㄚ | 3206 | 1102 | 1095 | no |
-| ㄛ | 2097 | 753 | 750 | no |
-| ㄜ | 2517 | 1156 | 1127 | no |
+| ㄚ | 3206 | 1102 | 1102 | yes |
+| ㄛ | 2097 | 753 | 753 | yes |
+| ㄜ | 2517 | 1156 | 1156 | yes |
 | ㄝ | 2035 | 758 | 758 | yes |
-| ㄞ | 2480 | 989 | 959 | no |
-| ㄟ | 3041 | 1020 | 1017 | no |
-| ㄠ | 3769 | 1388 | 1377 | no |
-| ㄡ | 2851 | 979 | 971 | no |
-| ㄢ | 7595 | 2818 | 2771 | no |
-| ㄣ | 4378 | 1639 | 1631 | no |
-| ㄤ | 3860 | 1562 | 1557 | no |
-| ㄥ | 6706 | 2342 | 2338 | no |
-| ㄦ | 273 | 131 | 88 | no |
+| ㄞ | 2480 | 989 | 989 | yes |
+| ㄟ | 3041 | 1020 | 1020 | yes |
+| ㄠ | 3769 | 1388 | 1388 | yes |
+| ㄡ | 2851 | 979 | 979 | yes |
+| ㄢ | 7595 | 2818 | 2818 | yes |
+| ㄣ | 4378 | 1639 | 1639 | yes |
+| ㄤ | 3860 | 1562 | 1562 | yes |
+| ㄥ | 6706 | 2342 | 2342 | yes |
+| ㄦ | 273 | 131 | 131 | yes |
 
 ## Visible Dead-End Continuations
 

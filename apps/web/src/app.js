@@ -30,6 +30,7 @@ import { defaultUiConfig, loadUiConfig, normalizeUiConfig, saveUiConfig, syncNat
 
 const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
+const initialProductProfileId = "zh-TW";
 const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
 const textHistoryStorageKey = "shine-aac-text-history-v1";
@@ -65,6 +66,11 @@ let renderedTileGrid = [];
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
 let renderedCameraStatusElement = null;
+let tileLabelFitFrame = 0;
+let observedBoardElement = null;
+const tileLabelResizeObserver = typeof ResizeObserver === "function"
+  ? new ResizeObserver(() => scheduleTileLabelFit())
+  : null;
 let currentActiveTiles = [];
 let currentProgressFills = [];
 let progressTargetKey = "";
@@ -91,7 +97,7 @@ globalThis.ShineAacTextHistory = {
 };
 
 function loadConfig() {
-  const defaults = createBoardConfig();
+  const defaults = createBoardConfig({ profileId: initialProductProfileId });
   const nativeConfig = loadNativeConfig(defaults);
   if (nativeConfig) return nativeConfig;
 
@@ -99,9 +105,10 @@ function loadConfig() {
     const stored = JSON.parse(localStorage.getItem(storageKey) ?? "null");
     if (!stored) return defaults;
     const storedVersion = Number(stored.configVersion) || 0;
-    const profileDefaults = createBoardConfig({ profileId: stored.profileId });
+    const storedProfileId = stored.profileId ?? defaults.profileId;
+    const profileDefaults = createBoardConfig({ profileId: storedProfileId });
     return createBoardConfig({
-      profileId: stored.profileId,
+      profileId: storedProfileId,
       columns: numberOrDefault(stored.columns, defaults.columns),
       scanIntervalMs: loadScanIntervalForConfig(
         numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
@@ -124,12 +131,12 @@ function loadConfig() {
       suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
         stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
         storedVersion,
-        stored.profileId
+        storedProfileId
       ),
       symbols: loadProfileSymbolsForConfig(
         stored.symbols ?? serializeSymbols(profileDefaults.symbols),
         storedVersion,
-        stored.profileId
+        storedProfileId
       )
     });
   } catch {
@@ -185,9 +192,22 @@ function saveConfig(config) {
 
 function loadSessionDraft(config) {
   try {
-    const stored = JSON.parse(localStorage.getItem(sessionDraftStorageKey) ?? "null");
-    if (!stored || stored.version !== SessionDraftVersion) return {};
-    if (stored.profileId !== config.profileId) return {};
+    const candidates = [
+      localStorage.getItem(sessionDraftStorageKey),
+      globalThis.ShineAacAndroid?.getSessionDraftJson?.()
+    ]
+      .filter((value) => typeof value === "string" && value.length > 0)
+      .map((value) => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      })
+      .filter((draft) => draft?.version === SessionDraftVersion && draft.profileId === config.profileId)
+      .sort((left, right) => Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0));
+    const stored = candidates[0];
+    if (!stored) return {};
     const message = sanitizeDraftText(stored.message);
     const messageHistory = Array.isArray(stored.messageHistory)
       ? stored.messageHistory
@@ -211,23 +231,30 @@ function loadSessionDraft(config) {
 }
 
 function saveSessionDraft() {
+  const value = JSON.stringify({
+    version: SessionDraftVersion,
+    updatedAt: Date.now(),
+    profileId: session.config.profileId,
+    message: sanitizeDraftText(session.message),
+    messageHistory: session.messageHistory
+      .map(sanitizeDraftText)
+      .slice(-SessionDraftMaxHistoryEntries),
+    inputMode: session.inputMode,
+    activeCategory: session.activeCategory,
+    zhuyinBuffer: sanitizeDraftText(session.zhuyinBuffer),
+    zhuyinStage: session.zhuyinStage,
+    zhuyinGroup: session.zhuyinGroup,
+    suggestionPage: session.suggestionPage
+  });
   try {
-    localStorage.setItem(sessionDraftStorageKey, JSON.stringify({
-      version: SessionDraftVersion,
-      profileId: session.config.profileId,
-      message: sanitizeDraftText(session.message),
-      messageHistory: session.messageHistory
-        .map(sanitizeDraftText)
-        .slice(-SessionDraftMaxHistoryEntries),
-      inputMode: session.inputMode,
-      activeCategory: session.activeCategory,
-      zhuyinBuffer: sanitizeDraftText(session.zhuyinBuffer),
-      zhuyinStage: session.zhuyinStage,
-      zhuyinGroup: session.zhuyinGroup,
-      suggestionPage: session.suggestionPage
-    }));
+    localStorage.setItem(sessionDraftStorageKey, value);
   } catch {
     // Draft persistence is best effort; communication must continue if storage is unavailable.
+  }
+  try {
+    globalThis.ShineAacAndroid?.saveSessionDraftJson?.(value);
+  } catch {
+    // Native persistence is unavailable in a normal browser.
   }
 }
 
@@ -236,6 +263,11 @@ function clearSessionDraft() {
     localStorage.removeItem(sessionDraftStorageKey);
   } catch {
     // Storage may be unavailable.
+  }
+  try {
+    globalThis.ShineAacAndroid?.clearSessionDraft?.();
+  } catch {
+    // Native persistence is unavailable in a normal browser.
   }
 }
 
@@ -679,6 +711,8 @@ function cameraStatusLabel(state) {
       return "Detect stale";
     case "cameraStale":
       return "Cam stale";
+    case "permissionDenied":
+      return "Camera permission";
     case "stale":
       return "Detect stale";
     case "stopped":
@@ -841,6 +875,8 @@ function renderFull(board, boardKey) {
 
   shell.append(topPanel, boardElement);
   app.append(shell);
+  observeBoardForLabelFit(boardElement);
+  scheduleTileLabelFit();
   renderedBoardKey = boardKey;
   renderedMessage = session.message;
   updateScanPresentation(board);
@@ -978,10 +1014,55 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   if (activeCell) classes.push("active-cell", "is-current");
   if (reviewHold) classes.push("review-hold");
   if (cameraHold) classes.push("camera-hold");
-  if (candidate.label.length >= 6) classes.push("tiny");
-  else if (candidate.label.length >= 4) classes.push("small");
   return classes.join(" ");
 }
+
+window.addEventListener("pagehide", saveSessionDraft);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveSessionDraft();
+});
+
+function observeBoardForLabelFit(boardElement) {
+  if (observedBoardElement === boardElement) return;
+  tileLabelResizeObserver?.disconnect();
+  observedBoardElement = boardElement;
+  tileLabelResizeObserver?.observe(boardElement);
+}
+
+function scheduleTileLabelFit() {
+  window.cancelAnimationFrame(tileLabelFitFrame);
+  tileLabelFitFrame = window.requestAnimationFrame(fitTileLabels);
+}
+
+function fitTileLabels() {
+  tileLabelFitFrame = 0;
+  const labels = observedBoardElement?.querySelectorAll(".tile-label") ?? [];
+  for (const label of labels) label.style.fontSize = "";
+
+  for (const label of labels) {
+    const tile = label.closest(".tile");
+    if (!tile || label.clientWidth <= 0 || label.clientHeight <= 0 || tile.clientHeight <= 0) continue;
+
+    const maximumPx = Number.parseFloat(getComputedStyle(tile).fontSize);
+    if (!Number.isFinite(maximumPx) || tileLabelFits(label)) continue;
+
+    let lowerPx = 4;
+    let upperPx = maximumPx;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const candidatePx = (lowerPx + upperPx) / 2;
+      label.style.fontSize = `${candidatePx}px`;
+      if (tileLabelFits(label)) lowerPx = candidatePx;
+      else upperPx = candidatePx;
+    }
+    label.style.fontSize = `${Math.floor(lowerPx * 10) / 10}px`;
+  }
+}
+
+function tileLabelFits(label) {
+  return label.scrollWidth <= label.clientWidth && label.scrollHeight <= label.clientHeight;
+}
+
+window.addEventListener("resize", scheduleTileLabelFit);
 
 function appendVisibleMessage(container, value) {
   if (value.length === 0) return;
@@ -1056,6 +1137,91 @@ function closeCalibration() {
   calibrationOpen = false;
   stopCalibrationTimer();
   renderConfig();
+}
+
+function openAppInfo() {
+  configOpen = true;
+  calibrationOpen = false;
+  stopCalibrationTimer();
+  cancelScheduledScan();
+  renderAppInfo();
+}
+
+function closeAppInfo() {
+  renderConfig();
+}
+
+function loadAppInfo() {
+  const fallback = {
+    appName: "SayToMe AAC",
+    versionName: "Web development build",
+    versionCode: "Not applicable"
+  };
+  try {
+    const json = globalThis.ShineAacAndroid?.getAppInfoJson?.();
+    if (typeof json !== "string" || json.length === 0) return fallback;
+    return { ...fallback, ...JSON.parse(json) };
+  } catch {
+    return fallback;
+  }
+}
+
+function openExternalUrl(url) {
+  if (typeof globalThis.ShineAacAndroid?.openExternalUrl === "function") {
+    globalThis.ShineAacAndroid.openExternalUrl(url);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function renderAppInfo() {
+  invalidateRenderedBoard();
+  app.innerHTML = "";
+  const info = loadAppInfo();
+  const backdrop = document.createElement("div");
+  backdrop.className = "config-backdrop";
+  backdrop.addEventListener("click", closeAppInfo);
+
+  const panel = document.createElement("section");
+  panel.className = "config-panel info-panel";
+  panel.dataset.testid = "app-info";
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  panel.innerHTML = `
+    <header class="info-header">
+      <h1>${escapeHtml(info.appName)}</h1>
+      <strong>Version ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</strong>
+      <p>An augmentative and alternative communication app for composing and speaking messages with touch, switch, or camera input.</p>
+    </header>
+    <section class="info-section" aria-labelledby="info-data-heading">
+      <h2 id="info-data-heading">Your data</h2>
+      <dl class="info-list">
+        <div><dt>Communication data</dt><dd>Stored locally on this device</dd></div>
+        <div><dt>Text history</dt><dd>Saved locally; oldest entries are recycled at storage limits</dd></div>
+        <div><dt>Export</dt><dd>Shared only when the user chooses Export text</dd></div>
+        <div><dt>Backup</dt><dd>Android cloud and device-transfer backup disabled</dd></div>
+        <div><dt>Camera</dt><dd>Processed on device; frames are not stored by SayToMe AAC</dd></div>
+        <div><dt>Core communication</dt><dd>Works offline after installation</dd></div>
+      </dl>
+    </section>
+    <section class="info-section" aria-labelledby="info-project-heading">
+      <h2 id="info-project-heading">Help and information</h2>
+      <div class="info-links">
+        <button class="secondary-button" type="button" data-url="https://poi890poi.github.io/shine_aac/privacy-policy/">Privacy policy</button>
+        <button class="secondary-button" type="button" data-url="https://poi890poi.github.io/shine_aac/support/">Support</button>
+        <button class="secondary-button" type="button" data-url="https://github.com/poi890poi/shine_aac">Source code</button>
+      </div>
+    </section>
+    <div class="config-actions info-actions">
+      <button class="primary-button" type="button" data-action="back">Back</button>
+    </div>
+  `;
+  panel.addEventListener("click", (event) => {
+    const url = event.target?.dataset?.url;
+    if (url) openExternalUrl(url);
+    if (event.target?.dataset?.action === "back") closeAppInfo();
+  });
+  backdrop.append(panel);
+  app.append(backdrop);
 }
 
 function renderConfig() {
@@ -1135,6 +1301,7 @@ function renderConfig() {
       </label>
     </div>
     <div class="config-actions">
+      <button class="secondary-button" type="button" data-action="app-info">App info</button>
       <button class="secondary-button" type="button" data-action="reset">Reset</button>
       <button class="secondary-button" type="button" data-action="calibrate">Input test</button>
       <button class="secondary-button" type="button" data-action="export-text">Export text</button>
@@ -1196,6 +1363,7 @@ function renderConfig() {
   form.addEventListener("click", (event) => {
     const action = event.target?.dataset?.action;
     if (action === "cancel") closeConfig();
+    if (action === "app-info") openAppInfo();
     if (action === "calibrate") openCalibration();
     if (action === "camera-calibration") {
       openCameraSwitchCalibration(String(form.elements.profileId.value || session.config.profileId || "en-US"));

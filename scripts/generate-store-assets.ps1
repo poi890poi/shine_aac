@@ -27,55 +27,132 @@ function Resize-Bitmap($Bitmap, [int]$Width, [int]$Height) {
     return $result
 }
 
-function Find-VisibleBounds($Bitmap) {
-    $minX = $Bitmap.Width
-    $minY = $Bitmap.Height
-    $maxX = 0
-    $maxY = 0
-
-    for ($y = 0; $y -lt $Bitmap.Height; $y++) {
-        for ($x = 0; $x -lt $Bitmap.Width; $x++) {
-            $pixel = $Bitmap.GetPixel($x, $y)
-            if ($pixel.R -gt 10 -or $pixel.G -gt 10 -or $pixel.B -gt 10) {
-                if ($x -lt $minX) { $minX = $x }
-                if ($x -gt $maxX) { $maxX = $x }
-                if ($y -lt $minY) { $minY = $y }
-                if ($y -gt $maxY) { $maxY = $y }
-            }
-        }
-    }
-
-    if ($maxX -le $minX -or $maxY -le $minY) {
-        return New-Object System.Drawing.Rectangle(0, 0, $Bitmap.Width, $Bitmap.Height)
-    }
-
-    $width = $maxX - $minX + 1
-    $height = $maxY - $minY + 1
-    $size = [Math]::Max($width, $height)
-    $centerX = ($minX + $maxX) / 2
-    $centerY = ($minY + $maxY) / 2
-    $left = [int][Math]::Round($centerX - ($size / 2))
-    $top = [int][Math]::Round($centerY - ($size / 2))
-    $left = [Math]::Max(0, [Math]::Min($left, $Bitmap.Width - $size))
-    $top = [Math]::Max(0, [Math]::Min($top, $Bitmap.Height - $size))
-
-    return New-Object System.Drawing.Rectangle($left, $top, $size, $size)
+function Save-Png($Bitmap, $Path) {
+    New-Directory (Split-Path -Parent $Path)
+    $Bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
 }
 
-function Crop-Bitmap($Bitmap, [System.Drawing.Rectangle]$Bounds) {
-    $result = New-Object System.Drawing.Bitmap($Bounds.Width, $Bounds.Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+function New-TransparentBitmap([int]$Width, [int]$Height) {
+    $result = New-Object System.Drawing.Bitmap($Width, $Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $graphics = [System.Drawing.Graphics]::FromImage($result)
-    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-    $graphics.DrawImage($Bitmap, 0, 0, $Bounds, [System.Drawing.GraphicsUnit]::Pixel)
+    $graphics.Clear([System.Drawing.Color]::Transparent)
     $graphics.Dispose()
     return $result
 }
 
-function Save-Png($Bitmap, $Path) {
-    New-Directory (Split-Path -Parent $Path)
-    $Bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+function Remove-EdgeMatte($Bitmap) {
+    $width = $Bitmap.Width
+    $height = $Bitmap.Height
+    $result = New-Object System.Drawing.Bitmap($Bitmap)
+    $visited = New-Object 'bool[,]' $width, $height
+    $queue = New-Object 'System.Collections.Generic.Queue[System.Drawing.Point]'
+
+    function Test-MattePixel($Pixel) {
+        if ($Pixel.A -eq 0) {
+            return $true
+        }
+
+        return ($Pixel.R -le 18 -and $Pixel.G -le 18 -and $Pixel.B -le 18)
+    }
+
+    function Add-Point([int]$X, [int]$Y) {
+        if ($X -lt 0 -or $Y -lt 0 -or $X -ge $width -or $Y -ge $height -or $visited[$X, $Y]) {
+            return
+        }
+
+        $visited[$X, $Y] = $true
+        if (Test-MattePixel $result.GetPixel($X, $Y)) {
+            $queue.Enqueue((New-Object System.Drawing.Point($X, $Y)))
+        }
+    }
+
+    for ($x = 0; $x -lt $width; $x++) {
+        Add-Point $x 0
+        Add-Point $x ($height - 1)
+    }
+    for ($y = 0; $y -lt $height; $y++) {
+        Add-Point 0 $y
+        Add-Point ($width - 1) $y
+    }
+
+    while ($queue.Count -gt 0) {
+        $point = $queue.Dequeue()
+        $pixel = $result.GetPixel($point.X, $point.Y)
+        $result.SetPixel($point.X, $point.Y, [System.Drawing.Color]::FromArgb(0, $pixel.R, $pixel.G, $pixel.B))
+        Add-Point ($point.X + 1) $point.Y
+        Add-Point ($point.X - 1) $point.Y
+        Add-Point $point.X ($point.Y + 1)
+        Add-Point $point.X ($point.Y - 1)
+    }
+
+    return $result
+}
+
+function New-RoundLauncherBitmap($Icon, [int]$Size) {
+    $canvas = New-TransparentBitmap $Size $Size
+    $resized = Resize-Bitmap $Icon $Size $Size
+    $graphics = [System.Drawing.Graphics]::FromImage($canvas)
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $path.AddEllipse(0, 0, $Size, $Size)
+    $graphics.SetClip($path)
+    $backgroundPixel = $Icon.GetPixel([int]($Icon.Width / 2), [int]($Icon.Height / 2))
+    $backgroundBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, $backgroundPixel.R, $backgroundPixel.G, $backgroundPixel.B))
+    $graphics.FillEllipse($backgroundBrush, 0, 0, $Size, $Size)
+    $graphics.DrawImage($resized, 0, 0, $Size, $Size)
+    $graphics.Dispose()
+    $backgroundBrush.Dispose()
+    $path.Dispose()
+    $resized.Dispose()
+    return $canvas
+}
+
+function New-LegacyLauncherBitmap($Icon, [int]$Size) {
+    $canvas = New-TransparentBitmap $Size $Size
+    $imageSize = [int][Math]::Round($Size * 0.875)
+    $offset = [int][Math]::Floor(($Size - $imageSize) / 2)
+    $graphics = [System.Drawing.Graphics]::FromImage($canvas)
+    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $graphics.DrawImage($Icon, $offset, $offset, $imageSize, $imageSize)
+    $graphics.Dispose()
+    return $canvas
+}
+
+function New-AdaptiveForegroundBitmap($Icon, [int]$CanvasSize) {
+    $canvas = New-TransparentBitmap $CanvasSize $CanvasSize
+    $graphics = [System.Drawing.Graphics]::FromImage($canvas)
+    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $graphics.DrawImage($Icon, 0, 0, $CanvasSize, $CanvasSize)
+    $graphics.Dispose()
+    return $canvas
+}
+
+function New-MonochromeLauncherBitmap($Icon, [int]$CanvasSize) {
+    $canvas = New-TransparentBitmap $CanvasSize $CanvasSize
+    $source = Resize-Bitmap $Icon $CanvasSize $CanvasSize
+
+    for ($y = 0; $y -lt $CanvasSize; $y++) {
+        for ($x = 0; $x -lt $CanvasSize; $x++) {
+            $pixel = $source.GetPixel($x, $y)
+            if ($pixel.A -eq 0) {
+                continue
+            }
+
+            $luma = [int](($pixel.R * 0.299) + ($pixel.G * 0.587) + ($pixel.B * 0.114))
+            if ($luma -gt 128) {
+                $canvas.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($pixel.A, 255, 255, 255))
+            }
+        }
+    }
+
+    $source.Dispose()
+    return $canvas
 }
 
 function New-Color($Hex) {
@@ -132,14 +209,12 @@ $resolvedSource = Resolve-Path -LiteralPath $SourcePath
 $loaded = [System.Drawing.Image]::FromFile($resolvedSource.Path)
 $source = New-Object System.Drawing.Bitmap($loaded)
 $loaded.Dispose()
-$launcherBounds = Find-VisibleBounds $source
-$launcherSource = Crop-Bitmap $source $launcherBounds
-
 $storeIcon512 = Resize-Bitmap $source 512 512
 Save-Png $storeIcon512 "store-assets\app-icon\saytome-aac-icon-512.png"
 
 $storeIcon1024 = Resize-Bitmap $source 1024 1024
 Save-Png $storeIcon1024 "store-assets\app-icon\saytome-aac-icon-1024.png"
+$launcherSource = Remove-EdgeMatte $storeIcon1024
 
 $densities = @{
     "mipmap-mdpi" = 48
@@ -150,11 +225,21 @@ $densities = @{
 }
 
 foreach ($entry in $densities.GetEnumerator()) {
-    $resized = Resize-Bitmap $launcherSource $entry.Value $entry.Value
-    Save-Png $resized (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher.png")
-    Save-Png $resized (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_round.png")
-    Save-Png $resized (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_foreground.png")
-    $resized.Dispose()
+    $legacy = New-LegacyLauncherBitmap $launcherSource $entry.Value
+    $round = New-RoundLauncherBitmap $launcherSource $entry.Value
+    $foregroundSize = [int]($entry.Value * 2.25)
+    $foreground = New-AdaptiveForegroundBitmap $launcherSource $foregroundSize
+    $monochrome = New-MonochromeLauncherBitmap $launcherSource $foregroundSize
+
+    Save-Png $legacy (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher.png")
+    Save-Png $round (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_round.png")
+    Save-Png $foreground (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_foreground.png")
+    Save-Png $monochrome (Join-Path "app\src\main\res\$($entry.Key)" "ic_launcher_monochrome.png")
+
+    $legacy.Dispose()
+    $round.Dispose()
+    $foreground.Dispose()
+    $monochrome.Dispose()
 }
 
 if ($GenerateFeatureGraphic) {

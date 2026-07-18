@@ -33,6 +33,14 @@ Platform shell
 
 The core exposes pure functions. Given the same state and event, it returns the same next state. That makes it easy to test independently and reuse from different UI frameworks.
 
+## Current Android Boundary
+
+The shipped Android app is a WebView shell around `apps/web`, backed by `packages/aac-core`. Native Android code should provide packaging, TTS, permissions, hardware key delivery, camera switch input, and calibration screens.
+
+Legacy native Android scanner, board, and Compose-template code has been removed from the app module. New scanner, board, profile, suggestion, migration, or message-editing behavior belongs in `packages/aac-core` first.
+
+If a native Android UI is revived, it must either consume the shared core through a generated/shared boundary or add explicit parity tests against the JS core before product behavior changes are accepted.
+
 ## Verification Pyramid
 
 1. Core unit tests: fast, deterministic, no device, no browser, no Android SDK.

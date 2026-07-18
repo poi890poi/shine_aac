@@ -6,16 +6,15 @@ This packet is the review checklist for the first Google Play internal testing s
 
 - Track: Internal testing first
 - Package id: `org.shineaac.app`
-- Version: `0.2.5`
-- Version code: `8`
-- Git commit: `012ff66`
-- Git tag: `v0.2.5`
+- Current source version: `0.2.35`
+- Current source version code: `38`
+- Final upload version, Git commit, Git tag, and hashes must be regenerated after UX review and final release packaging.
 - Signed AAB: `app/build/outputs/bundle/release/app-release.aab`
-- Signed AAB SHA-256: `5071038dcff000cb77cdfeea21435688bfe190c05f1c42d80de6ed0479799a52`
+- Signed AAB SHA-256: regenerate with the final AAB before upload.
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload the debug APK to Google Play. Use the signed AAB above.
+Do not upload the debug APK to Google Play. Use a signed release AAB generated after the final UX review changes are accepted.
 
 ## Store Listing
 
@@ -80,8 +79,9 @@ Recommended Data Safety summary:
 - Analytics: No
 - Account required: No
 - Internet permission: No
-- Camera/microphone/location permissions: No
-- Local-only settings and message processing
+- Camera permission: Yes, optional local camera switch input only
+- Microphone/location permissions: No
+- Local-only settings, text history/export, message processing, and optional camera switch processing
 - Android Text-to-Speech behavior depends on the device speech engine
 
 If Play Console rejects the GitHub privacy policy URL, publish the same privacy policy content through GitHub Pages or another stable public page.
@@ -89,7 +89,7 @@ If Play Console rejects the GitHub privacy policy URL, publish the same privacy 
 ## App Access Reviewer Note
 
 ```text
-The app does not require an account. It opens directly to the AAC board. The Config control is visible in the app for local testing and setup.
+The app does not require an account. It opens directly to the AAC board. The Config control is visible in the app for local testing and setup. Camera switch input is optional; the main AAC board can be used without enabling camera input.
 ```
 
 zh-TW version:
@@ -123,23 +123,23 @@ English:
 SayToMe AAC / 我想說 is an early development communication support tool. It is not medical advice, not a finished clinical product, and not a substitute for professional AAC assessment, speech-language therapy, medical care, or emergency communication planning.
 ```
 
-## Verification Already Done
+## Verification To Refresh Before Upload
 
-- `npm run test:core` PASS: 199 tests on v0.2.4 prerelease path
-- `npm run test:web:e2e` PASS on v0.2.4 prerelease path
-- Real-device user check: v0.2.4 APK accepted by project owner
-- `.\package-release.bat -SdkDir E:\Android\Sdk` PASS for v0.2.5
-- `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties` PASS for v0.2.5
+- Complete owner UX review on the current candidate.
+- Fix only release-blocking UX issues.
+- Rerun the full pre-release verification gate.
+- Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
+- Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.
 
 Known caveat:
 
-- Local emulator APK smoke was blocked by emulator/system WebView ANRs, not by a confirmed app crash. Real-device UX verification is the deciding check for this internal testing submission.
+- Real-device UX verification is required for this internal testing submission, especially scan timing, speech output, text history/export, and optional camera switch setup.
 
 ## Owner-Side Tasks In Play Console
 
 These require the Play Console account owner:
 
-1. Create app or open existing app entry.
+1. Open the created Play Console app entry.
 2. Add primary `zh-TW` store listing.
 3. Upload signed AAB to Internal testing.
 4. Upload icon, feature graphic, and screenshots.

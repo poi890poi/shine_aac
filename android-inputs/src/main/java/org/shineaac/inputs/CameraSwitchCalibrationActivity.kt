@@ -4,9 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
@@ -19,12 +22,15 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.Image
 import android.media.ImageReader
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.text.TextUtils
 import android.util.Range
 import android.util.Size
 import android.view.Gravity
@@ -37,6 +43,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -56,7 +63,6 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var metricsView: TextView? = null
     private var holdView: TextView? = null
     private var zoomView: TextView? = null
-    private var feedbackView: TextView? = null
     private var startButton: Button? = null
     private var testButton: Button? = null
     private var cameraDevice: CameraDevice? = null
@@ -66,6 +72,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var repeatingRequestBuilder: CaptureRequest.Builder? = null
     private var activeArraySize: Rect? = null
     private var maxCameraZoomRatio = MaxSavedZoomRatio
+    private var analysisRotationDegrees = 0
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
@@ -107,6 +114,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var calibratedLongBlinkHoldMs = 800L
     private var calibratedZoomRatio = 1.6f
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
+    private var cameraPermissionRequested = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -167,9 +175,13 @@ class CameraSwitchCalibrationActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            restoreCameraPermissionActions()
             startCamera()
-        } else {
+        } else if (!cameraPermissionRequested) {
+            cameraPermissionRequested = true
             requestPermissions(arrayOf(Manifest.permission.CAMERA), CameraPermissionRequestCode)
+        } else {
+            showCameraPermissionRecovery()
         }
     }
 
@@ -203,36 +215,72 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (requestCode == CameraPermissionRequestCode &&
             grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
         ) {
+            restoreCameraPermissionActions()
             startCamera()
         } else {
-            statusView?.text = "Camera permission is required."
+            showCameraPermissionRecovery()
         }
     }
 
+    private fun showCameraPermissionRecovery() {
+        statusView?.text = "Camera permission is required. Open Android settings to allow it."
+        startButton?.apply {
+            text = "Open app settings"
+            isEnabled = true
+            setOnClickListener { openAppSettings() }
+        }
+        testButton?.isEnabled = false
+    }
+
+    private fun restoreCameraPermissionActions() {
+        startButton?.apply {
+            text = "Start setup"
+            setOnClickListener { startAutoCalibration() }
+        }
+        testButton?.isEnabled = true
+    }
+
+    private fun openAppSettings() {
+        startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null)
+            )
+        )
+    }
+
     private fun createContentView(): View {
+        val wideLayout = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+            resources.configuration.screenWidthDp >= 600
         val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+            orientation = if (wideLayout) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(19, 24, 31))
-            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setPadding(dp(12), dp(12), dp(12), dp(12))
         }
 
         val title = TextView(this).apply {
-            text = "Camera switch setup"
+            text = "Camera setup"
             setTextColor(Color.WHITE)
             textSize = 22f
             typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         }
         statusView = TextView(this).apply {
-            text = "Position the phone so the face stays inside the box."
+            text = "Center your face, then tap Start setup."
             setTextColor(Color.rgb(220, 227, 235))
             textSize = 16f
             setPadding(0, dp(8), 0, dp(8))
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
         }
         metricsView = TextView(this).apply {
             text = "Waiting for camera"
             setTextColor(Color.rgb(159, 173, 188))
             textSize = 14f
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(8))
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         }
         holdView = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -246,8 +294,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, dp(4), 0, dp(4))
         }
-        feedbackView = TextView(this).apply {
-            text = "Box: green = eyes usable, amber = face only. Tones: start = mid tone, short blink = high chirp, hold reached = low tone, long accepted = rising two-tone."
+        val feedbackView = TextView(this).apply {
+            text = "Green: eyes. Amber: face."
             setTextColor(Color.rgb(183, 196, 210))
             textSize = 14f
             setPadding(0, 0, 0, dp(10))
@@ -264,9 +312,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                    updatePreviewTransform(width, height)
                     startCamera()
                 }
-                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) = Unit
+                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                    updatePreviewTransform(width, height)
+                }
                 override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean = true
                 override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
             }
@@ -281,7 +332,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         previewFrame.addView(overlayView)
 
         val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = if (wideLayout) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             gravity = Gravity.CENTER
         }
         startButton = actionButton("Start setup", primary = true) {
@@ -293,9 +344,9 @@ class CameraSwitchCalibrationActivity : Activity() {
         val closeButton = actionButton("Done", primary = false) {
             setOnClickListener { finish() }
         }
-        actions.addView(startButton, actionButtonParams())
-        actions.addView(testButton, actionButtonParams())
-        actions.addView(closeButton, actionButtonParams())
+        actions.addView(startButton, actionButtonParams(wideLayout))
+        actions.addView(testButton, actionButtonParams(wideLayout))
+        actions.addView(closeButton, actionButtonParams(wideLayout))
 
         val holdActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -304,10 +355,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         holdActions.addView(actionButton("-100 ms", primary = false) {
             setOnClickListener { adjustHoldMs(-100L) }
-        }, actionButtonParams())
+        }, actionButtonParams(horizontal = true))
         holdActions.addView(actionButton("+100 ms", primary = false) {
             setOnClickListener { adjustHoldMs(100L) }
-        }, actionButtonParams())
+        }, actionButtonParams(horizontal = true))
 
         val zoomActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -316,21 +367,47 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         zoomActions.addView(actionButton("Zoom -", primary = false) {
             setOnClickListener { adjustZoomRatio(-0.2f) }
-        }, actionButtonParams())
+        }, actionButtonParams(horizontal = true))
         zoomActions.addView(actionButton("Zoom +", primary = false) {
             setOnClickListener { adjustZoomRatio(0.2f) }
-        }, actionButtonParams())
+        }, actionButtonParams(horizontal = true))
 
-        root.addView(title)
-        root.addView(statusView)
-        root.addView(metricsView)
-        root.addView(previewFrame)
-        root.addView(holdView)
-        root.addView(zoomView)
-        root.addView(feedbackView)
-        root.addView(holdActions)
-        root.addView(zoomActions)
-        root.addView(actions)
+        val previewPane = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(title)
+            addView(statusView)
+            addView(metricsView)
+            addView(previewFrame)
+        }
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(if (wideLayout) dp(12) else 0, dp(8), 0, dp(8))
+            addView(holdView)
+            addView(holdActions)
+            addView(zoomView)
+            addView(zoomActions)
+            addView(feedbackView)
+            addView(actions)
+        }
+        val controlsScroll = ScrollView(this).apply {
+            isFillViewport = false
+            clipToPadding = false
+            addView(
+                controls,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
+        if (wideLayout) {
+            root.addView(previewPane, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 3f))
+            root.addView(controlsScroll, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2f))
+        } else {
+            root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f))
+            root.addView(controlsScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f))
+        }
         updateHoldUi()
         updateZoomUi()
         return root
@@ -342,7 +419,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             statusView?.text = "Ready. Long blink is calibrated; use Test blink after moving the phone."
             metricsView?.text = quality
         } else {
-            statusView?.text = "Position the phone, then tap Start setup."
+            statusView?.text = "Center your face, then tap Start setup."
             metricsView?.text = "No saved setup yet."
         }
         testButton?.isEnabled = true
@@ -630,7 +707,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun startCamera() {
         if (cameraDevice != null || cameraOpening || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
         val texture = textureView?.surfaceTexture ?: return
-        texture.setDefaultBufferSize(640, 480)
+        texture.setDefaultBufferSize(PreviewBufferWidth, PreviewBufferHeight)
         val openGeneration = ++cameraOpenGeneration
         cameraOpening = true
         cameraThread = HandlerThread("ShineCameraCalibration").also { it.start() }
@@ -658,6 +735,13 @@ class CameraSwitchCalibrationActivity : Activity() {
             return
         }
         val characteristics = manager.getCameraCharacteristics(cameraId)
+        val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+        analysisRotationDegrees = CameraRotation.compensationDegrees(
+            currentSurfaceRotation(),
+            sensorOrientation,
+            frontFacing = true
+        )
+        updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
         activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
         maxCameraZoomRatio = characteristics
             .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
@@ -788,8 +872,9 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         mlKitInFlight = true
         lastFrameAt = now
-        val imageSize = orientedImageSize(image, MlKitRotation)
-        activeDetector.process(InputImage.fromMediaImage(image, MlKitRotation))
+        val rotationDegrees = analysisRotationDegrees
+        val imageSize = orientedImageSize(image, rotationDegrees)
+        activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
             .addOnSuccessListener { faces ->
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val score = face?.closedScore()
@@ -823,9 +908,9 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun updateMetrics(score: Double?) {
         if (shouldPreviewMonitor()) {
             metricsView?.text = if (score == null) {
-                "${previousQualityText()} | face not detected"
+                "Face not detected"
             } else {
-                "Score ${"%.2f".format(score)} | short $previewShortBlinkCount | long $previewLongBlinkCount | last ${previewLastDetectedDurationMs}ms"
+                "Eyes ${"%.2f".format(score)} | short $previewShortBlinkCount | long $previewLongBlinkCount"
             }
             return
         }
@@ -843,9 +928,6 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun shouldPreviewMonitor(): Boolean =
         (phase == Phase.Idle || phase == Phase.Complete) && currentSpeechId == null
-
-    private fun previousQualityText(): String =
-        savedCalibrationRecord?.qualityDetail ?: "Previous quality unavailable"
 
     private fun playStartCue() {
         tonePlayer?.playStart()
@@ -963,13 +1045,41 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun orientedImageSize(image: Image, rotation: Int): Size =
         if (rotation == 90 || rotation == 270) Size(image.height, image.width) else Size(image.width, image.height)
 
+    private fun currentSurfaceRotation(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display?.rotation ?: Surface.ROTATION_0
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.rotation
+        }
+
+    private fun updatePreviewTransform(width: Int, height: Int) {
+        val texture = textureView ?: return
+        val scale = CameraPreviewGeometry.aspectFitScale(
+            viewWidth = width,
+            viewHeight = height,
+            bufferWidth = PreviewBufferWidth,
+            bufferHeight = PreviewBufferHeight,
+            rotationDegrees = analysisRotationDegrees
+        )
+        texture.setTransform(
+            Matrix().apply {
+                setScale(scale.x, scale.y, width / 2f, height / 2f)
+            }
+        )
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
 
     private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = Button(this).apply {
         this.text = text
         isAllCaps = false
         minHeight = dp(44)
+        minWidth = 0
         textSize = 14f
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
+        setPadding(dp(8), 0, dp(8), 0)
         setTextColor(if (primary) Color.WHITE else Color.rgb(226, 234, 242))
         background = roundedBackground(
             if (primary) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64),
@@ -979,10 +1089,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         configure()
     }
 
-    private fun actionButtonParams() = LinearLayout.LayoutParams(
-        0,
+    private fun actionButtonParams(horizontal: Boolean) = LinearLayout.LayoutParams(
+        if (horizontal) 0 else LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT,
-        1f
+        if (horizontal) 1f else 0f
     ).apply {
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
@@ -1043,7 +1153,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private companion object {
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
-        const val MlKitRotation = 270
+        const val PreviewBufferWidth = 640
+        const val PreviewBufferHeight = 480
         const val MlKitFrameIntervalMs = 200L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5

@@ -17,8 +17,13 @@ local.properties
 .share/
 /tools/cloudflared.exe
 /e2e-artifacts/
+node_modules/
+/.artifacts/
 /blinktest/data/
 /.tmp/
 /keystore.properties
 /*.jks
 /*.keystore
+/releases/**/*.apk
+/releases/**/*.aab
+/releases/**/*.zip

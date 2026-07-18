@@ -326,6 +326,12 @@ class MainActivity : Activity() {
     }
 
     private fun openCamera() {
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            addLog("camera permission unavailable")
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), CameraPermissionRequestCode)
+            return
+        }
+
         closeCamera()
         cameraThread = HandlerThread("BlinkCamera").also { it.start() }
         cameraHandler = Handler(cameraThread!!.looper)

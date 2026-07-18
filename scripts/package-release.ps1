@@ -1,7 +1,8 @@
 param(
     [string]$SdkDir,
     [switch]$SetupSdk,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [string]$ArtifactRoot = ".artifacts\releases"
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +36,8 @@ if (-not $versionName -or -not $versionCode) {
     throw "version.properties must define versionName and versionCode."
 }
 
+& (Join-Path $PSScriptRoot "verify-android-data-policy.ps1")
+
 if (-not $SkipBuild) {
     $buildArgs = @()
     if ($SdkDir) {
@@ -55,7 +58,12 @@ if (-not (Test-Path -LiteralPath $apkPath)) {
     throw "Debug APK not found at $apkPath"
 }
 
-$releaseDir = Join-Path $repoRoot "releases\v$versionName"
+$releaseRoot = if ([System.IO.Path]::IsPathRooted($ArtifactRoot)) {
+    $ArtifactRoot
+} else {
+    Join-Path $repoRoot $ArtifactRoot
+}
+$releaseDir = Join-Path $releaseRoot "v$versionName"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
 $artifactName = "shine-aac-v$versionName-code$versionCode-debug.apk"

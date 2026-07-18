@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -19,6 +20,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import org.shineaac.inputs.CameraSwitchCalibrationActivity
@@ -40,6 +42,15 @@ class MainActivity : ComponentActivity() {
     @Volatile private var cameraSwitchEnabled = false
     @Volatile private var switchInputProfile = SwitchInputHardware
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && cameraSwitchEnabled) {
+            cameraSwitchInput?.start()
+        } else if (!granted) {
+            sendCameraPermissionDenied()
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +70,7 @@ class MainActivity : ComponentActivity() {
             webChromeClient = WebChromeClient()
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.textZoom = 100
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.allowFileAccess = true
             settings.allowContentAccess = true
@@ -130,6 +142,7 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!isHardwareActivationKey(event.keyCode)) {
             return super.dispatchKeyEvent(event)
@@ -166,20 +179,6 @@ class MainActivity : ComponentActivity() {
         }
         ttsExecutor.shutdown()
         super.onDestroy()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CameraPermissionRequestCode &&
-            grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED &&
-            cameraSwitchEnabled
-        ) {
-            cameraSwitchInput?.start()
-        }
     }
 
     private fun isHardwareActivationKey(keyCode: Int): Boolean {
@@ -227,6 +226,16 @@ class MainActivity : ComponentActivity() {
         runOnUiThread {
             webView?.evaluateJavascript(script, null)
         }
+    }
+
+    private fun sendCameraPermissionDenied() {
+        sendInputEvent(
+            InputEvent(
+                intent = "cameraStatus",
+                source = "android-camera-long-blink",
+                detail = "state=permissionDenied"
+            )
+        )
     }
 
     inner class AndroidSpeechBridge {
@@ -292,6 +301,53 @@ class MainActivity : ComponentActivity() {
                 .toString()
         }
 
+        @Suppress("DEPRECATION")
+        @JavascriptInterface
+        fun getAppInfoJson(): String {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            return JSONObject()
+                .put("appName", getString(R.string.app_name))
+                .put("versionName", packageInfo.versionName.orEmpty())
+                .put("versionCode", packageInfo.versionCode)
+                .toString()
+        }
+
+        @JavascriptInterface
+        fun getSessionDraftJson(): String =
+            getSharedPreferences(SessionDraftPreferences, Context.MODE_PRIVATE)
+                .getString(SessionDraftKey, "")
+                .orEmpty()
+
+        @JavascriptInterface
+        fun saveSessionDraftJson(value: String): Boolean {
+            if (value.length > MaxSessionDraftJsonChars) return false
+            return getSharedPreferences(SessionDraftPreferences, Context.MODE_PRIVATE)
+                .edit()
+                .putString(SessionDraftKey, value)
+                .commit()
+        }
+
+        @JavascriptInterface
+        fun clearSessionDraft() {
+            getSharedPreferences(SessionDraftPreferences, Context.MODE_PRIVATE)
+                .edit()
+                .remove(SessionDraftKey)
+                .commit()
+        }
+
+        @JavascriptInterface
+        fun openExternalUrl(url: String) {
+            val uri = try {
+                Uri.parse(url)
+            } catch (_: Exception) {
+                return
+            }
+            if (uri.scheme != "https" || uri.host !in ExternalLinkHosts) return
+            runOnUiThread {
+                startActivity(Intent(Intent.ACTION_VIEW, uri))
+            }
+        }
+
         @JavascriptInterface
         fun setUiConfigJson(uiConfigJson: String) {
             val config = try {
@@ -299,28 +355,48 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {
                 JSONObject()
             }
-            switchInputProfile = normalizedInputProfile(config)
-            hardwareButtonsEnabled = hardwareEnabledForProfile(switchInputProfile)
-            val nextCameraSwitchEnabled = cameraEnabledForProfile(switchInputProfile)
-            if (nextCameraSwitchEnabled != cameraSwitchEnabled) {
-                cameraSwitchEnabled = nextCameraSwitchEnabled
-                if (cameraSwitchEnabled) {
-                    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                        cameraSwitchInput?.start()
+            val nextInputProfile = normalizedInputProfile(config)
+            runOnUiThread {
+                switchInputProfile = nextInputProfile
+                hardwareButtonsEnabled = hardwareEnabledForProfile(switchInputProfile)
+                val nextCameraSwitchEnabled = cameraEnabledForProfile(switchInputProfile)
+                if (nextCameraSwitchEnabled != cameraSwitchEnabled) {
+                    cameraSwitchEnabled = nextCameraSwitchEnabled
+                    if (cameraSwitchEnabled) {
+                        if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            cameraSwitchInput?.start()
+                        } else {
+                            sendCameraPermissionDenied()
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
                     } else {
-                        requestPermissions(arrayOf(Manifest.permission.CAMERA), CameraPermissionRequestCode)
+                        cameraSwitchInput?.stop()
                     }
-                } else {
-                    cameraSwitchInput?.stop()
                 }
             }
         }
 
         @JavascriptInterface
         fun openCameraSwitchCalibration(profileId: String) {
-            val intent = Intent(this@MainActivity, CameraSwitchCalibrationActivity::class.java)
-                .putExtra(CameraCalibrationProfileExtra, profileId)
-            startActivity(intent)
+            runOnUiThread {
+                val intent = Intent(this@MainActivity, CameraSwitchCalibrationActivity::class.java)
+                    .putExtra(CameraCalibrationProfileExtra, profileId)
+                startActivity(intent)
+            }
+        }
+
+        @JavascriptInterface
+        fun exportTextHistory(text: String) {
+            val exportText = text.take(MaxTextHistoryExportChars)
+            if (exportText.isBlank()) return
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "SayToMe AAC text history")
+                putExtra(Intent.EXTRA_TEXT, exportText)
+            }
+            runOnUiThread {
+                startActivity(Intent.createChooser(intent, "Export text history"))
+            }
         }
 
         @JavascriptInterface
@@ -332,17 +408,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val CameraPermissionRequestCode = 2403
         const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
         const val CurrentConfigVersion = 18
         const val DefaultScanIntervalMs = 1300f
         const val DefaultTransitionPauseMs = 0f
         const val DefaultFirstCellPauseMs = 1700f
+        const val MaxTextHistoryExportChars = 500_000
+        const val MaxSessionDraftJsonChars = 100_000
+        const val SessionDraftPreferences = "shine_aac_session_draft"
+        const val SessionDraftKey = "current"
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
         const val SwitchInputCameraLongBlink = "camera-long-blink"
         const val SwitchInputHardwareAndCamera = "hardware-and-camera"
+        val ExternalLinkHosts = setOf("github.com", "poi890poi.github.io")
 
         fun normalizedInputProfile(config: JSONObject): String {
             val requested = config.optString("switchInputProfile", "")

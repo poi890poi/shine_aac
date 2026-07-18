@@ -1,8 +1,22 @@
 # Device Compatibility Review
 
-Generated: 2026-07-13
-Commit reviewed: pending post-c17f05f compatibility hardening
-Version reviewed: 0.2.34 (37)
+Generated: 2026-07-14
+Commit reviewed: `3ac103c` plus current uncommitted candidate changes
+Version reviewed: 0.2.35 (38)
+
+## 0.2.35 Pre-release Rerun
+
+The current runtime rerun passed on an API 34 phone emulator and an Android `sw800dp` tablet-class configuration at 1600x2560 portrait and 2560x1600 landscape.
+
+- Main board, Config, Input Test, and Camera Setup stayed clear of visible system controls.
+- MainActivity and CameraSwitchCalibrationActivity both exposed `KEEP_SCREEN_ON`.
+- The composed message `I want water ` survived portrait-to-landscape Activity recreation.
+- Camera permission denial exposed the recovery action, and an emulated front camera produced a nonblank Camera2 preview in landscape.
+- No app crash or ANR appeared during these checks.
+
+The 2026-07-15 large-text rerun additionally passed with Android font scale 2.0 on phone and tablet-class windows. AAC cell labels are now fitted from measured container geometry instead of label-length rules. Camera Setup reserves a stable preview pane, scrolls controls independently, and aspect-fits the camera buffer in phone portrait plus tablet portrait/landscape.
+
+Physical Samsung confirmation, real-person camera detection/alignment, TTS listening, and human AAC UX review remain open. Full evidence is recorded in `docs/PRE_RELEASE_TEST_REPORT_0.2.35.md`.
 
 This review replaces the previous informal UX/design review gate for device behavior. The prior review missed foreseeable Android integration risks because it checked app logic, screenshots, and store assets, but did not require every Activity to be tested against system bars, screen timeout, lifecycle recreation, orientation, and tablet-class windows.
 
@@ -44,34 +58,33 @@ That made the review dependent on whichever phone condition happened to be teste
 
 | ID | Severity | Area | Finding | Status | Required action |
 | --- | --- | --- | --- | --- | --- |
-| DC-001 | Critical | Main AAC screen | Bottom row could be blocked by Samsung/system navigation controls because the WebView filled the window without system-bar padding. | Fixed in `6e54589`; needs device confirmation | Test on Samsung phone with gesture and button navigation after next APK build |
-| DC-002 | Critical | Main AAC screen | Display timeout could interrupt active AAC use. | Fixed in `6e54589`; needs device confirmation | Verify screen remains awake for at least the device timeout period |
-| DC-003 | Critical | Camera setup | Native camera setup had the same system-control and timeout class of risk. | Fixed in `77b5520`; needs device confirmation | Open Camera setup on device and verify bottom controls remain reachable |
-| DC-004 | High | Rotation/recreation | Composed message was lost when Android recreated/reloaded the WebView. | Fixed in `066fc34`; browser E2E covers reload persistence | Verify on Android by rotating/locking/unlocking once a new APK is built |
-| DC-005 | High | Tablet/large screen | The app was phone-first and manifest-locked to portrait. | Partially fixed | Manifest lock removed; phones are portrait-locked at runtime below 600dp, tablet-class screens can rotate. Still needs tablet emulator smoke for native runtime |
+| DC-001 | Critical | Main AAC screen | Bottom row could be blocked by Samsung/system navigation controls because the WebView filled the window without system-bar padding. | Fixed; tablet emulator confirmed | Confirm on the target Samsung phone with gesture and button navigation |
+| DC-002 | Critical | Main AAC screen | Display timeout could interrupt active AAC use. | Fixed; emulator window flag confirmed | Confirm by waiting past the configured timeout on the target phone |
+| DC-003 | Critical | Camera setup | Native camera setup had the same system-control and timeout class of risk. | Fixed; tablet emulator confirmed | Confirm system-control clearance and timeout behavior on the target phone |
+| DC-004 | High | Rotation/recreation | Composed message was lost when Android recreated/reloaded the WebView. | Fixed; browser and Android lifecycle checks passed | Keep lifecycle persistence in the release smoke suite |
+| DC-005 | High | Tablet/large screen | The app was phone-first and manifest-locked to portrait. | Fixed for current target; tablet emulator confirmed | Manifest lock removed; phones are portrait-locked below 600dp and tablet-class screens use the adaptive layout |
 | DC-006 | High | Future Android target SDK | `screenOrientation="portrait"` is a temporary phone release mitigation. Large-screen Android behavior can ignore orientation restrictions for newer target SDKs. | Open | Design and verify adaptive landscape/tablet layout before API 36/production tablet support |
-| DC-007 | High | Camera switch on tablet/landscape | Camera setup uses a fixed ML Kit rotation and preview/overlay assumptions. Tablet landscape and different sensor orientations are not proven. | Open | Verify and, if needed, derive image rotation from camera/display orientation before claiming camera switch tablet support |
-| DC-008 | Medium | Web viewport sizing | Web CSS used `100vh` for the shell and lacked tablet landscape coverage. | Fixed in web/E2E; needs device confirmation | Uses dynamic viewport units and tablet landscape split layout; browser E2E covers phone, tablet portrait, and tablet landscape overflow |
-| DC-009 | Medium | Config/input-test panels | Config and calibration panels are scrollable, but bottom action reachability under system UI needs direct device/emulator evidence. | Partially fixed | Browser E2E verifies config actions on tablet portrait/landscape; native system-bar confirmation still needs APK smoke |
-| DC-010 | Medium | Accessibility scaling | Large font/display-size behavior has not been reviewed. AAC users and helpers may use enlarged UI settings. | Open | Add manual Android smoke with increased font/display size |
+| DC-007 | High | Camera switch on tablet/landscape | Camera setup used fixed image-rotation assumptions. | Fixed; unit-tested and emulated-camera startup confirmed | Real-person face/eye classification still requires a physical-device test |
+| DC-008 | Medium | Web viewport sizing | Web CSS used `100vh` for the shell and lacked tablet landscape coverage. | Fixed; browser and tablet emulator confirmed | Dynamic viewport units and the tablet landscape layout remain release-gated by E2E |
+| DC-009 | Medium | Config/input-test panels | Bottom action reachability under system UI needed direct Android evidence. | Fixed; tablet emulator confirmed | Config and Input Test actions remained clear of the visible Android taskbar |
+| DC-010 | Medium | Accessibility scaling | Large text could break AAC cells and consume the Camera Setup preview. | Fixed; browser and API 34 emulator confirmed at font scale 2.0 | Confirm vendor-specific font/display scaling during physical Samsung UX review |
 
 ## Release Decision
 
-Internal phone testing may continue after a new APK build only if the tester checklist explicitly includes:
+The code-38 debug APK passed automated and emulator pre-release checks and may proceed to owner/internal UX testing. The physical-device checklist still includes:
 
 - main board bottom row clear of system controls
 - camera setup controls clear of system controls
 - screen stays awake
 - composed text survives rotation/reload/background
 
-Tablet support should not be claimed as fully verified yet. Browser viewport checks now cover tablet portrait and tablet landscape, and the manifest no longer locks tablet-class screens to portrait. Because no physical tablet is available, native Android tablet compatibility still needs Android tablet emulator smoke before wider release. Store tablet screenshots are not sufficient evidence; they prove visual marketing assets, not runtime compatibility with Android system UI, activity lifecycle, camera orientation, or resizable windows.
+Tablet runtime compatibility is verified on an API 34 `sw800dp` emulator in portrait and landscape. A physical tablet remains desirable for human UX, vendor-specific system UI, performance, and real-camera validation. Store tablet screenshots are not runtime evidence by themselves.
 
 ## Required Next Review Run
 
 Before the next release candidate:
 
-1. Build a fresh debug APK from the current commits.
-2. Run phone smoke on the Samsung device:
+1. Run phone smoke on the Samsung device:
    - launch main AAC screen
    - enter text
    - wait past the device display timeout
@@ -79,10 +92,7 @@ Before the next release candidate:
    - open config and input test
    - open camera setup
    - verify bottom controls are not blocked
-3. Run tablet-class emulator smoke:
-   - Pixel Tablet portrait
-   - Pixel Tablet landscape
-   - main board, config, input test, camera setup
-   - large font/display size if practical
-4. Extend automated browser E2E to include tablet portrait and landscape viewport fit checks.
-5. Update this report with pass/fail evidence before uploading a new tester build.
+2. Run real-person camera alignment, blink detection, and calibration on the target device.
+3. Listen to Mandarin TTS on the target device.
+4. Run tablet large-font/display-size smoke when practical.
+5. Complete the human AAC UX review before production release.

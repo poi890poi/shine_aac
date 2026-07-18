@@ -31,6 +31,8 @@ if ($SdkDir) {
 
 $resolvedKeystoreProperties = Resolve-Path -LiteralPath $KeystoreProperties
 
+& (Join-Path $PSScriptRoot "verify-android-data-policy.ps1")
+
 Write-Step "Building signed Play release AAB"
 & .\gradlew.bat bundleRelease "-PshineAacKeystoreProperties=$($resolvedKeystoreProperties.Path)"
 if ($LASTEXITCODE -ne 0) {

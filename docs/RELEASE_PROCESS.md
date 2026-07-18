@@ -7,8 +7,8 @@ SHINE AAC uses one release version for source, APK metadata, tags, and release f
 Edit `version.properties`:
 
 ```properties
-versionName=0.2.6
-versionCode=9
+versionName=0.2.35
+versionCode=38
 ```
 
 - `versionName`: public SemVer version.
@@ -30,21 +30,28 @@ Pushing a `vX.Y.Z` tag runs CI and publishes a GitHub Release with the versioned
 
 ## APK Files
 
+Install the pinned web build dependency once after cloning or whenever `package-lock.json` changes:
+
+```powershell
+npm ci
+```
+
 Build and package a versioned debug APK:
 
 ```powershell
 .\package-release.bat -SdkDir E:\Android\Sdk
 ```
 
-This creates:
+This creates ignored local artifacts:
 
 ```text
-releases\v0.2.6\shine-aac-v0.2.6-code9-debug.apk
-releases\v0.2.6\SHA256SUMS.txt
-releases\v0.2.6\RELEASE_NOTES.md
+.artifacts\releases\v0.2.35\shine-aac-v0.2.35-code38-debug.apk
+.artifacts\releases\v0.2.35\SHA256SUMS.txt
+.artifacts\releases\v0.2.35\RELEASE_NOTES.md
 ```
 
 Do not share `app-debug.apk` directly. It is an intermediate build output and is overwritten on every build.
+Do not commit APK, AAB, or ZIP files. Tagged release CI builds the APK from the tagged source and uploads it directly to GitHub Releases.
 
 ## Google Play AAB
 
@@ -66,14 +73,15 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
 
 ## Minimal Release Checklist
 
-1. Update `version.properties`.
-2. Run `npm run test:core`.
-3. Run `npm run test:web:e2e`.
-4. Run `.\package-release.bat -SdkDir E:\Android\Sdk`.
-5. Create tag `vX.Y.Z` on the exact commit.
-6. Push the tag. GitHub Actions publishes the GitHub Release and attaches the versioned APK plus `SHA256SUMS.txt`.
+1. Run `npm ci`.
+2. Update `version.properties`.
+3. Run `npm run test:core`.
+4. Run `npm run test:web:e2e` and `npm run test:web:packaged`.
+5. Run `.\package-release.bat -SdkDir E:\Android\Sdk`.
+6. Create tag `vX.Y.Z` on the exact commit.
+7. Push the tag. GitHub Actions rebuilds from that exact tag and publishes the versioned APK plus `SHA256SUMS.txt`.
 
 ```powershell
-git tag v0.2.6
-git push origin v0.2.6
+git tag v0.2.35
+git push origin v0.2.35
 ```

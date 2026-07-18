@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
@@ -14,7 +14,11 @@ const webPort = Number(process.env.SHINE_AAC_WEB_PORT ?? 5173);
 const debugPort = Number(process.env.SHINE_AAC_CDP_PORT ?? 9223);
 const edgePath = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const profileDir = join(process.env.TEMP ?? artifactDir, `shine-aac-edge-${Date.now()}`);
-const appUrl = `http://127.0.0.1:${webPort}/apps/web/`;
+const packagedWebViewMode = process.argv.includes("--packaged-webview");
+const appPath = packagedWebViewMode
+  ? "/app/build/generated/assets/shineWeb/www/apps/web/"
+  : "/apps/web/";
+const appUrl = `http://127.0.0.1:${webPort}${appPath}`;
 const HttpStartupTimeoutMs = 30000;
 const UiWaitTimeoutMs = 30000;
 const DemoStartTimeoutMs = 10000;
@@ -29,6 +33,17 @@ let cdp;
 
 async function main() {
 try {
+  if (packagedWebViewMode) {
+    const buildResult = spawnSync(process.execPath, [join(repoRoot, "scripts/build-webview-assets.mjs")], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      windowsHide: true
+    });
+    if (buildResult.status !== 0) {
+      throw new Error(`Packaged WebView build failed: ${buildResult.stderr || buildResult.stdout}`);
+    }
+    steps.push(pass("packaged-webview-build", "built Android WebView assets with esbuild"));
+  }
   serverProcess = spawn(process.execPath, [join(repoRoot, "apps/web/server.mjs"), "--port", String(webPort)], {
     cwd: repoRoot,
     stdio: ["ignore", "pipe", "pipe"],
@@ -68,11 +83,19 @@ try {
     deviceScaleFactor: 2.75,
     mobile: true
   });
-  await waitForUi();
+  await waitForRenderedBoard();
   steps.push(pass("browser-load", "rendered board and message panel"));
+
+  const firstRunSnapshot = await getSnapshot();
+  const firstRunLabels = firstRunSnapshot.rows.flat().map((tile) => tile.label);
+  if (!firstRunLabels.includes("\u3105") || firstRunLabels.includes("I")) {
+    throw new Error(`Clean first launch did not use the zh-TW profile: ${JSON.stringify(firstRunLabels)}`);
+  }
+  steps.push(pass("first-run-profile", "clean storage opens the zh-TW communication board"));
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
@@ -100,9 +123,11 @@ try {
   await scenarioClearAndMovie();
   await scenarioReviewHold();
   await scenarioInputCalibration();
+  await scenarioAppInfoPage();
   await scenarioDeveloperDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioTabletViewportCompatibility();
+  await scenarioLargeTextLabelCompatibility();
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
   await scenarioZhTwLanguageSwitchReviewHold();
@@ -181,6 +206,7 @@ async function scenarioPhraseAndUndo() {
 async function scenarioFirstColumnProgressTiming() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: 1200,
       transitionPauseMs: 0,
@@ -245,6 +271,7 @@ async function scenarioFirstColumnProgressTiming() {
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
@@ -259,6 +286,7 @@ async function scenarioFirstColumnProgressTiming() {
 async function scenarioCameraHoldPausesScan() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: 1200,
       transitionPauseMs: 0,
@@ -316,6 +344,7 @@ async function scenarioCameraHoldPausesScan() {
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
@@ -337,6 +366,7 @@ async function scenarioCameraHoldPausesScan() {
 async function scenarioCameraHoldActivationIsImmediate() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: 1200,
       transitionPauseMs: 0,
@@ -380,6 +410,7 @@ async function scenarioCameraHoldActivationIsImmediate() {
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
@@ -418,8 +449,11 @@ async function scenarioClearAndMovie() {
 }
 
 async function scenarioReviewHold() {
+  await selectLabel("CLR");
+  await assertMessage("");
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
       columns: 4,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
@@ -433,7 +467,6 @@ async function scenarioReviewHold() {
       restartScanFromTop: true,
       holdAfterSuggestionChange: true
     }));
-    localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
   await waitForUi();
@@ -458,6 +491,8 @@ async function scenarioReviewHold() {
   if (snapshot.message !== "I ") throw new Error(`Review release should not change message, got ${snapshot.message}`);
   steps.push(pass("review-hold", "default hold pauses after suggestion changes and resumes on next activation"));
 
+  await selectLabel("CLR");
+  await assertMessage("");
   await evaluate(`
     {
       const stored = JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}");
@@ -476,7 +511,6 @@ async function scenarioReviewHold() {
       restartScanFromTop: true,
       holdAfterSuggestionChange: false
     }));
-    localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
   await waitForUi();
@@ -527,6 +561,81 @@ async function scenarioTabletViewportCompatibility() {
   });
   await evaluate(`location.reload()`);
   await waitForUi();
+}
+
+async function scenarioLargeTextLabelCompatibility() {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 393,
+    height: 851,
+    deviceScaleFactor: 2.75,
+    mobile: true
+  });
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 18,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0,
+      symbols: [
+        "I", "WANT", "WATER", "HELP",
+        "YES", "NO", "COMMUNICATION", "BATHROOM",
+        "SAY=<speak>", "DEL=<delete>", "CLR=<clear>", "UNDO=<undo>"
+      ].join("\\n")
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+  await evaluate(`
+    (() => {
+      const style = document.createElement("style");
+      style.id = "e2e-large-aac-text";
+      style.textContent = ".tile { font-size: 56px !important; }";
+      document.head.append(style);
+      window.dispatchEvent(new Event("resize"));
+    })()
+  `);
+  await delay(250);
+
+  const result = await evaluate(`
+    (() => {
+      const labels = [...document.querySelectorAll(".tile-label")].filter((label) => label.textContent.length > 0);
+      const violations = labels.flatMap((label) => {
+        const tile = label.closest(".tile");
+        const labelRect = label.getBoundingClientRect();
+        const tileRect = tile.getBoundingClientRect();
+        const failed = label.scrollWidth > label.clientWidth + 1 ||
+          label.scrollHeight > label.clientHeight + 1 ||
+          labelRect.left < tileRect.left - 1 || labelRect.right > tileRect.right + 1 ||
+          labelRect.top < tileRect.top - 1 || labelRect.bottom > tileRect.bottom + 1;
+        return failed ? [{
+          text: label.textContent,
+          fontSize: label.style.fontSize,
+          clientWidth: label.clientWidth,
+          scrollWidth: label.scrollWidth,
+          clientHeight: label.clientHeight,
+          scrollHeight: label.scrollHeight,
+          labelRect: { left: labelRect.left, top: labelRect.top, right: labelRect.right, bottom: labelRect.bottom },
+          tileRect: { left: tileRect.left, top: tileRect.top, right: tileRect.right, bottom: tileRect.bottom }
+        }] : [];
+      });
+      return {
+        labelCount: labels.length,
+        longLabelCount: labels.filter((label) => label.textContent.length >= 8).length,
+        fittedCount: labels.filter((label) => label.style.fontSize.length > 0).length,
+        violations
+      };
+    })()
+  `);
+  if (result.longLabelCount === 0 || result.fittedCount === 0 || result.violations.length > 0) {
+    throw new Error(`Large AAC text did not fit every fixed cell: ${JSON.stringify(result)}`);
+  }
+  await assertNoViewportOverflow("large-text-phone-layout");
+  steps.push(pass("large-text-cell-fit", `fit ${result.labelCount} labels, including ${result.longLabelCount} long labels, without clipping`));
+
+  await evaluate(`document.querySelector("#e2e-large-aac-text")?.remove(); window.dispatchEvent(new Event("resize"));`);
 }
 
 async function scenarioInputCalibration() {
@@ -580,6 +689,39 @@ async function scenarioInputCalibration() {
   await waitForUi();
   await assertMessage("");
   steps.push(pass("input-calibration", "records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message"));
+}
+
+async function scenarioAppInfoPage() {
+  const info = await evaluate(`
+    (() => {
+      document.querySelector(".config-button")?.click();
+      document.querySelector('[data-action="app-info"]')?.click();
+      const panel = document.querySelector('[data-testid="app-info"]');
+      if (!panel) throw new Error("App Info panel not found");
+      return {
+        text: panel.innerText,
+        links: [...panel.querySelectorAll("[data-url]")].map((node) => node.textContent.trim()),
+        hasBack: Boolean(panel.querySelector('[data-action="back"]'))
+      };
+    })()
+  `);
+  for (const expected of ["SayToMe AAC", "Version", "Your data", "Privacy policy", "Support", "Source code"]) {
+    if (!info.text.includes(expected)) throw new Error(`App Info missing user-facing content: ${expected}`);
+  }
+  for (const rejected of ["Configuration format", "WebView", "What to test in this version"]) {
+    if (info.text.includes(rejected)) throw new Error(`App Info exposes non-user content: ${rejected}`);
+  }
+  if (info.links.length !== 3 || !info.hasBack) {
+    throw new Error(`App Info actions are incomplete: ${JSON.stringify(info)}`);
+  }
+  await evaluate(`
+    (() => {
+      document.querySelector('[data-action="back"]')?.click();
+      document.querySelector('[data-action="cancel"]')?.click();
+    })()
+  `);
+  await waitForUi();
+  steps.push(pass("app-info", "shows version, user data facts, and help links without diagnostics or release-test instructions"));
 }
 
 async function scenarioDeveloperDemoMode() {

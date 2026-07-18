@@ -11,7 +11,9 @@ import android.util.Log
 import android.util.Range
 import android.util.Size
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -135,6 +137,7 @@ class CameraSwitchInputAdapter(
     }
 
     @SuppressLint("MissingPermission")
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     private fun bindAnalysisUseCase(provider: ProcessCameraProvider, bindGeneration: Int) {
         val executor = analysisExecutor ?: return
         try {
@@ -200,6 +203,7 @@ class CameraSwitchInputAdapter(
             ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
+    @androidx.annotation.OptIn(ExperimentalGetImage::class)
     private fun analyze(imageProxy: ImageProxy, imageGeneration: Int) {
         if (imageGeneration != generation) {
             imageProxy.close()

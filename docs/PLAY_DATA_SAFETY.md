@@ -2,14 +2,17 @@
 
 This worksheet is for Play Console setup for `org.shineaac.app` / SayToMe AAC / 我想說.
 
-Reviewed app state on 2026-07-10:
+Reviewed app state on 2026-07-13:
 
-- Android manifest declares no `uses-permission` entries.
-- No `INTERNET`, `CAMERA`, `RECORD_AUDIO`, location, contacts, storage, advertising ID, or account permissions are declared.
+- Android manifest declares `android.permission.CAMERA` for the optional camera switch input.
+- `android.hardware.camera` is marked `required="false"`, so camera hardware is not required to install the app.
+- No `INTERNET`, `RECORD_AUDIO`, location, contacts, storage, advertising ID, or account permissions are declared.
 - No ads SDK is present.
 - No analytics SDK is present.
 - No account login is present.
-- App content and configuration are handled locally in WebView/app storage.
+- App content, exportable text history, and configuration are handled locally in WebView/app storage.
+- Android cloud backup is disabled, and backup rules exclude all app-data domains. Some Android 12 or later manufacturers may still provide direct device-to-device transfer.
+- Optional camera switch processing runs locally on device. The app does not upload camera frames, save photos, record video, or share camera data with SHINE AAC.
 - Android Text-to-Speech may be invoked through the platform speech engine selected on the device.
 
 Google Play guidance reference:
@@ -33,7 +36,17 @@ Google Play guidance reference:
 
 Recommended declaration: no collected/shared data types.
 
-Important note: The app processes messages, symbols, settings, and speech text locally. Google's Data Safety definition of collection focuses on transmitting user data off device. Local-only processing does not need to be declared as collected, but it should be described in the privacy policy for transparency.
+Important note: The app processes messages, symbols, settings, speech text, and exportable text history locally. Google's Data Safety definition of collection focuses on transmitting user data off device. Local-only processing does not need to be declared as collected, but it should be described in the privacy policy for transparency.
+
+Optional camera switch input uses the device camera only for local switch/blink detection. Camera frames are not transmitted to SHINE AAC, are not used for ads or analytics, and are not saved as photos or videos by the app.
+
+## Permissions Declaration
+
+Declare camera permission if Play Console asks for sensitive permissions:
+
+```text
+The camera permission is used only for optional camera switch input, such as local blink or face-position based activation during AAC scanning. Processing happens on the device. The app does not upload camera frames, save photos, record video, run ads, analytics, or remote logging, and does not require camera hardware to use the main AAC board.
+```
 
 ## App Content Forms
 
@@ -58,7 +71,7 @@ Draft answer: All functionality is available without login or special credential
 Suggested reviewer note:
 
 ```text
-The app does not require an account. It opens directly to the AAC board. The Config control is visible in the app for local testing and setup.
+The app does not require an account. It opens directly to the AAC board. The Config control is visible in the app for local testing and setup. Camera switch input is optional; the main AAC board can be used without enabling camera input.
 ```
 
 Suggested zh-TW reviewer note:
@@ -107,6 +120,7 @@ Recommended zh-TW wording:
 
 - Re-run `rg -n "uses-permission|android.permission|INTERNET|RECORD_AUDIO|CAMERA|ACCESS_|AD_ID" app/src/main app/build.gradle.kts gradle/libs.versions.toml`.
 - Confirm no network, ads, analytics, crash reporting, or third-party SDKs were added.
+- Confirm camera permission is still used only for optional local camera switch input.
 - Confirm privacy policy URL is public.
 - Confirm Play listing and release notes keep the early-development warning.
 - If any feedback form, email integration, analytics, cloud sync, crash reporting, or remote logging is added later, revisit this worksheet before upload.

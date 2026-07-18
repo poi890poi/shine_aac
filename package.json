@@ -4,11 +4,22 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:core",
-    "test:core": "npm --prefix packages/aac-core test",
+    "test:quick": "npm run test:core:quick",
+    "test:core": "npm run test:core:full",
+    "test:core:quick": "npm --prefix packages/aac-core run test:quick",
+    "test:core:full": "npm --prefix packages/aac-core test",
+    "test:core:benchmarks": "npm --prefix packages/aac-core run test:benchmarks",
     "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
-    "test:web:e2e": "node scripts/e2e-web.mjs"
+    "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",
+    "report:communication": "node scripts/report-communication-benchmarks.mjs",
+    "report:efficiency": "npm run report:zhtw:inventory && npm run report:zhtw:phonetic && npm run report:communication",
+    "test:web:e2e": "node scripts/e2e-web.mjs",
+    "test:web:packaged": "node scripts/e2e-web.mjs --packaged-webview"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
 }

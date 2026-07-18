@@ -1,6 +1,6 @@
 # zh-TW Dictionary Inventory Report
 
-Generated: 2026-07-11T03:50:00.415Z
+Generated: 2026-07-14T15:23:47.458Z
 
 This is the fast inventory report. It estimates broad source-dictionary reachability and efficiency from the phonetic access graph instead of running real-time scanning or full virtual utterance benchmarks.
 
@@ -53,6 +53,29 @@ These rows are the main efficiency guardrail. They emphasize high-source-rank gl
 | Best word/phrase direct-or-composed | 27032 | 8 | 12 | 8.47 | 4 | 6 |
 | Best all-label direct-or-composed | 32196 | 8 | 10 | 8.35 | 4 | 5 |
 
+## Previous-Version Comparison
+
+Baseline: Previous pre-efficiency baseline. Use this section to review systemic dictionary, coverage, and efficiency movement before accepting ranking/data changes.
+
+| Metric | Previous | Current | Difference | Change |
+| --- | ---: | ---: | ---: | ---: |
+| Source dictionary entries | 60000 | 60000 | 0 | 0.00% |
+| Unique source labels | 33523 | 33523 | 0 | 0.00% |
+| Entry phonetic-path reachability | 98.46% | 98.46% | +0.00 pp | 0.00% |
+| Weighted phonetic-path reachability | 98.87% | 98.87% | +0.00 pp | 0.00% |
+| Direct glyph candidate reachability | 85.30% | 85.30% | -0.00 pp | -0.00% |
+| Direct word/phrase candidate reachability | 98.22% | 98.22% | -0.00 pp | -0.00% |
+| Word/phrase direct-or-composable reachability | 98.41% | 98.41% | -0.00 pp | -0.00% |
+| All-label direct-or-composable reachability | 96.04% | 96.04% | +0.00 pp | 0.00% |
+| Top 500 glyph direct reachability | 98.60% | 98.60% | 0 pp | 0.00% |
+| Top 500 word/phrase direct reachability | 99.20% | 99.20% | 0 pp | 0.00% |
+| Direct glyph median activations | 8 | 8 | 0 | 0.00% |
+| Direct word/phrase median activations | 8 | 8 | 0 | 0.00% |
+| Best all-label median activations | 8 | 8 | 0 | 0.00% |
+| Direct glyph P90 activations | 10 | 10 | 0 | 0.00% |
+| Direct word/phrase P90 activations | 12 | 12 | 0 | 0.00% |
+| Best all-label P90 activations | 10 | 10 | 0 | 0.00% |
+
 ## Sample Gaps
 
 These samples are diagnostic, not hand-tuning instructions.
@@ -77,4 +100,4 @@ These samples are diagnostic, not hand-tuning instructions.
 - Direct candidate reachability estimates whether a label appears within the first reachable suggestion pages after composing its key.
 - Composable reachability treats long labels as possible when every component glyph has a direct candidate path.
 - Efficiency is estimated as two switch activations per selected tile. It intentionally excludes real-time row/cell waits; virtual communication benchmarks cover realistic scan path cost.
-- Runtime for this report: 3432 ms on this machine.
+- Runtime for this report: 1147 ms on this machine.

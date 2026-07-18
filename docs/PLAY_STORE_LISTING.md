@@ -8,7 +8,8 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說 SayToMe AAC`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current Play candidate: `v0.2.5`, Android version code `8`
+- Current source candidate: `v0.2.35`, Android version code `38`
+- Final Play upload candidate should be rebuilt after UX review and final pre-release verification.
 
 ## Taiwan zh-TW Listing
 
@@ -84,6 +85,8 @@ Please keep another reliable communication method available during testing, espe
 - Data Safety worksheet: `docs/PLAY_DATA_SAFETY.md`
 - Current declaration: the app does not collect or share user data with SHINE AAC.
 - The app processes messages and settings locally on the device.
+- Text history is stored locally and can be exported by the user or helper.
+- Optional camera switch input uses camera permission for local switch/blink detection only.
 - Android Text-to-Speech behavior may depend on the speech engine installed on the device.
 
 ## Google Play Asset Notes
