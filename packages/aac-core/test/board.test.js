@@ -691,28 +691,39 @@ test("zh-TW initial-only suggestions prioritize reachable phonetic continuations
   assert.equal(candidates.some((candidate) => candidate.action === TileAction.CommitCandidate), true);
 });
 
-test("zh-TW multi-symbol suggestions adapt candidate space to exact-match ambiguity", () => {
+test("zh-TW fundamental phonetic continuations precede speculative candidates", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const candidateCountBeforeContinuation = (buffer) => {
-    const suggestions = boardRows(config, buffer, false, {}).slice(0, 4).flat();
-    const firstContinuationIndex = suggestions.findIndex((candidate) => candidate.action === TileAction.Append);
-    return suggestions
-      .slice(0, firstContinuationIndex)
-      .filter((candidate) => candidate.action === TileAction.CommitCandidate)
-      .length;
-  };
+  const initialSymbols = new Set(ZhuyinInputSymbols.slice(0, 21));
 
-  assert.equal(candidateCountBeforeContinuation("ㄅ"), 8, "single-symbol allocation should remain established");
-  assert.equal(candidateCountBeforeContinuation("ㄧㄡ"), 8, "dense input should not displace six continuations");
-  assert.equal(candidateCountBeforeContinuation("ㄩㄝ"), 10, "dense exact matches should use otherwise free first-page slots");
-  assert.equal(candidateCountBeforeContinuation("ㄒㄧㄣㄨ"), 6, "sparse exact matches should gain two continuation slots");
-  assert.deepEqual(
-    boardRows(config, "ㄩㄝ", true, {}).slice(0, 4).flat()
-      .filter((candidate) => candidate.action === TileAction.Append)
-      .map((candidate) => candidate.output),
-    ["ㄨ", "ㄧ", "ㄩ"],
-    "dense allocation should preserve every priority continuation when undo is visible"
+  for (const buffer of ["ㄅ", "ㄒㄧㄣㄨ"]) {
+    const targets = boardRows(config, buffer, true, {}).slice(0, 4).flat()
+      .filter((candidate) =>
+        candidate.action === TileAction.Append ||
+        candidate.action === TileAction.CommitCandidate
+      );
+    const firstCandidateIndex = targets.findIndex((candidate) => candidate.action === TileAction.CommitCandidate);
+    const firstTarget = targets[0];
+
+    assert.equal(firstTarget.action, TileAction.Append, `${buffer} should lead with a fundamental continuation`);
+    assert.equal(initialSymbols.has(firstTarget.output), false, `${buffer} should lead with a non-initial continuation`);
+    assert.ok(firstCandidateIndex > 0, `${buffer} should expose continuations before candidates`);
+    assert.ok(
+      targets.some((candidate) => candidate.action === TileAction.CommitCandidate),
+      `${buffer} should retain useful candidates on the first page`
+    );
+  }
+});
+
+test("zh-TW completed syllables retain exact-candidate priority when no phonetic continuation is needed", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const targets = boardRows(config, "ㄩㄝ", true, {}).slice(0, 4).flat()
+    .filter((candidate) => candidate.action !== TileAction.Noop);
+  const firstContentTarget = targets.find((candidate) =>
+    candidate.action === TileAction.Append || candidate.action === TileAction.CommitCandidate
   );
+
+  assert.equal(firstContentTarget.action, TileAction.CommitCandidate);
+  assert.equal(firstContentTarget.zhuyinKey, "ㄩㄝ");
 });
 
 test("zh-TW phrase-initial shortcuts such as ㄅㄧ suggest 不要", () => {

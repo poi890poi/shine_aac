@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-18T12:16:36.710Z
+Generated: 2026-07-18T16:06:59.184Z
 
 Result: PASS
 
@@ -36,6 +36,7 @@ Result: PASS
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
 | zh-tw-language-switch-review-hold | PASS | EN and 注音 language switches use the suggestion-change review hold setting |
 | zh-tw-pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
+| zh-tw-demo-mode | PASS | completed a candidate after paging to a later Zhuyin continuation (1 commit) |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

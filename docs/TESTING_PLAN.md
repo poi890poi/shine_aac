@@ -117,6 +117,9 @@ Required coverage:
 - profile migration from stale stored data is visible after reload
 - `zh-TW` labels fit inside cells at phone viewport sizes
 - `zh-TW` `EN` entry point exposes English symbols without replacing the first-level Chinese surface
+- demo activation clears the draft and scanner holds, then restarts scanning from the top row
+- a reduced-column `zh-TW` demo must use normal bounded `更多` paging to select a displaced continuation and complete its candidate; the test must not add vocabulary or bypass visible scanning
+- intentional demo exit must stop cleanly without leaking a failure into later app behavior
 - reset restores packaged defaults
 - viewport and canvas/pixel checks prove the UI is not blank or clipped
 

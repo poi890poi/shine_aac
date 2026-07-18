@@ -1103,6 +1103,10 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
   const firstPageNextSymbolCount = zhTwFirstPageNextSymbolCount(buffer, columns, nextSymbols.length, immediateCandidateCount);
   const firstPageNextSymbols = nextSymbols.slice(0, firstPageNextSymbolCount);
   const overflowNextSymbols = nextSymbols.slice(firstPageNextSymbolCount);
+  const firstPagePhoneticNextSymbols = firstPageNextSymbols
+    .filter((candidate) => !ZhuyinInitialSymbolSet.has(candidate.output));
+  const firstPageInitialNextSymbols = firstPageNextSymbols
+    .filter((candidate) => ZhuyinInitialSymbolSet.has(candidate.output));
   const overflowPhoneticNextSymbols = overflowNextSymbols
     .filter((candidate) => !ZhuyinInitialSymbolSet.has(candidate.output));
   const overflowInitialNextSymbols = overflowNextSymbols
@@ -1115,9 +1119,12 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
     ]
     : remainingCandidates;
   const orderedCandidates = [
+    // When the buffer can still form a phonetic syllable, completing that input is
+    // fundamental. Glyph and phrase candidates are speculative until the user commits one.
+    ...firstPagePhoneticNextSymbols,
     ...rankedCandidates.slice(0, immediateCandidateCount),
-    ...firstPageNextSymbols,
     ...overflowPhoneticNextSymbols,
+    ...firstPageInitialNextSymbols,
     ...laterCandidates,
     ...overflowInitialNextSymbols
   ];

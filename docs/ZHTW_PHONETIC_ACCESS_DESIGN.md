@@ -127,6 +127,10 @@ Subject to:
 
 Suggestion pages should be as dense as the source data allows, but density must not override relevance.
 
+When the current buffer still has valid non-initial phonetic continuations, the reserved first-page continuations precede speculative glyph and word candidates. Useful exact/source candidates remain on the first page when space permits, while overflow continuations remain reachable through bounded `更多` paging. When a syllable needs no phonetic continuation, exact candidates retain first priority. Initial consonants that begin another syllable rank below completion of the current syllable and may appear on later pages.
+
+Automation follows the same rule as a user: a demo must page through visible `更多` controls for a displaced symbol or candidate, with no direct state mutation or scenario-only vocabulary.
+
 Allowed fillers:
 
 - exact candidates for the current buffer

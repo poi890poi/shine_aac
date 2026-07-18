@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-07-18T11:49:17.866Z
+Generated: 2026-07-18T15:08:08.509Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -25,14 +25,14 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Unit | Total | Average | Median | P90 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Estimated scan time | seconds | 2829.50 | 27.47 | 13.80 | 37.60 |
-| Output selections | selected tiles | 423 | 4.11 | 2.00 | 4.00 |
-| Switch activations | activations | 846 | 8.21 | 4.00 | 8.00 |
-| Scanner advances | row/cell advances | 2071 | 20.11 | 10.00 | 28.00 |
-| Activations per target concept | activations/concept | 846 / 152 | 5.57 |
-| Selections per target concept | selections/concept | 423 / 152 | 2.78 |
-| Activations per output character | activations/character | 846 / 399 | 2.12 |
-| Estimated time per output character | seconds/character | 2829.50 / 399 | 7.09 |
+| Estimated scan time | seconds | 2663.40 | 25.86 | 13.80 | 37.60 |
+| Output selections | selected tiles | 418 | 4.06 | 2.00 | 4.00 |
+| Switch activations | activations | 836 | 8.12 | 4.00 | 8.00 |
+| Scanner advances | row/cell advances | 1942 | 18.85 | 10.00 | 28.00 |
+| Activations per target concept | activations/concept | 836 / 152 | 5.50 |
+| Selections per target concept | selections/concept | 418 / 152 | 2.75 |
+| Activations per output character | activations/character | 836 / 399 | 2.10 |
+| Estimated time per output character | seconds/character | 2663.40 / 399 | 6.68 |
 | Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
 | Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
 | Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
@@ -41,9 +41,9 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 27.47 sec | <= 15 sec | gap |
+| Average benchmark time | 25.86 sec | <= 15 sec | gap |
 | Median urgent phrase time | 4.30 sec across 19 marked tasks | <= 10 sec | meets |
-| Average switch activations | 8.21 | <= 6 | gap |
+| Average switch activations | 8.12 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
 
 ## Selected Action Counts
@@ -53,7 +53,7 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 | append | 307 |
 | close-category | 2 |
 | commit-candidate | 40 |
-| more-suggestions | 68 |
+| more-suggestions | 63 |
 | open-category | 2 |
 | space | 3 |
 | undo | 1 |
@@ -64,19 +64,19 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 
 | Metric | Current Fixture Path | Least-Cost Estimate | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Selections | 213 | 204 | -9 | -4.23% |
-| Switch activations | 426 | 408 | -18 | -4.23% |
-| Scanner advances | 1024 | 969 | -55 | -5.37% |
-| Estimated scan time sec | 1396.40 | 1322.90 | -73.50 | -5.26% |
+| Selections | 208 | 199 | -9 | -4.33% |
+| Switch activations | 416 | 398 | -18 | -4.33% |
+| Scanner advances | 895 | 855 | -40 | -4.47% |
+| Estimated scan time sec | 1230.30 | 1177.50 | -52.80 | -4.29% |
 
 | Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | zhtw-phonetic-home-podcast | 聽 新 資料 夾 | 聽 新 資料 夾 | 36 | 36 | 0 | 0.00% |
 | zhtw-multilingual-home-podcast | 聽  podcast  新 資料 夾 | 聽  podcast  新 資料 夾 | 58 | 58 | 0 | 0.00% |
-| zhtw-multilingual-audio-repair | podcast  音量 小 | podcast  音 量 小 | 42 | 38 | -4 | -9.52% |
-| zhtw-phonetic-home-drink | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 冰 紅茶 少 冰 不 要 太 甜 等一下 喝 用 吸管 | 104 | 100 | -4 | -3.85% |
-| zhtw-phonetic-home-audio-repair | 音量 小 從 剛剛 那裡 | 音 量 小 從 剛剛 那裡 | 52 | 48 | -4 | -7.69% |
-| zhtw-phonetic-home-feeling | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 今 天 比較 累 但 是 心情 好想 聽 你 講 這樣 很 舒服 謝謝 | 134 | 128 | -6 | -4.48% |
+| zhtw-multilingual-audio-repair | podcast  音量 小 | podcast  音 量 小 | 40 | 36 | -4 | -10.00% |
+| zhtw-phonetic-home-drink | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 冰 紅茶 少 冰 不 要 太 甜 等一下 喝 用 吸管 | 102 | 98 | -4 | -3.92% |
+| zhtw-phonetic-home-audio-repair | 音量 小 從 剛剛 那裡 | 音 量 小 從 剛剛 那裡 | 50 | 46 | -4 | -8.00% |
+| zhtw-phonetic-home-feeling | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 今 天 比較 累 但 是 心情 好想 聽 你 講 這樣 很 舒服 謝謝 | 130 | 124 | -6 | -4.62% |
 
 ## Paired Baseline Regression
 
@@ -88,11 +88,11 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 
 | Metric | Baseline | Current | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Selections | 423 | 423 | 0 | 0.00% |
-| Switch activations | 846 | 846 | 0 | 0.00% |
-| Scanner advances | 2095 | 2071 | -24 | -1.15% |
-| Estimated scan time sec | 2866.30 | 2829.50 | -36.80 | -1.28% |
-| 更多 selections | 68 | 68 | 0 | 0.00% |
+| Selections | 423 | 418 | -5 | -1.18% |
+| Switch activations | 846 | 836 | -10 | -1.18% |
+| Scanner advances | 2095 | 1942 | -153 | -7.30% |
+| Estimated scan time sec | 2866.30 | 2663.40 | -202.90 | -7.08% |
+| 更多 selections | 68 | 63 | -5 | -7.35% |
 | P90 switch activations | 8 | 8 | 0 | 0.00% |
 | P90 scan time sec | 37.60 | 37.60 | 0 | 0.00% |
 
@@ -101,8 +101,8 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 | schema | PASS | baseline=1, candidate=1 |
 | task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=false |
 | reachability | PASS | unreachable=0 |
-| total-switches | PASS | baseline=846, candidate=846 |
-| total-scan-time | PASS | baseline=2866300, candidate=2829500 |
+| total-switches | PASS | baseline=846, candidate=836 |
+| total-scan-time | PASS | baseline=2866300, candidate=2663400 |
 | p90-switches | PASS | baseline=8, candidate=8 |
 | p90-scan-time | PASS | baseline=37600, candidate=37600 |
 | bounded-task-paging | PASS | max additional pages=0 |
@@ -142,12 +142,12 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 
 | Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |
 | --- | --- | ---: | ---: | ---: |
-| zhtw-phonetic-home-podcast | improved | 0 | -3 | 0 |
-| zhtw-multilingual-home-podcast | improved | 0 | -3 | 0 |
-| zhtw-multilingual-audio-repair | improved | 0 | -1.70 | 0 |
-| zhtw-phonetic-home-drink | improved | 0 | -7.70 | 0 |
-| zhtw-phonetic-home-audio-repair | improved | 0 | -1.70 | 0 |
-| zhtw-phonetic-home-feeling | improved | 0 | -19.70 | 0 |
+| zhtw-phonetic-home-podcast | improved | 0 | -18.20 | 0 |
+| zhtw-multilingual-home-podcast | improved | 0 | -18.20 | 0 |
+| zhtw-multilingual-audio-repair | improved | -2 | -12.50 | -1 |
+| zhtw-phonetic-home-drink | improved | -2 | -61.90 | -1 |
+| zhtw-phonetic-home-audio-repair | improved | -2 | -20.30 | -1 |
+| zhtw-phonetic-home-feeling | improved | -4 | -71.80 | -2 |
 
 ## Read This Correctly
 
@@ -201,18 +201,18 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 2829.50 seconds
-- Average estimated scan time per passing task: 27.47 seconds
-- Total selections across passing tasks: 423
-- Average selections per passing task: 4.11
-- Total switch activations across passing tasks: 846
-- Average switch activations per passing task: 8.21
-- Total scan advances across passing tasks: 2071
-- Average scan advances per passing task: 20.11
+- Total estimated scan time across passing tasks: 2663.40 seconds
+- Average estimated scan time per passing task: 25.86 seconds
+- Total selections across passing tasks: 418
+- Average selections per passing task: 4.06
+- Total switch activations across passing tasks: 836
+- Average switch activations per passing task: 8.12
+- Total scan advances across passing tasks: 1942
+- Average scan advances per passing task: 18.85
 - Total target concepts across passing tasks: 152
 - Total output characters across passing tasks: 399
-- Activations per target concept: 5.57
-- Activations per output character: 2.12
+- Activations per target concept: 5.50
+- Activations per output character: 2.10
 - Direct zh-TW phrase commits during benchmark composition: 17
 - Decomposed zh-TW phrase fallbacks during benchmark composition: 0
 
@@ -377,12 +377,12 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | zhtw-utterance-sit-up-pillow | SHINE zh-TW telegraphic AAC utterances | 更多 坐起來 更多 枕頭 | 26.30 | 4 | 8 | 19 | append:2, more-suggestions:2 | selections<=4 | PASS |
 | zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 15.50 | 3 | 6 | 11 | append:2, more-suggestions:1 | selections<=3 | PASS |
 | zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
-| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 121.70 | 18 | 36 | 89 | append:13, commit-candidate:4, more-suggestions:1 | selections<=18 | PASS |
-| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽  podcast  新 資料 夾 | 203.30 | 29 | 58 | 149 | append:20, close-category:1, commit-candidate:4, more-suggestions:1, open-category:1, space:2 | selections<=30 | PASS |
-| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast  音量 小 | 140.70 | 21 | 42 | 103 | append:15, close-category:1, commit-candidate:2, more-suggestions:1, open-category:1, space:1 | selections<=23 | PASS |
-| zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 338.50 | 52 | 104 | 249 | append:37, commit-candidate:12, more-suggestions:3 | selections<=54 | PASS |
-| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 167.90 | 26 | 52 | 123 | append:19, commit-candidate:5, more-suggestions:2 | selections<=28 | PASS |
-| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 424.30 | 67 | 134 | 311 | append:50, commit-candidate:13, more-suggestions:4 | selections<=70 | PASS |
+| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 106.50 | 18 | 36 | 77 | append:13, commit-candidate:4, more-suggestions:1 | selections<=18 | PASS |
+| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽  podcast  新 資料 夾 | 188.10 | 29 | 58 | 137 | append:20, close-category:1, commit-candidate:4, more-suggestions:1, open-category:1, space:2 | selections<=30 | PASS |
+| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast  音量 小 | 129.90 | 20 | 40 | 95 | append:15, close-category:1, commit-candidate:2, open-category:1, space:1 | selections<=23 | PASS |
+| zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 284.30 | 51 | 102 | 207 | append:37, commit-candidate:12, more-suggestions:2 | selections<=54 | PASS |
+| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 149.30 | 25 | 50 | 109 | append:19, commit-candidate:5, more-suggestions:1 | selections<=28 | PASS |
+| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 372.20 | 65 | 130 | 270 | append:50, commit-candidate:13, more-suggestions:2 | selections<=70 | PASS |
 | project-core-go | Project Core Universal Core Vocabulary | go | 6.90 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
 | project-core-like | Project Core Universal Core Vocabulary | like | 17.70 | 2 | 4 | 13 | append:2 | selections<=2 | PASS |
 | project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 4.70 | 2 | 4 | 3 | append:2 | selections<=4 | PASS |

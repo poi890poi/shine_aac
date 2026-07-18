@@ -132,6 +132,7 @@ try {
   await scenarioZhTwResetUsesPackagedDefaults();
   await scenarioZhTwLanguageSwitchReviewHold();
   await assertNoViewportOverflow("zh-tw-pixel-4a-5g-layout");
+  await scenarioZhTwHomeDemoMode();
 
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
   const screenshotPath = join(artifactDir, "web-e2e-final.png");
@@ -780,12 +781,11 @@ async function scenarioDeveloperDemoMode() {
 }
 
 async function scenarioZhTwHomeDemoMode() {
-  const expected = "今天比較累但是心情好想聽你講這樣很舒服謝謝";
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       configVersion: 18,
       profileId: "zh-TW",
-      columns: 4,
+      columns: 2,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
@@ -802,11 +802,13 @@ async function scenarioZhTwHomeDemoMode() {
   `);
   await waitForRenderedBoard();
   await waitForDemoActive();
-  await assertMessage(expected, 420000);
-  await assertMessageScrolledToEnd();
+  const demoStats = await waitForPagedContinuationCommit();
+  if (!await isDemoActive()) throw new Error("zh-TW demo stopped after paging to a continuation");
+  const snapshot = await getSnapshot();
+  await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
   await waitForDemoInactive();
   await evaluate(`globalThis.ShineAacDemoError = ""`);
-  steps.push(pass("zh-tw-demo-mode", "automated the zh-TW home conversation through normal visible suggestions"));
+  steps.push(pass("zh-tw-demo-mode", `completed a candidate after paging to a later Zhuyin continuation (${demoStats.pagedContinuationCommits} commit)`));
 }
 
 async function scenarioZhTwLayoutMigration() {
@@ -1249,6 +1251,19 @@ async function waitForDemoInactive(timeoutMs = DemoStopTimeoutMs) {
     await delay(50);
   }
   throw new Error("Demo mode did not stop after completing scenario");
+}
+
+async function waitForPagedContinuationCommit(timeoutMs = 180000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const demoError = await evaluate(`globalThis.ShineAacDemoError || ""`).catch(() => "");
+    if (demoError) throw new Error(demoError);
+    const stats = await evaluate(`globalThis.ShineAacDemoStats ?? {}`);
+    if (Number(stats.pagedContinuationCommits ?? 0) > 0) return stats;
+    await delay(20);
+  }
+  const stats = await evaluate(`globalThis.ShineAacDemoStats ?? {}`);
+  throw new Error(`zh-TW demo did not complete a candidate after a later-page continuation: ${JSON.stringify(stats)}`);
 }
 
 async function waitForCalibration(kind) {

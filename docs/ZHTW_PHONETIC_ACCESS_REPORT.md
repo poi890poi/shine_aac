@@ -1,6 +1,6 @@
 # zh-TW Phonetic Access Report
 
-Generated: 2026-07-14T15:23:49.670Z
+Generated: 2026-07-18T15:07:57.762Z
 
 This report treats Zhuyin input as a constrained AAC access graph, not as a full keyboard IME.
 It measures whether static first-level symbols and dynamic continuation suggestions keep dictionary-backed paths reachable without hand-crafted phrase shortcuts.

@@ -1,6 +1,8 @@
 # SHINE AAC Testing Report
 
-Current candidate: 0.2.37, Android code 40.
+Current packaged candidate: 0.2.37, Android code 40.
+
+Latest source validation is post-0.2.37. The Zhuyin-priority and demo-paging fixes below require a new Android version code before Play Internal testing upload; they are not in code 40.
 
 Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.37.md`
 
@@ -11,15 +13,24 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Layer | Result | Evidence |
 | --- | --- | --- |
 | Clean dependency install | PASS | 0 vulnerabilities |
-| Full core and efficiency | PASS | 211 / 211 tests; 103 / 103 benchmark tasks |
+| Full core and efficiency | PASS | 212 / 212 tests; 103 / 103 benchmark tasks |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
-| Source and packaged browser E2E | PASS | 31 steps in each run |
+| Source and packaged browser E2E | PASS | 31 source steps; 32 packaged steps including the asset build |
 | Android APK lifecycle | PASS | packaged demo, hardware input, native draft, forced process recreation, zh-TW render |
 | APK package | PASS | `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
 | Play Internal testing AAB | PASS | signed `shine-aac-v0.2.37-code40-release.aab`; checksum and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
 The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
+
+## 2026-07-18 Post-0.2.37 Zhuyin Priority And Demo Paging
+
+- Product ordering: PASS; fundamental non-initial Zhuyin continuations precede speculative glyph/word candidates while useful candidates remain reachable. Completed syllables still lead with exact candidates when no phonetic continuation is needed.
+- Demo operation: PASS; every required Zhuyin symbol can be found across bounded `更多` pages, target timeouts scale with legal scan settings, and intentional tap-to-exit no longer leaks a false demo error.
+- Source and packaged WebView E2E: PASS, 31 source steps and 32 packaged steps including the asset build. The two-column regression completed a candidate after selecting a later-page Zhuyin continuation.
+- Full core: PASS, 212 / 212 tests. The frozen 103-task evaluator baseline was not changed.
+- Paired communication evaluator: PASS; switch activations improved from 846 to 836, estimated scan time improved from 2,866.3 to 2,663.4 seconds, `更多` selections improved from 68 to 63, P90 metrics were unchanged, and no task regressed.
+- Release boundary: these changes are verified source for the next candidate and are not included in the existing 0.2.37 code-40 AAB or debug APK.
 
 ## 2026-07-18 0.2.37 Candidate
 

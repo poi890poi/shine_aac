@@ -1,4 +1,4 @@
-import { ScanStage, TileAction, ZhTwFrequencyDictionary, scanDurationForStage, visibleBoard } from "../../../packages/aac-core/src/index.js";
+import { ScanStage, TileAction, ZhTwFrequencyDictionary, ZhuyinInputSymbols, scanDurationForStage, visibleBoard } from "../../../packages/aac-core/src/index.js";
 import { InputIntent } from "./input.js";
 
 const demoStorageKey = "shine-aac-demo-mode";
@@ -121,7 +121,13 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     document.body.classList.add("demo-active");
     document.addEventListener("pointerdown", stopFromPointer, true);
     globalThis.ShineAacDemoError = "";
+    globalThis.ShineAacDemoStats = Object.freeze({
+      moreSelections: 0,
+      continuationMoreSelections: 0,
+      pagedContinuationCommits: 0
+    });
     runScenario(scenario, currentRunId).catch((error) => {
+      if (stopped || runId !== currentRunId) return;
       globalThis.ShineAacDemoError = error?.stack ?? String(error);
       console.error(globalThis.ShineAacDemoError);
       if (runId === currentRunId) stop();
@@ -174,23 +180,24 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   }
 
   async function commitZhTwLabel(target, currentRunId) {
+    const continuationMoreBefore = Number(globalThis.ShineAacDemoStats?.continuationMoreSelections ?? 0);
     for (const symbol of Array.from(target.key)) {
-      await chooseTarget(select(symbol, { action: TileAction.Append }), currentRunId);
+      const symbolTarget = select(symbol, { output: symbol, action: TileAction.Append });
+      const selected = await chooseTargetAcrossSuggestionPages(symbolTarget, currentRunId);
+      if (!selected) {
+        throw new Error(`Demo mode could not find zh-TW symbol ${symbol} while composing ${target.label} after ${target.key}`);
+      }
       await resumeAfterReviewHold(currentRunId);
       await delay(120);
     }
 
-    for (let page = 0; page < 3; page += 1) {
-      if (visibleBoard(getSession()).flat().some((candidate) => tileMatchesTarget(candidate, target))) {
-        await chooseTarget(target, currentRunId);
-        await resumeAfterReviewHold(currentRunId);
-        await delay(260);
-        return;
+    if (await chooseTargetAcrossSuggestionPages(target, currentRunId)) {
+      if (Number(globalThis.ShineAacDemoStats?.continuationMoreSelections ?? 0) > continuationMoreBefore) {
+        recordPagedContinuationCommit();
       }
-      if (!visibleBoard(getSession()).flat().some((candidate) => candidate.action === TileAction.MoreSuggestions)) break;
-      await chooseTarget(actionTarget(TileAction.MoreSuggestions), currentRunId);
       await resumeAfterReviewHold(currentRunId);
-      await delay(120);
+      await delay(260);
+      return;
     }
 
     if (Array.from(target.label).length <= 1) {
@@ -206,6 +213,43 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     for (const character of Array.from(target.label)) {
       await commitZhTwLabel(zhTwTarget(character), currentRunId);
     }
+  }
+
+  async function chooseTargetAcrossSuggestionPages(target, currentRunId, maxPages = 3) {
+    for (let page = 0; page < maxPages; page += 1) {
+      const board = visibleBoard(getSession()).flat();
+      if (board.some((candidate) => tileMatchesTarget(candidate, target))) {
+        await chooseTarget(target, currentRunId);
+        return true;
+      }
+      if (page >= maxPages - 1) return false;
+      if (!board.some((candidate) => candidate.action === TileAction.MoreSuggestions)) return false;
+
+      await chooseTarget(actionTarget(TileAction.MoreSuggestions), currentRunId);
+      recordDemoPaging(target);
+      await resumeAfterReviewHold(currentRunId);
+      await delay(120);
+    }
+    return false;
+  }
+
+  function recordDemoPaging(target) {
+    const previous = globalThis.ShineAacDemoStats ?? {};
+    const isContinuation = target.action === TileAction.Append && ZhuyinInputSymbols.includes(target.output);
+    globalThis.ShineAacDemoStats = Object.freeze({
+      moreSelections: Number(previous.moreSelections ?? 0) + 1,
+      continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0) + (isContinuation ? 1 : 0),
+      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0)
+    });
+  }
+
+  function recordPagedContinuationCommit() {
+    const previous = globalThis.ShineAacDemoStats ?? {};
+    globalThis.ShineAacDemoStats = Object.freeze({
+      moreSelections: Number(previous.moreSelections ?? 0),
+      continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0),
+      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0) + 1
+    });
   }
 
   async function resumeAfterReviewHold(currentRunId) {
@@ -232,7 +276,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     return tileMatchesTarget(tile, target);
   }
 
-  async function waitForActivationWindow(predicate, currentRunId, timeoutMs = 45000, description = "scanner target") {
+  async function waitForActivationWindow(predicate, currentRunId, timeoutMs = demoActivationTimeoutMs(), description = "scanner target") {
     const startedAt = performance.now();
     while (performance.now() - startedAt < timeoutMs) {
       assertRunning(currentRunId);
@@ -249,6 +293,17 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     const session = getSession();
     const board = visibleBoard(session);
     throw new Error(`Demo mode timed out waiting for ${description}; stage=${session.scannerState.stage}; row=${session.scannerState.rowIndex}; cell=${session.scannerState.cellIndex}; labels=${board.flat().map((candidate) => candidate.label).join(" ")}`);
+  }
+
+  function demoActivationTimeoutMs() {
+    const session = getSession();
+    const board = visibleBoard(session);
+    const rowCycleMs = Math.max(1, board.length) * Math.max(1, session.config.scanIntervalMs);
+    const longestRow = Math.max(1, ...board.map((row) => row.length));
+    const cellCycleMs = Math.max(1, session.config.firstCellPauseMs) +
+      Math.max(0, longestRow - 1) * Math.max(1, session.config.scanIntervalMs) +
+      Math.max(0, session.config.transitionPauseMs);
+    return Math.max(45000, (rowCycleMs + cellCycleMs) * 2 + 5000);
   }
 
   function receiveDemoInput() {
