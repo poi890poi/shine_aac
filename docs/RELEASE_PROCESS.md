@@ -50,6 +50,8 @@ This creates ignored local artifacts:
 .artifacts\releases\v0.2.35\RELEASE_NOTES.md
 ```
 
+When `docs\releases\vX.Y.Z.md` exists, packaging copies it into the artifact directory and tagged-release CI uses it as the GitHub Release notes. Otherwise the package script creates a minimal fallback note.
+
 Do not share `app-debug.apk` directly. It is an intermediate build output and is overwritten on every build.
 Do not commit APK, AAB, or ZIP files. Tagged release CI builds the APK from the tagged source and uploads it directly to GitHub Releases.
 

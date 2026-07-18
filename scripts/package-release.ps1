@@ -75,7 +75,10 @@ $hashLine = "$($hash.Hash.ToLowerInvariant())  $artifactName"
 Set-Content -LiteralPath (Join-Path $releaseDir "SHA256SUMS.txt") -Value $hashLine -Encoding ASCII
 
 $notesPath = Join-Path $releaseDir "RELEASE_NOTES.md"
-if (-not (Test-Path -LiteralPath $notesPath)) {
+$releaseNotesSource = Join-Path $repoRoot "docs\releases\v$versionName.md"
+if (Test-Path -LiteralPath $releaseNotesSource) {
+    Copy-Item -LiteralPath $releaseNotesSource -Destination $notesPath -Force
+} elseif (-not (Test-Path -LiteralPath $notesPath)) {
     Set-Content -LiteralPath $notesPath -Encoding UTF8 -Value @"
 # SHINE AAC v$versionName
 

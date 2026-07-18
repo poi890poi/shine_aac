@@ -16,10 +16,10 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Source and packaged browser E2E | PASS | 31 steps in each run |
 | Android APK lifecycle | PASS | packaged demo, hardware input, native draft, forced process recreation, zh-TW render |
 | APK package | PASS | `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Stable artifact URL | OPEN | required before remote tester handoff |
+| Stable artifact URL | PENDING | `https://github.com/poi890poi/shine_aac/releases/tag/v0.2.37`; verify after tagged CI publication |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
-The local APK is approved for owner/internal UX testing, not production or Google Play upload. Remote handoff waits for a stable pushed artifact URL.
+The local APK is approved for owner/internal UX testing, not production or Google Play upload. Remote handoff waits for successful tagged CI publication at the recorded release URL.
 
 ## 2026-07-18 0.2.37 Candidate
 

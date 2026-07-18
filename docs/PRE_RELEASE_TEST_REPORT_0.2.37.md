@@ -16,7 +16,11 @@ Generated: 2026-07-18T20:59:36+08:00
 
 PASS for local owner/internal UX testing. The artifact is debug-signed and is not the signed Play Store AAB.
 
-Remote handoff remains OPEN until the exact artifact and checksum are available from a stable pushed URL.
+Remote handoff remains PENDING until tagged CI publishes and verifies the release page, APK, and checksum:
+
+- `https://github.com/poi890poi/shine_aac/releases/tag/v0.2.37`
+- `https://github.com/poi890poi/shine_aac/releases/download/v0.2.37/shine-aac-v0.2.37-code40-debug.apk`
+- `https://github.com/poi890poi/shine_aac/releases/download/v0.2.37/SHA256SUMS.txt`
 
 ## Changes Since 0.2.36
 
@@ -70,5 +74,5 @@ After recovery, the complete combined APK flow passed in one run in 135.7 second
 
 - Physical Samsung/device-owner/helper UX review.
 - Real-person camera and Mandarin TTS validation.
-- Stable pushed download URL for the exact APK and checksum.
+- Successful tagged CI publication and remote checksum verification at the recorded release URLs.
 - Signed AAB and Play Store readiness; not required for this internal debug candidate.
