@@ -57,6 +57,19 @@ export const CommunicationBenchmarkSources = Object.freeze({
   })
 });
 
+export const CommunicationBenchmarkFunctionGroups = Object.freeze({
+  "universal-core": Object.freeze(["universal-core-word"]),
+  "daily-needs": Object.freeze(["need", "wants-needs", "request-or-transition", "comfort-object"]),
+  "body-comfort": Object.freeze(["body-comfort", "feelings"]),
+  "refusal-control": Object.freeze(["refusal", "refusal-control", "permission-refusal", "preference-refusal"]),
+  "care-health": Object.freeze(["care-help", "care-health", "care-people"]),
+  positioning: Object.freeze(["positioning"]),
+  "people-social": Object.freeze(["people", "identity"]),
+  preference: Object.freeze(["preference"]),
+  "conversation-repair": Object.freeze(["conversation", "repair-repeat", "repair-close", "repair-wait", "operational-repair"]),
+  regression: Object.freeze(["app-regression"])
+});
+
 const ProjectCoreWordBenchmarks = Object.freeze(
   ProjectCoreUniversalCoreWords.map((word) => Object.freeze({
     id: `project-core-word-${word.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
@@ -96,6 +109,7 @@ const ZhTwFunctionalPhraseBenchmarks = Object.freeze([
     source: "shineZhTwFunctionalVocabulary",
     sourceExample: "First-page zh-TW functional board item.",
     purpose,
+    timingTarget: "urgent-phrase",
     targetConcepts: [phrase],
     acceptableTokenSequences: [[phrase]],
     maxSelections: 1

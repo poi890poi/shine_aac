@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-07-14T15:26:37.650Z
+Generated: 2026-07-18T11:19:47.151Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -23,16 +23,16 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 ## Effort Metrics
 
-| Metric | Unit | Total | Average Per Passing Task |
-| --- | --- | ---: | ---: |
-| Estimated scan time | seconds | 2783.20 | 27.02 avg / 13.80 median |
-| Output selections | selected tiles | 420 | 4.08 |
-| Switch activations | activations | 840 | 8.16 avg / 4.00 median |
-| Scanner advances | row/cell advances | 2032 | 19.73 |
-| Activations per target concept | activations/concept | 840 / 152 | 5.53 |
-| Selections per target concept | selections/concept | 420 / 152 | 2.76 |
-| Activations per output character | activations/character | 840 / 399 | 2.11 |
-| Estimated time per output character | seconds/character | 2783.20 / 399 | 6.98 |
+| Metric | Unit | Total | Average | Median | P90 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Estimated scan time | seconds | 2866.30 | 27.83 | 13.80 | 37.60 |
+| Output selections | selected tiles | 423 | 4.11 | 2.00 | 4.00 |
+| Switch activations | activations | 846 | 8.21 | 4.00 | 8.00 |
+| Scanner advances | row/cell advances | 2095 | 20.34 | 10.00 | 28.00 |
+| Activations per target concept | activations/concept | 846 / 152 | 5.57 |
+| Selections per target concept | selections/concept | 423 / 152 | 2.78 |
+| Activations per output character | activations/character | 846 / 399 | 2.12 |
+| Estimated time per output character | seconds/character | 2866.30 / 399 | 7.18 |
 | Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
 | Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
 | Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
@@ -41,9 +41,9 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 27.02 sec | <= 15 sec | gap |
-| Median benchmark time | 13.80 sec | <= 10 sec urgent phrase target | gap |
-| Average switch activations | 8.16 | <= 6 | gap |
+| Average benchmark time | 27.83 sec | <= 15 sec | gap |
+| Median urgent phrase time | 4.30 sec across 19 marked tasks | <= 10 sec | meets |
+| Average switch activations | 8.21 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
 
 ## Selected Action Counts
@@ -53,7 +53,7 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 | append | 307 |
 | close-category | 2 |
 | commit-candidate | 40 |
-| more-suggestions | 65 |
+| more-suggestions | 68 |
 | open-category | 2 |
 | space | 3 |
 | undo | 1 |
@@ -64,19 +64,85 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 
 | Metric | Current Fixture Path | Least-Cost Estimate | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Selections | 210 | 201 | -9 | -4.29% |
-| Switch activations | 420 | 402 | -18 | -4.29% |
-| Scanner advances | 985 | 934 | -51 | -5.18% |
-| Estimated scan time sec | 1350.10 | 1282.60 | -67.50 | -5.00% |
+| Selections | 213 | 204 | -9 | -4.23% |
+| Switch activations | 426 | 408 | -18 | -4.23% |
+| Scanner advances | 1048 | 993 | -55 | -5.25% |
+| Estimated scan time sec | 1433.20 | 1358.90 | -74.30 | -5.18% |
 
 | Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| zhtw-phonetic-home-podcast | 聽 新 資料 夾 | 聽 新 資料 夾 | 34 | 34 | 0 | 0.00% |
-| zhtw-multilingual-home-podcast | 聽  podcast  新 資料 夾 | 聽  podcast  新 資料 夾 | 56 | 56 | 0 | 0.00% |
+| zhtw-phonetic-home-podcast | 聽 新 資料 夾 | 聽 新 資料 夾 | 36 | 36 | 0 | 0.00% |
+| zhtw-multilingual-home-podcast | 聽  podcast  新 資料 夾 | 聽  podcast  新 資料 夾 | 58 | 58 | 0 | 0.00% |
 | zhtw-multilingual-audio-repair | podcast  音量 小 | podcast  音 量 小 | 42 | 38 | -4 | -9.52% |
-| zhtw-phonetic-home-drink | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 冰 紅茶 少 冰 不 要 太 甜 等一下 喝 用 吸管 | 102 | 98 | -4 | -3.92% |
+| zhtw-phonetic-home-drink | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 冰 紅茶 少 冰 不 要 太 甜 等一下 喝 用 吸管 | 104 | 100 | -4 | -3.85% |
 | zhtw-phonetic-home-audio-repair | 音量 小 從 剛剛 那裡 | 音 量 小 從 剛剛 那裡 | 52 | 48 | -4 | -7.69% |
 | zhtw-phonetic-home-feeling | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 今 天 比較 累 但 是 心情 好想 聽 你 講 這樣 很 舒服 謝謝 | 134 | 128 | -6 | -4.48% |
+
+## Paired Baseline Regression
+
+Frozen baseline: Pre-adaptive suggestion ranking baseline (2026-07-18T11:03:18.178Z).
+
+Regression gates: PASS. Measured improvement over baseline: NO.
+
+The gates require aggregate motor effort and scan time, P90 effort and time, and every established communication-function group to remain stable or improve. One task may use at most one additional `更多` selection. This prevents a lower raw paging count from hiding slower or less equitable communication paths.
+
+| Metric | Baseline | Current | Difference | Change |
+| --- | ---: | ---: | ---: | ---: |
+| Selections | 423 | 423 | 0 | 0.00% |
+| Switch activations | 846 | 846 | 0 | 0.00% |
+| Scanner advances | 2095 | 2095 | 0 | 0.00% |
+| Estimated scan time sec | 2866.30 | 2866.30 | 0 | 0.00% |
+| 更多 selections | 68 | 68 | 0 | 0.00% |
+| P90 switch activations | 8 | 8 | 0 | 0.00% |
+| P90 scan time sec | 37.60 | 37.60 | 0 | 0.00% |
+
+| Gate | Status | Detail |
+| --- | --- | --- |
+| schema | PASS | baseline=1, candidate=1 |
+| task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=false |
+| reachability | PASS | unreachable=0 |
+| total-switches | PASS | baseline=846, candidate=846 |
+| total-scan-time | PASS | baseline=2866300, candidate=2866300 |
+| p90-switches | PASS | baseline=8, candidate=8 |
+| p90-scan-time | PASS | baseline=37600, candidate=37600 |
+| bounded-task-paging | PASS | max additional pages=0 |
+| group-universal-core-switches | PASS | baseline=162, candidate=162 |
+| group-universal-core-scan-time | PASS | baseline=654700, candidate=654700 |
+| group-daily-needs-switches | PASS | baseline=24, candidate=24 |
+| group-daily-needs-scan-time | PASS | baseline=51300, candidate=51300 |
+| group-body-comfort-switches | PASS | baseline=24, candidate=24 |
+| group-body-comfort-scan-time | PASS | baseline=68600, candidate=68600 |
+| group-refusal-control-switches | PASS | baseline=20, candidate=20 |
+| group-refusal-control-scan-time | PASS | baseline=57300, candidate=57300 |
+| group-care-health-switches | PASS | baseline=18, candidate=18 |
+| group-care-health-scan-time | PASS | baseline=49600, candidate=49600 |
+| group-positioning-switches | PASS | baseline=32, candidate=32 |
+| group-positioning-scan-time | PASS | baseline=100900, candidate=100900 |
+| group-people-social-switches | PASS | baseline=22, candidate=22 |
+| group-people-social-scan-time | PASS | baseline=72000, candidate=72000 |
+| group-preference-switches | PASS | baseline=22, candidate=22 |
+| group-preference-scan-time | PASS | baseline=82400, candidate=82400 |
+| group-conversation-repair-switches | PASS | baseline=46, candidate=46 |
+| group-conversation-repair-scan-time | PASS | baseline=151000, candidate=151000 |
+| group-regression-switches | PASS | baseline=6, candidate=6 |
+| group-regression-scan-time | PASS | baseline=4700, candidate=4700 |
+
+| Communication Function | Baseline Activations | Current Activations | Baseline Time Sec | Current Time Sec | Status |
+| --- | ---: | ---: | ---: | ---: | --- |
+| universal-core | 162 | 162 | 654.70 | 654.70 | PASS |
+| daily-needs | 24 | 24 | 51.30 | 51.30 | PASS |
+| body-comfort | 24 | 24 | 68.60 | 68.60 | PASS |
+| refusal-control | 20 | 20 | 57.30 | 57.30 | PASS |
+| care-health | 18 | 18 | 49.60 | 49.60 | PASS |
+| positioning | 32 | 32 | 100.90 | 100.90 | PASS |
+| people-social | 22 | 22 | 72.00 | 72.00 | PASS |
+| preference | 22 | 22 | 82.40 | 82.40 | PASS |
+| conversation-repair | 46 | 46 | 151.00 | 151.00 | PASS |
+| regression | 6 | 6 | 4.70 | 4.70 | PASS |
+
+| Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |
+| --- | --- | ---: | ---: | ---: |
+| None | unchanged | 0 | 0 | 0 |
 
 ## Read This Correctly
 
@@ -130,18 +196,18 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 2783.20 seconds
-- Average estimated scan time per passing task: 27.02 seconds
-- Total selections across passing tasks: 420
-- Average selections per passing task: 4.08
-- Total switch activations across passing tasks: 840
-- Average switch activations per passing task: 8.16
-- Total scan advances across passing tasks: 2032
-- Average scan advances per passing task: 19.73
+- Total estimated scan time across passing tasks: 2866.30 seconds
+- Average estimated scan time per passing task: 27.83 seconds
+- Total selections across passing tasks: 423
+- Average selections per passing task: 4.11
+- Total switch activations across passing tasks: 846
+- Average switch activations per passing task: 8.21
+- Total scan advances across passing tasks: 2095
+- Average scan advances per passing task: 20.34
 - Total target concepts across passing tasks: 152
 - Total output characters across passing tasks: 399
-- Activations per target concept: 5.53
-- Activations per output character: 2.11
+- Activations per target concept: 5.57
+- Activations per output character: 2.12
 - Direct zh-TW phrase commits during benchmark composition: 17
 - Decomposed zh-TW phrase fallbacks during benchmark composition: 0
 
@@ -214,132 +280,111 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | SHINE zh-TW phonetic core regression | 6 |
 | SHINE zh-TW telegraphic AAC utterances | 6 |
 
-| Task | Source | Best Output | Time Sec | Selections | Activations | Scan Advances | Actions | Limit | Status |
-| --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- |
-| project-core-word-all | Project Core Universal Core Vocabulary | all | 10.80 | 2 | 4 | 8 | append:2 | 4 | PASS |
-| project-core-word-can | Project Core Universal Core Vocabulary | can | 15.10 | 2 | 4 | 11 | append:2 | 4 | PASS |
-| project-core-word-different | Project Core Universal Core Vocabulary | different | 72.60 | 9 | 18 | 54 | append:9 | 10 | PASS |
-| project-core-word-do | Project Core Universal Core Vocabulary | do | 14.70 | 2 | 4 | 11 | append:2 | 3 | PASS |
-| project-core-word-done | Project Core Universal Core Vocabulary | done | 13.40 | 2 | 4 | 10 | append:2 | 5 | PASS |
-| project-core-word-get | Project Core Universal Core Vocabulary | get | 27.20 | 3 | 6 | 20 | append:3 | 4 | PASS |
-| project-core-word-go | Project Core Universal Core Vocabulary | go | 6.90 | 1 | 2 | 5 | append:1 | 3 | PASS |
-| project-core-word-good | Project Core Universal Core Vocabulary | good | 19.00 | 2 | 4 | 14 | append:2 | 5 | PASS |
-| project-core-word-he | Project Core Universal Core Vocabulary | he | 16.40 | 2 | 4 | 12 | append:2 | 3 | PASS |
-| project-core-word-help | Project Core Universal Core Vocabulary | help | 4.30 | 1 | 2 | 3 | append:1 | 5 | PASS |
-| project-core-word-here | Project Core Universal Core Vocabulary | here | 25.90 | 3 | 6 | 19 | append:3 | 5 | PASS |
-| project-core-word-i | Project Core Universal Core Vocabulary | I | 0.00 | 1 | 2 | 0 | append:1 | 2 | PASS |
-| project-core-word-in | Project Core Universal Core Vocabulary | in | 12.10 | 2 | 4 | 9 | append:2 | 3 | PASS |
-| project-core-word-it | Project Core Universal Core Vocabulary | it | 10.80 | 2 | 4 | 8 | append:2 | 3 | PASS |
-| project-core-word-like | Project Core Universal Core Vocabulary | like | 17.70 | 2 | 4 | 13 | append:2 | 5 | PASS |
-| project-core-word-look | Project Core Universal Core Vocabulary | look | 6.90 | 1 | 2 | 5 | append:1 | 5 | PASS |
-| project-core-word-make | Project Core Universal Core Vocabulary | make | 19.00 | 2 | 4 | 14 | append:2 | 5 | PASS |
-| project-core-word-more | Project Core Universal Core Vocabulary | more | 17.70 | 2 | 4 | 13 | append:2 | 5 | PASS |
-| project-core-word-not | Project Core Universal Core Vocabulary | not | 15.10 | 2 | 4 | 11 | append:2 | 4 | PASS |
-| project-core-word-on | Project Core Universal Core Vocabulary | on | 13.80 | 2 | 4 | 10 | append:2 | 3 | PASS |
-| project-core-word-open | Project Core Universal Core Vocabulary | open | 12.50 | 2 | 4 | 9 | append:2 | 5 | PASS |
-| project-core-word-put | Project Core Universal Core Vocabulary | put | 16.40 | 2 | 4 | 12 | append:2 | 4 | PASS |
-| project-core-word-same | Project Core Universal Core Vocabulary | same | 19.90 | 3 | 6 | 15 | append:3 | 5 | PASS |
-| project-core-word-she | Project Core Universal Core Vocabulary | she | 13.40 | 2 | 4 | 10 | append:2 | 4 | PASS |
-| project-core-word-some | Project Core Universal Core Vocabulary | some | 21.60 | 3 | 6 | 16 | append:3 | 5 | PASS |
-| project-core-word-stop | Project Core Universal Core Vocabulary | stop | 8.20 | 1 | 2 | 6 | append:1 | 5 | PASS |
-| project-core-word-that | Project Core Universal Core Vocabulary | that | 15.10 | 2 | 4 | 11 | append:2 | 5 | PASS |
-| project-core-word-turn | Project Core Universal Core Vocabulary | turn | 13.80 | 2 | 4 | 10 | append:2 | 5 | PASS |
-| project-core-word-up | Project Core Universal Core Vocabulary | up | 16.40 | 2 | 4 | 12 | append:2 | 3 | PASS |
-| project-core-word-want | Project Core Universal Core Vocabulary | want | 3.00 | 1 | 2 | 2 | append:1 | 5 | PASS |
-| project-core-word-what | Project Core Universal Core Vocabulary | what | 20.30 | 2 | 4 | 15 | append:2 | 5 | PASS |
-| project-core-word-when | Project Core Universal Core Vocabulary | when | 41.90 | 4 | 8 | 31 | append:4 | 5 | PASS |
-| project-core-word-where | Project Core Universal Core Vocabulary | where | 32.40 | 3 | 6 | 24 | append:3 | 6 | PASS |
-| project-core-word-who | Project Core Universal Core Vocabulary | who | 37.60 | 3 | 6 | 28 | append:3 | 4 | PASS |
-| project-core-word-why | Project Core Universal Core Vocabulary | why | 41.10 | 3 | 6 | 31 | append:3 | 4 | PASS |
-| project-core-word-you | Project Core Universal Core Vocabulary | you | 1.70 | 1 | 2 | 1 | append:1 | 4 | PASS |
-| zhtw-first-page-drink-water | SHINE zh-TW built-in functional vocabulary | 喝水 | 0.00 | 1 | 2 | 0 | append:1 | 1 | PASS |
-| zhtw-first-page-eat | SHINE zh-TW built-in functional vocabulary | 吃飯 | 1.70 | 1 | 2 | 1 | append:1 | 1 | PASS |
-| zhtw-first-page-toilet | SHINE zh-TW built-in functional vocabulary | 廁所 | 3.00 | 1 | 2 | 2 | append:1 | 1 | PASS |
-| zhtw-first-page-rest | SHINE zh-TW built-in functional vocabulary | 休息 | 4.30 | 1 | 2 | 3 | append:1 | 1 | PASS |
-| zhtw-first-page-sleep | SHINE zh-TW built-in functional vocabulary | 睡覺 | 1.30 | 1 | 2 | 1 | append:1 | 1 | PASS |
-| zhtw-first-page-stop | SHINE zh-TW built-in functional vocabulary | 停 | 3.00 | 1 | 2 | 2 | append:1 | 1 | PASS |
-| zhtw-first-page-uncomfortable | SHINE zh-TW built-in functional vocabulary | 不舒服 | 4.30 | 1 | 2 | 3 | append:1 | 1 | PASS |
-| zhtw-first-page-hot | SHINE zh-TW built-in functional vocabulary | 熱 | 5.60 | 1 | 2 | 4 | append:1 | 1 | PASS |
-| zhtw-first-page-cold | SHINE zh-TW built-in functional vocabulary | 冷 | 2.60 | 1 | 2 | 2 | append:1 | 1 | PASS |
-| zhtw-first-page-tired | SHINE zh-TW built-in functional vocabulary | 累 | 4.30 | 1 | 2 | 3 | append:1 | 1 | PASS |
-| zhtw-first-page-nausea | SHINE zh-TW built-in functional vocabulary | 想吐 | 5.60 | 1 | 2 | 4 | append:1 | 1 | PASS |
-| zhtw-first-page-dizzy | SHINE zh-TW built-in functional vocabulary | 頭暈 | 6.90 | 1 | 2 | 5 | append:1 | 1 | PASS |
-| zhtw-first-page-afraid | SHINE zh-TW built-in functional vocabulary | 怕 | 3.90 | 1 | 2 | 3 | append:1 | 1 | PASS |
-| zhtw-first-page-family | SHINE zh-TW built-in functional vocabulary | 家人 | 5.60 | 1 | 2 | 4 | append:1 | 1 | PASS |
-| zhtw-first-page-nurse | SHINE zh-TW built-in functional vocabulary | 護理師 | 6.90 | 1 | 2 | 5 | append:1 | 1 | PASS |
-| zhtw-first-page-yes | SHINE zh-TW built-in functional vocabulary | 是 | 5.20 | 1 | 2 | 4 | append:1 | 1 | PASS |
-| zhtw-first-page-not | SHINE zh-TW built-in functional vocabulary | 不 | 6.90 | 1 | 2 | 5 | append:1 | 1 | PASS |
-| zhtw-first-page-help | SHINE zh-TW built-in functional vocabulary | 幫忙 | 8.20 | 1 | 2 | 6 | append:1 | 1 | PASS |
-| zhtw-first-page-pain | SHINE zh-TW built-in functional vocabulary | 痛 | 9.50 | 1 | 2 | 7 | append:1 | 1 | PASS |
-| zhtw-second-page-doctor | SHINE zh-TW built-in functional vocabulary | 更多 醫生 | 8.20 | 2 | 4 | 6 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-medicine | SHINE zh-TW built-in functional vocabulary | 更多 藥 | 9.90 | 2 | 4 | 7 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-position | SHINE zh-TW built-in functional vocabulary | 更多 姿勢 | 11.20 | 2 | 4 | 8 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-wait | SHINE zh-TW built-in functional vocabulary | 更多 等一下 | 12.50 | 2 | 4 | 9 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-can | SHINE zh-TW built-in functional vocabulary | 更多 可以 | 9.50 | 2 | 4 | 7 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-up | SHINE zh-TW built-in functional vocabulary | 更多 上 | 11.20 | 2 | 4 | 8 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-down | SHINE zh-TW built-in functional vocabulary | 更多 下 | 12.50 | 2 | 4 | 9 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-left | SHINE zh-TW built-in functional vocabulary | 更多 左 | 13.80 | 2 | 4 | 10 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-right | SHINE zh-TW built-in functional vocabulary | 更多 右 | 10.80 | 2 | 4 | 8 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-sit-up | SHINE zh-TW built-in functional vocabulary | 更多 坐起來 | 12.50 | 2 | 4 | 9 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-lie-down | SHINE zh-TW built-in functional vocabulary | 更多 躺下 | 13.80 | 2 | 4 | 10 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-turn-over | SHINE zh-TW built-in functional vocabulary | 更多 翻身 | 15.10 | 2 | 4 | 11 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-pillow | SHINE zh-TW built-in functional vocabulary | 更多 枕頭 | 12.10 | 2 | 4 | 9 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-mom | SHINE zh-TW built-in functional vocabulary | 更多 媽媽 | 13.80 | 2 | 4 | 10 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-second-page-dad | SHINE zh-TW built-in functional vocabulary | 更多 爸爸 | 15.10 | 2 | 4 | 11 | append:1, more-suggestions:1 | 2 | PASS |
-| zhtw-third-page-caregiver | SHINE zh-TW built-in functional vocabulary | 更多 更多 照顧者 | 16.40 | 3 | 6 | 12 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-friend | SHINE zh-TW built-in functional vocabulary | 更多 更多 朋友 | 18.10 | 3 | 6 | 13 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-me | SHINE zh-TW built-in functional vocabulary | 更多 更多 我 | 19.40 | 3 | 6 | 14 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-not-yes | SHINE zh-TW built-in functional vocabulary | 更多 更多 不是 | 20.70 | 3 | 6 | 15 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-want | SHINE zh-TW built-in functional vocabulary | 更多 更多 要 | 17.70 | 3 | 6 | 13 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-cannot | SHINE zh-TW built-in functional vocabulary | 更多 更多 不可以 | 19.40 | 3 | 6 | 14 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-good | SHINE zh-TW built-in functional vocabulary | 更多 更多 好 | 20.70 | 3 | 6 | 15 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-bad | SHINE zh-TW built-in functional vocabulary | 更多 更多 不好 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-know | SHINE zh-TW built-in functional vocabulary | 更多 更多 知道 | 19.00 | 3 | 6 | 14 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-dont-know | SHINE zh-TW built-in functional vocabulary | 更多 更多 不知道 | 20.70 | 3 | 6 | 15 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-like | SHINE zh-TW built-in functional vocabulary | 更多 更多 喜歡 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-dislike | SHINE zh-TW built-in functional vocabulary | 更多 更多 不喜歡 | 23.30 | 3 | 6 | 17 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-again | SHINE zh-TW built-in functional vocabulary | 更多 更多 再一次 | 20.30 | 3 | 6 | 15 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-third-page-finish | SHINE zh-TW built-in functional vocabulary | 更多 更多 結束 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-utterance-help-position | SHINE zh-TW telegraphic AAC utterances | 幫忙 更多 姿勢 | 20.70 | 3 | 6 | 15 | append:2, more-suggestions:1 | 3 | PASS |
-| zhtw-utterance-wait-repeat | SHINE zh-TW telegraphic AAC utterances | 更多 等一下 更多 更多 再一次 | 34.50 | 5 | 10 | 25 | append:2, more-suggestions:3 | 5 | PASS |
-| zhtw-utterance-dont-know-repeat | SHINE zh-TW telegraphic AAC utterances | 更多 更多 不知道 更多 更多 再一次 | 42.70 | 6 | 12 | 31 | append:2, more-suggestions:4 | 6 | PASS |
-| zhtw-utterance-sit-up-pillow | SHINE zh-TW telegraphic AAC utterances | 更多 坐起來 更多 枕頭 | 26.30 | 4 | 8 | 19 | append:2, more-suggestions:2 | 4 | PASS |
-| zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 15.50 | 3 | 6 | 11 | append:2, more-suggestions:1 | 3 | PASS |
-| zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | 3 | PASS |
-| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 117.30 | 17 | 34 | 85 | append:13, commit-candidate:4 | 18 | PASS |
-| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽  podcast  新 資料 夾 | 198.90 | 28 | 56 | 145 | append:20, close-category:1, commit-candidate:4, open-category:1, space:2 | 30 | PASS |
-| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast  音量 小 | 134.70 | 21 | 42 | 99 | append:15, close-category:1, commit-candidate:2, more-suggestions:1, open-category:1, space:1 | 23 | PASS |
-| zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 332.70 | 51 | 102 | 243 | append:37, commit-candidate:12, more-suggestions:2 | 54 | PASS |
-| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 153.70 | 26 | 52 | 113 | append:19, commit-candidate:5, more-suggestions:2 | 28 | PASS |
-| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 412.80 | 67 | 134 | 300 | append:50, commit-candidate:13, more-suggestions:4 | 70 | PASS |
-| project-core-go | Project Core Universal Core Vocabulary | go | 6.90 | 1 | 2 | 5 | append:1 | 1 | PASS |
-| project-core-like | Project Core Universal Core Vocabulary | like | 17.70 | 2 | 4 | 13 | append:2 | 2 | PASS |
-| project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 4.70 | 2 | 4 | 3 | append:2 | 4 | PASS |
-| asha-wants-needs-help | ASHA AAC Practice Portal | help | 4.30 | 1 | 2 | 3 | append:1 | 3 | PASS |
-| asha-feelings-sick | ASHA AAC Practice Portal | feel sick | 25.90 | 4 | 8 | 19 | append:4 | 4 | PASS |
-| light-operational-repair | Light & McNaughton communicative competence model | UNDO | 0.00 | 1 | 2 | 0 | undo:1 | 1 | PASS |
-| shine-current-want-water | SHINE AAC current-app regression | I want water | 4.70 | 3 | 6 | 3 | append:3 | 3 | PASS |
-
-## Latest Improvement Summary
-
-| Task | Previous Selections | Current Selections | Previous Scan Advances | Current Scan Advances |
-| --- | ---: | ---: | ---: | ---: |
-| project-core-refuse-drink | 4 | 2 | 15 | 3 |
-| asha-feelings-sick | 4 | 4 | 33 | 19 |
-
-## Previous Report Comparison
-
-Static baseline: Previous static communication benchmark report before least-cost path comparison.
-
-| Metric | Previous | Current | Difference | Change |
-| --- | ---: | ---: | ---: | ---: |
-| Benchmark pass rate tasks | 103 | 103 | 0 | 0.00% |
-| Average benchmark time sec | 27.02 | 27.02 | +0.00 | 0.01% |
-| Median benchmark time sec | 13.80 | 13.80 | 0 | 0.00% |
-| Average switch activations | 8.16 | 8.16 | -0.00 | -0.06% |
-| Median switch activations | 4 | 4 | 0 | 0.00% |
-| Activations per target concept | 5.53 | 5.53 | -0.00 | -0.07% |
-| Activations per output character | 2.11 | 2.11 | -0.00 | -0.22% |
+| Task | Source | Best Output | Time Sec | Selections | Activations | Scan Advances | Actions | Limits | Status |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- |
+| project-core-word-all | Project Core Universal Core Vocabulary | all | 10.80 | 2 | 4 | 8 | append:2 | selections<=4 | PASS |
+| project-core-word-can | Project Core Universal Core Vocabulary | can | 15.10 | 2 | 4 | 11 | append:2 | selections<=4 | PASS |
+| project-core-word-different | Project Core Universal Core Vocabulary | different | 72.60 | 9 | 18 | 54 | append:9 | selections<=10 | PASS |
+| project-core-word-do | Project Core Universal Core Vocabulary | do | 14.70 | 2 | 4 | 11 | append:2 | selections<=3 | PASS |
+| project-core-word-done | Project Core Universal Core Vocabulary | done | 13.40 | 2 | 4 | 10 | append:2 | selections<=5 | PASS |
+| project-core-word-get | Project Core Universal Core Vocabulary | get | 27.20 | 3 | 6 | 20 | append:3 | selections<=4 | PASS |
+| project-core-word-go | Project Core Universal Core Vocabulary | go | 6.90 | 1 | 2 | 5 | append:1 | selections<=3 | PASS |
+| project-core-word-good | Project Core Universal Core Vocabulary | good | 19.00 | 2 | 4 | 14 | append:2 | selections<=5 | PASS |
+| project-core-word-he | Project Core Universal Core Vocabulary | he | 16.40 | 2 | 4 | 12 | append:2 | selections<=3 | PASS |
+| project-core-word-help | Project Core Universal Core Vocabulary | help | 4.30 | 1 | 2 | 3 | append:1 | selections<=5 | PASS |
+| project-core-word-here | Project Core Universal Core Vocabulary | here | 25.90 | 3 | 6 | 19 | append:3 | selections<=5 | PASS |
+| project-core-word-i | Project Core Universal Core Vocabulary | I | 0.00 | 1 | 2 | 0 | append:1 | selections<=2 | PASS |
+| project-core-word-in | Project Core Universal Core Vocabulary | in | 12.10 | 2 | 4 | 9 | append:2 | selections<=3 | PASS |
+| project-core-word-it | Project Core Universal Core Vocabulary | it | 10.80 | 2 | 4 | 8 | append:2 | selections<=3 | PASS |
+| project-core-word-like | Project Core Universal Core Vocabulary | like | 17.70 | 2 | 4 | 13 | append:2 | selections<=5 | PASS |
+| project-core-word-look | Project Core Universal Core Vocabulary | look | 6.90 | 1 | 2 | 5 | append:1 | selections<=5 | PASS |
+| project-core-word-make | Project Core Universal Core Vocabulary | make | 19.00 | 2 | 4 | 14 | append:2 | selections<=5 | PASS |
+| project-core-word-more | Project Core Universal Core Vocabulary | more | 17.70 | 2 | 4 | 13 | append:2 | selections<=5 | PASS |
+| project-core-word-not | Project Core Universal Core Vocabulary | not | 15.10 | 2 | 4 | 11 | append:2 | selections<=4 | PASS |
+| project-core-word-on | Project Core Universal Core Vocabulary | on | 13.80 | 2 | 4 | 10 | append:2 | selections<=3 | PASS |
+| project-core-word-open | Project Core Universal Core Vocabulary | open | 12.50 | 2 | 4 | 9 | append:2 | selections<=5 | PASS |
+| project-core-word-put | Project Core Universal Core Vocabulary | put | 16.40 | 2 | 4 | 12 | append:2 | selections<=4 | PASS |
+| project-core-word-same | Project Core Universal Core Vocabulary | same | 19.90 | 3 | 6 | 15 | append:3 | selections<=5 | PASS |
+| project-core-word-she | Project Core Universal Core Vocabulary | she | 13.40 | 2 | 4 | 10 | append:2 | selections<=4 | PASS |
+| project-core-word-some | Project Core Universal Core Vocabulary | some | 21.60 | 3 | 6 | 16 | append:3 | selections<=5 | PASS |
+| project-core-word-stop | Project Core Universal Core Vocabulary | stop | 8.20 | 1 | 2 | 6 | append:1 | selections<=5 | PASS |
+| project-core-word-that | Project Core Universal Core Vocabulary | that | 15.10 | 2 | 4 | 11 | append:2 | selections<=5 | PASS |
+| project-core-word-turn | Project Core Universal Core Vocabulary | turn | 13.80 | 2 | 4 | 10 | append:2 | selections<=5 | PASS |
+| project-core-word-up | Project Core Universal Core Vocabulary | up | 16.40 | 2 | 4 | 12 | append:2 | selections<=3 | PASS |
+| project-core-word-want | Project Core Universal Core Vocabulary | want | 3.00 | 1 | 2 | 2 | append:1 | selections<=5 | PASS |
+| project-core-word-what | Project Core Universal Core Vocabulary | what | 20.30 | 2 | 4 | 15 | append:2 | selections<=5 | PASS |
+| project-core-word-when | Project Core Universal Core Vocabulary | when | 41.90 | 4 | 8 | 31 | append:4 | selections<=5 | PASS |
+| project-core-word-where | Project Core Universal Core Vocabulary | where | 32.40 | 3 | 6 | 24 | append:3 | selections<=6 | PASS |
+| project-core-word-who | Project Core Universal Core Vocabulary | who | 37.60 | 3 | 6 | 28 | append:3 | selections<=4 | PASS |
+| project-core-word-why | Project Core Universal Core Vocabulary | why | 41.10 | 3 | 6 | 31 | append:3 | selections<=4 | PASS |
+| project-core-word-you | Project Core Universal Core Vocabulary | you | 1.70 | 1 | 2 | 1 | append:1 | selections<=4 | PASS |
+| zhtw-first-page-drink-water | SHINE zh-TW built-in functional vocabulary | 喝水 | 0.00 | 1 | 2 | 0 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-eat | SHINE zh-TW built-in functional vocabulary | 吃飯 | 1.70 | 1 | 2 | 1 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-toilet | SHINE zh-TW built-in functional vocabulary | 廁所 | 3.00 | 1 | 2 | 2 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-rest | SHINE zh-TW built-in functional vocabulary | 休息 | 4.30 | 1 | 2 | 3 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-sleep | SHINE zh-TW built-in functional vocabulary | 睡覺 | 1.30 | 1 | 2 | 1 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-stop | SHINE zh-TW built-in functional vocabulary | 停 | 3.00 | 1 | 2 | 2 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-uncomfortable | SHINE zh-TW built-in functional vocabulary | 不舒服 | 4.30 | 1 | 2 | 3 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-hot | SHINE zh-TW built-in functional vocabulary | 熱 | 5.60 | 1 | 2 | 4 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-cold | SHINE zh-TW built-in functional vocabulary | 冷 | 2.60 | 1 | 2 | 2 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-tired | SHINE zh-TW built-in functional vocabulary | 累 | 4.30 | 1 | 2 | 3 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-nausea | SHINE zh-TW built-in functional vocabulary | 想吐 | 5.60 | 1 | 2 | 4 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-dizzy | SHINE zh-TW built-in functional vocabulary | 頭暈 | 6.90 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-afraid | SHINE zh-TW built-in functional vocabulary | 怕 | 3.90 | 1 | 2 | 3 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-family | SHINE zh-TW built-in functional vocabulary | 家人 | 5.60 | 1 | 2 | 4 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-nurse | SHINE zh-TW built-in functional vocabulary | 護理師 | 6.90 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-yes | SHINE zh-TW built-in functional vocabulary | 是 | 5.20 | 1 | 2 | 4 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-not | SHINE zh-TW built-in functional vocabulary | 不 | 6.90 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-help | SHINE zh-TW built-in functional vocabulary | 幫忙 | 8.20 | 1 | 2 | 6 | append:1 | selections<=1 | PASS |
+| zhtw-first-page-pain | SHINE zh-TW built-in functional vocabulary | 痛 | 9.50 | 1 | 2 | 7 | append:1 | selections<=1 | PASS |
+| zhtw-second-page-doctor | SHINE zh-TW built-in functional vocabulary | 更多 醫生 | 8.20 | 2 | 4 | 6 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-medicine | SHINE zh-TW built-in functional vocabulary | 更多 藥 | 9.90 | 2 | 4 | 7 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-position | SHINE zh-TW built-in functional vocabulary | 更多 姿勢 | 11.20 | 2 | 4 | 8 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-wait | SHINE zh-TW built-in functional vocabulary | 更多 等一下 | 12.50 | 2 | 4 | 9 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-can | SHINE zh-TW built-in functional vocabulary | 更多 可以 | 9.50 | 2 | 4 | 7 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-up | SHINE zh-TW built-in functional vocabulary | 更多 上 | 11.20 | 2 | 4 | 8 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-down | SHINE zh-TW built-in functional vocabulary | 更多 下 | 12.50 | 2 | 4 | 9 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-left | SHINE zh-TW built-in functional vocabulary | 更多 左 | 13.80 | 2 | 4 | 10 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-right | SHINE zh-TW built-in functional vocabulary | 更多 右 | 10.80 | 2 | 4 | 8 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-sit-up | SHINE zh-TW built-in functional vocabulary | 更多 坐起來 | 12.50 | 2 | 4 | 9 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-lie-down | SHINE zh-TW built-in functional vocabulary | 更多 躺下 | 13.80 | 2 | 4 | 10 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-turn-over | SHINE zh-TW built-in functional vocabulary | 更多 翻身 | 15.10 | 2 | 4 | 11 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-pillow | SHINE zh-TW built-in functional vocabulary | 更多 枕頭 | 12.10 | 2 | 4 | 9 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-mom | SHINE zh-TW built-in functional vocabulary | 更多 媽媽 | 13.80 | 2 | 4 | 10 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-second-page-dad | SHINE zh-TW built-in functional vocabulary | 更多 爸爸 | 15.10 | 2 | 4 | 11 | append:1, more-suggestions:1 | selections<=2 | PASS |
+| zhtw-third-page-caregiver | SHINE zh-TW built-in functional vocabulary | 更多 更多 照顧者 | 16.40 | 3 | 6 | 12 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-friend | SHINE zh-TW built-in functional vocabulary | 更多 更多 朋友 | 18.10 | 3 | 6 | 13 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-me | SHINE zh-TW built-in functional vocabulary | 更多 更多 我 | 19.40 | 3 | 6 | 14 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-not-yes | SHINE zh-TW built-in functional vocabulary | 更多 更多 不是 | 20.70 | 3 | 6 | 15 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-want | SHINE zh-TW built-in functional vocabulary | 更多 更多 要 | 17.70 | 3 | 6 | 13 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-cannot | SHINE zh-TW built-in functional vocabulary | 更多 更多 不可以 | 19.40 | 3 | 6 | 14 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-good | SHINE zh-TW built-in functional vocabulary | 更多 更多 好 | 20.70 | 3 | 6 | 15 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-bad | SHINE zh-TW built-in functional vocabulary | 更多 更多 不好 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-know | SHINE zh-TW built-in functional vocabulary | 更多 更多 知道 | 19.00 | 3 | 6 | 14 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-dont-know | SHINE zh-TW built-in functional vocabulary | 更多 更多 不知道 | 20.70 | 3 | 6 | 15 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-like | SHINE zh-TW built-in functional vocabulary | 更多 更多 喜歡 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-dislike | SHINE zh-TW built-in functional vocabulary | 更多 更多 不喜歡 | 23.30 | 3 | 6 | 17 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-again | SHINE zh-TW built-in functional vocabulary | 更多 更多 再一次 | 20.30 | 3 | 6 | 15 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-third-page-finish | SHINE zh-TW built-in functional vocabulary | 更多 更多 結束 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-utterance-help-position | SHINE zh-TW telegraphic AAC utterances | 幫忙 更多 姿勢 | 20.70 | 3 | 6 | 15 | append:2, more-suggestions:1 | selections<=3 | PASS |
+| zhtw-utterance-wait-repeat | SHINE zh-TW telegraphic AAC utterances | 更多 等一下 更多 更多 再一次 | 34.50 | 5 | 10 | 25 | append:2, more-suggestions:3 | selections<=5 | PASS |
+| zhtw-utterance-dont-know-repeat | SHINE zh-TW telegraphic AAC utterances | 更多 更多 不知道 更多 更多 再一次 | 42.70 | 6 | 12 | 31 | append:2, more-suggestions:4 | selections<=6 | PASS |
+| zhtw-utterance-sit-up-pillow | SHINE zh-TW telegraphic AAC utterances | 更多 坐起來 更多 枕頭 | 26.30 | 4 | 8 | 19 | append:2, more-suggestions:2 | selections<=4 | PASS |
+| zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 15.50 | 3 | 6 | 11 | append:2, more-suggestions:1 | selections<=3 | PASS |
+| zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 22.00 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
+| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 124.70 | 18 | 36 | 91 | append:13, commit-candidate:4, more-suggestions:1 | selections<=18 | PASS |
+| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽  podcast  新 資料 夾 | 206.30 | 29 | 58 | 151 | append:20, close-category:1, commit-candidate:4, more-suggestions:1, open-category:1, space:2 | selections<=30 | PASS |
+| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast  音量 小 | 142.40 | 21 | 42 | 104 | append:15, close-category:1, commit-candidate:2, more-suggestions:1, open-category:1, space:1 | selections<=23 | PASS |
+| zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 346.20 | 52 | 104 | 254 | append:37, commit-candidate:12, more-suggestions:3 | selections<=54 | PASS |
+| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 169.60 | 26 | 52 | 124 | append:19, commit-candidate:5, more-suggestions:2 | selections<=28 | PASS |
+| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 444.00 | 67 | 134 | 324 | append:50, commit-candidate:13, more-suggestions:4 | selections<=70 | PASS |
+| project-core-go | Project Core Universal Core Vocabulary | go | 6.90 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
+| project-core-like | Project Core Universal Core Vocabulary | like | 17.70 | 2 | 4 | 13 | append:2 | selections<=2 | PASS |
+| project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 4.70 | 2 | 4 | 3 | append:2 | selections<=4 | PASS |
+| asha-wants-needs-help | ASHA AAC Practice Portal | help | 4.30 | 1 | 2 | 3 | append:1 | selections<=3 | PASS |
+| asha-feelings-sick | ASHA AAC Practice Portal | feel sick | 25.90 | 4 | 8 | 19 | append:4 | selections<=4 | PASS |
+| light-operational-repair | Light & McNaughton communicative competence model | UNDO | 0.00 | 1 | 2 | 0 | undo:1 | selections<=1 | PASS |
+| shine-current-want-water | SHINE AAC current-app regression | I want water | 4.70 | 3 | 6 | 3 | append:3 | selections<=3 | PASS |
 
 ## Sources
 

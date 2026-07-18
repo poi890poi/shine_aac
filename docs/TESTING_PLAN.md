@@ -58,6 +58,7 @@ Command split:
 - `npm run test:core` or `npm test`: full core verification, including communication benchmarks.
 - `npm run test:core:benchmarks`: communication benchmark test file only.
 - `npm run report:communication`: regenerate `docs/COMMUNICATION_BENCHMARK_REPORT.md` from benchmark metrics.
+- `npm run baseline:communication`: deliberately replace the frozen task-level communication baseline after a reviewed improvement has been accepted; normal report generation never moves the baseline.
 - `npm run report:efficiency`: regenerate the zh-TW dictionary inventory, phonetic access, and communication efficiency reports.
 
 Required coverage:
@@ -78,6 +79,8 @@ Virtual benchmarks are the primary place to measure whether communication is pos
 For broad `zh-TW` dictionary quality, run the fast inventory report first. It should report total available Zhuyin symbols, source glyphs, source word/phrase labels, phonetic-path reachability, direct candidate reachability, composability from glyphs, and estimated activations. This report is allowed to estimate all dictionary labels quickly because it uses the access graph rather than full row/column scan simulation.
 
 Any systemic input-efficiency change must regenerate the dictionary inventory, phonetic coverage, and communication benchmark reports. The review should compare the current run against the previous-version baseline sections and confirm that improvements are broad: dictionary coverage must not regress, high-rank glyph/phrase reachability must remain stable or improve, and efficiency gains must not come from hand-crafted shortcuts or overfitting a small demo path.
+
+The communication report compares every matched task against the frozen snapshot in `packages/aac-core/test/communication-benchmark-baseline.json`. Acceptance gates require total and P90 switch effort and estimated scan time to remain stable or improve, require every established communication-function group to remain stable or improve in aggregate, and allow no task to gain more than one additional `更多` selection. A lower raw `更多` count is not an improvement when these gates fail. Normal report generation rejects added or removed task ids; the explicit baseline-update command may accept a reviewed task-set change without treating newly added coverage as a performance regression. Update the frozen snapshot only after reviewing the paired task deltas and accepting the candidate; never update it merely to make a regression pass.
 
 The runner should:
 

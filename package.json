@@ -12,6 +12,7 @@
     "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
     "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",
     "report:communication": "node scripts/report-communication-benchmarks.mjs",
+    "baseline:communication": "node scripts/report-communication-benchmarks.mjs --update-baseline",
     "report:efficiency": "npm run report:zhtw:inventory && npm run report:zhtw:phonetic && npm run report:communication",
     "test:web:e2e": "node scripts/e2e-web.mjs",
     "test:web:packaged": "node scripts/e2e-web.mjs --packaged-webview"

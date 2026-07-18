@@ -1,11 +1,15 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   CommunicationBenchmarks,
+  CommunicationBenchmarkFunctionGroups,
   CommunicationBenchmarkSources
 } from "../packages/aac-core/test/communication-benchmarks.fixture.js";
 import {
+  benchmarkLimitFailures,
+  compareBenchmarkSnapshots,
   composeSequence,
+  createBenchmarkSnapshot,
   evaluateBenchmark,
   optimizeZhTwText
 } from "../packages/aac-core/test/communication-benchmark-runner.js";
@@ -18,6 +22,9 @@ import {
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
 const reportPath = join(repoRoot, "docs", "COMMUNICATION_BENCHMARK_REPORT.md");
+const baselinePath = join(repoRoot, "packages", "aac-core", "test", "communication-benchmark-baseline.json");
+const updateBaseline = process.argv.includes("--update-baseline");
+const generated = new Date().toISOString();
 const projectCoreWordTarget = 36;
 const communicationAreaCount = 10;
 const phraseTargetPerArea = 8;
@@ -30,41 +37,37 @@ const targetMedianUrgentTimeSec = 10;
 const targetAverageActivations = 6;
 const targetMedianActivations = 4;
 const expectedProfiles = Object.freeze(["en-US", "zh-TW"]);
-const criticalFunctionGroups = Object.freeze({
-  "universal-core": ["universal-core-word"],
-  "daily-needs": ["need", "wants-needs", "request-or-transition", "comfort-object"],
-  "body-comfort": ["body-comfort", "feelings"],
-  "refusal-control": ["refusal", "refusal-control", "permission-refusal", "preference-refusal"],
-  "care-health": ["care-help", "care-health", "care-people"],
-  "positioning": ["positioning"],
-  "people-social": ["people", "identity"],
-  "preference": ["preference"],
-  "conversation-repair": ["conversation", "repair-repeat", "repair-close", "repair-wait", "operational-repair"],
-  "regression": ["app-regression"]
-});
-const previousRunMetrics = Object.freeze({
-  "project-core-refuse-drink": Object.freeze({ selections: 4, advances: 15 }),
-  "asha-feelings-sick": Object.freeze({ selections: 4, advances: 33 })
-});
-const previousReportBaseline = Object.freeze({
-  label: "Previous static communication benchmark report before least-cost path comparison",
-  benchmarkPassCount: 103,
-  averageBenchmarkTimeSec: 27.02,
-  medianBenchmarkTimeSec: 13.80,
-  averageSwitchActivations: 8.16,
-  medianSwitchActivations: 4.00,
-  activationsPerConcept: 5.53,
-  activationsPerOutputCharacter: 2.11
-});
 
 const results = CommunicationBenchmarks.map((benchmark) => {
   const result = evaluateBenchmark(benchmark);
+  const limitFailures = benchmarkLimitFailures(benchmark, result);
   return {
     benchmark,
     result,
-    status: !result.error && result.metrics.selections <= benchmark.maxSelections ? "PASS" : "FAIL"
+    limitFailures,
+    status: limitFailures.length === 0 ? "PASS" : "FAIL"
   };
 });
+const currentSnapshot = {
+  schemaVersion: 1,
+  label: "Current communication benchmark candidate",
+  generatedAt: generated,
+  tasks: results.map(({ benchmark, result }) => createBenchmarkSnapshot(benchmark, result))
+};
+const benchmarkBaseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+const baselineComparison = compareBenchmarkSnapshots(benchmarkBaseline, currentSnapshot, {
+  functionGroups: CommunicationBenchmarkFunctionGroups,
+  allowTaskSetChanges: updateBaseline
+});
+const baselineUpdateAllowed = results.every(({ status }) => status === "PASS") && baselineComparison.passed;
+if (updateBaseline && baselineUpdateAllowed) {
+  writeFileSync(baselinePath, `${JSON.stringify({
+    ...currentSnapshot,
+    label: benchmarkBaseline.label ?? "Accepted communication benchmark baseline"
+  }, null, 2)}\n`, "utf8");
+} else if (updateBaseline) {
+  console.error("Baseline was not updated because the candidate failed benchmark limits or paired regression gates.");
+}
 const optimizedZhTwResults = results
   .filter(({ benchmark, result }) =>
     !result.error &&
@@ -90,8 +93,14 @@ const zhTwDirectPhraseCommits = sum(passedResults.map(({ result }) => result.met
 const zhTwDecomposedPhraseFallbacks = sum(passedResults.map(({ result }) => result.metrics.zhTwDecomposedPhraseFallbacks ?? 0));
 const averageTimeSec = totalEstimatedTimeMs / Math.max(1, passedResults.length) / 1000;
 const medianTimeSec = median(passedResults.map(({ result }) => result.metrics.estimatedTimeMs / 1000));
+const p90TimeSec = percentile(passedResults.map(({ result }) => result.metrics.estimatedTimeMs / 1000), 0.9);
+const medianSelections = median(passedResults.map(({ result }) => result.metrics.selections));
+const p90Selections = percentile(passedResults.map(({ result }) => result.metrics.selections), 0.9);
 const averageActivations = totalActivations / Math.max(1, passedResults.length);
 const medianActivations = median(passedResults.map(({ result }) => result.metrics.switches));
+const p90Activations = percentile(passedResults.map(({ result }) => result.metrics.switches), 0.9);
+const urgentPhraseResults = passedResults.filter(({ benchmark }) => benchmark.timingTarget === "urgent-phrase");
+const medianUrgentPhraseTimeSec = median(urgentPhraseResults.map(({ result }) => result.metrics.estimatedTimeMs / 1000));
 const activationsPerConcept = totalActivations / Math.max(1, totalTargetConcepts);
 const selectionsPerConcept = totalSelections / Math.max(1, totalTargetConcepts);
 const activationsPerOutputCharacter = totalActivations / Math.max(1, totalOutputCharacters);
@@ -103,11 +112,6 @@ const benchmarkProfiles = new Set(results.map(({ benchmark }) => benchmark.profi
 const purposeCounts = countBy(results, ({ benchmark }) => benchmark.purpose);
 const sourceCounts = countBy(results, ({ benchmark }) => benchmark.source);
 const profileCounts = countBy(results, ({ benchmark }) => benchmark.profileId ?? "en-US");
-const coveredGroups = Object.entries(criticalFunctionGroups)
-  .filter(([, purposes]) => purposes.some((purpose) => purposeCounts.get(purpose) > 0))
-  .map(([group]) => group);
-const missingGroups = Object.keys(criticalFunctionGroups)
-  .filter((group) => !coveredGroups.includes(group));
 const projectCoreWordCount = results.filter(({ benchmark }) =>
   benchmark.source === "projectCoreUniversalCore" &&
   benchmark.purpose === "universal-core-word"
@@ -145,7 +149,6 @@ const topPhraseCoverageRatio = ratio(zhTwReachableTopPhraseCount, zhTwTopPhraseL
 const topPhraseComposableCoverageRatio = ratio(zhTwComposableTopPhraseLabels.length, zhTwTopPhraseLabels.size);
 const topPhraseExactOrComposableRatio = ratio(zhTwExactOrComposableTopPhraseLabels.size, zhTwTopPhraseLabels.size);
 
-const generated = new Date().toISOString();
 const lines = [
   "# Communication Benchmark Report",
   "",
@@ -172,12 +175,12 @@ const lines = [
   "",
   "## Effort Metrics",
   "",
-  "| Metric | Unit | Total | Average Per Passing Task |",
-  "| --- | --- | ---: | ---: |",
-  `| Estimated scan time | seconds | ${seconds(totalEstimatedTimeMs)} | ${averageTimeSec.toFixed(2)} avg / ${medianTimeSec.toFixed(2)} median |`,
-  `| Output selections | selected tiles | ${totalSelections} | ${average(totalSelections, passedResults.length)} |`,
-  `| Switch activations | activations | ${totalActivations} | ${averageActivations.toFixed(2)} avg / ${medianActivations.toFixed(2)} median |`,
-  `| Scanner advances | row/cell advances | ${totalAdvances} | ${average(totalAdvances, passedResults.length)} |`,
+  "| Metric | Unit | Total | Average | Median | P90 |",
+  "| --- | --- | ---: | ---: | ---: | ---: |",
+  `| Estimated scan time | seconds | ${seconds(totalEstimatedTimeMs)} | ${averageTimeSec.toFixed(2)} | ${medianTimeSec.toFixed(2)} | ${p90TimeSec.toFixed(2)} |`,
+  `| Output selections | selected tiles | ${totalSelections} | ${average(totalSelections, passedResults.length)} | ${medianSelections.toFixed(2)} | ${p90Selections.toFixed(2)} |`,
+  `| Switch activations | activations | ${totalActivations} | ${averageActivations.toFixed(2)} | ${medianActivations.toFixed(2)} | ${p90Activations.toFixed(2)} |`,
+  `| Scanner advances | row/cell advances | ${totalAdvances} | ${average(totalAdvances, passedResults.length)} | ${median(passedResults.map(({ result }) => result.metrics.advances)).toFixed(2)} | ${percentile(passedResults.map(({ result }) => result.metrics.advances), 0.9).toFixed(2)} |`,
   `| Activations per target concept | activations/concept | ${totalActivations} / ${totalTargetConcepts} | ${activationsPerConcept.toFixed(2)} |`,
   `| Selections per target concept | selections/concept | ${totalSelections} / ${totalTargetConcepts} | ${selectionsPerConcept.toFixed(2)} |`,
   `| Activations per output character | activations/character | ${totalActivations} / ${totalOutputCharacters} | ${activationsPerOutputCharacter.toFixed(2)} |`,
@@ -191,7 +194,7 @@ const lines = [
   "| Metric | Current | Target | Status |",
   "| --- | ---: | ---: | --- |",
   `| Average benchmark time | ${averageTimeSec.toFixed(2)} sec | <= ${targetAverageTimeSec} sec | ${averageTimeSec <= targetAverageTimeSec ? "meets" : "gap"} |`,
-  `| Median benchmark time | ${medianTimeSec.toFixed(2)} sec | <= ${targetMedianUrgentTimeSec} sec urgent phrase target | ${medianTimeSec <= targetMedianUrgentTimeSec ? "meets" : "gap"} |`,
+  `| Median urgent phrase time | ${medianUrgentPhraseTimeSec.toFixed(2)} sec across ${urgentPhraseResults.length} marked tasks | <= ${targetMedianUrgentTimeSec} sec | ${medianUrgentPhraseTimeSec <= targetMedianUrgentTimeSec ? "meets" : "gap"} |`,
   `| Average switch activations | ${averageActivations.toFixed(2)} | <= ${targetAverageActivations} | ${averageActivations <= targetAverageActivations ? "meets" : "gap"} |`,
   `| Median switch activations | ${medianActivations.toFixed(2)} | <= ${targetMedianActivations} | ${medianActivations <= targetMedianActivations ? "meets" : "gap"} |`,
   "",
@@ -217,6 +220,42 @@ const lines = [
   ...optimizedZhTwResults.map(({ benchmark, current, optimized }) =>
     `| ${escapeCell(benchmark.id)} | ${escapeCell(current.sequence.join(" "))} | ${escapeCell(optimized.sequence.join(" "))} | ${current.metrics.switches} | ${optimized.metrics.switches} | ${signed(optimized.metrics.switches - current.metrics.switches)} | ${percentChange(optimized.metrics.switches, current.metrics.switches)} |`
   ),
+  "",
+  "## Paired Baseline Regression",
+  "",
+  `Frozen baseline: ${benchmarkBaseline.label} (${benchmarkBaseline.generatedAt ?? "unknown date"}).`,
+  "",
+  `Regression gates: ${baselineComparison.passed ? "PASS" : "FAIL"}. Measured improvement over baseline: ${baselineComparison.hasMeasuredImprovement ? "YES" : "NO"}.`,
+  "",
+  "The gates require aggregate motor effort and scan time, P90 effort and time, and every established communication-function group to remain stable or improve. One task may use at most one additional `更多` selection. This prevents a lower raw paging count from hiding slower or less equitable communication paths.",
+  "",
+  "| Metric | Baseline | Current | Difference | Change |",
+  "| --- | ---: | ---: | ---: | ---: |",
+  baselineMetricRow("Selections", "selections"),
+  baselineMetricRow("Switch activations", "switches"),
+  baselineMetricRow("Scanner advances", "advances"),
+  baselineMetricRow("Estimated scan time sec", "estimatedTimeMs", 1000),
+  baselineMetricRow("更多 selections", "moreSuggestions"),
+  baselineP90Row("P90 switch activations", "switches"),
+  baselineP90Row("P90 scan time sec", "estimatedTimeMs", 1000),
+  "",
+  "| Gate | Status | Detail |",
+  "| --- | --- | --- |",
+  ...baselineComparison.gates.map((gate) =>
+    `| ${escapeCell(gate.id)} | ${gate.passed ? "PASS" : "FAIL"} | ${escapeCell(gate.detail)} |`
+  ),
+  "",
+  "| Communication Function | Baseline Activations | Current Activations | Baseline Time Sec | Current Time Sec | Status |",
+  "| --- | ---: | ---: | ---: | ---: | --- |",
+  ...baselineComparison.functionGroups.map((group) => {
+    const switchesPass = group.candidate.totals.switches <= group.baseline.totals.switches;
+    const timePass = group.candidate.totals.estimatedTimeMs <= group.baseline.totals.estimatedTimeMs;
+    return `| ${escapeCell(group.id)} | ${group.baseline.totals.switches} | ${group.candidate.totals.switches} | ${seconds(group.baseline.totals.estimatedTimeMs)} | ${seconds(group.candidate.totals.estimatedTimeMs)} | ${switchesPass && timePass ? "PASS" : "FAIL"} |`;
+  }),
+  "",
+  "| Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |",
+  "| --- | --- | ---: | ---: | ---: |",
+  ...changedTaskRows(baselineComparison.taskDeltas),
   "",
   "## Read This Correctly",
   "",
@@ -312,9 +351,9 @@ const lines = [
     return `| ${escapeCell(source)} | ${count} |`;
   }),
   "",
-  "| Task | Source | Best Output | Time Sec | Selections | Activations | Scan Advances | Actions | Limit | Status |",
-  "| --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- |",
-  ...results.map(({ benchmark, result, status }) => {
+  "| Task | Source | Best Output | Time Sec | Selections | Activations | Scan Advances | Actions | Limits | Status |",
+  "| --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- |",
+  ...results.map(({ benchmark, result, limitFailures, status }) => {
     const source = CommunicationBenchmarkSources[benchmark.source]?.title ?? benchmark.source;
     const output = result.error ? `ERROR: ${result.error.message}` : result.sequence.join(" ");
     const timeSec = result.error ? "-" : seconds(result.metrics.estimatedTimeMs);
@@ -322,33 +361,9 @@ const lines = [
     const activations = result.error ? "-" : result.metrics.switches;
     const advances = result.error ? "-" : result.metrics.advances;
     const actions = result.error ? "-" : actionCountsText(result.metrics.tileActions);
-    return `| ${escapeCell(benchmark.id)} | ${escapeCell(source)} | ${escapeCell(output)} | ${timeSec} | ${selections} | ${activations} | ${advances} | ${escapeCell(actions)} | ${benchmark.maxSelections} | ${status} |`;
+    const statusText = limitFailures.length === 0 ? status : `${status}: ${limitFailures.join("; ")}`;
+    return `| ${escapeCell(benchmark.id)} | ${escapeCell(source)} | ${escapeCell(output)} | ${timeSec} | ${selections} | ${activations} | ${advances} | ${escapeCell(actions)} | ${escapeCell(benchmarkLimitsText(benchmark))} | ${escapeCell(statusText)} |`;
   }),
-  "",
-  "## Latest Improvement Summary",
-  "",
-  "| Task | Previous Selections | Current Selections | Previous Scan Advances | Current Scan Advances |",
-  "| --- | ---: | ---: | ---: | ---: |",
-  ...results
-    .filter(({ benchmark }) => previousRunMetrics[benchmark.id])
-    .map(({ benchmark, result }) => {
-      const previous = previousRunMetrics[benchmark.id];
-      return `| ${escapeCell(benchmark.id)} | ${previous.selections} | ${result.metrics.selections} | ${previous.advances} | ${result.metrics.advances} |`;
-    }),
-  "",
-  "## Previous Report Comparison",
-  "",
-  `Static baseline: ${previousReportBaseline.label}.`,
-  "",
-  "| Metric | Previous | Current | Difference | Change |",
-  "| --- | ---: | ---: | ---: | ---: |",
-  previousComparisonRow("Benchmark pass rate tasks", previousReportBaseline.benchmarkPassCount, passedResults.length),
-  previousComparisonRow("Average benchmark time sec", previousReportBaseline.averageBenchmarkTimeSec, averageTimeSec),
-  previousComparisonRow("Median benchmark time sec", previousReportBaseline.medianBenchmarkTimeSec, medianTimeSec),
-  previousComparisonRow("Average switch activations", previousReportBaseline.averageSwitchActivations, averageActivations),
-  previousComparisonRow("Median switch activations", previousReportBaseline.medianSwitchActivations, medianActivations),
-  previousComparisonRow("Activations per target concept", previousReportBaseline.activationsPerConcept, activationsPerConcept),
-  previousComparisonRow("Activations per output character", previousReportBaseline.activationsPerOutputCharacter, activationsPerOutputCharacter),
   "",
   "## Sources",
   "",
@@ -362,6 +377,9 @@ const lines = [
 mkdirSync(dirname(reportPath), { recursive: true });
 writeFileSync(reportPath, lines.join("\n"), "utf8");
 console.log(`Wrote ${reportPath}`);
+if (results.some(({ status }) => status === "FAIL") || !baselineComparison.passed) {
+  process.exitCode = 1;
+}
 
 function optimizeBenchmarkFinalMessage(benchmark) {
   const startSession = createSession({
@@ -408,6 +426,12 @@ function median(values) {
   const middle = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 1) return sorted[middle];
   return (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function percentile(values, probability) {
+  if (values.length === 0) return 0;
+  const sorted = values.slice().sort((left, right) => left - right);
+  return sorted[Math.max(0, Math.ceil(sorted.length * probability) - 1)];
 }
 
 function countBy(values, keyFn) {
@@ -471,8 +495,25 @@ function comparisonRow(label, current, optimized) {
   return `| ${label} | ${formatNumber(current)} | ${formatNumber(optimized)} | ${signed(optimized - current)} | ${percentChange(optimized, current)} |`;
 }
 
-function previousComparisonRow(label, previous, current) {
-  return `| ${label} | ${formatNumber(previous)} | ${formatNumber(current)} | ${signed(current - previous)} | ${percentChange(current, previous)} |`;
+function baselineMetricRow(label, key, scale = 1) {
+  const baseline = baselineComparison.baseline.totals[key] / scale;
+  const current = baselineComparison.candidate.totals[key] / scale;
+  return `| ${label} | ${formatNumber(baseline)} | ${formatNumber(current)} | ${signed(current - baseline)} | ${percentChange(current, baseline)} |`;
+}
+
+function baselineP90Row(label, key, scale = 1) {
+  const baseline = baselineComparison.baseline.p90[key] / scale;
+  const current = baselineComparison.candidate.p90[key] / scale;
+  return `| ${label} | ${formatNumber(baseline)} | ${formatNumber(current)} | ${signed(current - baseline)} | ${percentChange(current, baseline)} |`;
+}
+
+function changedTaskRows(taskDeltas) {
+  const changed = taskDeltas.filter((task) => task.classification !== "unchanged");
+  if (changed.length === 0) return ["| None | unchanged | 0 | 0 | 0 |"];
+  return changed.map((task) => {
+    if (!task.metrics) return `| ${escapeCell(task.id)} | unreachable | n/a | n/a | n/a |`;
+    return `| ${escapeCell(task.id)} | ${task.classification} | ${signed(task.metrics.switches)} | ${signed(task.metrics.estimatedTimeMs / 1000)} | ${signed(task.metrics.moreSuggestions)} |`;
+  });
 }
 
 function formatNumber(value) {
@@ -499,6 +540,15 @@ function actionCountsText(actions = {}) {
     .sort(byKey)
     .map(([action, count]) => `${action}:${count}`)
     .join(", ");
+}
+
+function benchmarkLimitsText(benchmark) {
+  return [
+    `selections<=${benchmark.maxSelections}`,
+    Number.isFinite(benchmark.maxSwitchActivations) ? `activations<=${benchmark.maxSwitchActivations}` : null,
+    Number.isFinite(benchmark.maxScannerAdvances) ? `advances<=${benchmark.maxScannerAdvances}` : null,
+    Number.isFinite(benchmark.maxEstimatedScanTimeSeconds) ? `seconds<=${benchmark.maxEstimatedScanTimeSeconds}` : null
+  ].filter(Boolean).join(", ");
 }
 
 function benchmarkTaskType(benchmark) {

@@ -1,0 +1,2531 @@
+{
+  "schemaVersion": 1,
+  "label": "Pre-adaptive suggestion ranking baseline",
+  "generatedAt": "2026-07-18T11:03:18.178Z",
+  "tasks": [
+    {
+      "id": "project-core-word-all",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "all"
+      ],
+      "finalMessage": "all ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 8,
+        "estimatedTimeMs": 10800,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-can",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "can"
+      ],
+      "finalMessage": "can ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 11,
+        "estimatedTimeMs": 15100,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-different",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "different"
+      ],
+      "finalMessage": "d I fferent",
+      "metrics": {
+        "selections": 9,
+        "switches": 18,
+        "advances": 54,
+        "estimatedTimeMs": 72600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 9
+        }
+      }
+    },
+    {
+      "id": "project-core-word-do",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "do"
+      ],
+      "finalMessage": "do ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 11,
+        "estimatedTimeMs": 14700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-done",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "done"
+      ],
+      "finalMessage": "done ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13400,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-get",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "get"
+      ],
+      "finalMessage": "get ",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 20,
+        "estimatedTimeMs": 27200,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-go",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "go"
+      ],
+      "finalMessage": "go ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 5,
+        "estimatedTimeMs": 6900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-word-good",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "good"
+      ],
+      "finalMessage": "good ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 14,
+        "estimatedTimeMs": 19000,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-he",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "he"
+      ],
+      "finalMessage": "he ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 12,
+        "estimatedTimeMs": 16400,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-help",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "help"
+      ],
+      "finalMessage": "help ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 3,
+        "estimatedTimeMs": 4300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-word-here",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "here"
+      ],
+      "finalMessage": "here ",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 19,
+        "estimatedTimeMs": 25900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-i",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "I"
+      ],
+      "finalMessage": "I ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 0,
+        "estimatedTimeMs": 0,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-word-in",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "in"
+      ],
+      "finalMessage": "I n",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 9,
+        "estimatedTimeMs": 12100,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-it",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "it"
+      ],
+      "finalMessage": "I t",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 8,
+        "estimatedTimeMs": 10800,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-like",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "like"
+      ],
+      "finalMessage": "like ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 13,
+        "estimatedTimeMs": 17700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-look",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "look"
+      ],
+      "finalMessage": "look ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 5,
+        "estimatedTimeMs": 6900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-word-make",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "make"
+      ],
+      "finalMessage": "make ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 14,
+        "estimatedTimeMs": 19000,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-more",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "more"
+      ],
+      "finalMessage": "more ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 13,
+        "estimatedTimeMs": 17700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-not",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "not"
+      ],
+      "finalMessage": "not ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 11,
+        "estimatedTimeMs": 15100,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-on",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "on"
+      ],
+      "finalMessage": "on ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13800,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-open",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "open"
+      ],
+      "finalMessage": "open ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 9,
+        "estimatedTimeMs": 12500,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-put",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "put"
+      ],
+      "finalMessage": "put ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 12,
+        "estimatedTimeMs": 16400,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-same",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "same"
+      ],
+      "finalMessage": "same ",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 15,
+        "estimatedTimeMs": 19900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-she",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "she"
+      ],
+      "finalMessage": "she ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13400,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-some",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "some"
+      ],
+      "finalMessage": "some ",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 16,
+        "estimatedTimeMs": 21600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-stop",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "stop"
+      ],
+      "finalMessage": "stop ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 6,
+        "estimatedTimeMs": 8200,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-word-that",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "that"
+      ],
+      "finalMessage": "that ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 11,
+        "estimatedTimeMs": 15100,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-turn",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "turn"
+      ],
+      "finalMessage": "turn ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13800,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-up",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "up"
+      ],
+      "finalMessage": "up ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 12,
+        "estimatedTimeMs": 16400,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-want",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "want"
+      ],
+      "finalMessage": "want ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 2,
+        "estimatedTimeMs": 3000,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-word-what",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "what"
+      ],
+      "finalMessage": "what ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 15,
+        "estimatedTimeMs": 20300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-word-when",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "when"
+      ],
+      "finalMessage": "when ",
+      "metrics": {
+        "selections": 4,
+        "switches": 8,
+        "advances": 31,
+        "estimatedTimeMs": 41900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 4
+        }
+      }
+    },
+    {
+      "id": "project-core-word-where",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "where"
+      ],
+      "finalMessage": "where ",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 24,
+        "estimatedTimeMs": 32400,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-who",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "who"
+      ],
+      "finalMessage": "who",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 28,
+        "estimatedTimeMs": 37600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-why",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "why"
+      ],
+      "finalMessage": "why",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 31,
+        "estimatedTimeMs": 41100,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    },
+    {
+      "id": "project-core-word-you",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "universal-core-word",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "you"
+      ],
+      "finalMessage": "you ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 1,
+        "estimatedTimeMs": 1700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-drink-water",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "need",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "喝水"
+      ],
+      "finalMessage": "喝水",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 0,
+        "estimatedTimeMs": 0,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-eat",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "need",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "吃飯"
+      ],
+      "finalMessage": "吃飯",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 1,
+        "estimatedTimeMs": 1700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-toilet",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "need",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "廁所"
+      ],
+      "finalMessage": "廁所",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 2,
+        "estimatedTimeMs": 3000,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-rest",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "need",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "休息"
+      ],
+      "finalMessage": "休息",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 3,
+        "estimatedTimeMs": 4300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-sleep",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "need",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "睡覺"
+      ],
+      "finalMessage": "睡覺",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 1,
+        "estimatedTimeMs": 1300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-stop",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "refusal-control",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "停"
+      ],
+      "finalMessage": "停",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 2,
+        "estimatedTimeMs": 3000,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-uncomfortable",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "不舒服"
+      ],
+      "finalMessage": "不舒服",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 3,
+        "estimatedTimeMs": 4300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-hot",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "熱"
+      ],
+      "finalMessage": "熱",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 4,
+        "estimatedTimeMs": 5600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-cold",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "冷"
+      ],
+      "finalMessage": "冷",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 2,
+        "estimatedTimeMs": 2600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-tired",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "累"
+      ],
+      "finalMessage": "累",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 3,
+        "estimatedTimeMs": 4300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-nausea",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "想吐"
+      ],
+      "finalMessage": "想吐",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 4,
+        "estimatedTimeMs": 5600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-dizzy",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "頭暈"
+      ],
+      "finalMessage": "頭暈",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 5,
+        "estimatedTimeMs": 6900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-afraid",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "怕"
+      ],
+      "finalMessage": "怕",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 3,
+        "estimatedTimeMs": 3900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-family",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "people",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "家人"
+      ],
+      "finalMessage": "家人",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 4,
+        "estimatedTimeMs": 5600,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-nurse",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "care-people",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "護理師"
+      ],
+      "finalMessage": "護理師",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 5,
+        "estimatedTimeMs": 6900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-yes",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "quick-response",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "是"
+      ],
+      "finalMessage": "是",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 4,
+        "estimatedTimeMs": 5200,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-not",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "refusal-control",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "不"
+      ],
+      "finalMessage": "不",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 5,
+        "estimatedTimeMs": 6900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-help",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "care-help",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "幫忙"
+      ],
+      "finalMessage": "幫忙",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 6,
+        "estimatedTimeMs": 8200,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-first-page-pain",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "body-comfort",
+      "timingTarget": "urgent-phrase",
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "痛"
+      ],
+      "finalMessage": "痛",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 7,
+        "estimatedTimeMs": 9500,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-doctor",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "care-people",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "醫生"
+      ],
+      "finalMessage": "醫生",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 6,
+        "estimatedTimeMs": 8200,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-medicine",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "care-health",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "藥"
+      ],
+      "finalMessage": "藥",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 7,
+        "estimatedTimeMs": 9900,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-position",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "姿勢"
+      ],
+      "finalMessage": "調整姿勢",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 8,
+        "estimatedTimeMs": 11200,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-wait",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "repair-wait",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "等一下"
+      ],
+      "finalMessage": "等一下",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 9,
+        "estimatedTimeMs": 12500,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-can",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "permission",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "可以"
+      ],
+      "finalMessage": "可以",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 7,
+        "estimatedTimeMs": 9500,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-up",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "上"
+      ],
+      "finalMessage": "上",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 8,
+        "estimatedTimeMs": 11200,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-down",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "下"
+      ],
+      "finalMessage": "下",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 9,
+        "estimatedTimeMs": 12500,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-left",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "左"
+      ],
+      "finalMessage": "左",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13800,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-right",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "右"
+      ],
+      "finalMessage": "右",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 8,
+        "estimatedTimeMs": 10800,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-sit-up",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "坐起來"
+      ],
+      "finalMessage": "坐起來",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 9,
+        "estimatedTimeMs": 12500,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-lie-down",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "躺下"
+      ],
+      "finalMessage": "躺下",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13800,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-turn-over",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "翻身"
+      ],
+      "finalMessage": "翻身",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 11,
+        "estimatedTimeMs": 15100,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-pillow",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "comfort-object",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "枕頭"
+      ],
+      "finalMessage": "枕頭",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 9,
+        "estimatedTimeMs": 12100,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-mom",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "people",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "媽媽"
+      ],
+      "finalMessage": "媽媽",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 10,
+        "estimatedTimeMs": 13800,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-second-page-dad",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "people",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "爸爸"
+      ],
+      "finalMessage": "爸爸",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 11,
+        "estimatedTimeMs": 15100,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "more-suggestions": 1,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-caregiver",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "care-people",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "照顧者"
+      ],
+      "finalMessage": "照顧者",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 12,
+        "estimatedTimeMs": 16400,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-friend",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "people",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "朋友"
+      ],
+      "finalMessage": "朋友",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 13,
+        "estimatedTimeMs": 18100,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-me",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "identity",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "我"
+      ],
+      "finalMessage": "我",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 14,
+        "estimatedTimeMs": 19400,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-not-yes",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "quick-response",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "不是"
+      ],
+      "finalMessage": "不是",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 15,
+        "estimatedTimeMs": 20700,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-want",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "need",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "要"
+      ],
+      "finalMessage": "要",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 13,
+        "estimatedTimeMs": 17700,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-cannot",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "permission-refusal",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "不可以"
+      ],
+      "finalMessage": "不可以",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 14,
+        "estimatedTimeMs": 19400,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-good",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "preference",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "好"
+      ],
+      "finalMessage": "好",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 15,
+        "estimatedTimeMs": 20700,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-bad",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "preference",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "不好"
+      ],
+      "finalMessage": "不好",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 16,
+        "estimatedTimeMs": 22000,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-know",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "conversation",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "知道"
+      ],
+      "finalMessage": "知道",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 14,
+        "estimatedTimeMs": 19000,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-dont-know",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "conversation",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "不知道"
+      ],
+      "finalMessage": "不知道",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 15,
+        "estimatedTimeMs": 20700,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-like",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "preference",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "喜歡"
+      ],
+      "finalMessage": "喜歡",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 16,
+        "estimatedTimeMs": 22000,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-dislike",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "preference-refusal",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "不喜歡"
+      ],
+      "finalMessage": "不喜歡",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 17,
+        "estimatedTimeMs": 23300,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-again",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "repair-repeat",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "再一次"
+      ],
+      "finalMessage": "再一次",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 15,
+        "estimatedTimeMs": 20300,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-third-page-finish",
+      "profileId": "zh-TW",
+      "source": "shineZhTwFunctionalVocabulary",
+      "purpose": "repair-close",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "結束"
+      ],
+      "finalMessage": "結束",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 16,
+        "estimatedTimeMs": 22000,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-utterance-help-position",
+      "profileId": "zh-TW",
+      "source": "shineZhTwTelegraphicUtterances",
+      "purpose": "care-positioning",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "幫忙",
+        "更多",
+        "姿勢"
+      ],
+      "finalMessage": "幫忙調整姿勢",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 15,
+        "estimatedTimeMs": 20700,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "append": 2,
+          "more-suggestions": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-utterance-wait-repeat",
+      "profileId": "zh-TW",
+      "source": "shineZhTwTelegraphicUtterances",
+      "purpose": "repair-wait",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "等一下",
+        "更多",
+        "更多",
+        "再一次"
+      ],
+      "finalMessage": "等一下再一次",
+      "metrics": {
+        "selections": 5,
+        "switches": 10,
+        "advances": 25,
+        "estimatedTimeMs": 34500,
+        "moreSuggestions": 3,
+        "tileActions": {
+          "more-suggestions": 3,
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "zhtw-utterance-dont-know-repeat",
+      "profileId": "zh-TW",
+      "source": "shineZhTwTelegraphicUtterances",
+      "purpose": "conversation-repair",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "不知道",
+        "更多",
+        "更多",
+        "再一次"
+      ],
+      "finalMessage": "不知道再一次",
+      "metrics": {
+        "selections": 6,
+        "switches": 12,
+        "advances": 31,
+        "estimatedTimeMs": 42700,
+        "moreSuggestions": 4,
+        "tileActions": {
+          "more-suggestions": 4,
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "zhtw-utterance-sit-up-pillow",
+      "profileId": "zh-TW",
+      "source": "shineZhTwTelegraphicUtterances",
+      "purpose": "positioning-comfort",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "坐起來",
+        "更多",
+        "枕頭"
+      ],
+      "finalMessage": "坐起來枕頭",
+      "metrics": {
+        "selections": 4,
+        "switches": 8,
+        "advances": 19,
+        "estimatedTimeMs": 26300,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "zhtw-utterance-nausea-doctor",
+      "profileId": "zh-TW",
+      "source": "shineZhTwTelegraphicUtterances",
+      "purpose": "body-care",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "想吐",
+        "更多",
+        "醫生"
+      ],
+      "finalMessage": "想吐醫生",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 11,
+        "estimatedTimeMs": 15500,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "append": 2,
+          "more-suggestions": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-utterance-finish",
+      "profileId": "zh-TW",
+      "source": "shineZhTwTelegraphicUtterances",
+      "purpose": "repair-close",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "更多",
+        "更多",
+        "結束"
+      ],
+      "finalMessage": "結束",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 16,
+        "estimatedTimeMs": 22000,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "more-suggestions": 2,
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-phonetic-home-podcast",
+      "profileId": "zh-TW",
+      "source": "shineZhTwPhoneticCore",
+      "purpose": "home-media-request",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "聽",
+        "新",
+        "資料",
+        "夾"
+      ],
+      "finalMessage": "聽新資料夾",
+      "metrics": {
+        "selections": 18,
+        "switches": 36,
+        "advances": 91,
+        "estimatedTimeMs": 124700,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "append": 13,
+          "commit-candidate": 4,
+          "more-suggestions": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-multilingual-home-podcast",
+      "profileId": "zh-TW",
+      "source": "shineZhTwPhoneticCore",
+      "purpose": "multilingual-home-media-request",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "聽",
+        " podcast ",
+        "新",
+        "資料",
+        "夾"
+      ],
+      "finalMessage": "聽 podcast 新資料夾",
+      "metrics": {
+        "selections": 29,
+        "switches": 58,
+        "advances": 151,
+        "estimatedTimeMs": 206300,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "append": 20,
+          "commit-candidate": 4,
+          "open-category": 1,
+          "space": 2,
+          "close-category": 1,
+          "more-suggestions": 1
+        }
+      }
+    },
+    {
+      "id": "zhtw-multilingual-audio-repair",
+      "profileId": "zh-TW",
+      "source": "shineZhTwPhoneticCore",
+      "purpose": "multilingual-home-audio-repair",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "podcast ",
+        "音量",
+        "小"
+      ],
+      "finalMessage": "podcast 音量小",
+      "metrics": {
+        "selections": 21,
+        "switches": 42,
+        "advances": 104,
+        "estimatedTimeMs": 142400,
+        "moreSuggestions": 1,
+        "tileActions": {
+          "open-category": 1,
+          "append": 15,
+          "space": 1,
+          "close-category": 1,
+          "more-suggestions": 1,
+          "commit-candidate": 2
+        }
+      }
+    },
+    {
+      "id": "zhtw-phonetic-home-drink",
+      "profileId": "zh-TW",
+      "source": "shineZhTwPhoneticCore",
+      "purpose": "home-drink-request",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "冰",
+        "紅茶",
+        "少",
+        "冰",
+        "不要",
+        "太",
+        "甜",
+        "等",
+        "一下",
+        "喝",
+        "用",
+        "吸管"
+      ],
+      "finalMessage": "冰紅茶少冰不要太甜等一下喝用吸管",
+      "metrics": {
+        "selections": 52,
+        "switches": 104,
+        "advances": 254,
+        "estimatedTimeMs": 346200,
+        "moreSuggestions": 3,
+        "tileActions": {
+          "append": 37,
+          "commit-candidate": 12,
+          "more-suggestions": 3
+        }
+      }
+    },
+    {
+      "id": "zhtw-phonetic-home-audio-repair",
+      "profileId": "zh-TW",
+      "source": "shineZhTwPhoneticCore",
+      "purpose": "home-audio-repair",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "音量",
+        "小",
+        "從",
+        "剛剛",
+        "那裡"
+      ],
+      "finalMessage": "音量小從剛剛那裡",
+      "metrics": {
+        "selections": 26,
+        "switches": 52,
+        "advances": 124,
+        "estimatedTimeMs": 169600,
+        "moreSuggestions": 2,
+        "tileActions": {
+          "append": 19,
+          "more-suggestions": 2,
+          "commit-candidate": 5
+        }
+      }
+    },
+    {
+      "id": "zhtw-phonetic-home-feeling",
+      "profileId": "zh-TW",
+      "source": "shineZhTwPhoneticCore",
+      "purpose": "feeling-social-expression",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "今天",
+        "比較",
+        "累",
+        "但是",
+        "心情",
+        "好",
+        "想",
+        "聽",
+        "你",
+        "講",
+        "這樣",
+        "很",
+        "舒服",
+        "謝謝"
+      ],
+      "finalMessage": "今天比較累但是心情好想聽你講這樣很舒服謝謝",
+      "metrics": {
+        "selections": 67,
+        "switches": 134,
+        "advances": 324,
+        "estimatedTimeMs": 444000,
+        "moreSuggestions": 4,
+        "tileActions": {
+          "append": 50,
+          "commit-candidate": 13,
+          "more-suggestions": 4
+        }
+      }
+    },
+    {
+      "id": "project-core-go",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "request-or-transition",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "go"
+      ],
+      "finalMessage": "go ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 5,
+        "estimatedTimeMs": 6900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "project-core-like",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "preference",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "like"
+      ],
+      "finalMessage": "like ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 13,
+        "estimatedTimeMs": 17700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "project-core-refuse-drink",
+      "profileId": "en-US",
+      "source": "projectCoreUniversalCore",
+      "purpose": "refusal",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "no",
+        "drink"
+      ],
+      "finalMessage": "no drink ",
+      "metrics": {
+        "selections": 2,
+        "switches": 4,
+        "advances": 3,
+        "estimatedTimeMs": 4700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 2
+        }
+      }
+    },
+    {
+      "id": "asha-wants-needs-help",
+      "profileId": "en-US",
+      "source": "ashaAacPracticePortal",
+      "purpose": "wants-needs",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "help"
+      ],
+      "finalMessage": "help ",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 3,
+        "estimatedTimeMs": 4300,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 1
+        }
+      }
+    },
+    {
+      "id": "asha-feelings-sick",
+      "profileId": "en-US",
+      "source": "ashaAacPracticePortal",
+      "purpose": "feelings",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "feel",
+        "sick"
+      ],
+      "finalMessage": "feel sick ",
+      "metrics": {
+        "selections": 4,
+        "switches": 8,
+        "advances": 19,
+        "estimatedTimeMs": 25900,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 4
+        }
+      }
+    },
+    {
+      "id": "light-operational-repair",
+      "profileId": "en-US",
+      "source": "lightMcnaughtonCommunicativeCompetence",
+      "purpose": "operational-repair",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "UNDO"
+      ],
+      "finalMessage": "",
+      "metrics": {
+        "selections": 1,
+        "switches": 2,
+        "advances": 0,
+        "estimatedTimeMs": 0,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "undo": 1
+        }
+      }
+    },
+    {
+      "id": "shine-current-want-water",
+      "profileId": "en-US",
+      "source": "shineRegression",
+      "purpose": "app-regression",
+      "timingTarget": null,
+      "reachable": true,
+      "error": null,
+      "sequence": [
+        "I",
+        "want",
+        "water"
+      ],
+      "finalMessage": "I want water ",
+      "metrics": {
+        "selections": 3,
+        "switches": 6,
+        "advances": 3,
+        "estimatedTimeMs": 4700,
+        "moreSuggestions": 0,
+        "tileActions": {
+          "append": 3
+        }
+      }
+    }
+  ]
+}
