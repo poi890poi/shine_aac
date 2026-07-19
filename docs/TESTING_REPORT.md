@@ -1,10 +1,10 @@
 # SHINE AAC Testing Report
 
-Current packaged candidate: 0.2.37, Android code 40.
+Current packaged candidate: 0.2.38, Android code 41.
 
-Latest source validation is post-0.2.37. The Zhuyin-priority and demo-paging fixes below require a new Android version code before Play Internal testing upload; they are not in code 40.
+The signed code-41 AAB includes the verified Zhuyin-priority and demo-paging fixes. The retained code-40 debug APK remains the latest direct-install runtime evidence.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.37.md`
+Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.38.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 
@@ -16,12 +16,22 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Full core and efficiency | PASS | 212 / 212 tests; 103 / 103 benchmark tasks |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
 | Source and packaged browser E2E | PASS | 31 source steps; 32 packaged steps including the asset build |
-| Android APK lifecycle | PASS | packaged demo, hardware input, native draft, forced process recreation, zh-TW render |
-| APK package | PASS | `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.37-code40-release.aab`; checksum and bundle signature verified |
+| Android APK lifecycle | PASS | latest exact runtime evidence is the retained code-40 debug APK |
+| APK package | PASS | retained `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
+| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.38-code41-release.aab`; checksum and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
 The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
+
+## 2026-07-19 0.2.38 Internal Testing AAB
+
+- Source tag: `v0.2.38` at release source commit `4cd343d`.
+- Signed Play AAB: PASS; 21,815,991 bytes, upload-key JAR signature and required bundle entries verified.
+- Package metadata: PASS; `org.shineaac.app`, version 0.2.38, code 41.
+- Byte identity: PASS; the versioned AAB matches Gradle `app-release.aab`.
+- SHA-256: `cdda55df0eda443fb4e8d4eda1480dcbdcb4991f598e6938830b38e872aaf7f4`.
+- Android data policy: PASS; cloud backup disabled and all app-data domains excluded.
+- Direct-install runtime was not repeated because an AAB is not directly installable; the separate code-40 debug APK remains the latest emulator/device lifecycle evidence.
 
 ## 2026-07-18 Post-0.2.37 Zhuyin Priority And Demo Paging
 
@@ -30,7 +40,7 @@ The signed AAB is ready for Google Play Internal testing upload. The debug APK i
 - Source and packaged WebView E2E: PASS, 31 source steps and 32 packaged steps including the asset build. The two-column regression completed a candidate after selecting a later-page Zhuyin continuation.
 - Full core: PASS, 212 / 212 tests. The frozen 103-task evaluator baseline was not changed.
 - Paired communication evaluator: PASS; switch activations improved from 846 to 836, estimated scan time improved from 2,866.3 to 2,663.4 seconds, `更多` selections improved from 68 to 63, P90 metrics were unchanged, and no task regressed.
-- Release boundary: these changes are verified source for the next candidate and are not included in the existing 0.2.37 code-40 AAB or debug APK.
+- Release boundary: these changes are included in the 0.2.38 code-41 AAB and are not included in the retained 0.2.37 code-40 debug APK.
 
 ## 2026-07-18 0.2.37 Candidate
 

@@ -68,8 +68,8 @@ Generate an upload keystore outside Git, then build and package the signed AAB w
 The upload bundle and checksum are created at:
 
 ```text
-.artifacts\releases\v0.2.37\shine-aac-v0.2.37-code40-release.aab
-.artifacts\releases\v0.2.37\PLAY_AAB_SHA256SUMS.txt
+.artifacts\releases\v0.2.38\shine-aac-v0.2.38-code41-release.aab
+.artifacts\releases\v0.2.38\PLAY_AAB_SHA256SUMS.txt
 ```
 
 `app\build\outputs\bundle\release\app-release.aab` is an overwriteable intermediate output. Upload the versioned AAB from `.artifacts` to the Google Play Internal testing track. Confirm its version code has not already been used in Play Console.

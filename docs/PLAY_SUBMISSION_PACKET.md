@@ -6,16 +6,16 @@ This packet is the review checklist for the first Google Play internal testing s
 
 - Track: Internal testing first
 - Package id: `org.shineaac.app`
-- Current source version: `0.2.37`
-- Current source version code: `40`
-- Source tag: `v0.2.37`
-- Signed AAB: `.artifacts/releases/v0.2.37/shine-aac-v0.2.37-code40-release.aab`
-- Signed AAB SHA-256: `940abb9cecb618dffe4a3057e69c37a4afe49b35c84ec99f3f38616a847b4aa9`
-- AAB checksum file: `.artifacts/releases/v0.2.37/PLAY_AAB_SHA256SUMS.txt`
+- Current source version: `0.2.38`
+- Current source version code: `41`
+- Source tag: `v0.2.38`
+- Signed AAB: `.artifacts/releases/v0.2.38/shine-aac-v0.2.38-code41-release.aab`
+- Signed AAB SHA-256: `cdda55df0eda443fb4e8d4eda1480dcbdcb4991f598e6938830b38e872aaf7f4`
+- AAB checksum file: `.artifacts/releases/v0.2.38/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload the debug APK to Google Play. Upload the versioned signed release AAB above, after confirming version code 40 is unused in Play Console.
+Do not upload the debug APK to Google Play. Upload the versioned signed release AAB above; version code 41 is higher than the historical code-40 artifact.
 
 ## Store Listing
 
@@ -29,7 +29,19 @@ The listing should keep the early-development warning and avoid medical-device o
 
 ## Release Notes
 
-Use this for internal testing:
+Use this for 0.2.38 Internal testing:
+
+```text
+早期測試版本，主要給台灣繁體中文使用者與協助者試用。
+
+- 未完成的注音音節會優先顯示基本後續符號
+- 示範模式可透過「更多」完成較後面的注音符號與候選字詞
+- 改善慢速掃描與較少欄位設定下的示範可靠性
+- 點按離開示範後可正常繼續掃描與溝通
+- 這仍是早期開發版本，不能作為唯一或緊急溝通方式
+```
+
+Previous draft retained for reference:
 
 ```text
 早期測試版本 主要給台灣繁體中文使用者與協助者試用。
@@ -126,7 +138,7 @@ SayToMe AAC / 我想說 is an early development communication support tool. It i
 
 ## Verification To Refresh Before Upload
 
-- Confirm in Play Console that version code 40 has not already been used.
+- Confirm in Play Console that version code 41 has not already been used.
 - Rerun the full pre-release verification gate.
 - Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 - Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.
