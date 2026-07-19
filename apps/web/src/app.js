@@ -36,7 +36,7 @@ const uiStorageKey = "shine-aac-web-ui-v1";
 const textHistoryStorageKey = "shine-aac-text-history-v1";
 const sessionDraftStorageKey = "shine-aac-session-draft-v1";
 const CameraStatusStaleMs = 2200;
-const TextHistoryVersion = 1;
+const TextHistoryVersion = 2;
 const TextHistoryMaxEntries = 1000;
 const TextHistoryMaxChars = 220000;
 const TextHistoryMaxStorageChars = 480000;
@@ -286,15 +286,21 @@ function loadTextHistory() {
   try {
     const stored = JSON.parse(localStorage.getItem(textHistoryStorageKey) ?? "null");
     if (!stored || !Array.isArray(stored.entries)) return [];
+    const hasMutableLines = Number(stored.version) >= TextHistoryVersion;
     return stored.entries
-      .filter((entry) => typeof entry.text === "string" && entry.text.length > 0)
+      .filter((entry) => typeof entry.text === "string" && (
+        entry.text.length > 0 || (hasMutableLines && entry.closed === false)
+      ))
       .map((entry) => ({
         id: String(entry.id ?? ""),
         at: String(entry.at ?? ""),
         profileId: String(entry.profileId ?? ""),
         source: String(entry.source ?? ""),
         effect: String(entry.effect ?? ""),
-        text: String(entry.text)
+        text: String(entry.text),
+        // Version 1 stored a snapshot after every edit. Preserve those snapshots
+        // as completed lines instead of treating the last one as a live draft.
+        closed: hasMutableLines ? entry.closed !== false : true
       }));
   } catch {
     return [];
@@ -337,20 +343,32 @@ function totalTextHistoryChars(entries) {
   return entries.reduce((total, entry) => total + entry.text.length, 0);
 }
 
-function recordTextHistory(effect, source) {
+function recordTextHistory(effect, source, { reset = false } = {}) {
   const text = session.message;
-  if (!text || text.trim().length === 0) return;
-
   const entries = loadTextHistory();
   const last = entries.at(-1);
-  if (last?.text === text && last?.profileId === session.config.profileId) {
+
+  if (reset) {
+    if (!last || last.closed) return;
     last.at = new Date().toISOString();
     last.source = String(source ?? last.source ?? "");
     last.effect = String(effect ?? last.effect ?? "");
+    last.closed = true;
     saveTextHistory(entries);
     return;
   }
 
+  if (last && !last.closed && last.profileId === session.config.profileId) {
+    last.at = new Date().toISOString();
+    last.source = String(source ?? last.source ?? "");
+    last.effect = String(effect ?? last.effect ?? "");
+    last.text = text;
+    saveTextHistory(entries);
+    return;
+  }
+
+  if (!text || text.trim().length === 0) return;
+  if (last && !last.closed) last.closed = true;
   saveTextHistory([
     ...entries,
     {
@@ -359,17 +377,23 @@ function recordTextHistory(effect, source) {
       profileId: session.config.profileId,
       source: String(source ?? ""),
       effect: String(effect ?? ""),
-      text
+      text,
+      closed: false
     }
   ]);
+}
+
+function closeTextHistoryLine(effect, source) {
+  recordTextHistory(effect, source, { reset: true });
 }
 
 function exportTextHistory() {
   recordTextHistory("export", "config");
   const text = exportTextHistoryText();
+  const fileName = `saytome-aac-text-history-${new Date().toISOString().slice(0, 10)}.txt`;
   if (globalThis.ShineAacAndroid?.exportTextHistory) {
     try {
-      globalThis.ShineAacAndroid.exportTextHistory(text);
+      globalThis.ShineAacAndroid.exportTextHistory(text, fileName);
       return;
     } catch {
       // Fall back to browser download when the native bridge is unavailable.
@@ -379,7 +403,7 @@ function exportTextHistory() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `saytome-aac-text-history-${new Date().toISOString().slice(0, 10)}.txt`;
+  anchor.download = fileName;
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
@@ -387,19 +411,10 @@ function exportTextHistory() {
 }
 
 function exportTextHistoryText() {
-  const entries = loadTextHistory();
-  const lines = [
-    "SayToMe AAC Text History",
-    `Exported: ${new Date().toISOString()}`,
-    `Entries: ${entries.length}`,
-    ""
-  ];
-  for (const entry of entries) {
-    lines.push(`[${entry.at || "unknown time"}] profile=${entry.profileId || "unknown"} source=${entry.source || "unknown"} effect=${entry.effect || "unknown"}`);
-    lines.push(entry.text);
-    lines.push("");
-  }
-  return `${lines.join("\n")}\n`;
+  const lines = loadTextHistory()
+    .map((entry) => entry.text.replace(/[\r\n]+/g, " "))
+    .filter((text) => text.trim().length > 0);
+  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
 
 function resetClock() {
@@ -419,6 +434,7 @@ function setSession(nextSession) {
 }
 
 function resetSessionForDemo() {
+  closeTextHistoryLine("reset", "demo");
   clearSessionDraft();
   setSession(createSession({ config: session.config }));
 }
@@ -469,7 +485,11 @@ function activateSwitch(inputEvent = {}) {
     saveSessionDraft();
   }
   if (selection && ["message", "undo"].includes(selection.effect)) {
-    recordTextHistory(selection.effect, inputEvent.source ?? "switch");
+    if (selection.tile.action === TileAction.Clear) {
+      closeTextHistoryLine("reset", inputEvent.source ?? "switch");
+    } else {
+      recordTextHistory(selection.effect, inputEvent.source ?? "switch");
+    }
   }
   reviewHoldActive = shouldHoldForSuggestionReview(selection);
   resetClock();
@@ -1242,7 +1262,7 @@ function renderAppInfo() {
       <dl class="info-list">
         <div><dt>Communication data</dt><dd>Stored locally on this device</dd></div>
         <div><dt>Text history</dt><dd>Saved locally; oldest entries are recycled at storage limits</dd></div>
-        <div><dt>Export</dt><dd>Shared only when the user chooses Export text</dd></div>
+        <div><dt>Export</dt><dd>Saved to a user-chosen text file only when the user selects Export text</dd></div>
         <div><dt>Backup</dt><dd>Android cloud and device-transfer backup disabled</dd></div>
         <div><dt>Camera</dt><dd>Processed on device; frames are not stored by SayToMe AAC</dd></div>
         <div><dt>Core communication</dt><dd>Works offline after installation</dd></div>
@@ -1419,6 +1439,7 @@ function renderConfig() {
     if (action === "reset") {
       const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
       const config = createBoardConfig({ profileId });
+      closeTextHistoryLine("reset", "config");
       saveConfig(config);
       uiConfig = normalizeUiConfig(defaultUiConfig);
       saveUiConfig(uiStorageKey, uiConfig);
@@ -1445,6 +1466,7 @@ function renderConfig() {
         : parseDictionary(String(data.get("suggestionDictionary") ?? "")),
       symbols: parseSymbols(String(data.get("symbols") ?? ""))
     });
+    closeTextHistoryLine("reset", "config");
     saveConfig(config);
     uiConfig = normalizeUiConfig({
       rowScanVoice: data.get("rowScanVoice") === "on",

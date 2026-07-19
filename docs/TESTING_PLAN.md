@@ -114,6 +114,8 @@ Required coverage:
 - board, message text, suggestions, config controls, and tabs render
 - one-switch row/column scanning can enter a short message
 - undo, delete, clear, and suggestion completion work in the rendered UI
+- text history updates one live line while the current text area is edited, closes that line only on an explicit text-area reset, and preserves version 1 snapshots during migration
+- text export contains one plain-text line per text-area session; Android opens a user-chosen file destination instead of a share/clipboard flow
 - profile migration from stale stored data is visible after reload
 - `zh-TW` labels fit inside cells at phone viewport sizes
 - `zh-TW` `EN` entry point exposes English symbols without replacing the first-level Chinese surface
@@ -158,6 +160,7 @@ Required review scope:
 
 - Main AAC communication screen.
 - Configuration panel, export flow, and input-test panel.
+- Android's text-document picker can create the suggested `.txt` file, cancellation leaves history intact, and the saved UTF-8 content matches the browser history export.
 - Native camera-switch setup screen.
 - Android permission dialogs and external chooser handoffs that affect the user flow.
 - Phone portrait, phone landscape or explicit portrait-lock behavior, 7-inch tablet, 10-inch tablet, foldable/tablet landscape, and multi-window or resizable windows when available.

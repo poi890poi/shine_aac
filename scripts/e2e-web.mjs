@@ -121,6 +121,7 @@ try {
   await scenarioCameraHoldActivationIsImmediate();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
+  await scenarioLegacyHistoryMigration();
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioAppInfoPage();
@@ -189,15 +190,14 @@ async function scenarioPhraseAndUndo() {
       };
     })()
   `);
-  if (history.version !== 1) throw new Error(`Text history version missing: ${JSON.stringify(history)}`);
-  if (history.entries.length < 3) throw new Error(`Text history did not capture message changes: ${JSON.stringify(history)}`);
-  if (!history.entries.some((entry) => entry.text === "I want water ")) {
-    throw new Error(`Text history missing composed phrase: ${JSON.stringify(history.entries)}`);
+  if (history.version !== 2) throw new Error(`Text history version missing: ${JSON.stringify(history)}`);
+  if (history.entries.length !== 1 || history.entries[0].text !== "I want food " || history.entries[0].closed !== false) {
+    throw new Error(`Text history did not update one live line through edits: ${JSON.stringify(history.entries)}`);
   }
-  if (!history.exported.includes("I want food ")) {
-    throw new Error(`Text history export missing latest message: ${history.exported}`);
+  if (history.exported !== "I want food \n") {
+    throw new Error(`Text history export was not one plain-text line: ${JSON.stringify(history.exported)}`);
   }
-  steps.push(pass("text-history", "saved local message snapshots and exported plain-text history"));
+  steps.push(pass("text-history", "updated one live history line through composition, undo, and correction"));
 
   await evaluate(`location.reload()`);
   await waitForUi();
@@ -448,6 +448,56 @@ async function scenarioClearAndMovie() {
   await selectLabel("DEL");
   await assertMessage("movie");
   steps.push(pass("delete", "selected DEL and removed the automatic trailing space"));
+
+  const history = await evaluate(`
+    (() => {
+      const stored = JSON.parse(localStorage.getItem("shine-aac-text-history-v1") ?? "{}");
+      return {
+        version: stored.version,
+        entries: stored.entries ?? [],
+        exported: globalThis.ShineAacTextHistory.exportText()
+      };
+    })()
+  `);
+  if (history.version !== 2 || history.entries.length !== 2) {
+    throw new Error(`Text reset did not create exactly one new history line: ${JSON.stringify(history)}`);
+  }
+  if (history.entries[0].text !== "I want food " || history.entries[0].closed !== true) {
+    throw new Error(`Previous history line was not closed by CLR: ${JSON.stringify(history.entries)}`);
+  }
+  if (history.entries[1].text !== "movie" || history.entries[1].closed !== false) {
+    throw new Error(`Current history line did not stay live through DEL: ${JSON.stringify(history.entries)}`);
+  }
+  if (history.exported !== "I want food \nmovie\n") {
+    throw new Error(`Text history export did not use one line per reset: ${JSON.stringify(history.exported)}`);
+  }
+  steps.push(pass("text-history-reset", "started a new history line only after CLR and kept later edits on that line"));
+}
+
+async function scenarioLegacyHistoryMigration() {
+  const migrated = await evaluate(`
+    (() => {
+      localStorage.setItem("shine-aac-text-history-v1", JSON.stringify({
+        version: 1,
+        entries: [
+          { id: "legacy-1", at: "2026-01-01T00:00:00.000Z", profileId: "en-US", source: "switch", effect: "message", text: "old draft" },
+          { id: "legacy-2", at: "2026-01-01T00:00:01.000Z", profileId: "en-US", source: "switch", effect: "message", text: "old final" }
+        ]
+      }));
+      globalThis.ShineAacTextHistory.record();
+      return JSON.parse(localStorage.getItem("shine-aac-text-history-v1") ?? "{}");
+    })()
+  `);
+  if (migrated.version !== 2 || migrated.entries.length !== 3) {
+    throw new Error(`Legacy text history was not preserved during migration: ${JSON.stringify(migrated)}`);
+  }
+  if (migrated.entries[0].closed !== true || migrated.entries[1].closed !== true) {
+    throw new Error(`Legacy snapshots were not preserved as completed lines: ${JSON.stringify(migrated.entries)}`);
+  }
+  if (migrated.entries[2].text !== "movie" || migrated.entries[2].closed !== false) {
+    throw new Error(`Migration did not create a distinct live line: ${JSON.stringify(migrated.entries)}`);
+  }
+  steps.push(pass("text-history-migration", "preserved version 1 snapshots and opened one version 2 live line"));
 }
 
 async function scenarioReviewHold() {

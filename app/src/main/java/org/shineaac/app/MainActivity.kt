@@ -44,6 +44,24 @@ class MainActivity : ComponentActivity() {
     @Volatile private var switchInputProfile = SwitchInputHardware
     private var webBackNavigationPending = false
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
+    private var pendingTextHistoryExport: String? = null
+    private val textHistoryDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        val exportText = pendingTextHistoryExport
+        pendingTextHistoryExport = null
+        if (uri == null || exportText == null) return@registerForActivityResult
+
+        try {
+            contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                output.writer(Charsets.UTF_8).use { writer ->
+                    writer.write(exportText)
+                }
+            }
+        } catch (error: Exception) {
+            Log.e("ShineAacExport", "Could not save text history", error)
+        }
+    }
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -405,16 +423,15 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
-        fun exportTextHistory(text: String) {
+        fun exportTextHistory(text: String, suggestedFileName: String) {
             val exportText = text.take(MaxTextHistoryExportChars)
-            if (exportText.isBlank()) return
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "SayToMe AAC text history")
-                putExtra(Intent.EXTRA_TEXT, exportText)
-            }
+            val fileName = suggestedFileName
+                .replace(Regex("[^A-Za-z0-9._-]"), "-")
+                .take(120)
+                .let { if (it.endsWith(".txt", ignoreCase = true)) it else "$it.txt" }
             runOnUiThread {
-                startActivity(Intent.createChooser(intent, "Export text history"))
+                pendingTextHistoryExport = exportText
+                textHistoryDocumentLauncher.launch(fileName)
             }
         }
 

@@ -2,7 +2,7 @@
 
 Current packaged candidate: 0.2.38, Android code 41.
 
-The signed code-41 AAB includes the verified Zhuyin-priority and demo-paging fixes. Latest source additionally fixes Android back-swipe page navigation; that fix was validated in a local debug build but requires a higher Play version code and is not in the code-41 AAB.
+The signed code-41 AAB includes the verified Zhuyin-priority and demo-paging fixes. Latest source additionally fixes Android back-swipe page navigation and text-history/file export behavior; those fixes were validated in a local debug build but require a higher Play version code and are not in the code-41 AAB.
 
 Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.38.md`
 
@@ -32,6 +32,17 @@ The signed AAB is ready for Google Play Internal testing upload. The debug APK i
 - Android debug assembly: PASS; `assembleDebug` completed 99 tasks.
 - Gestural-navigation emulator smoke: PASS; a real left-edge swipe returned Configuration to the communication board while `MainActivity` remained foreground.
 - Release boundary: the existing 0.2.38 code-41 AAB does not include this fix. A new Play artifact must use version code 42 or higher.
+
+## 2026-07-19 Post-0.2.38 Text History And File Export
+
+- Text-history persistence now maintains one mutable line for the current text area. Composition, suggestion completion, undo, Zhuyin repair, backspace, and delete update that line instead of appending snapshots.
+- Selecting `CLR`, activating demo reset, or applying a configuration reset/save closes the current line; the next non-empty text starts a new line.
+- Stored version-1 snapshots migrate as completed lines so existing local history is not discarded. Version-2 live lines remain editable across WebView reload and Activity recreation.
+- Export content is UTF-8 plain text with one non-empty history entry per line and no diagnostic metadata. Browser export downloads a `.txt`; Android uses the system Create Document picker with a suggested dated filename.
+- Source Web E2E: PASS, 34 steps. Packaged-WebView E2E: PASS, 35 steps including packaged asset preparation. Coverage includes correction/delete updates, explicit-reset boundaries, and version-1 migration.
+- Android compile/unit verification: PASS; `testDebugUnitTest` completed successfully and `assembleDebug` completed 99 tasks.
+- Android 14 emulator export smoke: PASS; the system DocumentsUI picker opened, created the suggested `.txt`, wrote the expected line-based UTF-8 content, returned to `MainActivity`, and the temporary test file was removed.
+- Release boundary: the existing 0.2.38 code-41 AAB does not include this change. A new Play artifact must use version code 42 or higher.
 
 ## 2026-07-19 0.2.38 Internal Testing AAB
 

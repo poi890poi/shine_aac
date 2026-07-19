@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-19T02:56:05.439Z
+Generated: 2026-07-19T06:17:11.926Z
 
 Result: PASS
 
@@ -16,11 +16,13 @@ Result: PASS
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
 | undo-correction | PASS | undid WATER and selected FOOD |
-| text-history | PASS | saved local message snapshots and exported plain-text history |
+| text-history | PASS | updated one live history line through composition, undo, and correction |
 | session-draft | PASS | restored current composed message after reload |
 | clear | PASS | selected CLR from the visible board |
 | completion | PASS | typed movi and completed to movie with automatic trailing space |
 | delete | PASS | selected DEL and removed the automatic trailing space |
+| text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |
+| text-history-migration | PASS | preserved version 1 snapshots and opened one version 2 live line |
 | review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
 | app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
