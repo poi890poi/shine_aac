@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-19T06:17:11.926Z
+Generated: 2026-07-19T07:54:59.316Z
 
 Result: PASS
 
@@ -22,7 +22,7 @@ Result: PASS
 | completion | PASS | typed movi and completed to movie with automatic trailing space |
 | delete | PASS | selected DEL and removed the automatic trailing space |
 | text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |
-| text-history-migration | PASS | preserved version 1 snapshots and opened one version 2 live line |
+| text-history-migration | PASS | compacted version 1 and code-42 version 2 per-input snapshots into one live line |
 | review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
 | app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |

@@ -1,10 +1,10 @@
 # SHINE AAC Testing Report
 
-Current packaged candidate: 0.2.39, Android code 42.
+Current packaged candidate: 0.2.40, Android code 43.
 
-The signed code-42 AAB includes the verified Zhuyin-priority, demo-paging, Android back-navigation, text-history, and file-export fixes.
+The signed code-43 AAB supersedes code 42 and includes legacy text-history compaction plus the verified Zhuyin, demo, Android back-navigation, and file-export fixes.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.39.md`
+Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.40.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 
@@ -13,15 +13,28 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Layer | Result | Evidence |
 | --- | --- | --- |
 | Clean dependency install | PASS | 0 vulnerabilities |
-| Full core and efficiency | PASS | 212 / 212 tests; 103 / 103 benchmark tasks |
+| Full core and efficiency | PASS | 215 / 215 tests; 103 / 103 benchmark tasks |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
 | Source and packaged browser E2E | PASS | 34 source steps; 35 packaged steps including the asset build |
 | Android APK lifecycle | PASS | local code-41 debug build: back gesture, hardware input, and process recreation |
 | APK package | PASS | retained `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.39-code42-release.aab`; checksum and bundle signature verified |
+| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.40-code43-release.aab`; checksum and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
 The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
+
+## 2026-07-19 0.2.40 Legacy Text-History Repair
+
+- Root cause: code 42 preserved every version-1 per-input snapshot as a completed line during migration, so upgraded installs exported intermediate Zhuyin, Latin, and candidate states.
+- Core regression: PASS; the exact 47-line user-reported export reduces to `聽 podcast 新資料夾` and `冰紅茶少冰不要太甜`.
+- Boundary regression: PASS; explicit resets remain separate even when the next message extends previous text.
+- Repair regression: PASS; candidate commits, deletion, and undo branches remain within one session.
+- Upgrade integration: PASS; source and packaged WebView E2E repair both version-1 storage and polluted code-42 version-2 storage through the real export path.
+- Full core/evaluator: PASS, 215 / 215 tests; frozen 103-task baseline unchanged.
+- Android unit/compile: PASS; `testDebugUnitTest` completed 58 tasks.
+- Signed Play AAB: PASS; 21,818,356 bytes, version 0.2.40 code 43, upload-key signature and required entries verified.
+- SHA-256 and byte identity: PASS; `7d83b55a52cfc00b68acb4c238f5b6aeaa48899ba8b0763977a8a0e11710e0a2`.
+- Release boundary: code 42 is superseded and must not be uploaded; use code 43.
 
 ## 2026-07-19 Post-0.2.38 Android Back Navigation
 

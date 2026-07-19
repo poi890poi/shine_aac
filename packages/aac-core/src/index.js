@@ -88,6 +88,60 @@ export function tile(label, output = label, action = TileAction.Append) {
   return { label, output, action };
 }
 
+export function compactTextHistorySnapshots(entries, options = {}) {
+  const validEntries = Array.isArray(entries)
+    ? entries.filter((entry) => entry && typeof entry.text === "string")
+    : [];
+  if (validEntries.length === 0) return [];
+
+  const compacted = [];
+  let terminal = { ...validEntries[0] };
+  for (const entry of validEntries.slice(1)) {
+    const next = { ...entry };
+    if (textHistorySnapshotsShareSession(terminal, next)) {
+      terminal = next;
+    } else {
+      compacted.push(terminal);
+      terminal = next;
+    }
+  }
+  compacted.push(terminal);
+
+  const currentText = String(options.currentText ?? "");
+  const currentProfileId = String(options.currentProfileId ?? "");
+  return compacted.map((entry, index) => {
+    const isLast = index === compacted.length - 1;
+    if (!isLast) return { ...entry, closed: true };
+
+    const currentMatchesLastSession = currentText.length > 0 &&
+      (!currentProfileId || !entry.profileId || entry.profileId === currentProfileId) &&
+      textHistorySnapshotsShareSession(entry, {
+        text: currentText,
+        profileId: currentProfileId || entry.profileId,
+        effect: "message"
+      });
+    const remainsOpen = entry.effect !== "reset" &&
+      (entry.closed === false || currentMatchesLastSession);
+    return { ...entry, closed: !remainsOpen };
+  });
+}
+
+function textHistorySnapshotsShareSession(previous, next) {
+  if (previous.effect === "reset") return false;
+  if (previous.profileId && next.profileId && previous.profileId !== next.profileId) return false;
+
+  const previousText = String(previous.text ?? "");
+  const nextText = String(next.text ?? "");
+  if (previousText === nextText) return true;
+  if (previous.effect === "undo" || next.effect === "undo") return true;
+  if (previousText.startsWith(nextText) || nextText.startsWith(previousText)) return true;
+
+  const zhuyinBuffer = trailingZhuyinBuffer(previousText);
+  if (zhuyinBuffer.length === 0) return false;
+  const stableText = previousText.slice(0, previousText.length - zhuyinBuffer.length);
+  return stableText.length === 0 || nextText.startsWith(stableText);
+}
+
 export const ZhuyinSpeechNames = Object.freeze({
   "ㄅ": "玻",
   "ㄆ": "坡",

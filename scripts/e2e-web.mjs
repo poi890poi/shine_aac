@@ -121,7 +121,7 @@ try {
   await scenarioCameraHoldActivationIsImmediate();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
-  await scenarioLegacyHistoryMigration();
+  await scenarioHistoryUpgradeMigration();
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioAppInfoPage();
@@ -190,7 +190,7 @@ async function scenarioPhraseAndUndo() {
       };
     })()
   `);
-  if (history.version !== 2) throw new Error(`Text history version missing: ${JSON.stringify(history)}`);
+  if (history.version !== 3) throw new Error(`Text history version missing: ${JSON.stringify(history)}`);
   if (history.entries.length !== 1 || history.entries[0].text !== "I want food " || history.entries[0].closed !== false) {
     throw new Error(`Text history did not update one live line through edits: ${JSON.stringify(history.entries)}`);
   }
@@ -459,7 +459,7 @@ async function scenarioClearAndMovie() {
       };
     })()
   `);
-  if (history.version !== 2 || history.entries.length !== 2) {
+  if (history.version !== 3 || history.entries.length !== 2) {
     throw new Error(`Text reset did not create exactly one new history line: ${JSON.stringify(history)}`);
   }
   if (history.entries[0].text !== "I want food " || history.entries[0].closed !== true) {
@@ -474,30 +474,57 @@ async function scenarioClearAndMovie() {
   steps.push(pass("text-history-reset", "started a new history line only after CLR and kept later edits on that line"));
 }
 
-async function scenarioLegacyHistoryMigration() {
-  const migrated = await evaluate(`
+async function scenarioHistoryUpgradeMigration() {
+  const versionOne = await evaluate(`
     (() => {
       localStorage.setItem("shine-aac-text-history-v1", JSON.stringify({
         version: 1,
         entries: [
-          { id: "legacy-1", at: "2026-01-01T00:00:00.000Z", profileId: "en-US", source: "switch", effect: "message", text: "old draft" },
-          { id: "legacy-2", at: "2026-01-01T00:00:01.000Z", profileId: "en-US", source: "switch", effect: "message", text: "old final" }
+          { id: "legacy-1", profileId: "en-US", source: "switch", effect: "message", text: "m" },
+          { id: "legacy-2", profileId: "en-US", source: "switch", effect: "message", text: "mo" },
+          { id: "legacy-3", profileId: "en-US", source: "switch", effect: "message", text: "movi" },
+          { id: "legacy-4", profileId: "en-US", source: "switch", effect: "message", text: "movie" }
         ]
       }));
       globalThis.ShineAacTextHistory.record();
-      return JSON.parse(localStorage.getItem("shine-aac-text-history-v1") ?? "{}");
+      return {
+        stored: JSON.parse(localStorage.getItem("shine-aac-text-history-v1") ?? "{}"),
+        exported: globalThis.ShineAacTextHistory.exportText()
+      };
     })()
   `);
-  if (migrated.version !== 2 || migrated.entries.length !== 3) {
-    throw new Error(`Legacy text history was not preserved during migration: ${JSON.stringify(migrated)}`);
+  if (versionOne.stored.version !== 3 || versionOne.stored.entries.length !== 1) {
+    throw new Error(`Version 1 snapshots were not compacted: ${JSON.stringify(versionOne)}`);
   }
-  if (migrated.entries[0].closed !== true || migrated.entries[1].closed !== true) {
-    throw new Error(`Legacy snapshots were not preserved as completed lines: ${JSON.stringify(migrated.entries)}`);
+  if (versionOne.stored.entries[0].text !== "movie" || versionOne.stored.entries[0].closed !== false || versionOne.exported !== "movie\n") {
+    throw new Error(`Version 1 migration did not retain one live final line: ${JSON.stringify(versionOne)}`);
   }
-  if (migrated.entries[2].text !== "movie" || migrated.entries[2].closed !== false) {
-    throw new Error(`Migration did not create a distinct live line: ${JSON.stringify(migrated.entries)}`);
+
+  const versionTwo = await evaluate(`
+    (() => {
+      localStorage.setItem("shine-aac-text-history-v1", JSON.stringify({
+        version: 2,
+        entries: [
+          { id: "polluted-1", profileId: "en-US", source: "switch", effect: "message", text: "m", closed: true },
+          { id: "polluted-2", profileId: "en-US", source: "switch", effect: "message", text: "mo", closed: true },
+          { id: "polluted-3", profileId: "en-US", source: "switch", effect: "message", text: "movi", closed: true },
+          { id: "polluted-4", profileId: "en-US", source: "switch", effect: "message", text: "movie", closed: true }
+        ]
+      }));
+      globalThis.ShineAacTextHistory.record();
+      return {
+        stored: JSON.parse(localStorage.getItem("shine-aac-text-history-v1") ?? "{}"),
+        exported: globalThis.ShineAacTextHistory.exportText()
+      };
+    })()
+  `);
+  if (versionTwo.stored.version !== 3 || versionTwo.stored.entries.length !== 1) {
+    throw new Error(`Code-42 version 2 snapshots were not repaired: ${JSON.stringify(versionTwo)}`);
   }
-  steps.push(pass("text-history-migration", "preserved version 1 snapshots and opened one version 2 live line"));
+  if (versionTwo.stored.entries[0].text !== "movie" || versionTwo.stored.entries[0].closed !== false || versionTwo.exported !== "movie\n") {
+    throw new Error(`Version 2 repair did not retain one live final line: ${JSON.stringify(versionTwo)}`);
+  }
+  steps.push(pass("text-history-migration", "compacted version 1 and code-42 version 2 per-input snapshots into one live line"));
 }
 
 async function scenarioReviewHold() {

@@ -8,6 +8,7 @@ import {
   applyScanTimingPreset,
   createBoardConfig,
   createSession,
+  compactTextHistorySnapshots,
   loadProfileSuggestionDictionaryForConfig,
   loadProfileSymbolsForConfig,
   loadScanIntervalForConfig,
@@ -36,7 +37,7 @@ const uiStorageKey = "shine-aac-web-ui-v1";
 const textHistoryStorageKey = "shine-aac-text-history-v1";
 const sessionDraftStorageKey = "shine-aac-session-draft-v1";
 const CameraStatusStaleMs = 2200;
-const TextHistoryVersion = 2;
+const TextHistoryVersion = 3;
 const TextHistoryMaxEntries = 1000;
 const TextHistoryMaxChars = 220000;
 const TextHistoryMaxStorageChars = 480000;
@@ -286,8 +287,9 @@ function loadTextHistory() {
   try {
     const stored = JSON.parse(localStorage.getItem(textHistoryStorageKey) ?? "null");
     if (!stored || !Array.isArray(stored.entries)) return [];
-    const hasMutableLines = Number(stored.version) >= TextHistoryVersion;
-    return stored.entries
+    const storedVersion = Number(stored.version) || 1;
+    const hasMutableLines = storedVersion >= 2;
+    const entries = stored.entries
       .filter((entry) => typeof entry.text === "string" && (
         entry.text.length > 0 || (hasMutableLines && entry.closed === false)
       ))
@@ -298,10 +300,14 @@ function loadTextHistory() {
         source: String(entry.source ?? ""),
         effect: String(entry.effect ?? ""),
         text: String(entry.text),
-        // Version 1 stored a snapshot after every edit. Preserve those snapshots
-        // as completed lines instead of treating the last one as a live draft.
+        // Version 1 had no line state; version 2 introduced explicit reset lines.
         closed: hasMutableLines ? entry.closed !== false : true
       }));
+    if (storedVersion >= TextHistoryVersion) return entries;
+    return compactTextHistorySnapshots(entries, {
+      currentText: session.message,
+      currentProfileId: session.config.profileId
+    });
   } catch {
     return [];
   }
