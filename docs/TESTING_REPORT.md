@@ -1,10 +1,10 @@
 # SHINE AAC Testing Report
 
-Current packaged candidate: 0.2.38, Android code 41.
+Current packaged candidate: 0.2.39, Android code 42.
 
-The signed code-41 AAB includes the verified Zhuyin-priority and demo-paging fixes. Latest source additionally fixes Android back-swipe page navigation and text-history/file export behavior; those fixes were validated in a local debug build but require a higher Play version code and are not in the code-41 AAB.
+The signed code-42 AAB includes the verified Zhuyin-priority, demo-paging, Android back-navigation, text-history, and file-export fixes.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.38.md`
+Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.39.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 
@@ -15,10 +15,10 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Clean dependency install | PASS | 0 vulnerabilities |
 | Full core and efficiency | PASS | 212 / 212 tests; 103 / 103 benchmark tasks |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
-| Source and packaged browser E2E | PASS | 32 source steps; 33 packaged steps including the asset build |
+| Source and packaged browser E2E | PASS | 34 source steps; 35 packaged steps including the asset build |
 | Android APK lifecycle | PASS | local code-41 debug build: back gesture, hardware input, and process recreation |
 | APK package | PASS | retained `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.38-code41-release.aab`; checksum and bundle signature verified |
+| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.39-code42-release.aab`; checksum and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
 The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
@@ -31,7 +31,7 @@ The signed AAB is ready for Google Play Internal testing upload. The debug APK i
 - Android compile/unit verification: PASS; `testDebugUnitTest` completed 58 tasks.
 - Android debug assembly: PASS; `assembleDebug` completed 99 tasks.
 - Gestural-navigation emulator smoke: PASS; a real left-edge swipe returned Configuration to the communication board while `MainActivity` remained foreground.
-- Release boundary: the existing 0.2.38 code-41 AAB does not include this fix. A new Play artifact must use version code 42 or higher.
+- Release boundary: included in the 0.2.39 code-42 AAB; not included in 0.2.38 code 41.
 
 ## 2026-07-19 Post-0.2.38 Text History And File Export
 
@@ -42,7 +42,18 @@ The signed AAB is ready for Google Play Internal testing upload. The debug APK i
 - Source Web E2E: PASS, 34 steps. Packaged-WebView E2E: PASS, 35 steps including packaged asset preparation. Coverage includes correction/delete updates, explicit-reset boundaries, and version-1 migration.
 - Android compile/unit verification: PASS; `testDebugUnitTest` completed successfully and `assembleDebug` completed 99 tasks.
 - Android 14 emulator export smoke: PASS; the system DocumentsUI picker opened, created the suggested `.txt`, wrote the expected line-based UTF-8 content, returned to `MainActivity`, and the temporary test file was removed.
-- Release boundary: the existing 0.2.38 code-41 AAB does not include this change. A new Play artifact must use version code 42 or higher.
+- Release boundary: included in the 0.2.39 code-42 AAB; not included in 0.2.38 code 41.
+
+## 2026-07-19 0.2.39 Internal Testing AAB
+
+- Source tag: `v0.2.39`.
+- Signed Play AAB: PASS; 21,817,785 bytes, upload-key JAR signature and required bundle entries verified.
+- Package metadata: PASS; `org.shineaac.app`, version 0.2.39, code 42.
+- Byte identity: PASS; the versioned AAB matches Gradle `app-release.aab`.
+- SHA-256: `3830c6f4aeb058a82ee25ac4ab0fff0c927fd05c2a03320502086ba2bc439df2`.
+- Android data policy: PASS; cloud backup disabled and all app-data domains excluded.
+- Release build: PASS; `bundleRelease` completed 112 tasks.
+- Direct-install runtime used the equivalent debug build because an AAB is not directly installable; Play generates installable APKs after upload.
 
 ## 2026-07-19 0.2.38 Internal Testing AAB
 
