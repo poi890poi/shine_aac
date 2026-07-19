@@ -124,6 +124,7 @@ try {
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioAppInfoPage();
+  await scenarioBackNavigation();
   await scenarioDeveloperDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioTabletViewportCompatibility();
@@ -723,6 +724,61 @@ async function scenarioAppInfoPage() {
   `);
   await waitForUi();
   steps.push(pass("app-info", "shows version, user data facts, and help links without diagnostics or release-test instructions"));
+}
+
+async function scenarioBackNavigation() {
+  const appInfoPage = await evaluate(`
+    (() => {
+      document.querySelector(".config-button")?.click();
+      document.querySelector('[data-action="app-info"]')?.click();
+      return globalThis.ShineAacNavigation?.currentPage?.();
+    })()
+  `);
+  if (appInfoPage !== "app-info") throw new Error(`Expected App Info page, got ${appInfoPage}`);
+
+  const appInfoHandled = await evaluate(`globalThis.ShineAacNavigation?.back?.()`);
+  const configAfterInfo = await evaluate(`({
+    page: globalThis.ShineAacNavigation?.currentPage?.(),
+    title: document.querySelector(".config-panel h1")?.textContent
+  })`);
+  if (!appInfoHandled || configAfterInfo.page !== "config" || configAfterInfo.title !== "Configuration") {
+    throw new Error(`Back from App Info should return to Configuration: ${JSON.stringify(configAfterInfo)}`);
+  }
+
+  const calibrationOpenResult = await evaluate(`
+    (() => {
+      const button = document.querySelector('[data-action="calibrate"]');
+      button?.click();
+      return {
+        foundButton: Boolean(button),
+        page: globalThis.ShineAacNavigation?.currentPage?.(),
+        hasCalibration: Boolean(document.querySelector(".calibration-panel"))
+      };
+    })()
+  `);
+  if (!calibrationOpenResult.foundButton || calibrationOpenResult.page !== "calibration" || !calibrationOpenResult.hasCalibration) {
+    throw new Error(`Could not open Input Test after App Info back: ${JSON.stringify(calibrationOpenResult)}`);
+  }
+  const calibrationHandled = await evaluate(`globalThis.ShineAacNavigation?.back?.()`);
+  const configAfterCalibration = await evaluate(`({
+    page: globalThis.ShineAacNavigation?.currentPage?.(),
+    title: document.querySelector(".config-panel h1")?.textContent
+  })`);
+  if (!calibrationHandled || configAfterCalibration.page !== "config" || configAfterCalibration.title !== "Configuration") {
+    throw new Error(`Back from Input Test should return to Configuration: ${JSON.stringify(configAfterCalibration)}`);
+  }
+
+  const configHandled = await evaluate(`globalThis.ShineAacNavigation?.back?.()`);
+  await waitForUi();
+  const rootResult = await evaluate(`({
+    handled: globalThis.ShineAacNavigation?.back?.(),
+    page: globalThis.ShineAacNavigation?.currentPage?.()
+  })`);
+  if (!configHandled || rootResult.handled || rootResult.page !== "board") {
+    throw new Error(`Back should return to the board before allowing app exit: ${JSON.stringify(rootResult)}`);
+  }
+
+  steps.push(pass("back-navigation", "system back contract returns App Info and Input Test to Configuration, then Configuration to the board"));
 }
 
 async function scenarioDeveloperDemoMode() {

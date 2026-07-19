@@ -120,6 +120,7 @@ Required coverage:
 - demo activation clears the draft and scanner holds, then restarts scanning from the top row
 - a reduced-column `zh-TW` demo must use normal bounded `更多` paging to select a displaced continuation and complete its candidate; the test must not add vocabulary or bypass visible scanning
 - intentional demo exit must stop cleanly without leaking a failure into later app behavior
+- internal back navigation returns App Info and Input Test to Configuration, then Configuration to the communication board; only back from the root board may exit the app
 - reset restores packaged defaults
 - viewport and canvas/pixel checks prove the UI is not blank or clipped
 
@@ -144,6 +145,7 @@ Required smoke checks when Android runtime is available:
 - verify hardware or accessibility switch input reaches the scanner path when enabled
 - verify persisted config can load and reset
 - verify `zh-TW` profile renders the expected Chinese labels and `EN` entry point
+- verify Android predictive/back-swipe dispatch returns from an internal page to its parent before Activity exit
 - verify speech output manually when TTS or audio behavior changed
 
 APK runtime checks can be small. They do not replace core benchmark coverage.

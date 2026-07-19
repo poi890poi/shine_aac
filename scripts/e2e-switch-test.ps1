@@ -265,6 +265,37 @@ function LongPress-ConfigButton {
     Write-Host "long press $x $y Config button"
 }
 
+function Tap-ConfigButton {
+    $null = Dismiss-SystemAnrDialogIfPresent
+    $size = Get-ScreenSize
+    $x = [int]($size[0] * 0.82)
+    $y = [int]($size[1] * 0.17)
+    Invoke-AdbQuiet shell input tap $x $y
+    Write-Host "tap $x $y Config button"
+}
+
+function Invoke-SystemBack {
+    $size = Get-ScreenSize
+    $navigationMode = ((& $script:adb shell settings get secure navigation_mode) -join "").Trim()
+    if ($navigationMode -eq "2") {
+        $y = [int]($size[1] * 0.5)
+        $endX = [int]($size[0] * 0.5)
+        Invoke-AdbQuiet shell input swipe 1 $y $endX $y 300
+        Write-Host "left-edge Android back swipe"
+        return
+    }
+
+    Invoke-AdbQuiet shell input keyevent KEYCODE_BACK
+    Write-Host "Android back key (navigation mode $navigationMode)"
+}
+
+function Assert-ShineForeground {
+    $windowState = (& $script:adb shell dumpsys window) -join "`n"
+    if ($windowState -notmatch 'mCurrentFocus=.*org\.shineaac\.app/org\.shineaac\.app\.MainActivity') {
+        throw "SHINE AAC left the foreground after internal-page back navigation."
+    }
+}
+
 function Select-SuggestionCell([int]$CellIndex, [string]$ExpectedLabel) {
     $null = Dismiss-SystemAnrDialogIfPresent
     Wait-RenderState "suggestion row for $ExpectedLabel" @('"stage":"Rows"', '"rowIndex":0')
@@ -322,6 +353,14 @@ Write-TestPreferences
 Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
 Wait-E2EReady
 Start-Sleep -Milliseconds 300
+
+Write-Step "Verifying Android back returns from Configuration to the communication board"
+Tap-ConfigButton
+Start-Sleep -Milliseconds 500
+Invoke-AdbQuiet logcat -c
+Invoke-SystemBack
+Wait-RenderState "communication board after Android back" @('"stage":"Rows"', '"WANT"')
+Assert-ShineForeground
 
 if (-not $SkipDemo) {
     Write-Step "Verifying packaged Config long-press Demo activation"

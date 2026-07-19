@@ -53,6 +53,7 @@ let timerId = 0;
 let animationFrameId = 0;
 let configOpen = false;
 let calibrationOpen = false;
+let appInfoOpen = false;
 let calibrationTimerId = 0;
 let lastScanAnnouncementKey = "";
 let reviewHoldActive = false;
@@ -96,6 +97,11 @@ globalThis.ShineAacTextHistory = {
   exportText: exportTextHistoryText,
   record: () => recordTextHistory("manual", "manual")
 };
+
+globalThis.ShineAacNavigation = Object.freeze({
+  back: navigateBackWithinApp,
+  currentPage: currentAppPage
+});
 
 function loadConfig() {
   const defaults = createBoardConfig({ profileId: initialProductProfileId });
@@ -1108,6 +1114,7 @@ function statusPhaseLabel(stage) {
 function openConfig() {
   configOpen = true;
   calibrationOpen = false;
+  appInfoOpen = false;
   stopCalibrationTimer();
   reviewHoldActive = false;
   cameraHoldActive = false;
@@ -1119,6 +1126,7 @@ function openConfig() {
 function closeConfig() {
   configOpen = false;
   calibrationOpen = false;
+  appInfoOpen = false;
   stopCalibrationTimer();
   reviewHoldActive = false;
   cameraHoldActive = false;
@@ -1131,6 +1139,7 @@ function closeConfig() {
 function openCalibration() {
   configOpen = true;
   calibrationOpen = true;
+  appInfoOpen = false;
   reviewHoldActive = false;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
@@ -1141,6 +1150,7 @@ function openCalibration() {
 
 function closeCalibration() {
   calibrationOpen = false;
+  appInfoOpen = false;
   stopCalibrationTimer();
   renderConfig();
 }
@@ -1148,13 +1158,42 @@ function closeCalibration() {
 function openAppInfo() {
   configOpen = true;
   calibrationOpen = false;
+  appInfoOpen = true;
   stopCalibrationTimer();
   cancelScheduledScan();
   renderAppInfo();
 }
 
 function closeAppInfo() {
+  appInfoOpen = false;
   renderConfig();
+}
+
+function navigateBackWithinApp() {
+  if (demoMode.isActive()) {
+    demoMode.stop();
+    return true;
+  }
+  if (calibrationOpen) {
+    closeCalibration();
+    return true;
+  }
+  if (appInfoOpen) {
+    closeAppInfo();
+    return true;
+  }
+  if (configOpen) {
+    closeConfig();
+    return true;
+  }
+  return false;
+}
+
+function currentAppPage() {
+  if (calibrationOpen) return "calibration";
+  if (appInfoOpen) return "app-info";
+  if (configOpen) return "config";
+  return "board";
 }
 
 function loadAppInfo() {

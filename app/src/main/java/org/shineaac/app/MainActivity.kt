@@ -20,6 +20,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     @Volatile private var hardwareButtonsEnabled = true
     @Volatile private var cameraSwitchEnabled = false
     @Volatile private var switchInputProfile = SwitchInputHardware
+    private var webBackNavigationPending = false
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -80,6 +82,7 @@ class MainActivity : ComponentActivity() {
 
         webView = shineWebView
         setContentView(createInsetAwareWebViewHost(shineWebView))
+        installBackNavigation()
 
         cameraSwitchInput = CameraSwitchInputAdapter(
             context = this,
@@ -121,13 +124,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        val view = webView
-        if (view?.canGoBack() == true) {
-            view.goBack()
-        } else {
-            super.onBackPressed()
-        }
+    private fun installBackNavigation() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val view = webView ?: return
+                if (webBackNavigationPending) return
+
+                webBackNavigationPending = true
+                view.evaluateJavascript(
+                    "Boolean(globalThis.ShineAacNavigation?.back?.())"
+                ) { handledResult ->
+                    webBackNavigationPending = false
+                    if (handledResult == "true") return@evaluateJavascript
+                    if (view.canGoBack()) {
+                        view.goBack()
+                        return@evaluateJavascript
+                    }
+
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                }
+            }
+        })
     }
 
     override fun onResume() {

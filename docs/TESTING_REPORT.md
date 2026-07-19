@@ -2,7 +2,7 @@
 
 Current packaged candidate: 0.2.38, Android code 41.
 
-The signed code-41 AAB includes the verified Zhuyin-priority and demo-paging fixes. The retained code-40 debug APK remains the latest direct-install runtime evidence.
+The signed code-41 AAB includes the verified Zhuyin-priority and demo-paging fixes. Latest source additionally fixes Android back-swipe page navigation; that fix was validated in a local debug build but requires a higher Play version code and is not in the code-41 AAB.
 
 Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.38.md`
 
@@ -15,13 +15,23 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Clean dependency install | PASS | 0 vulnerabilities |
 | Full core and efficiency | PASS | 212 / 212 tests; 103 / 103 benchmark tasks |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
-| Source and packaged browser E2E | PASS | 31 source steps; 32 packaged steps including the asset build |
-| Android APK lifecycle | PASS | latest exact runtime evidence is the retained code-40 debug APK |
+| Source and packaged browser E2E | PASS | 32 source steps; 33 packaged steps including the asset build |
+| Android APK lifecycle | PASS | local code-41 debug build: back gesture, hardware input, and process recreation |
 | APK package | PASS | retained `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
 | Play Internal testing AAB | PASS | signed `shine-aac-v0.2.38-code41-release.aab`; checksum and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
 The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
+
+## 2026-07-19 Post-0.2.38 Android Back Navigation
+
+- Android predictive/back dispatch now asks the web UI to navigate internally before consulting WebView URL history or exiting the Activity.
+- Page order: App Info and Input Test return to Configuration; Configuration returns to the communication board; only the root board leaves back unhandled for app exit.
+- Source and packaged WebView E2E: PASS, 32 source steps and 33 packaged steps including the asset build.
+- Android compile/unit verification: PASS; `testDebugUnitTest` completed 58 tasks.
+- Android debug assembly: PASS; `assembleDebug` completed 99 tasks.
+- Gestural-navigation emulator smoke: PASS; a real left-edge swipe returned Configuration to the communication board while `MainActivity` remained foreground.
+- Release boundary: the existing 0.2.38 code-41 AAB does not include this fix. A new Play artifact must use version code 42 or higher.
 
 ## 2026-07-19 0.2.38 Internal Testing AAB
 
