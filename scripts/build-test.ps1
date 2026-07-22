@@ -92,7 +92,7 @@ function Find-AndroidSdk {
 
 function Convert-ToLocalPropertiesPath {
     param([string]$Path)
-    return $Path.Replace("\", "\\")
+    return $Path.Replace("\", "\\").Replace(":", "\:")
 }
 
 $sdkPath = Find-AndroidSdk -ExplicitSdkDir $SdkDir -SearchDrives:$DeepSearch

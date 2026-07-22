@@ -1,8 +1,14 @@
 # Device Compatibility Review
 
-Generated: 2026-07-18
-Current automated candidate commit: `b48860b35c3a3517988b7f703c3953268713671a`
-Current automated candidate version: 0.2.37 (40)
+Generated: 2026-07-22
+Current automated candidate commit: pending v0.2.41 release commit
+Current automated candidate version: 0.2.41 (44), target SDK 36
+
+## 0.2.41 Android 16 Target Review
+
+The release app now targets API 36 and compiles against API 36 with Android Gradle Plugin 8.10.1. Source and packaged browser viewport checks pass for phone portrait, tablet portrait, tablet landscape, short-height configuration actions, and large text. Android lint reports no errors, the signed bundle manifest confirms target SDK 36, and the existing supported predictive-back callback and window-inset paths remain in place.
+
+The API 34 emulator accepted code 44 and eventually rendered `MainActivity` without an app crash, but its full timed smoke run is not accepted as compatibility evidence because unrelated system services ANRed under severe resource pressure. Android 16 physical-device or healthy emulator confirmation remains required during Internal testing, especially for predictive back, edge-to-edge system controls, tablet orientation changes, Activity recreation, and document export.
 
 ## 0.2.37 Automated Candidate Rerun
 
@@ -69,7 +75,7 @@ That made the review dependent on whichever phone condition happened to be teste
 | DC-003 | Critical | Camera setup | Native camera setup had the same system-control and timeout class of risk. | Fixed; tablet emulator confirmed | Confirm system-control clearance and timeout behavior on the target phone |
 | DC-004 | High | Rotation/recreation | Composed message was lost when Android recreated/reloaded the WebView. | Fixed; browser and Android lifecycle checks passed | Keep lifecycle persistence in the release smoke suite |
 | DC-005 | High | Tablet/large screen | The app was phone-first and manifest-locked to portrait. | Fixed for current target; tablet emulator confirmed | Manifest lock removed; phones are portrait-locked below 600dp and tablet-class screens use the adaptive layout |
-| DC-006 | High | Future Android target SDK | `screenOrientation="portrait"` is a temporary phone release mitigation. Large-screen Android behavior can ignore orientation restrictions for newer target SDKs. | Open | Design and verify adaptive landscape/tablet layout before API 36/production tablet support |
+| DC-006 | High | Android 16 target SDK | API 36 ignores orientation and resizability restrictions on qualifying large screens. The manifest lock is removed, phone-only orientation policy is limited below 600dp, and rendered tablet portrait/landscape checks pass. | Mitigated; Android 16 runtime open | Verify on a healthy Android 16 tablet/foldable-class runtime before broader promotion |
 | DC-007 | High | Camera switch on tablet/landscape | Camera setup used fixed image-rotation assumptions. | Fixed; unit-tested and emulated-camera startup confirmed | Real-person face/eye classification still requires a physical-device test |
 | DC-008 | Medium | Web viewport sizing | Web CSS used `100vh` for the shell and lacked tablet landscape coverage. | Fixed; browser and tablet emulator confirmed | Dynamic viewport units and the tablet landscape layout remain release-gated by E2E |
 | DC-009 | Medium | Config/input-test panels | Bottom action reachability under system UI needed direct Android evidence. | Fixed; tablet emulator confirmed | Config and Input Test actions remained clear of the visible Android taskbar |
@@ -77,14 +83,14 @@ That made the review dependent on whichever phone condition happened to be teste
 
 ## Release Decision
 
-The code-40 debug APK passed automated and emulator runtime checks. The corresponding signed code-40 AAB is the Google Play Internal testing upload artifact. The physical-device checklist for testers still includes:
+The code-44 signed AAB is the current Google Play Internal testing upload artifact. API-36 compile/lint and rendered adaptive-layout checks pass; the most recent complete runtime suite remains the earlier API 34 code-40 run, while the current code-44 API 34 launch was limited by unrelated emulator system ANRs. The physical-device checklist for testers still includes:
 
 - main board bottom row clear of system controls
 - camera setup controls clear of system controls
 - screen stays awake
 - composed text survives rotation/reload/background
 
-Tablet runtime compatibility is verified on an API 34 `sw800dp` emulator in portrait and landscape. A physical tablet remains desirable for human UX, vendor-specific system UI, performance, and real-camera validation. Store tablet screenshots are not runtime evidence by themselves.
+Tablet runtime compatibility was verified on an API 34 `sw800dp` emulator in portrait and landscape, and the current code-44 rendered WebView suite passes the same adaptive viewports. A healthy Android 16 tablet-class runtime remains required before broader promotion. Store tablet screenshots are not runtime evidence by themselves.
 
 ## Required Next Review Run
 

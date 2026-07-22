@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "org.shineaac.blinktest"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.shineaac.blinktest"
         minSdk = 25
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 15
         versionName = "0.15.0"
     }

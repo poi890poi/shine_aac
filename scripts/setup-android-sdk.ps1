@@ -9,8 +9,8 @@ $repoRoot = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")
 $commandLineToolsUrl = "https://dl.google.com/android/repository/commandlinetools-win-14742923_latest.zip"
 $packages = @(
     "platform-tools",
-    "platforms;android-35",
-    "build-tools;35.0.0"
+    "platforms;android-36",
+    "build-tools;36.0.0"
 )
 
 function Write-Step($Message) {
@@ -20,7 +20,7 @@ function Write-Step($Message) {
 
 function Convert-ToLocalPropertiesPath {
     param([string]$Path)
-    return $Path.Replace("\", "\\")
+    return $Path.Replace("\", "\\").Replace(":", "\:")
 }
 
 function Ensure-Directory($Path) {

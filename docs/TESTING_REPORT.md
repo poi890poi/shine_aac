@@ -1,10 +1,10 @@
 # SHINE AAC Testing Report
 
-Current packaged candidate: 0.2.40, Android code 43.
+Current packaged candidate: 0.2.41, Android code 44, targeting Android 16 / API level 36.
 
-The signed code-43 AAB supersedes code 42 and includes legacy text-history compaction plus the verified Zhuyin, demo, Android back-navigation, and file-export fixes.
+The signed code-44 AAB supersedes code 43. It raises the compile and target SDK to 36 while retaining the verified text-history, Zhuyin, demo, Android back-navigation, and file-export behavior.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.40.md`
+Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.41.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 
@@ -18,10 +18,22 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Source and packaged browser E2E | PASS | 34 source steps; 35 packaged steps including the asset build |
 | Android APK lifecycle | PASS | local code-41 debug build: back gesture, hardware input, and process recreation |
 | APK package | PASS | retained `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.40-code43-release.aab`; checksum and bundle signature verified |
+| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.41-code44-release.aab`; API 36 manifest, checksum, byte identity, structure, and bundle signature verified |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
 The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
+
+## 2026-07-22 0.2.41 Android 16 Target
+
+- Android build configuration: PASS; app and diagnostic targets compile against API 36, and release apps target API 36.
+- Supported toolchain: PASS; Android Gradle Plugin 8.10.1, Gradle 8.11.1, JDK 17, Android SDK Platform 36, and Build Tools 36.0.0.
+- Full core/evaluator: PASS, 215 / 215 tests; frozen 103-task paired baseline unchanged.
+- Source and packaged WebView E2E: PASS, including history/export, back navigation, demo paging, Zhuyin priority, and phone/tablet viewport checks.
+- Android unit/lint/debug build: PASS; 14 / 14 Android input tests, 0 lint errors across all modules, and API-36 debug assembly completed.
+- Signed Play AAB: PASS; 21,804,529 bytes, version 0.2.41 code 44, target SDK 36, upload-key signature and required entries verified.
+- SHA-256 and byte identity: PASS; `ffe2ae5825e187db75ec88f0e6e50822f3aa656cdd8bd2b56023a421fd9dbf3e`.
+- API 34 emulator: current code-44 APK installed and `MainActivity` eventually rendered with no app crash. The timed switch flow was inconclusive because unrelated system processes ANRed under severe emulator pressure; it is not counted as a product pass.
+- Internal-test focus: exercise predictive back, edge-to-edge controls, tablet/landscape layout, file export, and process recreation on an Android 16 device before wider promotion.
 
 ## 2026-07-19 0.2.40 Legacy Text-History Repair
 

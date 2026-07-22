@@ -17,7 +17,7 @@ function Write-Step($Message) {
 
 function Convert-ToLocalPropertiesPath {
     param([string]$Path)
-    return $Path.Replace("\", "\\")
+    return $Path.Replace("\", "\\").Replace(":", "\:")
 }
 
 function Read-VersionProperties {
