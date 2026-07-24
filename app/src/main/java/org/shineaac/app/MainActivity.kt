@@ -30,6 +30,7 @@ import org.shineaac.inputs.CameraSwitchPreferences
 import org.shineaac.inputs.InputEvent
 import org.shineaac.inputs.InputSink
 import org.json.JSONObject
+import org.json.JSONArray
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -38,7 +39,9 @@ class MainActivity : ComponentActivity() {
     private var webView: WebView? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private lateinit var moeBopomofoVoicePack: TaiwanVoicePack
     private val ttsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    @Volatile private var preferredSpeechVoiceName = MoeBopomofoVoiceName
     @Volatile private var hardwareButtonsEnabled = true
     @Volatile private var cameraSwitchEnabled = false
     @Volatile private var switchInputProfile = SwitchInputHardware
@@ -77,12 +80,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applyOrientationPolicy()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        moeBopomofoVoicePack = TaiwanVoicePack(
+            this,
+            "voice-packs/moe-bopomofo/manifest.json",
+        )
 
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) {
                 tts?.language = Locale.getDefault()
+                tts?.let(::registerCustomPronunciations)
             }
+            notifySpeechVoicesChanged()
         }
 
         val shineWebView = WebView(this).apply {
@@ -169,8 +178,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        notifySpeechVoicesChanged()
         if (cameraSwitchEnabled && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             cameraSwitchInput?.start()
+        }
+    }
+
+    private fun notifySpeechVoicesChanged() {
+        webView?.post {
+            webView?.evaluateJavascript("globalThis.ShineAacSpeechVoices?.refresh?.()", null)
         }
     }
 
@@ -205,6 +221,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         cameraSwitchInput?.stop()
         cameraSwitchInput = null
+        moeBopomofoVoicePack.close()
         webView?.destroy()
         webView = null
         val engine = tts
@@ -216,6 +233,34 @@ class MainActivity : ComponentActivity() {
         }
         ttsExecutor.shutdown()
         super.onDestroy()
+    }
+
+    private fun registerCustomPronunciations(engine: TextToSpeech) {
+        val phrases = resources.getStringArray(R.array.zh_tw_custom_pronunciation_phrases)
+        val audioResources = resources.obtainTypedArray(R.array.zh_tw_custom_pronunciation_audio)
+        try {
+            if (phrases.size != audioResources.length()) {
+                Log.e(
+                    PronunciationLogTag,
+                    "Custom pronunciation text/audio resource counts do not match",
+                )
+                return
+            }
+            phrases.forEachIndexed { index, phrase ->
+                val audioResource = audioResources.getResourceId(index, 0)
+                if (phrase.isBlank() || audioResource == 0) return@forEachIndexed
+                val result = engine.addSpeech(phrase, packageName, audioResource)
+                if (result != TextToSpeech.SUCCESS) {
+                    Log.e(PronunciationLogTag, "Could not register custom pronunciation")
+                }
+            }
+            Log.i(
+                PronunciationLogTag,
+                "Registered ${phrases.size} custom pronunciation resource(s)",
+            )
+        } finally {
+            audioResources.recycle()
+        }
     }
 
     private fun isHardwareActivationKey(keyCode: Int): Boolean {
@@ -279,10 +324,33 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface
         fun speak(text: String) {
             val spoken = text.trim()
-            if (spoken.isEmpty() || !ttsReady) return
+            if (spoken.isEmpty()) return
+            if (preferredSpeechVoiceName == MoeBopomofoVoiceName) {
+                if (moeBopomofoVoicePack.play(spoken)) {
+                    Log.i("ShineAacVoicePack", "Using official Bopomofo playback route")
+                    ttsExecutor.execute { tts?.stop() }
+                    return
+                }
+            }
+            moeBopomofoVoicePack.stop()
+            if (!ttsReady) return
             ttsExecutor.execute {
                 tts?.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, "shine-aac-message")
             }
+        }
+
+        @JavascriptInterface
+        fun speakZhuyin(text: String) {
+            val spoken = text.trim()
+            if (spoken.isEmpty()) return
+            if (preferredSpeechVoiceName == MoeBopomofoVoiceName) {
+                if (moeBopomofoVoicePack.play(spoken)) {
+                    Log.i("ShineAacVoicePack", "Using official Bopomofo playback route")
+                    ttsExecutor.execute { tts?.stop() }
+                    return
+                }
+            }
+            speak(spoken)
         }
 
         @JavascriptInterface
@@ -290,12 +358,187 @@ class MainActivity : ComponentActivity() {
             if (!ttsReady || languageTag.isBlank()) return
             val locale = Locale.forLanguageTag(languageTag)
             ttsExecutor.execute {
-                val result = tts?.setLanguage(locale)
+                val engine = tts ?: return@execute
+                val preferredVoice = if (isTaiwanMandarin(locale)) {
+                    engine.voices.orEmpty().firstOrNull {
+                        it.name == preferredSpeechVoiceName && isTaiwanMandarin(it.locale)
+                    }
+                } else {
+                    null
+                }
+                if (preferredVoice != null) {
+                    engine.voice = preferredVoice
+                    return@execute
+                }
+
+                val result = engine.setLanguage(locale)
                 if ((result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) &&
                     locale.language == "zh"
                 ) {
-                    tts?.setLanguage(Locale.TRADITIONAL_CHINESE)
+                    engine.setLanguage(Locale.TRADITIONAL_CHINESE)
                 }
+            }
+        }
+
+        @JavascriptInterface
+        fun getSpeechVoicesJson(): String {
+            val engine = tts
+            if (!moeBopomofoVoicePack.available &&
+                (!ttsReady || engine == null)
+            ) {
+                return JSONObject().put("ready", false).put("voices", JSONArray()).toString()
+            }
+
+            val voices = if (ttsReady && engine != null) try {
+                engine.voices.orEmpty()
+                    .filter { isTaiwanMandarin(it.locale) }
+                    .sortedBy { it.name }
+            } catch (_: Exception) {
+                emptyList()
+            } else {
+                emptyList()
+            }
+            val items = JSONArray()
+            if (moeBopomofoVoicePack.available) {
+                items.put(
+                    JSONObject()
+                        .put("name", MoeBopomofoVoiceName)
+                        .put("displayName", "教育部人聲注音")
+                        .put("providerName", "教育部＋裝置語音")
+                        .put("extraDetail", "注音符號用教育部 · 其他文字用裝置語音")
+                        .put("license", "CC BY 4.0")
+                        .put("builtIn", true)
+                        .put("networkRequired", false)
+                        .put("downloadRequired", false)
+                        .put("quality", 400)
+                        .put("latency", 100)
+                        .put("features", JSONArray(listOf("style=官方人聲")))
+                )
+            }
+            voices.forEach { voice ->
+                items.put(
+                    JSONObject()
+                        .put("name", voice.name)
+                        .put("networkRequired", voice.isNetworkConnectionRequired)
+                        .put(
+                            "downloadRequired",
+                            voice.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+                        )
+                        .put("quality", voice.quality)
+                        .put("latency", voice.latency)
+                        .put("features", JSONArray(voice.features.orEmpty().sorted()))
+                )
+            }
+            val systemLanguageAvailable =
+                engine != null &&
+                    ttsReady &&
+                    engine.isLanguageAvailable(Locale.forLanguageTag("zh-TW")) >= TextToSpeech.LANG_AVAILABLE
+            return JSONObject()
+                .put("ready", true)
+                .put(
+                    "languageAvailable",
+                    moeBopomofoVoicePack.available ||
+                        systemLanguageAvailable
+                )
+                .put("systemLanguageAvailable", systemLanguageAvailable)
+                .put("enginePackage", engine?.defaultEngine.orEmpty())
+                .put(
+                    "engineLabel",
+                    engine?.engines?.firstOrNull { it.name == engine.defaultEngine }?.label
+                        ?: engine?.defaultEngine
+                        ?: "Android TTS"
+                )
+                .put(
+                    "selectedVoiceName",
+                    preferredSpeechVoiceName.ifBlank {
+                        if (moeBopomofoVoicePack.available) MoeBopomofoVoiceName else AndroidSystemVoiceName
+                    }
+                )
+                .put("voices", items)
+                .toString()
+        }
+
+        @JavascriptInterface
+        fun previewSpeechVoice(voiceName: String) {
+            if (voiceName == MoeBopomofoVoiceName) {
+                ttsExecutor.execute { tts?.stop() }
+                moeBopomofoVoicePack.playPreview()
+                return
+            }
+            if (!ttsReady) return
+            moeBopomofoVoicePack.stop()
+            ttsExecutor.execute {
+                val engine = tts ?: return@execute
+                val locale = Locale.forLanguageTag("zh-TW")
+                val selected = if (voiceName.isBlank() || voiceName == AndroidSystemVoiceName) {
+                    null
+                } else {
+                    engine.voices.orEmpty().firstOrNull {
+                        it.name == voiceName && isTaiwanMandarin(it.locale)
+                    } ?: return@execute
+                }
+                val previousVoice = engine.voice
+                val selectionResult = if (selected != null) {
+                    engine.setVoice(selected)
+                } else {
+                    engine.setLanguage(locale)
+                }
+                // setVoice() returns SUCCESS (0), while setLanguage() can return
+                // LANG_AVAILABLE, LANG_COUNTRY_AVAILABLE, or
+                // LANG_COUNTRY_VAR_AVAILABLE (all non-negative success results).
+                if (selectionResult >= TextToSpeech.LANG_AVAILABLE) {
+                    engine.speak(SpeechPreviewText, TextToSpeech.QUEUE_FLUSH, null, "shine-aac-voice-preview")
+                }
+                if (previousVoice != null) engine.voice = previousVoice
+            }
+        }
+
+        @JavascriptInterface
+        fun downloadSpeechVoice(voiceName: String) {
+            if (voiceName == MoeBopomofoVoiceName) return
+            if (voiceName.isBlank()) {
+                installSpeechData()
+                return
+            }
+            if (!ttsReady) return
+            ttsExecutor.execute {
+                val engine = tts ?: return@execute
+                val selected = engine.voices.orEmpty().firstOrNull {
+                    it.name == voiceName && isTaiwanMandarin(it.locale)
+                } ?: return@execute
+
+                // Android asks the active TTS engine to fetch missing voice data when
+                // a voice carrying KEY_FEATURE_NOT_INSTALLED is selected.
+                engine.setVoice(selected)
+                // Do not immediately restore the previous voice: that can cancel the
+                // engine's asynchronous download trigger. Normal AAC speech calls
+                // setSpeechLocale first, which reapplies the user's saved voice.
+            }
+        }
+
+        @JavascriptInterface
+        fun installSpeechData() {
+            runOnUiThread {
+                val engineInstallIntent = Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA).apply {
+                    tts?.defaultEngine?.takeIf { it.isNotBlank() }?.let(::setPackage)
+                }
+                val intent = listOf(
+                    engineInstallIntent,
+                    Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA),
+                    Intent("com.android.settings.TTS_SETTINGS")
+                ).firstOrNull { it.resolveActivity(packageManager) != null }
+                if (intent != null) startActivity(intent)
+            }
+        }
+
+        @JavascriptInterface
+        fun openSpeechSettings() {
+            runOnUiThread {
+                val intent = listOf(
+                    Intent("com.android.settings.TTS_SETTINGS"),
+                    Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                ).firstOrNull { it.resolveActivity(packageManager) != null }
+                if (intent != null) startActivity(intent)
             }
         }
 
@@ -330,6 +573,10 @@ class MainActivity : ComponentActivity() {
                 .put("rowScanVoice", prefs.getBoolean("rowScanVoice", false))
                 .put("scanVoice", prefs.getBoolean("scanVoice", true))
                 .put("activationVoice", prefs.getBoolean("activationVoice", true))
+                .put(
+                    "speechVoiceName",
+                    normalizedSpeechVoiceName(prefs.getString("speechVoiceName", "")),
+                )
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
                 .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
@@ -393,6 +640,9 @@ class MainActivity : ComponentActivity() {
                 JSONObject()
             }
             val nextInputProfile = normalizedInputProfile(config)
+            preferredSpeechVoiceName = normalizedSpeechVoiceName(
+                config.optString("speechVoiceName", "").take(200),
+            )
             runOnUiThread {
                 switchInputProfile = nextInputProfile
                 hardwareButtonsEnabled = hardwareEnabledForProfile(switchInputProfile)
@@ -453,12 +703,24 @@ class MainActivity : ComponentActivity() {
         const val MaxSessionDraftJsonChars = 100_000
         const val SessionDraftPreferences = "shine_aac_session_draft"
         const val SessionDraftKey = "current"
+        const val MoeBopomofoVoiceName = "shine-aac-moe-bopomofo"
+        const val AndroidSystemVoiceName = "android-system-default"
+        const val SpeechPreviewText = "你好，我想喝水。重選。"
+        const val PronunciationLogTag = "ShineAacPronunciation"
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
         const val SwitchInputCameraLongBlink = "camera-long-blink"
         const val SwitchInputHardwareAndCamera = "hardware-and-camera"
         val ExternalLinkHosts = setOf("github.com", "poi890poi.github.io")
+
+        fun isTaiwanMandarin(locale: Locale): Boolean =
+            (locale.language.equals("zh", ignoreCase = true) ||
+                locale.language.equals("cmn", ignoreCase = true)) &&
+                locale.country.equals("TW", ignoreCase = true)
+
+        fun normalizedSpeechVoiceName(value: String?): String =
+            value.orEmpty().ifBlank { MoeBopomofoVoiceName }
 
         fun normalizedInputProfile(config: JSONObject): String {
             val requested = config.optString("switchInputProfile", "")

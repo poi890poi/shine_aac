@@ -4,11 +4,12 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:core",
-    "test:quick": "npm run test:core:quick",
+    "test:quick": "npm run test:core:quick && npm run test:web:unit",
     "test:core": "npm run test:core:full",
     "test:core:quick": "npm --prefix packages/aac-core run test:quick",
     "test:core:full": "npm --prefix packages/aac-core test",
     "test:core:benchmarks": "npm --prefix packages/aac-core run test:benchmarks",
+    "test:web:unit": "node --test apps/web/test/ui-config.test.js",
     "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
     "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",
     "report:communication": "node scripts/report-communication-benchmarks.mjs",

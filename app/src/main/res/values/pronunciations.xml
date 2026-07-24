@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Parallel, data-only lists consumed by registerCustomPronunciations(). -->
+    <string-array name="zh_tw_custom_pronunciation_phrases">
+        <item>重選</item>
+    </string-array>
+    <array name="zh_tw_custom_pronunciation_audio">
+        <item>@raw/zh_tw_reselect_chong_xuan</item>
+    </array>
+</resources>

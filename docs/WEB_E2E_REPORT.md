@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-22T11:54:47.422Z
+Generated: 2026-07-24T03:17:07.167Z
 
 Result: PASS
 
@@ -26,6 +26,7 @@ Result: PASS
 | review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
 | app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
+| speech-voice-settings | PASS | uses a dedicated accessible list with engine, ready/downloadable states, inline preview, immediate selection, and refresh |
 | back-navigation | PASS | system back contract returns App Info and Input Test to Configuration, then Configuration to the board |
 | demo-mode | PASS | activation clears the draft and holds, restarts top-row scanning, runs the demo, and tap exits it |
 | pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
@@ -35,6 +36,7 @@ Result: PASS
 | tablet-landscape-layout-config-actions | PASS | config action bar remains reachable |
 | large-text-phone-layout | PASS | fits 4 rows in 851px viewport without scrolling |
 | large-text-cell-fit | PASS | fit 16 labels, including 2 long labels, without clipping |
+| zh-tw-official-zhuyin-route | PASS | Zhuyin activation uses the dedicated Ministry of Education audio route |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
 | zh-tw-language-switch-review-hold | PASS | EN and 注音 language switches use the suggestion-change review hold setting |

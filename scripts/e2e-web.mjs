@@ -125,6 +125,7 @@ try {
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioAppInfoPage();
+  await scenarioSpeechVoiceSettings();
   await scenarioBackNavigation();
   await scenarioDeveloperDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
@@ -803,6 +804,157 @@ async function scenarioAppInfoPage() {
   steps.push(pass("app-info", "shows version, user data facts, and help links without diagnostics or release-test instructions"));
 }
 
+async function scenarioSpeechVoiceSettings() {
+  const opened = await evaluate(`
+    (() => {
+      globalThis.__speechVoiceTest = {
+        calls: [],
+        state: {
+          ready: true,
+          languageAvailable: true,
+          enginePackage: "com.google.android.tts",
+          engineLabel: "Test Taiwan Speech",
+          voices: [
+            {
+              name: "shine-aac-moe-bopomofo", displayName: "教育部人聲注音",
+              providerName: "教育部＋裝置語音", extraDetail: "注音符號用教育部 · 其他文字用裝置語音",
+              builtIn: true, networkRequired: false, downloadRequired: false, quality: 400,
+              features: ["style=官方人聲"]
+            },
+            { name: "cmn-tw-x-ctc-local", networkRequired: false, downloadRequired: false, quality: 400, features: [] },
+            { name: "cmn-tw-x-ctc-network", networkRequired: true, downloadRequired: false, quality: 400, features: [] },
+            { name: "cmn-tw-x-ctd-local", networkRequired: false, downloadRequired: false, quality: 400, features: [] },
+            { name: "cmn-tw-x-ctd-network", networkRequired: true, downloadRequired: false, quality: 400, features: [] },
+            { name: "cmn-tw-x-cte-local", networkRequired: false, downloadRequired: false, quality: 400, features: [] },
+            { name: "cmn-tw-x-cte-network", networkRequired: true, downloadRequired: false, quality: 400, features: [] },
+            { name: "zh-TW-language", networkRequired: false, downloadRequired: true, quality: 400, features: [] }
+          ]
+        }
+      };
+      globalThis.ShineAacAndroid = {
+        getSpeechVoicesJson: () => JSON.stringify(globalThis.__speechVoiceTest.state),
+        previewSpeechVoice: (name) => globalThis.__speechVoiceTest.calls.push(["preview", name]),
+        downloadSpeechVoice: (name) => globalThis.__speechVoiceTest.calls.push(["download", name]),
+        installSpeechData: () => globalThis.__speechVoiceTest.calls.push(["manage"]),
+        openSpeechSettings: () => globalThis.__speechVoiceTest.calls.push(["settings"]),
+        setUiConfigJson: (json) => globalThis.__speechVoiceTest.calls.push(["save", JSON.parse(json).speechVoiceName])
+      };
+      document.querySelector(".config-button")?.click();
+      const setting = document.querySelector('[data-action="speech-voices"]');
+      setting?.click();
+      const page = document.querySelector('[data-testid="speech-voice-page"]');
+      return {
+        foundSetting: Boolean(setting),
+        page: globalThis.ShineAacNavigation?.currentPage?.(),
+        title: page?.querySelector("h1")?.textContent,
+        text: page?.innerText,
+        readyRows: page?.querySelectorAll('[name="speech-voice-choice"]').length,
+        previewButtons: page?.querySelectorAll('[data-speech-action="preview"]').length,
+        downloadButtons: page?.querySelectorAll('[data-speech-action="download"]').length,
+        hasSelect: Boolean(page?.querySelector("select")),
+        smallestActionHeight: Math.min(...[...page.querySelectorAll("button")].map((node) => node.getBoundingClientRect().height))
+      };
+    })()
+  `);
+  if (
+    !opened.foundSetting ||
+    opened.page !== "speech-voices" ||
+    opened.title !== "台灣語音" ||
+    !opened.text.includes("Test Taiwan Speech") ||
+    !opened.text.includes("語音 I") ||
+    !opened.text.includes("語音 II") ||
+    !opened.text.includes("語音 III") ||
+    !opened.text.includes("教育部人聲注音") ||
+    !opened.text.includes("注音符號用教育部") ||
+    !opened.text.includes("2017 © 教育部") ||
+    opened.text.includes("台灣女聲＋官方音節／注音") ||
+    opened.text.includes("Google 裝置語音＋教育部注音") ||
+    opened.text.includes("全字庫音節") ||
+    !opened.text.includes("女性") ||
+    !opened.text.includes("男性") ||
+    !opened.text.includes("台灣中文語音資料") ||
+    !opened.text.includes("可用 (4)") ||
+    !opened.text.includes("線上語音 (3)") ||
+    !opened.text.includes("可下載 (1)") ||
+    opened.text.includes("LANGUAGE") ||
+    opened.text.includes("台灣語音 1") ||
+    opened.readyRows !== 8 ||
+    opened.previewButtons !== 8 ||
+    opened.downloadButtons !== 1 ||
+    opened.hasSelect ||
+    opened.smallestActionHeight < 48
+  ) {
+    throw new Error(`Speech voice page does not match the accessible list design: ${JSON.stringify(opened)}`);
+  }
+
+  const actions = await evaluate(`
+    (() => {
+      const testStyle = document.createElement("style");
+      testStyle.id = "speech-voice-scroll-test-style";
+      testStyle.textContent = ".speech-voice-panel { max-height: 260px !important; }";
+      document.head.append(testStyle);
+      const firstPanel = document.querySelector('[data-testid="speech-voice-page"] .speech-voice-panel');
+      firstPanel.scrollTop = firstPanel.scrollHeight;
+      const scrollBefore = firstPanel.scrollTop;
+      document.querySelector('[data-speech-action="preview"][data-voice-name="cmn-tw-x-ctc-local"]')?.click();
+      document.querySelector('[data-speech-action="download"][data-voice-name="zh-TW-language"]')?.click();
+      document.querySelector('[name="speech-voice-choice"][value="cmn-tw-x-ctd-local"]')?.click();
+      return {
+        calls: globalThis.__speechVoiceTest.calls,
+        selected: JSON.parse(localStorage.getItem("shine-aac-web-ui-v1") ?? "{}").speechVoiceName,
+        scrollBefore,
+        scrollAfter: document.querySelector('[data-testid="speech-voice-page"] .speech-voice-panel')?.scrollTop
+      };
+    })()
+  `);
+  if (
+    !actions.calls.some(([action, name]) => action === "preview" && name === "cmn-tw-x-ctc-local") ||
+    !actions.calls.some(([action, name]) => action === "download" && name === "zh-TW-language") ||
+    actions.selected !== "cmn-tw-x-ctd-local" ||
+    actions.scrollBefore <= 0 ||
+    Math.abs(actions.scrollAfter - actions.scrollBefore) > 2
+  ) {
+    throw new Error(`Speech voice actions or immediate selection failed: ${JSON.stringify(actions)}`);
+  }
+
+  const refreshed = await evaluate(`
+    (() => {
+      globalThis.__speechVoiceTest.state.voices[7].downloadRequired = false;
+      globalThis.ShineAacSpeechVoices.refresh();
+      const page = document.querySelector('[data-testid="speech-voice-page"]');
+      const downloaded = page.querySelector('[data-voice-name="zh-TW-language"]');
+      const result = {
+        text: page.innerText,
+        downloadedSelectable: Boolean(downloaded?.querySelector('[name="speech-voice-choice"]')),
+        downloadedPreviewable: Boolean(downloaded?.querySelector('[data-speech-action="preview"]'))
+      };
+      page.querySelector('[name="speech-voice-choice"][value="android-system-default"]')?.click();
+      globalThis.ShineAacNavigation.back();
+      result.pageAfterBack = globalThis.ShineAacNavigation.currentPage();
+      result.summary = document.querySelector('[data-speech-voice-summary]')?.textContent;
+      document.querySelector('[data-action="cancel"]')?.click();
+      document.querySelector("#speech-voice-scroll-test-style")?.remove();
+      delete globalThis.ShineAacAndroid;
+      delete globalThis.__speechVoiceTest;
+      return result;
+    })()
+  `);
+  if (
+    !refreshed.text.includes("語音下載完成") ||
+    !refreshed.text.includes("可用 (4)") ||
+    refreshed.text.includes("可用 (5)") ||
+    !refreshed.text.includes("其他語音資料") ||
+    !refreshed.downloadedSelectable ||
+    !refreshed.downloadedPreviewable ||
+    refreshed.pageAfterBack !== "config" ||
+    !refreshed.summary.includes("裝置預設")
+  ) {
+    throw new Error(`Speech voice refresh or back navigation failed: ${JSON.stringify(refreshed)}`);
+  }
+  await waitForUi();
+  steps.push(pass("speech-voice-settings", "uses a dedicated accessible list with engine, ready/downloadable states, inline preview, immediate selection, and refresh"));
+}
+
 async function scenarioBackNavigation() {
   const appInfoPage = await evaluate(`
     (() => {
@@ -990,9 +1142,24 @@ async function scenarioZhTwLayoutMigration() {
         "清除=<clear>"
       ].join("\\n")
     }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: true,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
     location.reload();
   `);
   await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "EN"]);
+  await evaluate(`
+    globalThis.__zhuyinSpeechCalls = [];
+    globalThis.ShineAacAndroid = {
+      setSpeechLocale: () => {},
+      speak: (text) => globalThis.__zhuyinSpeechCalls.push(["general", text]),
+      speakZhuyin: (text) => globalThis.__zhuyinSpeechCalls.push(["zhuyin", text])
+    };
+  `);
 
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
@@ -1006,6 +1173,11 @@ async function scenarioZhTwLayoutMigration() {
   await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "EN", "不"]);
 
   await selectLabel("ㄅ");
+  const zhuyinSpeechCalls = await evaluate(`globalThis.__zhuyinSpeechCalls`);
+  if (!zhuyinSpeechCalls.some(([kind, text]) => kind === "zhuyin" && text === "玻")) {
+    throw new Error(`Zhuyin activation did not request the official audio route: ${JSON.stringify(zhuyinSpeechCalls)}`);
+  }
+  steps.push(pass("zh-tw-official-zhuyin-route", "Zhuyin activation uses the dedicated Ministry of Education audio route"));
   snapshot = await getSnapshot();
   labels = snapshot.rows.flat().map((tile) => tile.label);
   if (!labels.includes("復原")) throw new Error("zh-TW undo suggestion should be localized as 復原");
@@ -1048,6 +1220,10 @@ async function scenarioZhTwLayoutMigration() {
     labels.forEach((label) => meiPages.add(label));
   }
   if (!meiPages.has("沒有")) throw new Error("zh-TW ㄇㄟ suggestion pages should keep phrase 沒有 reachable");
+  await evaluate(`
+    delete globalThis.ShineAacAndroid;
+    delete globalThis.__zhuyinSpeechCalls;
+  `);
   steps.push(pass("zh-tw-layout", "migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions"));
 }
 

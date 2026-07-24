@@ -162,7 +162,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - input-latency compensation window
 - suggestion dictionary
 - custom symbols and words
-- row-scan voice feedback, symbol-scan voice feedback, activation voice feedback, and restart-from-top behavior
+- row-scan voice feedback, symbol-scan voice feedback, activation voice feedback, and a dedicated Android-style Taiwan voice list separating downloaded, online, and downloadable voices with radio selection, inline preview/download actions, engine metadata, and restart-from-top behavior
 - phone/external hardware button activation
 - input testing for reliable switches and noisy sensor-style adapters
 

@@ -1,7 +1,11 @@
+export const moeBopomofoVoiceName = "shine-aac-moe-bopomofo";
+export const androidSystemVoiceName = "android-system-default";
+
 export const defaultUiConfig = Object.freeze({
   rowScanVoice: false,
   scanVoice: true,
   activationVoice: true,
+  speechVoiceName: moeBopomofoVoiceName,
   restartScanFromTop: true,
   hardwareButtons: true,
   cameraSwitch: false,
@@ -48,9 +52,16 @@ function loadNativeUiConfig() {
 
 export function normalizeUiConfig(config) {
   const profile = normalizeSwitchInputProfile(config.switchInputProfile, config);
+  const requestedSpeechVoiceName = typeof config.speechVoiceName === "string"
+    ? config.speechVoiceName.slice(0, 200)
+    : "";
+  const speechVoiceName = requestedSpeechVoiceName || moeBopomofoVoiceName;
   return {
     ...defaultUiConfig,
     ...config,
+    // Blank is the pre-selector device-default value. Migrate it to the
+    // lightweight Ministry of Education Bopomofo option.
+    speechVoiceName,
     switchInputProfile: profile,
     hardwareButtons: profile === "hardware-buttons" || profile === "hardware-and-camera",
     cameraSwitch: profile === "camera-long-blink" || profile === "hardware-and-camera"

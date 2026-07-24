@@ -83,6 +83,9 @@ android {
             assets.srcDir(layout.buildDirectory.dir("generated/assets/shineWeb"))
         }
     }
+    androidResources {
+        noCompress += "m4a"
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

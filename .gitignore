@@ -21,6 +21,7 @@ node_modules/
 /.artifacts/
 /blinktest/data/
 /.tmp/
+/.codex-remote-attachments/
 /keystore.properties
 /*.jks
 /*.keystore

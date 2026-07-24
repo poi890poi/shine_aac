@@ -1,0 +1,12 @@
+SHINE AAC zh-TW custom pronunciation resource
+
+The single `重選` clip is AI-generated from PrimeTTS v2.1, speaker Xinran.
+It is used only through Android TextToSpeech.addSpeech() to correct the
+standalone AAC repair prompt to ㄔㄨㄥˊ ㄒㄩㄢˇ. The runtime model is not
+included.
+
+PrimeTTS source and model card:
+https://huggingface.co/Luigi/PrimeTTS
+
+PrimeTTS is published under the Apache License 2.0:
+https://www.apache.org/licenses/LICENSE-2.0

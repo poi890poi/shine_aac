@@ -27,7 +27,14 @@ import {
 import { createDemoMode } from "./demo-mode.js";
 import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
 import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
-import { defaultUiConfig, loadUiConfig, normalizeUiConfig, saveUiConfig, syncNativeUiConfig } from "./ui-config.js";
+import {
+  androidSystemVoiceName,
+  defaultUiConfig,
+  loadUiConfig,
+  normalizeUiConfig,
+  saveUiConfig,
+  syncNativeUiConfig
+} from "./ui-config.js";
 
 const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
@@ -55,6 +62,11 @@ let animationFrameId = 0;
 let configOpen = false;
 let calibrationOpen = false;
 let appInfoOpen = false;
+let speechVoicesOpen = false;
+let speechVoiceRefreshTimerId = 0;
+let speechVoiceStatusMessage = "";
+const speechVoiceDownloadRequests = new Map();
+const speechVoiceDownloadHelp = new Set();
 let calibrationTimerId = 0;
 let lastScanAnnouncementKey = "";
 let reviewHoldActive = false;
@@ -102,6 +114,12 @@ globalThis.ShineAacTextHistory = {
 globalThis.ShineAacNavigation = Object.freeze({
   back: navigateBackWithinApp,
   currentPage: currentAppPage
+});
+
+globalThis.ShineAacSpeechVoices = Object.freeze({
+  refresh: () => {
+    if (speechVoicesOpen) renderSpeechVoiceSettings();
+  }
 });
 
 function loadConfig() {
@@ -671,14 +689,18 @@ function speak(text) {
   speakText(text);
 }
 
-function speakText(text) {
+function speakText(text, preferOfficialZhuyin = false) {
   const spoken = text.trim();
   if (!spoken) return;
   if (globalThis.ShineAacAndroid?.speak) {
     if (globalThis.ShineAacAndroid.setSpeechLocale) {
       globalThis.ShineAacAndroid.setSpeechLocale(session.config.speechLocale);
     }
-    globalThis.ShineAacAndroid.speak(spoken);
+    if (preferOfficialZhuyin && typeof globalThis.ShineAacAndroid.speakZhuyin === "function") {
+      globalThis.ShineAacAndroid.speakZhuyin(spoken);
+    } else {
+      globalThis.ShineAacAndroid.speak(spoken);
+    }
     return;
   }
   if (!("speechSynthesis" in window)) return;
@@ -688,15 +710,15 @@ function speakText(text) {
   window.speechSynthesis.speak(utterance);
 }
 
-function speakFeedback(text) {
+function speakFeedback(text, preferOfficialZhuyin = false) {
   const spoken = text.trim();
   if (!spoken) return;
-  speakText(spoken);
+  speakText(spoken, preferOfficialZhuyin);
 }
 
 function speakActivation(tile) {
   if (!uiConfig.activationVoice) return;
-  speakFeedback(labelForSpeech(tile));
+  speakFeedback(labelForSpeech(tile), isZhuyinSpeechTile(tile));
 }
 
 function updateCameraStatus(inputEvent = {}) {
@@ -779,21 +801,36 @@ function announceCurrentScanTarget() {
 
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     if (!uiConfig.rowScanVoice) return;
-    const labels = (board[scanner.rowIndex] ?? [])
-      .filter((candidate) => candidate.action !== TileAction.Noop)
+    const candidates = (board[scanner.rowIndex] ?? [])
+      .filter((candidate) => candidate.action !== TileAction.Noop);
+    const labels = candidates
       .map(labelForSpeech)
       .filter(Boolean);
-    speakFeedback(labels.join(", "));
+    speakFeedback(
+      labels.join(", "),
+      candidates.length > 0 && candidates.every(isZhuyinSpeechTile)
+    );
     return;
   }
 
   if (!uiConfig.scanVoice) return;
   const tile = board[scanner.rowIndex]?.[scanner.cellIndex];
-  if (tile) speakFeedback(labelForSpeech(tile));
+  if (tile) speakFeedback(labelForSpeech(tile), isZhuyinSpeechTile(tile));
 }
 
 function labelForSpeech(tile) {
   return speechLabelForTile(tile, session.config.profileId);
+}
+
+function isZhuyinSpeechTile(tile) {
+  if (!tile || session.config.profileId !== "zh-TW") return false;
+  if (tile.action === TileAction.ZhuyinGroup || tile.action === TileAction.ZhuyinSymbol) {
+    return true;
+  }
+  const label = String(tile.label ?? tile.output ?? "");
+  return label.length > 0 && Array.from(label).every((character) =>
+    character >= "\u3105" && character <= "\u3129"
+  );
 }
 
 function render() {
@@ -1141,6 +1178,7 @@ function openConfig() {
   configOpen = true;
   calibrationOpen = false;
   appInfoOpen = false;
+  speechVoicesOpen = false;
   stopCalibrationTimer();
   reviewHoldActive = false;
   cameraHoldActive = false;
@@ -1153,6 +1191,8 @@ function closeConfig() {
   configOpen = false;
   calibrationOpen = false;
   appInfoOpen = false;
+  speechVoicesOpen = false;
+  stopSpeechVoiceRefresh();
   stopCalibrationTimer();
   reviewHoldActive = false;
   cameraHoldActive = false;
@@ -1204,6 +1244,10 @@ function navigateBackWithinApp() {
     closeCalibration();
     return true;
   }
+  if (speechVoicesOpen) {
+    closeSpeechVoiceSettings();
+    return true;
+  }
   if (appInfoOpen) {
     closeAppInfo();
     return true;
@@ -1217,6 +1261,7 @@ function navigateBackWithinApp() {
 
 function currentAppPage() {
   if (calibrationOpen) return "calibration";
+  if (speechVoicesOpen) return "speech-voices";
   if (appInfoOpen) return "app-info";
   if (configOpen) return "config";
   return "board";
@@ -1350,6 +1395,7 @@ function renderConfig() {
         <input name="activationVoice" type="checkbox" ${uiConfig.activationVoice ? "checked" : ""}>
         Voice on activation
       </label>
+      ${speechVoiceSettingHtml(uiConfig.speechVoiceName)}
       <label class="field check-field">
         <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
         Restart scan at top after input
@@ -1439,6 +1485,7 @@ function renderConfig() {
     if (action === "camera-calibration") {
       openCameraSwitchCalibration(String(form.elements.profileId.value || session.config.profileId || "en-US"));
     }
+    if (action === "speech-voices") openSpeechVoiceSettings();
     if (action === "export-text") {
       exportTextHistory();
     }
@@ -1478,6 +1525,7 @@ function renderConfig() {
       rowScanVoice: data.get("rowScanVoice") === "on",
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
+      speechVoiceName: String(data.get("speechVoiceName") ?? uiConfig.speechVoiceName ?? ""),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
       switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
       holdAfterSuggestionChange: data.get("holdAfterSuggestionChange") === "on"
@@ -1951,6 +1999,441 @@ function switchInputProfileOptionsHtml(selectedProfile) {
       return `<option value="${value}"${selected}>${escapeHtml(label)}</option>`;
     })
     .join("");
+}
+
+function speechVoiceSettingHtml(selectedVoiceName) {
+  const state = loadAndroidSpeechVoices();
+  if (!state) return "";
+
+  return `
+      <input name="speechVoiceName" type="hidden" value="${escapeHtml(selectedVoiceName)}">
+      <button class="settings-row wide" type="button" data-action="speech-voices">
+        <span class="settings-row-copy">
+          <strong>台灣語音</strong>
+          <small data-speech-voice-summary>${escapeHtml(speechVoiceSummary(state, selectedVoiceName))}</small>
+        </span>
+        <span class="settings-row-arrow" aria-hidden="true">›</span>
+      </button>
+  `;
+}
+
+function loadAndroidSpeechVoices() {
+  if (typeof globalThis.ShineAacAndroid?.getSpeechVoicesJson !== "function") return null;
+  try {
+    return JSON.parse(globalThis.ShineAacAndroid.getSpeechVoicesJson());
+  } catch {
+    return { ready: false, voices: [], error: true };
+  }
+}
+
+function speechVoiceSummary(state, selectedVoiceName) {
+  if (!state?.ready) return state?.error ? "語音服務無法使用" : "語音服務啟動中";
+  if (selectedVoiceName === androidSystemVoiceName) return "裝置預設 · zh-TW";
+  const voices = Array.isArray(state.voices) ? state.voices : [];
+  const index = voices.findIndex((voice) => voice.name === selectedVoiceName);
+  if (index < 0) return "先前選擇的語音目前無法使用";
+  const voice = voices[index];
+  const status = voice.builtIn
+    ? "內建"
+    : voice.downloadRequired ? "尚未下載" : voice.networkRequired ? "需網路" : "已下載";
+  return `${speechVoiceDisplayName(state, voice)} · ${status}`;
+}
+
+function speechVoiceExplicitTraits(voice) {
+  const features = Array.isArray(voice?.features) ? voice.features : [];
+  let gender = "";
+  let style = "";
+  for (const feature of features) {
+    const value = String(feature ?? "").trim();
+    const genderMatch = value.match(/(?:^|[./_-])gender[=:._/-](female|male|neutral)(?:$|[./_-])/i);
+    if (genderMatch) {
+      gender = { female: "女性", male: "男性", neutral: "中性" }[genderMatch[1].toLowerCase()] ?? "";
+    }
+    const styleMatch = value.match(/(?:^|[./_-])style[=:]([^,;|]{1,32})$/i);
+    if (styleMatch) style = styleMatch[1].trim();
+  }
+  return [gender, style].filter(Boolean);
+}
+
+function speechVoiceProviderId(voice) {
+  return String(voice?.name ?? "").trim();
+}
+
+function isTaiwanLanguageDataVoice(voice) {
+  return /^zh[-_]tw[-_]language$/i.test(speechVoiceProviderId(voice));
+}
+
+function googleTaiwanVoiceMetadata(state, voice) {
+  if (String(state?.enginePackage ?? "") !== "com.google.android.tts") return null;
+  const providerId = speechVoiceProviderId(voice);
+  if (/^zh-tw-language$/i.test(providerId)) {
+    return { displayName: "台灣中文語音資料", gender: "", providerName: "Google" };
+  }
+  const match = providerId.match(/^cmn-tw-x-(ct[cde])-(?:local|network)$/i);
+  if (!match) return null;
+  const variant = match[1].replace(/\s/g, "").toLowerCase();
+  return {
+    ctc: { displayName: "語音 I", gender: "女性", providerName: "Google" },
+    ctd: { displayName: "語音 II", gender: "男性", providerName: "Google" },
+    cte: { displayName: "語音 III", gender: "男性", providerName: "Google" }
+  }[variant] ?? null;
+}
+
+function speechVoiceDisplayName(state, voice) {
+  const suppliedName = String(voice?.displayName ?? "").trim();
+  if (suppliedName) return suppliedName;
+  const catalog = googleTaiwanVoiceMetadata(state, voice);
+  if (catalog) return catalog.displayName;
+  const providerId = speechVoiceProviderId(voice);
+  if (!providerId) return "未命名語音";
+  const variant = providerId
+    .replace(/^(?:cmn|zh)[-_]tw[-_]/i, "")
+    .replace(/^x[-_]/i, "")
+    .replace(/[-_](?:local|network)$/i, "")
+    .replace(/^voice[-_]/i, "");
+  return variant ? variant.replace(/[-_]+/g, " ").toUpperCase() : providerId;
+}
+
+function speechVoiceDetail(state, voice) {
+  const catalog = googleTaiwanVoiceMetadata(state, voice);
+  const traits = speechVoiceExplicitTraits(voice);
+  if (catalog?.gender && !traits.some((trait) => trait === catalog.gender)) traits.unshift(catalog.gender);
+  const availability = voice?.downloadRequired
+    ? "尚未安裝"
+    : voice?.networkRequired ? "需網路" : voice?.builtIn ? "內建" : "已下載";
+  const quality = Number(voice?.quality) >= 400 ? "高品質" : "";
+  const traitText = traits.length > 0 ? traits.join(" · ") : "性別／風格未提供";
+  const providerId = speechVoiceProviderId(voice);
+  const provider = String(voice?.providerName ?? "").trim() ||
+    catalog?.providerName ||
+    (providerId ? `ID: ${providerId}` : "");
+  const extraDetail = String(voice?.extraDetail ?? "").trim();
+  return [traitText, availability, quality, provider, extraDetail].filter(Boolean).join(" · ");
+}
+
+function openSpeechVoiceSettings() {
+  speechVoicesOpen = true;
+  speechVoiceStatusMessage = "";
+  renderSpeechVoiceSettings();
+}
+
+function closeSpeechVoiceSettings() {
+  speechVoicesOpen = false;
+  stopSpeechVoiceRefresh();
+  document.querySelector("[data-testid='speech-voice-page']")?.remove();
+  updateSpeechVoiceSettingSummary();
+}
+
+function stopSpeechVoiceRefresh() {
+  window.clearTimeout(speechVoiceRefreshTimerId);
+  speechVoiceRefreshTimerId = 0;
+}
+
+function scheduleSpeechVoiceRefresh() {
+  stopSpeechVoiceRefresh();
+  if (!speechVoicesOpen) return;
+  speechVoiceRefreshTimerId = window.setTimeout(refreshSpeechVoiceDownloadStatus, 1500);
+}
+
+function refreshSpeechVoiceDownloadStatus() {
+  if (!speechVoicesOpen) return;
+  const state = loadAndroidSpeechVoices() ?? { ready: false, voices: [] };
+  const voices = Array.isArray(state.voices) ? state.voices : [];
+  if (speechVoiceDownloadRequests.size === 0) {
+    renderSpeechVoiceSettings();
+    return;
+  }
+  const completed = voices.find((voice) =>
+    speechVoiceDownloadRequests.has(String(voice.name ?? "")) && !voice.downloadRequired
+  );
+  if (completed) {
+    const name = String(completed.name ?? "");
+    speechVoiceDownloadRequests.delete(name);
+    speechVoiceDownloadHelp.delete(name);
+    speechVoiceStatusMessage = "語音下載完成，可以選取並試聽。";
+    renderSpeechVoiceSettings();
+    return;
+  }
+
+  let helpChanged = false;
+  const now = Date.now();
+  for (const [name, startedAt] of speechVoiceDownloadRequests) {
+    if (now - startedAt >= 6000 && !speechVoiceDownloadHelp.has(name)) {
+      speechVoiceDownloadHelp.add(name);
+      helpChanged = true;
+    }
+  }
+  if (helpChanged) {
+    speechVoiceStatusMessage = "下載尚未開始。請開啟語音引擎的下載畫面完成安裝。";
+    renderSpeechVoiceSettings();
+    return;
+  }
+  scheduleSpeechVoiceRefresh();
+}
+
+function selectedSpeechVoiceName() {
+  const form = document.querySelector(".config-panel form");
+  return String(form?.elements?.speechVoiceName?.value ?? uiConfig.speechVoiceName ?? "");
+}
+
+function updateSpeechVoiceSettingSummary() {
+  const summary = document.querySelector("[data-speech-voice-summary]");
+  if (!summary) return;
+  summary.textContent = speechVoiceSummary(loadAndroidSpeechVoices(), selectedSpeechVoiceName());
+}
+
+function commitSpeechVoiceSelection(voiceName) {
+  const form = document.querySelector(".config-panel form");
+  if (form?.elements?.speechVoiceName) form.elements.speechVoiceName.value = voiceName;
+  uiConfig = normalizeUiConfig({ ...uiConfig, speechVoiceName: voiceName });
+  saveUiConfig(uiStorageKey, uiConfig);
+}
+
+function renderSpeechVoiceSettings() {
+  if (!speechVoicesOpen) return;
+  stopSpeechVoiceRefresh();
+  const previousPanel = document.querySelector("[data-testid='speech-voice-page'] .speech-voice-panel");
+  const previousScrollTop = previousPanel?.scrollTop ?? 0;
+  document.querySelector("[data-testid='speech-voice-page']")?.remove();
+
+  const state = loadAndroidSpeechVoices() ?? { ready: false, voices: [], browserUnavailable: true };
+  const voices = Array.isArray(state.voices) ? state.voices : [];
+  const selectedVoiceName = selectedSpeechVoiceName();
+  const selectedVoice = voices.find((voice) => voice.name === selectedVoiceName);
+  const effectiveSelectedVoiceName =
+    selectedVoiceName === androidSystemVoiceName ||
+    (selectedVoice && !selectedVoice.downloadRequired)
+    ? selectedVoiceName
+    : "";
+  const completed = voices.find((voice) =>
+    speechVoiceDownloadRequests.has(String(voice.name ?? "")) && !voice.downloadRequired
+  );
+  if (completed) {
+    const name = String(completed.name ?? "");
+    speechVoiceDownloadRequests.delete(name);
+    speechVoiceDownloadHelp.delete(name);
+    speechVoiceStatusMessage = "語音下載完成，可以選取並試聽。";
+  }
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "config-backdrop speech-voice-backdrop";
+  backdrop.dataset.testid = "speech-voice-page";
+  backdrop.addEventListener("click", closeSpeechVoiceSettings);
+
+  const panel = document.createElement("section");
+  panel.className = "config-panel speech-voice-panel";
+  panel.setAttribute("aria-labelledby", "speech-voice-title");
+  panel.addEventListener("click", (event) => event.stopPropagation());
+
+  const engineLabel = String(state.engineLabel || state.enginePackage || "Android TTS");
+  const installedVoices = voices.filter((voice) =>
+    !voice.downloadRequired && !voice.networkRequired && !isTaiwanLanguageDataVoice(voice)
+  );
+  const onlineVoices = voices.filter((voice) =>
+    !voice.downloadRequired && voice.networkRequired && !isTaiwanLanguageDataVoice(voice)
+  );
+  const additionalVoices = voices.filter((voice) =>
+    !voice.downloadRequired && isTaiwanLanguageDataVoice(voice)
+  );
+  const downloadableVoices = voices.filter((voice) => voice.downloadRequired);
+  const defaultAvailable = state.systemLanguageAvailable !== false;
+  const loadingMessage = state.browserUnavailable
+    ? "此功能只在 Android App 中提供。"
+    : state.error ? "無法讀取 Android 語音服務。" : "正在啟動 Android 語音服務…";
+  const unavailableMessage = selectedVoiceName && effectiveSelectedVoiceName === ""
+    ? "先前選取的語音目前無法使用，暫時使用裝置預設。"
+    : "";
+
+  panel.innerHTML = `
+    <header class="speech-voice-app-bar">
+      <button class="speech-voice-icon-button" type="button" data-speech-action="back" aria-label="返回設定">
+        <span aria-hidden="true">‹</span>
+      </button>
+      <h1 id="speech-voice-title">台灣語音</h1>
+    </header>
+    <p class="speech-voice-intro">點選語音即可套用；按播放鍵試聽。</p>
+    <button class="speech-engine-row" type="button" data-speech-action="manage" aria-labelledby="speech-engine-heading speech-engine-name">
+      <span class="speech-engine-copy">
+        <small id="speech-engine-heading">語音引擎</small>
+        <strong id="speech-engine-name">${escapeHtml(engineLabel)}</strong>
+      </span>
+      <span class="settings-row-arrow" aria-hidden="true">›</span>
+    </button>
+    ${speechVoiceStatusMessage || unavailableMessage ? `<p class="speech-voice-status" role="status">${escapeHtml(speechVoiceStatusMessage || unavailableMessage)}</p>` : ""}
+    ${!state.ready ? `<p class="speech-voice-empty" role="status">${escapeHtml(loadingMessage)}</p>` : `
+      ${defaultAvailable ? `
+      <section class="speech-voice-section" aria-labelledby="default-voice-heading">
+        <h2 id="default-voice-heading">預設</h2>
+        <div class="speech-voice-list">
+          ${speechVoiceRowHtml(null, effectiveSelectedVoiceName, state)}
+        </div>
+      </section>
+      ` : ""}
+      ${installedVoices.length > 0 ? `
+        <section class="speech-voice-section" aria-labelledby="installed-voices-heading">
+          <h2 id="installed-voices-heading">可用 (${installedVoices.length})</h2>
+          <div class="speech-voice-list">
+            ${installedVoices.map((voice) => speechVoiceRowHtml(voice, effectiveSelectedVoiceName, state)).join("")}
+          </div>
+        </section>
+      ` : ""}
+      ${onlineVoices.length > 0 ? `
+        <section class="speech-voice-section" aria-labelledby="online-voices-heading">
+          <h2 id="online-voices-heading">線上語音 (${onlineVoices.length})</h2>
+          <div class="speech-voice-list">
+            ${onlineVoices.map((voice) => speechVoiceRowHtml(voice, effectiveSelectedVoiceName, state)).join("")}
+          </div>
+        </section>
+      ` : ""}
+      ${additionalVoices.length > 0 ? `
+        <section class="speech-voice-section" aria-labelledby="additional-voices-heading">
+          <h2 id="additional-voices-heading">其他語音資料</h2>
+          <div class="speech-voice-list">
+            ${additionalVoices.map((voice) => speechVoiceRowHtml(voice, effectiveSelectedVoiceName, state)).join("")}
+          </div>
+        </section>
+      ` : ""}
+      ${!defaultAvailable && installedVoices.length === 0 && onlineVoices.length === 0 ? '<p class="speech-voice-empty">目前的語音引擎沒有可用的 zh-TW 語音。</p>' : ""}
+      ${downloadableVoices.length > 0 ? `
+        <section class="speech-voice-section" aria-labelledby="downloadable-voices-heading">
+          <h2 id="downloadable-voices-heading">可下載 (${downloadableVoices.length})</h2>
+          <div class="speech-voice-list">
+            ${downloadableVoices.map((voice) => speechVoiceRowHtml(voice, effectiveSelectedVoiceName, state)).join("")}
+          </div>
+          <p class="speech-voice-note">下載由目前的 Android 語音引擎處理。完成後此頁會自動更新。</p>
+          ${speechVoiceDownloadHelp.size > 0 ? '<button class="secondary-button speech-download-settings" type="button" data-speech-action="manage-downloads">開啟語音下載設定</button>' : ""}
+        </section>
+      ` : ""}
+      ${voices.some((voice) => voice.name === "shine-aac-moe-bopomofo") ? `
+        <p class="speech-voice-note">教育部人聲注音：2017 © 教育部，國語注音符號手冊－開放部件，CC BY 4.0。</p>
+      ` : ""}
+    `}
+  `;
+
+  panel.addEventListener("change", (event) => {
+    if (event.target?.name !== "speech-voice-choice") return;
+    commitSpeechVoiceSelection(String(event.target.value ?? ""));
+    speechVoiceStatusMessage = "已選取語音。";
+    renderSpeechVoiceSettings();
+  });
+  panel.addEventListener("click", (event) => {
+    const actionTarget = event.target?.closest?.("[data-speech-action]");
+    const action = actionTarget?.dataset?.speechAction;
+    const voiceName = String(actionTarget?.dataset?.voiceName ?? "");
+    if (action === "back") closeSpeechVoiceSettings();
+    if (action === "preview") {
+      previewAndroidSpeechVoice(voiceName);
+      speechVoiceStatusMessage = "正在試聽。";
+      renderSpeechVoiceSettings();
+    }
+    if (action === "download") {
+      speechVoiceDownloadRequests.set(voiceName, Date.now());
+      speechVoiceDownloadHelp.delete(voiceName);
+      downloadAndroidSpeechVoice(voiceName);
+      speechVoiceStatusMessage = "已要求下載。此頁會保留位置並自動更新狀態。";
+      renderSpeechVoiceSettings();
+    }
+    if (action === "manage") {
+      speechVoiceStatusMessage = "返回 App 後會重新檢查語音。";
+      openAndroidSpeechSettings();
+    }
+    if (action === "manage-downloads") {
+      speechVoiceStatusMessage = "返回 App 後會重新檢查下載狀態。";
+      installAndroidSpeechData();
+    }
+  });
+
+  backdrop.append(panel);
+  app.append(backdrop);
+  panel.scrollTop = previousScrollTop;
+  if (!state.ready || speechVoiceDownloadRequests.size > 0) scheduleSpeechVoiceRefresh();
+}
+
+function speechVoiceRowHtml(voice, selectedVoiceName, state) {
+  const isDefault = voice == null;
+  const name = isDefault ? androidSystemVoiceName : String(voice.name ?? "");
+  const displayName = isDefault ? "裝置預設" : speechVoiceDisplayName(state, voice);
+  const downloadRequired = voice?.downloadRequired === true;
+  const requested = speechVoiceDownloadRequests.has(name);
+  const detail = isDefault
+    ? "由語音引擎決定"
+    : speechVoiceDetail(state, voice);
+  const checked = name === selectedVoiceName ? " checked" : "";
+  const selectedClass = name === selectedVoiceName ? " selected" : "";
+
+  return `
+    <div class="speech-voice-row${selectedClass}" data-voice-name="${escapeHtml(name)}">
+      ${downloadRequired ? `
+        <span class="speech-voice-download-copy">
+          <span class="speech-radio-placeholder" aria-hidden="true"></span>
+          <span class="speech-voice-copy">
+            <strong>${escapeHtml(displayName)}</strong>
+            <small>${escapeHtml(detail)}</small>
+          </span>
+        </span>
+      ` : `
+        <label class="speech-voice-choice">
+          <input type="radio" name="speech-voice-choice" value="${escapeHtml(name)}"${checked}>
+          <span class="speech-voice-copy">
+            <strong>${escapeHtml(displayName)}</strong>
+            <small>${escapeHtml(detail)}</small>
+          </span>
+        </label>
+      `}
+      <div class="speech-voice-row-actions">
+        ${downloadRequired
+          ? `<button class="speech-voice-icon-button" type="button" data-speech-action="download" data-voice-name="${escapeHtml(name)}" aria-label="下載 ${escapeHtml(displayName)}"${requested ? " disabled" : ""}>${requested ? '<span class="speech-progress-mark" aria-hidden="true">…</span>' : downloadIconSvg()}</button>`
+          : `<button class="speech-voice-icon-button" type="button" data-speech-action="preview" data-voice-name="${escapeHtml(name)}" aria-label="試聽 ${escapeHtml(displayName)}">${playIconSvg()}</button>`}
+      </div>
+    </div>
+  `;
+}
+
+function playIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
+}
+
+function downloadIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 19v2h14v-2H5z"></path></svg>';
+}
+
+function previewAndroidSpeechVoice(voiceName) {
+  if (typeof globalThis.ShineAacAndroid?.previewSpeechVoice !== "function") return;
+  try {
+    globalThis.ShineAacAndroid.previewSpeechVoice(voiceName);
+  } catch {
+    // Native preview is best effort.
+  }
+}
+
+function downloadAndroidSpeechVoice(voiceName) {
+  if (typeof globalThis.ShineAacAndroid?.downloadSpeechVoice !== "function") return;
+  try {
+    globalThis.ShineAacAndroid.downloadSpeechVoice(voiceName);
+  } catch {
+    // Voice downloads are owned by the active Android TTS engine.
+  }
+}
+
+function installAndroidSpeechData() {
+  if (typeof globalThis.ShineAacAndroid?.installSpeechData !== "function") return;
+  try {
+    globalThis.ShineAacAndroid.installSpeechData();
+  } catch {
+    // The active TTS engine might not provide a voice-data management screen.
+  }
+}
+
+function openAndroidSpeechSettings() {
+  if (typeof globalThis.ShineAacAndroid?.openSpeechSettings === "function") {
+    try {
+      globalThis.ShineAacAndroid.openSpeechSettings();
+      return;
+    } catch {
+      // Fall through to the older bridge action.
+    }
+  }
+  installAndroidSpeechData();
 }
 
 function hardwareInputEnabled(config = uiConfig) {

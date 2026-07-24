@@ -178,7 +178,8 @@ export const ZhuyinSpeechNames = Object.freeze({
   "ㄢ": "安",
   "ㄣ": "恩",
   "ㄤ": "昂",
-  "ㄥ": "ㄥ"
+  "ㄥ": "鞥",
+  "ㄦ": "兒"
 });
 
 export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
@@ -195,7 +196,7 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
     if (candidate.action === TileAction.ZhuyinGroup || candidate.action === TileAction.ZhuyinSymbol) {
       return zhuyinSpeech(candidate.label || candidate.output);
     }
-    if (candidate.action === TileAction.ZhuyinClear) return "重選注音";
+    if (candidate.action === TileAction.ZhuyinClear) return "重選";
     if (candidate.action === TileAction.CommitCandidate) return candidate.output.trim() || candidate.label;
     if (candidate.action === TileAction.MoreSuggestions) return "更多";
     if (isZhuyinLabel(candidate.label || candidate.output)) return zhuyinSpeech(candidate.label || candidate.output);

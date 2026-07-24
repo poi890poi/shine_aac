@@ -575,7 +575,7 @@ test("zh-TW offers 重選 only for multi-symbol Zhuyin buffers", () => {
   assert.equal(emptySuggestions.some((candidate) => candidate.action === TileAction.ZhuyinClear), false);
   assert.equal(singleSuggestions.some((candidate) => candidate.action === TileAction.ZhuyinClear), false);
   assert.deepEqual(multipleSuggestions.slice(0, 2).map((candidate) => candidate.label), ["復原", "重選"]);
-  assert.equal(speechLabelForTile(multipleSuggestions[1], "zh-TW"), "重選注音");
+  assert.equal(speechLabelForTile(multipleSuggestions[1], "zh-TW"), "重選");
 });
 
 test("zh-TW 重選 removes only the trailing Zhuyin buffer and can be undone", () => {

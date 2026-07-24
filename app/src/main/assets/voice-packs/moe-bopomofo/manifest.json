@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "id": "shine-aac-moe-bopomofo",
+  "displayName": "教育部人聲注音",
+  "locale": "zh-TW",
+  "style": "官方人聲",
+  "scope": "zhuyin-overlay",
+  "previewText": "玻坡摸佛",
+  "source": "https://language.moe.gov.tw/001/Upload/files/site_content/M0001/juyin/bopomofo_materials_20170213.zip",
+  "license": "CC BY 4.0",
+  "attribution": "2017 © 教育部，國語注音符號手冊-開放部件。",
+  "entries": [
+    {
+      "text": "玻",
+      "zhuyin": "ㄅ",
+      "audio": "f01.m4a"
+    },
+    {
+      "text": "坡",
+      "zhuyin": "ㄆ",
+      "audio": "f02.m4a"
+    },
+    {
+      "text": "摸",
+      "zhuyin": "ㄇ",
+      "audio": "f03.m4a"
+    },
+    {
+      "text": "佛",
+      "zhuyin": "ㄈ",
+      "audio": "f04.m4a"
+    },
+    {
+      "text": "得",
+      "zhuyin": "ㄉ",
+      "audio": "f05.m4a"
+    },
+    {
+      "text": "特",
+      "zhuyin": "ㄊ",
+      "audio": "f06.m4a"
+    },
+    {
+      "text": "呢",
+      "zhuyin": "ㄋ",
+      "audio": "f07.m4a"
+    },
+    {
+      "text": "勒",
+      "zhuyin": "ㄌ",
+      "audio": "f08.m4a"
+    },
+    {
+      "text": "哥",
+      "zhuyin": "ㄍ",
+      "audio": "f09.m4a"
+    },
+    {
+      "text": "科",
+      "zhuyin": "ㄎ",
+      "audio": "f10.m4a"
+    },
+    {
+      "text": "喝",
+      "zhuyin": "ㄏ",
+      "audio": "f11.m4a"
+    },
+    {
+      "text": "基",
+      "zhuyin": "ㄐ",
+      "audio": "f12.m4a"
+    },
+    {
+      "text": "七",
+      "zhuyin": "ㄑ",
+      "audio": "f13.m4a"
+    },
+    {
+      "text": "西",
+      "zhuyin": "ㄒ",
+      "audio": "f14.m4a"
+    },
+    {
+      "text": "知",
+      "zhuyin": "ㄓ",
+      "audio": "f15.m4a"
+    },
+    {
+      "text": "吃",
+      "zhuyin": "ㄔ",
+      "audio": "f16.m4a"
+    },
+    {
+      "text": "詩",
+      "zhuyin": "ㄕ",
+      "audio": "f17.m4a"
+    },
+    {
+      "text": "日",
+      "zhuyin": "ㄖ",
+      "audio": "f18.m4a"
+    },
+    {
+      "text": "資",
+      "zhuyin": "ㄗ",
+      "audio": "f19.m4a"
+    },
+    {
+      "text": "疵",
+      "zhuyin": "ㄘ",
+      "audio": "f20.m4a"
+    },
+    {
+      "text": "思",
+      "zhuyin": "ㄙ",
+      "audio": "f21.m4a"
+    },
+    {
+      "text": "啊",
+      "zhuyin": "ㄚ",
+      "audio": "f22.m4a"
+    },
+    {
+      "text": "喔",
+      "zhuyin": "ㄛ",
+      "audio": "f23.m4a"
+    },
+    {
+      "text": "鵝",
+      "zhuyin": "ㄜ",
+      "audio": "f24.m4a"
+    },
+    {
+      "text": "欸",
+      "zhuyin": "ㄝ",
+      "audio": "f25.m4a"
+    },
+    {
+      "text": "唉",
+      "zhuyin": "ㄞ",
+      "audio": "f26.m4a"
+    },
+    {
+      "text": "欸",
+      "zhuyin": "ㄟ",
+      "audio": "f27.m4a"
+    },
+    {
+      "text": "凹",
+      "zhuyin": "ㄠ",
+      "audio": "f28.m4a"
+    },
+    {
+      "text": "歐",
+      "zhuyin": "ㄡ",
+      "audio": "f29.m4a"
+    },
+    {
+      "text": "安",
+      "zhuyin": "ㄢ",
+      "audio": "f30.m4a"
+    },
+    {
+      "text": "恩",
+      "zhuyin": "ㄣ",
+      "audio": "f31.m4a"
+    },
+    {
+      "text": "昂",
+      "zhuyin": "ㄤ",
+      "audio": "f32.m4a"
+    },
+    {
+      "text": "鞥",
+      "zhuyin": "ㄥ",
+      "audio": "f33.m4a"
+    },
+    {
+      "text": "兒",
+      "zhuyin": "ㄦ",
+      "audio": "f34.m4a"
+    },
+    {
+      "text": "衣",
+      "zhuyin": "ㄧ",
+      "audio": "f35.m4a"
+    },
+    {
+      "text": "烏",
+      "zhuyin": "ㄨ",
+      "audio": "f36.m4a"
+    },
+    {
+      "text": "迂",
+      "zhuyin": "ㄩ",
+      "audio": "f37.m4a"
+    }
+  ]
+}
