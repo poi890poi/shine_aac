@@ -190,7 +190,7 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
     if (candidate.action === TileAction.Backspace) return "刪除";
     if (candidate.action === TileAction.Clear) return "清除";
     if (candidate.action === TileAction.Undo) return "復原";
-    if (candidate.action === TileAction.Speak) return "說出";
+    if (candidate.action === TileAction.Speak) return "朗讀";
     if (candidate.action === TileAction.EnterMode) return "用注音找字";
     if (candidate.action === TileAction.ExitMode) return "返回";
     if (candidate.action === TileAction.OpenCategory) {
@@ -695,9 +695,9 @@ export const ZhTwPhraseCategories = Object.freeze({
 export const ZhTwTiles = Object.freeze([
   ...ZhTwCoreResponseTiles,
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
-  categoryTile("EN", EnglishCategoryId),
-  tile("說", "SAY", TileAction.Speak),
-  tile("刪", "DEL", TileAction.Backspace),
+  categoryTile("英文", EnglishCategoryId),
+  tile("朗讀", "SAY", TileAction.Speak),
+  tile("刪除", "DEL", TileAction.Backspace),
   tile("清除", "CLR", TileAction.Clear)
 ]);
 
@@ -1023,10 +1023,11 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
 function localizeZhTwStandardActionLabels(symbols) {
   return symbols.map((candidate) => {
     if (candidate.action === TileAction.Space && candidate.label === "SPC") return tile("空格", " ", TileAction.Space);
-    if (candidate.action === TileAction.Backspace && candidate.label === "DEL") return tile("刪", "DEL", TileAction.Backspace);
+    if (candidate.action === TileAction.OpenCategory && candidate.output === EnglishCategoryId) return categoryTile("英文", EnglishCategoryId);
+    if (candidate.action === TileAction.Backspace && ["DEL", "刪"].includes(candidate.label)) return tile("刪除", "DEL", TileAction.Backspace);
     if (candidate.action === TileAction.Clear && candidate.label === "CLR") return tile("清除", "CLR", TileAction.Clear);
     if (candidate.action === TileAction.Undo && candidate.label === "UNDO") return tile("復原", "UNDO", TileAction.Undo);
-    if (candidate.action === TileAction.Speak && candidate.label === "SAY") return tile("說", "SAY", TileAction.Speak);
+    if (candidate.action === TileAction.Speak && ["SAY", "說"].includes(candidate.label)) return tile("朗讀", "SAY", TileAction.Speak);
     if (candidate.action === TileAction.MoreSuggestions && candidate.label === "MORE") return zhTwMoreSuggestionsTile;
     return candidate;
   });
@@ -1067,7 +1068,7 @@ function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
   const hasEnglishStaticBoard = frequencyLetters.every((letter) => labels.has(letter)) &&
     labels.has("\u7a7a\u683c");
   const hasEnglishEntryPoint = symbols.some((candidate) =>
-    candidate.label === "EN" &&
+    ["EN", "英文"].includes(candidate.label) &&
     candidate.action === TileAction.OpenCategory &&
     candidate.output === EnglishCategoryId
   );
