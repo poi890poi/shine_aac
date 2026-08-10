@@ -731,17 +731,7 @@ function scheduleScan() {
 
   const duration = scanDurationForStage(session.scannerState, effectiveTimingConfigForScan());
   const token = scanScheduleToken;
-  highlightStartedAt = performance.now();
-  highlightDeadlineAt = highlightStartedAt + duration;
-
-  animationFrameId = window.requestAnimationFrame(() => {
-    if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
-    resetProgressFills(currentProgressFills);
-    animationFrameId = window.requestAnimationFrame(() => {
-      if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
-      startScanClock(duration, token);
-    });
-  });
+  startScanClock(duration, token);
 }
 
 function resumeScanFromProgress(progress) {
@@ -776,12 +766,13 @@ function cancelScheduledScan() {
 
 function startScanClock(duration, token) {
   const durationMs = Math.max(1, duration);
-  highlightStartedAt = performance.now();
   highlightDeadlineAt = highlightStartedAt + durationMs;
-  timerId = window.setTimeout(advanceScan, durationMs);
-  const progressFills = setProgressFills(0, 0);
+  const elapsedMs = clamp(performance.now() - highlightStartedAt, 0, durationMs - 1);
+  const remainingMs = Math.max(1, durationMs - elapsedMs);
+  timerId = window.setTimeout(advanceScan, remainingMs);
+  const progressFills = setProgressFills(elapsedMs / durationMs, 0);
   forceProgressLayout(progressFills);
-  setProgressFills(1, durationMs);
+  setProgressFills(1, remainingMs);
   prepareAdvanceTimerId = window.setTimeout(() => {
     if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
     pendingAdvanceSession = advanceSession(session);
