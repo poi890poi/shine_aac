@@ -1674,7 +1674,7 @@ function categorySuggestionRows(categoryId, columns, commandColumns = columns, m
     const commandTiles = [
       zhuyinCategoryCloseTile,
       tile("朗讀", "SAY", TileAction.Speak),
-      tile("刪除", "DEL", TileAction.Backspace),
+      tile("復原", "UNDO", TileAction.Undo),
       tile("清除", "CLR", TileAction.Clear)
     ];
     const suggestions = suggestionRow(
