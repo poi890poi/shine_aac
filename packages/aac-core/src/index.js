@@ -837,7 +837,8 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
         safeColumns,
         zhTwSuggestionColumnCount(safeColumns),
         message,
-        canUndo
+        canUndo,
+        normalized.suggestionColumnSpans
       );
       if (categoryRows.length > 0) return categoryRows;
     }
@@ -855,11 +856,11 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
     ];
   }
 
-  const suggestions = suggestionRow(message, normalized.suggestionDictionary, safeColumns, canUndo, {
+  const suggestions = englishSuggestionRows(message, normalized.suggestionDictionary, safeColumns, canUndo, {
     ...normalized,
     excludeTiles: normalized.symbols
   });
-  return [suggestions, ...chunk(normalized.symbols, safeColumns)];
+  return [...suggestions, ...chunk(normalized.symbols, safeColumns)];
 }
 
 function zhTwSuggestionColumnCount(symbolColumns) {
@@ -1207,8 +1208,17 @@ function rankedSuggestionCandidatesWithoutSpaces(message, dictionary) {
 }
 
 export function suggestionRow(message, dictionary, columns, canUndo = false, options = {}) {
+  return englishSuggestionRows(message, dictionary, columns, canUndo, {
+    ...options,
+    rowCount: 1
+  })[0];
+}
+
+function englishSuggestionRows(message, dictionary, columns, canUndo = false, options = {}) {
   const safeColumns = clampInt(columns, 2, 8);
   const suggestionCount = Math.min(safeColumns, 4);
+  const rowCount = clampInt(options.rowCount ?? 2, 1, 2);
+  const candidatePoolSize = suggestionCount * rowCount * 4;
   const commandSuggestions = [];
   if (canUndo) commandSuggestions.push(UndoSuggestionTile);
   if (options.autoSpace !== AutoSpaceMode.None && message.trim().length > 0 && !/\s$/.test(message)) {
@@ -1222,13 +1232,61 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
       options.autoSpace === AutoSpaceMode.None ? [] : SuggestionFallbackLetters
     ),
     options.excludeTiles,
-    suggestionCount
+    candidatePoolSize
   );
 
+  return packSuggestionRows(
+    suggestions,
+    safeColumns,
+    rowCount,
+    options.suggestionColumnSpans
+  );
+}
+
+function packSuggestionRows(suggestions, columns, rowCount, spanByLabel) {
+  const rows = [];
+  const remaining = [...suggestions];
+
+  while (rows.length < rowCount) {
+    const tiles = [];
+    let usedColumns = 0;
+    while (usedColumns < columns) {
+      const availableColumns = columns - usedColumns;
+      const candidateIndex = remaining.findIndex((candidate) =>
+        suggestionColumnSpan(candidate, spanByLabel, columns) <= availableColumns
+      );
+      if (candidateIndex < 0) break;
+      const [candidate] = remaining.splice(candidateIndex, 1);
+      const requestedSpan = suggestionColumnSpan(candidate, spanByLabel, columns);
+      tiles.push({ ...candidate, columnSpan: requestedSpan });
+      usedColumns += requestedSpan;
+    }
+    rows.push(padPackedSuggestionRow(tiles, usedColumns, columns));
+  }
+  return rows;
+}
+
+function suggestionColumnSpan(candidate, spanByLabel, columns) {
+  return isSpannableWordSuggestion(candidate)
+    ? clampInt(spanByLabel?.[candidate.label] ?? 1, 1, columns)
+    : 1;
+}
+
+function padPackedSuggestionRow(tiles, usedColumns, columns) {
   return [
-    ...suggestions,
-    ...Array.from({ length: safeColumns - suggestions.length }, () => tile("", "", TileAction.Noop))
+    ...tiles,
+    ...Array.from(
+      { length: columns - usedColumns },
+      () => ({ ...tile("", "", TileAction.Noop), columnSpan: 1 })
+    )
   ];
+}
+
+function isSpannableWordSuggestion(candidate) {
+  return candidate.action === TileAction.CommitCandidate || (
+    candidate.action === TileAction.Append &&
+    Array.from(candidate.output.trim()).length > 1
+  );
 }
 
 function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}, staticTiles = ZhTwTiles) {
@@ -1701,7 +1759,14 @@ function zhuyinRows(inputState, columns) {
   return [commandRow, ...bodyRows];
 }
 
-function categorySuggestionRows(categoryId, columns, commandColumns = columns, message = "", canUndo = false) {
+function categorySuggestionRows(
+  categoryId,
+  columns,
+  commandColumns = columns,
+  message = "",
+  canUndo = false,
+  suggestionColumnSpans = undefined
+) {
   const category = ZhTwPhraseCategories[categoryId];
   if (!category) return [];
   if (categoryId === EnglishCategoryId) {
@@ -1711,21 +1776,22 @@ function categorySuggestionRows(categoryId, columns, commandColumns = columns, m
       tile("復原", "UNDO", TileAction.Undo),
       tile("清除", "CLR", TileAction.Clear)
     ];
-    const suggestions = suggestionRow(
+    const suggestions = englishSuggestionRows(
       trailingEnglishCategoryText(message),
       DefaultSuggestionDictionary,
       commandColumns,
       canUndo,
       {
         autoSpace: AutoSpaceMode.Word,
-        excludeTiles: [...commandTiles, ...category.tiles]
+        excludeTiles: [...commandTiles, ...category.tiles],
+        suggestionColumnSpans
       }
-    ).map((candidate) => {
+    ).map((row) => row.map((candidate) => {
       if (candidate.action === TileAction.Undo) return zhTwUndoSuggestionTile;
       if (candidate.action === TileAction.Space) return tile("空格", " ", TileAction.Space);
       return candidate;
-    });
-    return [suggestions, paddedRow(commandTiles, commandColumns), ...chunk(category.tiles, columns)];
+    }));
+    return [...suggestions, paddedRow(commandTiles, commandColumns), ...chunk(category.tiles, columns)];
   }
   const commandTiles = [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
   const commandRow = paddedRow(commandTiles, commandColumns);
