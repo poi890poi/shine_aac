@@ -835,7 +835,9 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
       const categoryRows = categorySuggestionRows(
         inputState.activeCategory,
         safeColumns,
-        zhTwSuggestionColumnCount(safeColumns)
+        zhTwSuggestionColumnCount(safeColumns),
+        message,
+        canUndo
       );
       if (categoryRows.length > 0) return categoryRows;
     }
@@ -1665,19 +1667,36 @@ function zhuyinRows(inputState, columns) {
   return [commandRow, ...bodyRows];
 }
 
-function categorySuggestionRows(categoryId, columns, commandColumns = columns) {
+function categorySuggestionRows(categoryId, columns, commandColumns = columns, message = "", canUndo = false) {
   const category = ZhTwPhraseCategories[categoryId];
   if (!category) return [];
-  const commandTiles = categoryId === EnglishCategoryId
-    ? [
+  if (categoryId === EnglishCategoryId) {
+    const commandTiles = [
       zhuyinCategoryCloseTile,
-      categoryCloseTile,
-      tile("說", "SAY", TileAction.Speak),
-      tile("刪", "DEL", TileAction.Backspace)
-    ]
-    : [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
+      tile("朗讀", "SAY", TileAction.Speak),
+      tile("刪除", "DEL", TileAction.Backspace),
+      tile("清除", "CLR", TileAction.Clear)
+    ];
+    const suggestions = suggestionRow(
+      trailingEnglishCategoryText(message),
+      DefaultSuggestionDictionary,
+      commandColumns,
+      canUndo,
+      { autoSpace: AutoSpaceMode.Word }
+    ).map((candidate) => {
+      if (candidate.action === TileAction.Undo) return zhTwUndoSuggestionTile;
+      if (candidate.action === TileAction.Space) return tile("空格", " ", TileAction.Space);
+      return candidate;
+    });
+    return [suggestions, paddedRow(commandTiles, commandColumns), ...chunk(category.tiles, columns)];
+  }
+  const commandTiles = [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
   const commandRow = paddedRow(commandTiles, commandColumns);
   return [commandRow, ...chunk(category.tiles, columns)];
+}
+
+function trailingEnglishCategoryText(message) {
+  return message.match(/[A-Za-z']+(?:\s+[A-Za-z']+)*\s*$/u)?.[0] ?? "";
 }
 
 function zhuyinCommandRow(state, columns) {
@@ -2065,7 +2084,9 @@ export function appendToken(current, selectedTile, options = {}) {
   if (isSpellingLetter) return current + token;
 
   if (token.length > 1 && current.length > 0 && !/\s$/.test(current)) {
-    const currentTokenStart = current.lastIndexOf(" ") + 1;
+    const currentTokenStart = options.embeddedEnglish
+      ? trailingEnglishTokenStart(current)
+      : current.lastIndexOf(" ") + 1;
     const currentToken = current.slice(currentTokenStart);
     if (
       currentToken.length > 0 &&
@@ -2077,7 +2098,13 @@ export function appendToken(current, selectedTile, options = {}) {
   }
   if (current.trim().length === 0) return `${token} `;
   if (current.endsWith(" ")) return `${current}${token} `;
+  if (options.embeddedEnglish && /\p{Script=Han}$/u.test(current)) return `${current}${token} `;
   return `${current.trimEnd()} ${token} `;
+}
+
+function trailingEnglishTokenStart(text) {
+  const match = text.match(/[A-Za-z']+$/u);
+  return match ? match.index : text.length;
 }
 
 export function createSession(overrides = {}) {
@@ -2229,8 +2256,11 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     };
   }
   if (selectedTile.action === TileAction.CloseCategory) {
+    const nextMessage = inputState.activeCategory === EnglishCategoryId
+      ? message.replace(/(?<=[A-Za-z'])\s+$/u, "")
+      : message;
     return {
-      message,
+      message: nextMessage,
       messageHistory,
       effect: "category",
       inputMode: "board",
@@ -2312,7 +2342,12 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     return { message, messageHistory, effect: "speak" };
   }
 
-  const nextMessage = updateMessage(message, selectedTile, config);
+  const embeddedEnglish = config.profileId === "zh-TW" && inputState.activeCategory === EnglishCategoryId;
+  const nextMessage = updateMessage(
+    message,
+    selectedTile,
+    embeddedEnglish ? { ...config, autoSpace: AutoSpaceMode.Word, embeddedEnglish: true } : config
+  );
   if (nextMessage === message) return { message, messageHistory, effect: "none" };
   return {
     message: nextMessage,
