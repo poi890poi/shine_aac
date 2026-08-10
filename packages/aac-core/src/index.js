@@ -29,7 +29,7 @@ export const TileAction = Object.freeze({
 export const DefaultColumns = 4;
 export const DefaultScanIntervalMs = 1800;
 export const DefaultTransitionPauseMs = 0;
-export const DefaultFirstCellPauseMs = 2300;
+export const DefaultFirstCellPauseMs = DefaultScanIntervalMs;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
 export const ScanTimingPresets = Object.freeze({
@@ -74,12 +74,13 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 22;
+export const CurrentConfigVersion = 24;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
 const LegacyDefaultFirstCellPauseMs = 900;
-const PreviousDefaultFirstCellPauseMs = 1700;
+const EarlierDefaultFirstCellPauseMs = 1700;
+const PreviousDefaultFirstCellPauseMs = 2300;
 export const DefaultProfileId = "en-US";
 export const AutoSpaceMode = Object.freeze({
   Word: "word",
@@ -1113,6 +1114,7 @@ export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
     (
       storedPauseMs === LegacyFirstCellPauseMsV6 ||
       storedPauseMs === LegacyDefaultFirstCellPauseMs ||
+      storedPauseMs === EarlierDefaultFirstCellPauseMs ||
       storedPauseMs === PreviousDefaultFirstCellPauseMs
     )
   ) {
