@@ -156,9 +156,9 @@ Default scanning should be conservative for disability access. ASHA describes AA
 Default timing:
 
 ```text
-scan interval: 1300 ms
+scan interval: 1800 ms
 row-selected transition pause: 0 ms
-first-cell hold: 1700 ms
+first-cell hold: 1800 ms
 ```
 
 Helpers can still customize faster timing or enable a transition pause for a specific user. The default should favor a simple scanner model, lower timing precision, and stamina over maximum throughput.
@@ -319,7 +319,7 @@ Move from one global `symbols` text area toward profile files:
   "id": "zh-TW",
   "displayName": "Taiwan Mandarin",
   "columns": 4,
-  "scanIntervalMs": 1300,
+  "scanIntervalMs": 1800,
   "autoSpace": "none",
   "speechLocale": "zh-TW",
   "symbols": [],
@@ -345,8 +345,8 @@ export const zhTwProfile = {
   displayName: "Taiwan Mandarin",
   writingSystem: "traditional-chinese",
   columns: 4,
-  scanIntervalMs: 1300,
-  firstCellPauseMs: 1700,
+  scanIntervalMs: 1800,
+  firstCellPauseMs: 1800,
   autoSpace: "none",
   speechLocale: "zh-TW",
   composeMessage,

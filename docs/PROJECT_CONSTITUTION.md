@@ -12,13 +12,15 @@
 
 - Communication success is functional, not grammatical. Approximate words, short phrases, and wrong-but-understandable choices are acceptable.
 - High-information targets are more valuable than polite or syntactically complete sentences.
-- Keep repair cheap: undo, delete, clear, and speak must be predictable and reachable.
+- Keep repair cheap: contextual undo, clear, and speak must be predictable and reachable; built-in boards avoid a redundant backspace key while hardware and custom layouts may retain it.
 - Keep positions stable. Dynamic suggestions may change; the static board and scanner mechanics should not surprise the user.
 - Predictions must be relevant to the user's current input. Do not fill space with unrelated words just to avoid empty cells.
 - Language profiles are not translations. Each profile needs its own writing system, speech locale, vocabulary source, composition rules, and tests.
 
 ## Software Development
 
+- Fix foundations before dependents. When a source, dictionary, data model, or other prerequisite is obviously defective, isolate it, replace it, and publish measurements for review before changing ranking, interaction, layout, or documentation that depends on it.
+- Keep investigation stages separate. Do not mix speculative optimizations or earlier recommendations into a foundational repair; each later change must be justified against the repaired baseline.
 - Put AAC rules in the shared core first, with deterministic tests before platform work.
 - Preserve working English behavior when adding another language or access feature.
 - Prefer data pipelines over hand tuning. Do not promote, demote, add, or remove individual suggestions for one observed example when a source/ranking rule is needed.

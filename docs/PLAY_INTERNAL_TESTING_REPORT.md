@@ -1,44 +1,63 @@
-# SHINE AAC Google Play Internal Testing Report
+# SHINE AAC Google Play Closed Testing Report
 
-Generated: 2026-07-22
+Generated: 2026-08-09
 
 ## Upload Artifact
 
-- Track: Google Play Internal testing
-- Application source tag: `v0.2.41`
+- Track: Google Play Closed testing
+- Application source tag: pending
 - Package: `org.shineaac.app`
-- Version: 0.2.41 (44)
+- Version: 0.2.44 (47)
 - Compile SDK: 36
 - Target SDK: 36
-- File: `shine-aac-v0.2.41-code44-release.aab`
-- Local path: `.artifacts/releases/v0.2.41/shine-aac-v0.2.41-code44-release.aab`
-- Size: 21,804,529 bytes
-- SHA-256: `ffe2ae5825e187db75ec88f0e6e50822f3aa656cdd8bd2b56023a421fd9dbf3e`
-- Checksum file: `.artifacts/releases/v0.2.41/PLAY_AAB_SHA256SUMS.txt`
+- File: `shine-aac-v0.2.44-code47-release.aab`
+- Local path: `.artifacts/releases/v0.2.44/shine-aac-v0.2.44-code47-release.aab`
+- Size: 22,036,425 bytes
+- SHA-256: `d725f2f361961cc81533f008dabcd8fd72a01c60d2b4e8e9dd60dd65ce5e7056`
+- Checksum file: `.artifacts/releases/v0.2.44/PLAY_AAB_SHA256SUMS.txt`
 - Signing: existing private upload key; JAR signature verified
-- Bundle structure: `BundleConfig.pb`, base manifest, resources, and DEX entries verified
-- Byte identity: versioned AAB matches the Gradle `app-release.aab` output
+- Bundle structure: `BundleConfig.pb`, base manifest, resources, and primary DEX verified
+- Byte identity: versioned AAB matches Gradle's signed `app-release.aab`
 
 ## Decision
 
-PASS for upload to the Google Play Internal testing track. Upload the versioned `.aab`, not the debug `.apk`.
+CONDITIONAL for upload to Google Play Internal testing. The signed AAB is valid,
+but the exact source must be committed and tagged before upload, and version
+code 47 must be confirmed unused in Play Console. Upload the versioned `.aab`,
+not the APK.
 
-The debug APK remains useful only for direct emulator/device installation and runtime smoke testing. Google Play generates installable APKs from the uploaded AAB.
-
-Do not upload the superseded code-43 bundle. Before upload, confirm that version code 44 has not already been used in Play Console.
+This is an appropriate closed-testing candidate for evaluating the requested
+slower scanning default, adaptive large-text layout, localized setup flow, and
+embedded-English suggestions. It is not approved for a broader track until the
+physical Samsung scaling matrix and human timing/board review pass. The reviewed
+communication baseline now records the deliberate 1,800 ms first-use interval;
+all benchmark tasks and paired gates pass.
 
 ## Supporting Verification
 
-- Full core: 215 / 215 tests passed, including the exact 47-snapshot reported export fixture.
-- Paired communication evaluator: 103 / 103 tasks passed with all regression gates passing.
-- Source browser E2E: 34 steps passed.
-- Packaged WebView E2E: 35 steps passed, including the asset build, history/export regressions, back navigation, and later-continuation demo regression.
-- Android inputs: 14 / 14 unit tests passed; API-36 lint had no errors across all modules.
-- Android build: all modules compiled and assembled against API 36; the merged release manifest confirms target SDK 36.
-- Existing API 34 emulator installed code 44 and displayed `MainActivity` without an app crash. The timed switch run was inconclusive because unrelated Android system processes ANRed under resource pressure.
-- Release bundle build: Gradle `bundleRelease` passed with 137 actionable tasks.
-- Android data policy: cloud backup disabled and all app-data domains excluded.
+- Quick functional core: 111 / 111 tests passed; web configuration unit tests:
+  2 / 2 passed.
+- Full core and communication suite: 222 / 222 passed.
+- Packaged WebView E2E: 41 steps passed, including generated assets, zh-TW
+  locale consistency, English completions, and compact language boundaries.
+- Android inputs: 14 / 14 unit tests passed; lint completed without errors
+  across all modules.
+- Android release: `assembleRelease bundleRelease` completed 153 actionable
+  tasks; data-policy verification passed.
+- Manifest: `org.shineaac.app`, version 0.2.44 code 47, min SDK 25, target SDK
+  36.
+- APK v2 signature, AAB JAR signature, checksums, bundle structure, and byte
+  identity all verified.
 
-The exact reported legacy sequence compacts to two lines: `聽 podcast 新資料夾` and `冰紅茶少冰不要太甜`. Browser integration also repairs code-42 version-2 storage through the real export path.
+Full evidence: `docs/PRE_RELEASE_TEST_REPORT_0.2.44.md`.
 
-Android 16 physical-device predictive-back/insets/tablet behavior, Mandarin TTS, real-person camera, and human AAC UX evaluation remain goals of the Internal testing run.
+## Required Internal Testing
+
+- Human comfort and fatigue at the new default speed; retain per-user timing
+  calibration.
+- Recognition of header status versus the `⚙ 設定` control.
+- All-symbol Zhuyin finding, function-key recognition, `復原`, and candidate
+  paging.
+- Android Save As export followed by direct `開啟文字檔`.
+- Android 16 predictive back, edge-to-edge controls, phone/tablet layouts,
+  Activity recreation, Taiwan TTS, and real-person camera input.

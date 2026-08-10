@@ -1,48 +1,16 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-07-24T03:17:07.167Z
+Generated: 2026-08-10T02:16:50.431Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| packaged-webview-build | PASS | built Android WebView assets with esbuild |
-| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
+| server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
-| first-run-profile | PASS | clean storage opens the zh-TW communication board |
+| first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
-| camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
-| camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
-| phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
-| undo-correction | PASS | undid WATER and selected FOOD |
-| text-history | PASS | updated one live history line through composition, undo, and correction |
-| session-draft | PASS | restored current composed message after reload |
-| clear | PASS | selected CLR from the visible board |
-| completion | PASS | typed movi and completed to movie with automatic trailing space |
-| delete | PASS | selected DEL and removed the automatic trailing space |
-| text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |
-| text-history-migration | PASS | compacted version 1 and code-42 version 2 per-input snapshots into one live line |
-| review-hold | PASS | default hold pauses after suggestion changes and resumes on next activation |
-| input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
-| app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
-| speech-voice-settings | PASS | uses a dedicated accessible list with engine, ready/downloadable states, inline preview, immediate selection, and refresh |
-| back-navigation | PASS | system back contract returns App Info and Input Test to Configuration, then Configuration to the board |
-| demo-mode | PASS | activation clears the draft and holds, restarts top-row scanning, runs the demo, and tap exits it |
-| pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
-| tablet-portrait-layout | PASS | fits 12 rows in 1280px viewport without scrolling |
-| tablet-portrait-layout-config-actions | PASS | config action bar remains reachable |
-| tablet-landscape-layout | PASS | fits 12 rows in 800px viewport without scrolling |
-| tablet-landscape-layout-config-actions | PASS | config action bar remains reachable |
-| large-text-phone-layout | PASS | fits 4 rows in 851px viewport without scrolling |
-| large-text-cell-fit | PASS | fit 16 labels, including 2 long labels, without clipping |
-| zh-tw-official-zhuyin-route | PASS | Zhuyin activation uses the dedicated Ministry of Education audio route |
-| zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
-| zh-tw-reset | PASS | reset restored packaged zh-TW defaults instead of stale stored layout |
-| zh-tw-language-switch-review-hold | PASS | EN and 注音 language switches use the suggestion-change review hold setting |
-| zh-tw-pixel-4a-5g-layout | PASS | fits 12 rows in 851px viewport without scrolling |
-| zh-tw-demo-mode | PASS | completed a candidate after paging to a later Zhuyin continuation (1 commit) |
-| screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":13,"resetTargetToProgressMs":41.20000000298023,"rowDeadlineDriftMs":-33.30000001192093,"nextRowTargetToProgressMs":48.70000000298023,"activationToTargetMs":2.7000000029802322,"activationTargetToProgressMs":47.8999999910593,"firstDeadlineDriftMs":-16.299999997019768,"secondTargetToProgressMs":47.20000000298023,"laterDeadlineDriftMs":-13.100000008940697,"thirdTargetToProgressMs":47.400000005960464,"selectionToTargetMs":5,"selectionTargetToProgressMs":35.29999999701977} |
 
 Artifacts:
 

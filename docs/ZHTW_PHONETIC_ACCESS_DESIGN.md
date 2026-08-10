@@ -91,15 +91,35 @@ docs/ZHTW_PHONETIC_ACCESS_REPORT.md
 
 ## Current Baseline
 
-The current profile exposes 24 static Zhuyin symbols out of 37 total input symbols. Hidden symbols are expected to appear as suggestions only when they are valid continuations from the current prefix.
+The current profile exposes all 37 Zhuyin input symbols on the first layer. The familiar linear Zhuyin sequence is distributed across seven stable rows sized `6, 5, 5, 5, 6, 5, 5`. The two wider rows were selected from the 21 order-preserving possibilities using corpus-weighted row-plus-cell scan cost. The symbol sequence never changes, so repeated use can build location memory. Recommendation, core-word, and action rows remain four columns wide so their longer labels retain larger targets.
 
 Current report highlights:
 
-- static first-symbol coverage is above 98% by dictionary weight
-- all hidden continuation symbols with dictionary prefixes have at least one visible continuation path
-- only a small number of top source-ranked entries are blocked by missing first-level symbols
+- static first-symbol coverage is 100%
+- no phonetic symbol depends on `更多` or a recommendation row for discovery
+- recommendation rows do not duplicate static Zhuyin symbols
+- unused candidate slots remain spatially reserved but are not drawn as empty buttons
 
-This does not mean the layout is final. It means the current static/hidden split is measurable and good enough to improve with data instead of hand tuning.
+This does not mean the layout is final. It establishes a measurable baseline in which discoverability does not depend on learning a hidden-symbol paging convention.
+
+## Function-Key Cues And Correction Stability
+
+Function keys share exactly the same spacing and typography metrics as word keys: display, padding, border width, radius, line height, font weight, and label fitting. They differ only through spacing-independent background, border-colour, and inset-shadow-colour treatments plus an accessible name that begins with `功能鍵`. Destructive actions retain a red colour variant. No badge or icon competes with the action label.
+
+The stable action-row position supplies an additional spatial cue without consuming label space. Background, border, and inset-shadow colours remain visually distinct, while the accessible name supplies explicit semantic identification to assistive technology.
+
+`復原` restores both the previous message and the suggestion page that was visible before the mistaken selection. Candidate positions therefore return to the correction context the user was just scanning instead of unexpectedly resetting to page one.
+
+Built-in boards do not show a separate `刪除` key. Repeated `復原` removes single letters or Zhuyin symbols one operation at a time, while one `復原` also reverses a whole candidate selection or clear operation. The core backspace action remains available for hardware input and deliberately customized layouts.
+
+The packaged default uses one consistent 1800 ms interval for row scanning and all cells. Existing installations using the former 1300/1700 ms or 1800/2300 ms defaults migrate; other user-customized timing remains unchanged. A separately named first-cell-support preset remains available for users who benefit from an extended first-cell hold. Published switch-scanning work supports individual calibration rather than one universal rate, so 1800 ms is a conservative starting point rather than a claim of optimality.
+
+References:
+
+- W3C, [Understanding SC 1.4.1: Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color)
+- W3C, [Understanding SC 1.4.11: Non-text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)
+- Light et al., [Designing effective AAC displays for individuals with developmental or acquired disabilities](https://www.ohsu.edu/sites/default/files/2019-05/Designing%20effective%20AAC%20displays%20for%20individuals%20with%20developmental%20or%20acquired%20disabilities%20State%20of%20the%20science%20and%20future%20research%20directions.pdf)
+- Simpson, Koester, and LoPresti, [Selecting an appropriate scan rate: the “.65 rule”](https://pubmed.ncbi.nlm.nih.gov/17727073/)
 
 ## Optimization Objective
 
@@ -127,14 +147,15 @@ Subject to:
 
 Suggestion pages should be as dense as the source data allows, but density must not override relevance.
 
-When the current buffer still has valid non-initial phonetic continuations, the reserved first-page continuations precede speculative glyph and word candidates. Useful exact/source candidates remain on the first page when space permits, while overflow continuations remain reachable through bounded `更多` paging. When a syllable needs no phonetic continuation, exact candidates retain first priority. Initial consonants that begin another syllable rank below completion of the current syllable and may appear on later pages.
+Recommendation rows contain exact, source-backed, and repair candidates for the current buffer. A shared core filter compares them with the complete static board before the visible limit is applied. It removes the same semantic action/output and the same action/label, then backfills with later useful candidates. This applies to vocabulary, function keys, Zhuyin, and the embedded English board; it is not a view-specific exception.
 
-Automation follows the same rule as a user: a demo must page through visible `更多` controls for a displaced symbol or candidate, with no direct state mutation or scenario-only vocabulary.
+A matching visible label is not automatically redundant when its action is different. For example, a Chinese candidate that commits and replaces the current Zhuyin buffer may legitimately share a label with a static key that only appends text.
+
+Automation follows the same rule as a user: every Zhuyin symbol is selected directly from the visible first layer. A demo may page through `更多` only for an overflow candidate, with no direct state mutation or scenario-only vocabulary.
 
 Allowed fillers:
 
 - exact candidates for the current buffer
-- valid next Zhuyin symbols whose resulting prefix exists in source data
 - source-backed one-edit repair candidates when the complete buffer has no candidate or continuation path
 - contextual `重選` after two or more trailing Zhuyin symbols; it removes only that buffer and never clears committed text
 - bounded `更多` paging when more useful candidates exist
@@ -144,6 +165,7 @@ Not allowed:
 
 - dead-end continuations such as a symbol that creates a source-empty prefix
 - unrelated global defaults after a typed Zhuyin buffer
+- any candidate duplicated from the static board with the same action and label or the same action and output
 - broad parent-prefix candidates that replace a more specific buffer unless a separate general ranking rule justifies them
 
 If a very specific prefix has only one or two source-backed candidates, blank cells are better than misleading cells. The report still tracks these sparse pages so future ranking/data changes can improve them without adding special cases.
@@ -160,8 +182,9 @@ A source-empty buffer is different from a sparse valid prefix. It is treated as 
 
 Tests protect:
 
-- broad static first-symbol coverage
-- hidden continuation reachability
+- complete 37-symbol static first-layer coverage
+- seven stable five/six-column Zhuyin rows with four-column recommendation and action rows
+- absence of redundant Zhuyin symbols in recommendation pages
 - bounded top-entry blocked paths
 - progressive navigation through visible symbols or suggestions
 - source-backed whole-buffer repair for source-empty input without unrelated global backfill

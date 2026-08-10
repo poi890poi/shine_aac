@@ -8,7 +8,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說 SayToMe AAC`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current source candidate: `v0.2.41`, Android version code `44`, target SDK `36`
+- Current source candidate: `v0.2.44` pending tag, Android version code `47`, target SDK `36`
 - Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing
@@ -25,7 +25,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 我想說 SayToMe AAC 是一個早期開發中的輔助溝通 AAC 應用程式，主要面向台灣繁體中文使用情境。它的目標是協助說話困難 或無法穩定使用語音的人 用較簡單的方式表達需求 感受 想法與選擇。
 
-這個版本的核心是單一開關掃描。使用者或協助者可以透過一個可靠訊號 例如按鍵 觸碰螢幕 或支援的硬體按鈕 逐步選擇詞語 注音符號 候選字詞與操作。現在的台灣中文設定檔支援繁體中文 注音輸入 候選建議 語音輸出 掃描速度設定 復原 刪除 清除 以及偶爾需要英文時的 EN 輸入入口。
+這個版本的核心是單一開關掃描。使用者或協助者可以透過一個可靠訊號 例如按鍵 觸碰螢幕 或支援的硬體按鈕 逐步選擇詞語 注音符號 候選字詞與操作。現在的台灣中文設定檔支援繁體中文 注音輸入 候選建議 語音輸出 掃描速度設定 復原 清除 以及偶爾需要英文時的英文輸入入口。
 
 這不是完成的臨床產品。這個版本適合小規模 有人陪同的測試 對象包含使用者 家人 照顧者 語言治療師 醫療與照護相關專家 測試者與軟體貢獻者。它不是醫療建議 也不能取代專業 AAC 評估 語言治療 醫療照護 或緊急溝通計畫。
 
@@ -44,6 +44,26 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 ### Release Notes For Internal Testing
 
+0.2.44:
+
+- 修正系統字體或顯示大小放大時，功能鍵提示、名稱與圖示重疊的問題
+- 英文輸入區新增英文候選字詞，中英文相接不必另外選空格
+- 內建介面以「復原」處理單字、字母、注音與整個候選字詞的上一步操作，不再顯示容易混淆的「刪除」鍵
+- 設定、輸入測試及相機設定改用繁體中文
+- 相機設定的主要操作固定顯示，次要調整可捲動
+- WebView 文字大小跟隨 Android 設定，並新增最大字體與較大顯示的測試規範
+- 請在回報問題的 Samsung 手機重新測試最大字體與較大顯示的組合
+- 這仍是早期測試版本，請保留其他可靠的溝通方式
+
+0.2.43:
+
+- 37 個注音符號都固定顯示在第一層，不必再用「更多」尋找
+- 功能鍵、目前選列／選格狀態與「⚙ 設定」更容易分辨
+- 「復原」會回到原本候選頁；EN 會朗讀為「英文」
+- 預設掃描速度放慢，既有自訂速度不變
+- 匯出後會顯示實際檔名，並可直接「開啟文字檔」
+- 這仍是早期測試版本，請保留其他可靠的溝通方式
+
 0.2.41:
 
 - 更新為 Android 16（API 36）目標版本
@@ -55,7 +75,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 - 修正升級後文字紀錄仍列出每次注音、英文與候選字輸入的問題
 - 舊紀錄會整理成每次清除文字區前的最終內容
-- 候選字、刪除與復原仍更新同一行，只有重設文字區才新增一行
+- 候選字與復原仍更新同一行，只有重設文字區才新增一行
 - 保留 Android 返回上一頁與另存 UTF-8 文字檔功能
 - 請從前一個測試版本直接升級，不要先清除 app 資料
 
@@ -126,4 +146,4 @@ Please keep another reliable communication method available during testing, espe
 - Phone screenshots: `store-assets/screenshots/phone/*.png`
 - Screenshot source captures: `store-assets/screenshots/source/*.jpg`
 - Screenshot cleanup script: `scripts/clean-store-screenshots.ps1`
-- Signed Play AAB: `.artifacts/releases/v0.2.41/shine-aac-v0.2.41-code44-release.aab`
+- Signed Play AAB: `.artifacts/releases/v0.2.43/shine-aac-v0.2.43-code46-release.aab`

@@ -1,21 +1,22 @@
 # zh-TW Phonetic Access Report
 
-Generated: 2026-07-18T15:07:57.762Z
+Generated: 2026-08-08T12:01:06.423Z
 
-This report treats Zhuyin input as a constrained AAC access graph, not as a full keyboard IME.
-It measures whether static first-level symbols and dynamic continuation suggestions keep dictionary-backed paths reachable without hand-crafted phrase shortcuts.
+This report treats Zhuyin input as an AAC access graph with a complete, stable first-layer symbol inventory.
+It measures whether all phonetic paths and dictionary-backed candidates remain reachable without hidden symbols or hand-crafted phrase shortcuts.
 
 ## Summary
 
-- Columns: 4
-- Static Zhuyin symbols: 24 / 37
-- Static symbol set: ㄅ ㄆ ㄇ ㄈ ㄉ ㄊ ㄋ ㄌ ㄍ ㄎ ㄏ ㄐ ㄑ ㄒ ㄓ ㄔ ㄕ ㄖ ㄗ ㄘ ㄙ ㄧ ㄨ ㄩ
+- Recommendation columns: 4
+- First-layer Zhuyin columns: 6
+- Static Zhuyin symbols: 37 / 37
+- Static symbol set: ㄅ ㄆ ㄇ ㄈ ㄉ ㄊ ㄋ ㄌ ㄍ ㄎ ㄏ ㄐ ㄑ ㄒ ㄓ ㄔ ㄕ ㄖ ㄗ ㄘ ㄙ ㄧ ㄨ ㄩ ㄚ ㄛ ㄜ ㄝ ㄞ ㄟ ㄠ ㄡ ㄢ ㄣ ㄤ ㄥ ㄦ
 - Dictionary entries analyzed: 60000
-- Weighted first-symbol coverage: 98.87%
-- Hidden continuation symbols with dictionary prefixes: 13
+- Weighted first-symbol coverage: 100.00%
+- Hidden continuation symbols with dictionary prefixes: 0
 - Hidden continuation symbols with at least one blocked prefix: 0
 - Visible dead-end continuations: 0
-- Unreachable entries among top 500 source-ranked entries: 2
+- Unreachable entries among top 500 source-ranked entries: 0
 
 ## Top First Symbols By Weighted Coverage
 
@@ -42,19 +43,6 @@ It measures whether static first-level symbols and dynamic continuation suggesti
 
 | Symbol | Entries | Prefixes | Visible Prefixes | All Visible |
 | --- | ---: | ---: | ---: | --- |
-| ㄚ | 3206 | 1102 | 1102 | yes |
-| ㄛ | 2097 | 753 | 753 | yes |
-| ㄜ | 2517 | 1156 | 1156 | yes |
-| ㄝ | 2035 | 758 | 758 | yes |
-| ㄞ | 2480 | 989 | 989 | yes |
-| ㄟ | 3041 | 1020 | 1020 | yes |
-| ㄠ | 3769 | 1388 | 1388 | yes |
-| ㄡ | 2851 | 979 | 979 | yes |
-| ㄢ | 7595 | 2818 | 2818 | yes |
-| ㄣ | 4378 | 1639 | 1639 | yes |
-| ㄤ | 3860 | 1562 | 1562 | yes |
-| ㄥ | 6706 | 2342 | 2342 | yes |
-| ㄦ | 273 | 131 | 131 | yes |
 
 ## Visible Dead-End Continuations
 
@@ -62,14 +50,12 @@ No visible continuation symbols lead to a source-empty prefix.
 
 ## Blocked High-Rank Entries
 
-| Label | Key | Blocked Prefix | Blocked Symbol | Reason |
-| --- | --- | --- | --- | --- |
-| 而 | ㄦ |  | ㄦ | first-symbol-not-static |
-| 二 | ㄦ |  | ㄦ | first-symbol-not-static |
+No blocked phonetic paths found among the top 500 source-ranked entries.
 
 ## Design Meaning
 
-- Top-level Zhuyin symbols should be selected by weighted dictionary coverage and AAC value, not by copying a full keyboard.
-- Hidden symbols are acceptable only when they are reachable as valid continuations from visible prefixes.
+- All 37 Zhuyin symbols remain visible in stable phonetic order on the first layer.
+- Recommendation rows should contain output candidates and repairs, not duplicate first-layer Zhuyin symbols.
+- `更多` pages output candidates only; no phonetic symbol depends on paging for discovery.
 - Benchmark failures should change general weights, symbol coverage rules, or continuation ordering, not add phrase-specific shortcuts.
-- Japanese kana input is a useful analogy only at the level of progressive phonetic disclosure and candidate conversion; the zh-TW profile must remain grounded in Traditional Chinese/Zhuyin data.
+- The zh-TW profile remains grounded in Traditional Chinese/Zhuyin data and AAC target-size constraints.

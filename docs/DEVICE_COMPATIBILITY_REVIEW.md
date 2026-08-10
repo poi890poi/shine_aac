@@ -1,8 +1,35 @@
 # Device Compatibility Review
 
-Generated: 2026-07-22
-Current automated candidate commit: pending v0.2.41 release commit
-Current automated candidate version: 0.2.41 (44), target SDK 36
+Generated: 2026-08-08
+Current automated candidate commit: pending v0.2.44 release commit
+Current automated candidate version: 0.2.44 (47), target SDK 36
+
+## Post-0.2.43 Accessibility-scaling Correction
+
+A physical Samsung test found two defects that the earlier browser and emulator
+claims did not cover: Camera setup hid its primary actions below the initial
+viewport, and absolutely positioned function cues overlapped action labels on
+the dense Zhuyin board. The source correction keeps the three Camera setup
+actions in a persistent horizontal bar, scrolls only the secondary hold/zoom
+controls, lets native status text wrap, maps WebView text zoom to the Android
+font preference, and gives the function cue, label, and icon separate grid
+columns.
+
+The source Web E2E suite passes oversized-text and 13-row Zhuyin geometry checks;
+Kotlin compilation and native unit tests pass. A healthy emulator was unavailable
+for this rerun, so the correction is not considered physically confirmed. The
+next upload must use a new Play version code and repeat the combined font/display
+matrix on the reporting Samsung device.
+
+## 0.2.43 Rendered Compatibility Update
+
+Source and packaged WebView suites pass the phone portrait, tablet portrait,
+tablet landscape, short-height action, and large-text layouts with the complete
+37-symbol first-layer Zhuyin board. The revised header status, bordered
+`⚙ 設定` control, export result dialog, and direct-open action remain reachable.
+Android lint passes and the signed release manifest confirms min SDK 25 and
+target SDK 36. Physical-device timing, TTS, document-provider, and camera checks
+remain required during Internal testing.
 
 ## 0.2.41 Android 16 Target Review
 
@@ -79,18 +106,18 @@ That made the review dependent on whichever phone condition happened to be teste
 | DC-007 | High | Camera switch on tablet/landscape | Camera setup used fixed image-rotation assumptions. | Fixed; unit-tested and emulated-camera startup confirmed | Real-person face/eye classification still requires a physical-device test |
 | DC-008 | Medium | Web viewport sizing | Web CSS used `100vh` for the shell and lacked tablet landscape coverage. | Fixed; browser and tablet emulator confirmed | Dynamic viewport units and the tablet landscape layout remain release-gated by E2E |
 | DC-009 | Medium | Config/input-test panels | Bottom action reachability under system UI needed direct Android evidence. | Fixed; tablet emulator confirmed | Config and Input Test actions remained clear of the visible Android taskbar |
-| DC-010 | Medium | Accessibility scaling | Large text could break AAC cells and consume the Camera Setup preview. | Fixed; browser and API 34 emulator confirmed at font scale 2.0 | Confirm vendor-specific font/display scaling during physical Samsung UX review |
+| DC-010 | High | Accessibility scaling | Large text hid Camera setup actions and made absolutely positioned function cues overlap labels on the target Samsung, despite earlier browser/emulator coverage. | Source correction passes Web geometry, Kotlin compile, and unit tests; physical confirmation open | Test 200% font, larger display size, and their combination on the reporting Samsung before the next upload |
 
 ## Release Decision
 
-The code-44 signed AAB is the current Google Play Internal testing upload artifact. API-36 compile/lint and rendered adaptive-layout checks pass; the most recent complete runtime suite remains the earlier API 34 code-40 run, while the current code-44 API 34 launch was limited by unrelated emulator system ANRs. The physical-device checklist for testers still includes:
+The code-47 signed AAB is the current conditional Google Play closed-testing artifact. API-36 release build and rendered adaptive-layout checks pass; the most recent complete runtime suite remains the earlier API 34 code-40 run. The physical-device checklist for testers still includes:
 
 - main board bottom row clear of system controls
 - camera setup controls clear of system controls
 - screen stays awake
 - composed text survives rotation/reload/background
 
-Tablet runtime compatibility was verified on an API 34 `sw800dp` emulator in portrait and landscape, and the current code-44 rendered WebView suite passes the same adaptive viewports. A healthy Android 16 tablet-class runtime remains required before broader promotion. Store tablet screenshots are not runtime evidence by themselves.
+Tablet runtime compatibility was verified on an API 34 `sw800dp` emulator in portrait and landscape, and the current code-47 rendered WebView suite passes the same adaptive viewports. A healthy Android 16 tablet-class runtime remains required before broader promotion. Store tablet screenshots are not runtime evidence by themselves.
 
 ## Required Next Review Run
 

@@ -30,6 +30,7 @@ Useful docs:
 - [Release Process](docs/RELEASE_PROCESS.md)
 - [AAC Core](packages/aac-core/README.md)
 - [Testing Report](docs/TESTING_REPORT.md)
+- [Text And Display Scaling Policy](docs/TEXT_SCALING_POLICY.md)
 - [Windows/Browser App Report](docs/WINDOWS_APP_REPORT.md)
 - [Play Internal Testing Report](docs/PLAY_INTERNAL_TESTING_REPORT.md)
 - [Side-load APK Report](docs/APK_REPORT.md)
@@ -63,8 +64,8 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - Row/column switch scanning with a large switch input.
 - Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
 - An optional row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts. The MVP default is `0 ms`, which skips this state entirely because the current transition/escape interaction was hurting basic use.
-- A configurable first-symbol hold. By default it is longer than the normal scan speed so column 1 does not feel rushed.
-- A default review hold after suggestion changes. Scanning pauses on the current highlight with the existing progress fill held full-width; the next activation starts scanning again. Helpers can turn this off.
+- A configurable first-symbol hold. By default it matches the normal scan speed; a named support preset remains available for users who need longer on column 1.
+- An optional review hold after suggestion changes. It is off by default so selecting a word immediately resumes scanning; helpers can opt in when a user needs an explicit review pause.
 - Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
 - A blinking message cursor so trailing spaces are visible.
@@ -72,7 +73,7 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
 - Voice feedback for row scanning, symbol scanning, and activated targets, configurable by a helper. Row-scan voice is off by default; symbol and activation voice remain on.
-- A developer-only demo mode. On a phone, long-press `Config` to start the extended everyday conversation demo; tap anywhere to exit. Browser builds can also start it with `?demo=water` or `localStorage["shine-aac-demo-mode"]="water"`. It emits the same activation intents as real input, includes word selections, alphabet spelling across deeper rows, speech, clear, `DEL`, and `UNDO` correction.
+- A developer-only demo mode. On a phone, long-press `Config` to start the extended everyday conversation demo; tap anywhere to exit. Browser builds can also start it with `?demo=water` or `localStorage["shine-aac-demo-mode"]="water"`. It emits the same activation intents as real input, including word selections, alphabet spelling across deeper rows, speech, clear, and `UNDO` correction.
 - Different visual styles for text-entry targets, space, speak, and repair functions such as `CLR`, `UNDO`, and `DEL`.
 - Adjustable scan speed, transition pause, first-symbol hold, suggestion-review hold, and input-latency compensation.
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
@@ -95,7 +96,7 @@ The message area always shows a blinking `|` cursor after the current message. T
 
 Word selections automatically add a trailing space. Letter selections do not. This removes routine `SPC` selections after words while keeping letter-by-letter spelling predictable. If the user completes a partial word such as `movi` with `MOVIE`, the message becomes `movie `.
 
-Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, delete, clear, or space with one selection instead of requiring several corrective inputs.
+Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, clear, or space with one selection instead of requiring several corrective inputs. Built-in boards therefore do not show a separate backspace key.
 
 The progress hint is drawn as a full-height fill inside the active highlighted row or symbol so it stays close to the user's gaze target and is easy to see:
 
@@ -192,7 +193,7 @@ MOVIE=movie
 BED=bed
 ```
 
-Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, default suggestion-review hold, voice defaults, and input-latency compensation window.
+Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, suggestion-review hold off, voice defaults, and input-latency compensation window.
 
 To build locally, install the Android SDK and either set `ANDROID_HOME` or create `local.properties` with:
 

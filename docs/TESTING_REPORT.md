@@ -1,10 +1,10 @@
 # SHINE AAC Testing Report
 
-Current packaged candidate: 0.2.41, Android code 44, targeting Android 16 / API level 36.
+Current amended source: 0.2.44, Android code 47, targeting Android 16 / API level 36. The APK/AAB were rebuilt and signed from the current timer and recommendation source on 2026-08-10.
 
-The signed code-44 AAB supersedes code 43. It raises the compile and target SDK to 36 while retaining the verified text-history, Zhuyin, demo, Android back-navigation, and file-export behavior.
+The amended code-47 APK and AAB retain the learnability/export changes and add adaptive large-text layout, shared English suggestions inside zh-TW, compact mixed-script composition, consistent function labels, and complete Traditional Chinese setup/status text.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.41.md`
+Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.44.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 
@@ -13,15 +13,42 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Layer | Result | Evidence |
 | --- | --- | --- |
 | Clean dependency install | PASS | 0 vulnerabilities |
-| Full core and efficiency | PASS | 215 / 215 tests; 103 / 103 benchmark tasks |
+| Functional core | PASS | 119 / 119 quick core tests; 3 / 3 web configuration tests |
+| Full core and efficiency | REGRESSION | focused communication suite: 108 / 109; `shine-current-want-water` remains reachable but exceeds its frozen scan-time baseline after duplicate shortcuts were removed |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
-| Source and packaged browser E2E | PASS | 34 source steps; 35 packaged steps including the asset build |
-| Android APK lifecycle | PASS | local code-41 debug build: back gesture, hardware input, and process recreation |
-| APK package | PASS | retained `shine-aac-v0.2.37-code40-debug.apk`; SHA-256 verified |
-| Play Internal testing AAB | PASS | signed `shine-aac-v0.2.41-code44-release.aab`; API 36 manifest, checksum, byte identity, structure, and bundle signature verified |
+| Source and packaged browser E2E | PASS | complete source run followed by rebuilt packaged-WebView run, including large text, tablet, zh-TW locale, Demo, and embedded-English nonredundancy |
+| Android APK lifecycle | PASS | code-47 emulator: Config Demo, hardware input, process recreation, and zh-TW rendering |
+| Signed release APK | PASS | current code-47 APK; SHA-256 `87274611c7f57dd6f4e613529687d7726c013229d351e76d46cbe9636b70cf42` |
+| Play Internal testing AAB | PASS | current code-47 AAB; SHA-256 `1f1a55c481e852577ed8144b4299cf049602de9d6aed54da30ca3abdb1db5620` |
 | Human UX | OPEN | physical-device owner/helper/user review required |
 
-The signed AAB is ready for Google Play Internal testing upload. The debug APK is retained only for direct-install runtime evidence and must not be uploaded to Play Console. GitHub Release publication is unrelated to the Play Internal testing handoff.
+The current APK is ready for closed-tester handoff. The frozen communication-efficiency regression remains recorded and must be explicitly accepted before wider promotion or a Play upload.
+
+## 2026-08-09 0.2.44 Code-47 Amendment
+
+- Recommendation generation now performs core-level semantic/action-label deduplication against the full static board before truncation. English, custom, zh-TW, and embedded-English tests cover the invariant; in `podca`, `E`, `T`, and `空格` remain only in the static grid.
+- Focused verification after this amendment: quick core/web PASS (114 / 114 and 2 / 2); source and rebuilt packaged-WebView E2E PASS. Communication benchmark REGRESSION (108 / 109): `shine-current-want-water` rises from 6.4 s to 16.7 s because it must scan the static board instead of duplicate recommendation shortcuts. The frozen baseline was not rewritten.
+- Function and word keys share spacing and typography. Built-in boards expose `英文`, `朗讀`, and `清除`, while contextual `復原` handles both single-input and compound-operation correction without a separate visible backspace key.
+- Camera setup keeps `開始`, `測試`, and `完成` visible while secondary hold/zoom controls scroll, and all its zh-TW status text is localized.
+- WebView text zoom follows Android font scale up to 200%; fixed cell labels have a tested 10px fitting floor.
+- The zh-TW English sub-board reuses English suggestions and trims automatic boundary spaces; the demo now composes `聽podcast新資料夾` without selecting spaces.
+- Full core/communication suite: PASS, 222 / 222. Final packaged WebView E2E: PASS, 41 steps. Kotlin compilation and Android unit tests: PASS.
+- Physical Samsung combined font/display-size verification: OPEN and required before broader promotion.
+- Signed APK: 42,345,611 bytes; SHA-256 `25d9a288264835cc103216f22b395c1276fd21416fb98dda57899deaa9a91ece`.
+- Signed AAB: 22,036,425 bytes; SHA-256 `d725f2f361961cc81533f008dabcd8fd72a01c60d2b4e8e9dd60dd65ce5e7056`.
+
+## 2026-08-08 0.2.43 Learnability And Export Candidate
+
+- All 37 Zhuyin symbols are directly visible in seven stable rows; recommendation rows exclude redundant static symbols and hidden placeholders are not scanned.
+- Function keys have consistent badges/icons. `復原` restores the prior candidate page, `EN` is announced as `英文`, and the header replaces `First` with `目前：選列／選格` beside a distinct `⚙ 設定` control.
+- Text export uses Android Save As, reports the actual saved filename, and can open that exact document immediately. The user guide now has a dedicated export section.
+- Quick core/web unit: PASS, 110 / 110 and 2 / 2.
+- Source and packaged WebView E2E: PASS, 37 and 38 steps.
+- Android inputs/lint/release build: PASS; 14 / 14 input tests, no lint errors, and signed APK/AAB produced.
+- Full core: 220 / 221. All 103 communication tasks pass and activations improve from 846 to 822, but frozen scan-time thresholds fail because the new 1,800 ms default is intentionally slower than the 1,300 ms baseline.
+- Signed APK: 42,326,335 bytes; SHA-256 `3aebcfbda7f202ffcca7ef35a176fe29e1a9de5855b5c605c658621d057372e0`.
+- Signed AAB: 22,030,625 bytes; SHA-256 `18119ebe87e13303772d00680c60e4f97f5ecdace9fcddb87e87c9563ea9cb7d`.
+- Release boundary: conditional Internal-testing candidate; exact source commit/tag and human timing/board review remain open.
 
 ## 2026-07-22 0.2.41 Android 16 Target
 
@@ -60,11 +87,11 @@ The signed AAB is ready for Google Play Internal testing upload. The debug APK i
 
 ## 2026-07-19 Post-0.2.38 Text History And File Export
 
-- Text-history persistence now maintains one mutable line for the current text area. Composition, suggestion completion, undo, Zhuyin repair, backspace, and delete update that line instead of appending snapshots.
+- Text-history persistence now maintains one mutable line for the current text area. Composition, suggestion completion, undo, and Zhuyin repair update that line instead of appending snapshots.
 - Selecting `CLR`, activating demo reset, or applying a configuration reset/save closes the current line; the next non-empty text starts a new line.
 - Stored version-1 snapshots migrate as completed lines so existing local history is not discarded. Version-2 live lines remain editable across WebView reload and Activity recreation.
 - Export content is UTF-8 plain text with one non-empty history entry per line and no diagnostic metadata. Browser export downloads a `.txt`; Android uses the system Create Document picker with a suggested dated filename.
-- Source Web E2E: PASS, 34 steps. Packaged-WebView E2E: PASS, 35 steps including packaged asset preparation. Coverage includes correction/delete updates, explicit-reset boundaries, and version-1 migration.
+- Source and packaged-WebView E2E cover contextual undo correction, explicit-reset boundaries, and version-1 history migration.
 - Android compile/unit verification: PASS; `testDebugUnitTest` completed successfully and `assembleDebug` completed 99 tasks.
 - Android 14 emulator export smoke: PASS; the system DocumentsUI picker opened, created the suggested `.txt`, wrote the expected line-based UTF-8 content, returned to `MainActivity`, and the temporary test file was removed.
 - Release boundary: included in the 0.2.39 code-42 AAB; not included in 0.2.38 code 41.

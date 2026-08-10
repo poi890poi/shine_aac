@@ -16,7 +16,7 @@ http://127.0.0.1:5173/apps/web/
 
 Use mouse click, touch, `Space`, or `Enter` as the single switch input. Configuration is available from the top panel and is stored in browser `localStorage`.
 
-Composed message text is saved locally as bounded text history. The configuration panel includes `Export text`, which downloads a plain-text transcript. If local history grows too large, the app removes the oldest saved entries first.
+Composed message text is saved locally as bounded text history. In the zh-TW profile, the configuration panel labels this action `匯出文字記錄`. The browser downloads a UTF-8 plain-text transcript and offers `查看匯出內容` for immediate confirmation. Android uses the system Save As picker, reports the actual saved filename, and offers `開啟文字檔` for the exact document. If local history grows too large, the app removes the oldest saved entries first.
 
 ## Test
 

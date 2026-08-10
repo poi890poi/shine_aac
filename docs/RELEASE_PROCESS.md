@@ -55,24 +55,28 @@ When `docs\releases\vX.Y.Z.md` exists, packaging copies it into the artifact dir
 Do not share `app-debug.apk` directly. It is an intermediate build output and is overwritten on every build.
 Do not commit APK, AAB, or ZIP files. The debug APK is for direct-install smoke testing only. Do not upload it to Play Console.
 
-## Google Play AAB
+## Signed Release APK And Google Play AAB
 
-Google Play uploads should use a signed release Android App Bundle, not the debug APK.
+Google Play uploads should use a signed release Android App Bundle, not an APK.
+The same release build also creates a signed APK for direct installation.
 
-Generate an upload keystore outside Git, then build and package the signed AAB with:
+Generate an upload keystore outside Git, then build and package both signed artifacts with:
 
 ```powershell
 .\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties
 ```
 
-The upload bundle and checksum are created at:
+The versioned artifacts and checksums are created at:
 
 ```text
-.artifacts\releases\v0.2.38\shine-aac-v0.2.38-code41-release.aab
-.artifacts\releases\v0.2.38\PLAY_AAB_SHA256SUMS.txt
+.artifacts\releases\v0.2.44\shine-aac-v0.2.44-code47-release.apk
+.artifacts\releases\v0.2.44\RELEASE_APK_SHA256SUMS.txt
+.artifacts\releases\v0.2.44\shine-aac-v0.2.44-code47-release.aab
+.artifacts\releases\v0.2.44\PLAY_AAB_SHA256SUMS.txt
+.artifacts\releases\v0.2.44\RELEASE_NOTES.md
 ```
 
-`app\build\outputs\bundle\release\app-release.aab` is an overwriteable intermediate output. Upload the versioned AAB from `.artifacts` to the Google Play Internal testing track. Confirm its version code has not already been used in Play Console.
+The APK and AAB under `app\build\outputs` are overwriteable intermediate outputs. Use the versioned APK for direct installation, and upload the versioned AAB from `.artifacts` to the Google Play Internal testing track. Confirm its version code has not already been used in Play Console.
 
 Keep the real keystore properties file and `.jks` file out of Git. Use `keystore.properties.example` as the template.
 
@@ -84,7 +88,7 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
 4. Run `npm run test:web:e2e` and `npm run test:web:packaged`.
 5. Run `.\package-release.bat -SdkDir E:\Android\Sdk` and use the debug APK for the direct-install runtime smoke.
 6. Run `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
-7. Verify the versioned AAB, `PLAY_AAB_SHA256SUMS.txt`, version name, version code, and signing identity.
+7. Verify the versioned signed APK and AAB, both checksum files, version name, version code, and signing identity.
 8. Create and push tag `vX.Y.Z` on the exact application source commit.
 9. Upload the versioned `.aab` to Play Console Internal testing and configure testers. Do not upload the debug APK.
 

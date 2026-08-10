@@ -1,22 +1,22 @@
 # Google Play Submission Packet
 
-This packet is the review checklist for the first Google Play internal testing submission of SayToMe AAC / 我想說. The primary audience is Taiwan Traditional Chinese users and helpers.
+This packet is the review checklist for the current Google Play closed-testing submission of SayToMe AAC / 我想說. The primary audience is Taiwan Traditional Chinese users and helpers.
 
 ## Build To Upload
 
-- Track: Internal testing first
+- Track: Closed testing
 - Package id: `org.shineaac.app`
-- Current source version: `0.2.41`
-- Current source version code: `44`
+- Current source version: `0.2.44`
+- Current source version code: `47`
 - Compile and target SDK: `36`
-- Source tag: `v0.2.41`
-- Signed AAB: `.artifacts/releases/v0.2.41/shine-aac-v0.2.41-code44-release.aab`
-- Signed AAB SHA-256: `ffe2ae5825e187db75ec88f0e6e50822f3aa656cdd8bd2b56023a421fd9dbf3e`
-- AAB checksum file: `.artifacts/releases/v0.2.41/PLAY_AAB_SHA256SUMS.txt`
+- Source tag: pending `v0.2.44`
+- Signed AAB: `.artifacts/releases/v0.2.44/shine-aac-v0.2.44-code47-release.aab`
+- Signed AAB SHA-256: `d725f2f361961cc81533f008dabcd8fd72a01c60d2b4e8e9dd60dd65ce5e7056`
+- AAB checksum file: `.artifacts/releases/v0.2.44/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload the debug APK or the superseded code-43 AAB to Google Play. Upload the versioned signed code-44 release AAB above.
+Do not upload an APK or any superseded bundle to Google Play. After committing and tagging the exact source and confirming that code 47 is unused, upload the versioned signed code-47 AAB above.
 
 ## Store Listing
 
@@ -30,7 +30,33 @@ The listing should keep the early-development warning and avoid medical-device o
 
 ## Release Notes
 
-Use this for 0.2.41 Internal testing:
+Use this for 0.2.44 closed testing:
+
+```text
+早期測試版本，主要給台灣繁體中文使用者與協助者試用。
+
+- 修正放大系統字體或顯示大小時，功能鍵文字與圖示重疊的問題
+- 繁中英文輸入區也會顯示英文候選字詞，中英文相接時不必另外選空格
+- 內建介面以「復原」處理單字、字母、注音與整個候選字詞的上一步操作，不再顯示容易混淆的「刪除」鍵
+- 設定、輸入測試及相機設定改用繁體中文；放大字體時按鍵仍會自動調整
+- 相機設定的「開始」「測試」「完成」固定顯示；其他調整可捲動
+- 請以最大字體及較大顯示設定測試；這仍不是唯一或緊急溝通方式
+```
+
+Previous 0.2.43 notes retained for reference:
+
+```text
+早期測試版本，主要給台灣繁體中文使用者與協助者試用。
+
+- 37 個注音符號都固定顯示在第一層，不必再用「更多」尋找
+- 功能鍵、目前選列／選格狀態與「⚙ 設定」更容易分辨
+- 「復原」會回到原本候選頁；「英文」會朗讀為「英文」
+- 預設掃描速度放慢，既有自訂速度不變
+- 匯出後會顯示實際檔名，並可直接「開啟文字檔」
+- 這仍是早期開發版本，不能作為唯一或緊急溝通方式
+```
+
+Previous 0.2.41 notes retained for reference:
 
 ```text
 早期測試版本，主要給台灣繁體中文使用者與協助者試用。
@@ -49,7 +75,7 @@ Previous 0.2.40 notes retained for reference; do not upload its code-43 AAB:
 
 - 修正升級後文字紀錄仍列出每次注音、英文與候選字輸入的問題
 - 舊紀錄會整理成每次清除文字區前的最終內容
-- 候選字、刪除與復原仍更新同一行，只有重設文字區才新增一行
+- 候選字與復原仍更新同一行，只有重設文字區才新增一行
 - 保留 Android 返回上一頁與另存 UTF-8 文字檔功能
 - 請從前一個測試版本直接升級，不要先清除 app 資料
 - 這仍是早期開發版本，不能作為唯一或緊急溝通方式
@@ -177,7 +203,7 @@ SayToMe AAC / 我想說 is an early development communication support tool. It i
 
 ## Verification To Refresh Before Upload
 
-- Confirm in Play Console that version code 44 has not already been used.
+- Confirm in Play Console that version code 46 has not already been used.
 - Rerun the full pre-release verification gate.
 - Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 - Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.
