@@ -74,7 +74,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 21;
+export const CurrentConfigVersion = 22;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -369,7 +369,7 @@ export const DefaultSuggestionDictionary = Object.freeze(
 const frequencyLetters = ["E", "T", "A", "O", "I", "N", "S", "R", "H", "L", "D", "C", "U", "M", "F", "P", "G", "W", "Y", "B", "V", "K", "X", "J", "Q", "Z"];
 const letterTile = (label) => tile(label, label.toLowerCase());
 
-export const DefaultTiles = Object.freeze([
+const DefaultTilesWithBackspaceV21 = Object.freeze([
   tile("YES", "yes"),
   tile("NO", "no"),
   tile("HELP", "help"),
@@ -390,6 +390,9 @@ export const DefaultTiles = Object.freeze([
   tile("SPC", " ", TileAction.Space),
   ...frequencyLetters.map(letterTile)
 ]);
+export const DefaultTiles = Object.freeze(
+  DefaultTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
+);
 
 export const LegacyFrequencyDefaultTilesV3 = Object.freeze([
   tile("YES", "yes"),
@@ -692,7 +695,7 @@ export const ZhTwPhraseCategories = Object.freeze({
   })
 });
 
-export const ZhTwTiles = Object.freeze([
+const ZhTwTilesWithBackspaceV21 = Object.freeze([
   ...ZhTwCoreResponseTiles,
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
   categoryTile("英文", EnglishCategoryId),
@@ -700,6 +703,9 @@ export const ZhTwTiles = Object.freeze([
   tile("刪除", "DEL", TileAction.Backspace),
   tile("清除", "CLR", TileAction.Clear)
 ]);
+export const ZhTwTiles = Object.freeze(
+  ZhTwTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
+);
 
 const LegacyZhTwTilesV18 = Object.freeze([
   ...ZhTwCoreResponseTiles,
@@ -1013,7 +1019,11 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
   }
   if (
     storedVersion < CurrentConfigVersion &&
-    (sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) || sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3))
+    (
+      sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) ||
+      sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3) ||
+      sameTiles(parsedSymbols, DefaultTilesWithBackspaceV21)
+    )
   ) {
     return DefaultTiles;
   }
@@ -1060,6 +1070,7 @@ function migrateSuggestionDictionaryForConfig(parsedDictionary, storedVersion, p
 function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
   if (storedVersion >= CurrentConfigVersion) return false;
   if (sameTiles(symbols, LegacyZhTwTilesV18)) return true;
+  if (sameTiles(symbols, ZhTwTilesWithBackspaceV21)) return true;
   if (sameTiles(symbols, ZhTwTiles)) return true;
   const labels = new Set(symbols.map((candidate) => candidate.label));
   const hasDirectZhuyinBoard = LegacyZhuyinStaticInputSymbolsV18.every((symbol) => labels.has(symbol)) &&
