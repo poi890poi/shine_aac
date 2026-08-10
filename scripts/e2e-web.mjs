@@ -15,9 +15,13 @@ const debugPort = Number(process.env.SHINE_AAC_CDP_PORT ?? 9223);
 const edgePath = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const profileDir = join(process.env.TEMP ?? artifactDir, `shine-aac-edge-${Date.now()}`);
 const packagedWebViewMode = process.argv.includes("--packaged-webview");
-const appPath = packagedWebViewMode
+const timingOnlyMode = process.argv.includes("--timing-only");
+const zhTwLayoutOnlyMode = process.argv.includes("--zh-tw-layout-only");
+const zhTwLanguageSwitchOnlyMode = process.argv.includes("--zh-tw-language-switch-only");
+const packagedReferenceMode = Boolean(process.env.SHINE_AAC_APP_PATH);
+const appPath = process.env.SHINE_AAC_APP_PATH ?? (packagedWebViewMode
   ? "/app/build/generated/assets/shineWeb/www/apps/web/"
-  : "/apps/web/";
+  : "/apps/web/");
 const appUrl = `http://127.0.0.1:${webPort}${appPath}`;
 const HttpStartupTimeoutMs = 30000;
 const UiWaitTimeoutMs = 30000;
@@ -57,6 +61,8 @@ try {
   edgeProcess = spawn(edgePath, [
     "--headless=new",
     "--disable-gpu",
+    "--disable-gpu-compositing",
+    "--disable-features=Vulkan,WebGPU",
     "--disable-background-networking",
     "--no-first-run",
     "--no-default-browser-check",
@@ -91,7 +97,20 @@ try {
   if (!firstRunLabels.includes("\u3105") || firstRunLabels.includes("I")) {
     throw new Error(`Clean first launch did not use the zh-TW profile: ${JSON.stringify(firstRunLabels)}`);
   }
-  steps.push(pass("first-run-profile", "clean storage opens the zh-TW communication board"));
+  const firstRunHeader = await evaluate(`({
+    phase: document.querySelector(".phase")?.textContent ?? "",
+    voice: document.querySelector(".voice")?.textContent ?? "",
+    settings: document.querySelector(".config-button")?.textContent ?? ""
+  })`);
+  if (!packagedReferenceMode && (
+    !firstRunHeader.phase.startsWith("目前：") ||
+    /Rows|First|Symbols/.test(firstRunHeader.phase) ||
+    !firstRunHeader.voice.startsWith("語音：") ||
+    firstRunHeader.settings !== "⚙ 設定"
+  )) {
+    throw new Error(`Clean first launch header is not instructional zh-TW: ${JSON.stringify(firstRunHeader)}`);
+  }
+  steps.push(pass("first-run-profile", "clean storage opens the zh-TW board with instructional status and a distinct Settings control"));
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
@@ -103,6 +122,7 @@ try {
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
@@ -116,6 +136,29 @@ try {
   await waitForUi();
   steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
+  if (zhTwLayoutOnlyMode) {
+    await scenarioZhTwLayoutMigration();
+    writeReport(true);
+    console.log("ZH-TW LAYOUT E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+  if (zhTwLanguageSwitchOnlyMode) {
+    await scenarioZhTwLanguageSwitchReviewHold();
+    writeReport(true);
+    console.log("ZH-TW LANGUAGE SWITCH E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+
+  await scenarioStrictScanTiming();
+  if (timingOnlyMode) {
+    writeReport(true);
+    console.log("SCAN TIMING E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+
   await scenarioFirstColumnProgressTiming();
   await scenarioCameraHoldPausesScan();
   await scenarioCameraHoldActivationIsImmediate();
@@ -125,14 +168,18 @@ try {
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioAppInfoPage();
+  await scenarioTextExportResult();
   await scenarioSpeechVoiceSettings();
   await scenarioBackNavigation();
   await scenarioDeveloperDemoMode();
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioTabletViewportCompatibility();
   await scenarioLargeTextLabelCompatibility();
+  await scenarioLongEnglishSuggestionSpans();
   await scenarioZhTwLayoutMigration();
   await scenarioZhTwResetUsesPackagedDefaults();
+  await scenarioFunctionLabelScaleMatrix();
+  await scenarioZhTwLocaleConsistency();
   await scenarioZhTwLanguageSwitchReviewHold();
   await assertNoViewportOverflow("zh-tw-pixel-4a-5g-layout");
   await scenarioZhTwHomeDemoMode();
@@ -165,19 +212,19 @@ try {
 
 async function scenarioPhraseAndUndo() {
   await assertMessage("");
-  await selectLabel("I", { rowIndex: 0 });
+  await selectLabel("I");
   await assertMessage("I ");
-  await assertSuggestionLabels(["UNDO", "WANT", "NEED", "FEEL"]);
-  await selectLabel("WANT", { rowIndex: 0 });
+  await assertSuggestionLabels(["UNDO", "THE", "TO", "OF"]);
+  await selectLabel("WANT");
   await assertMessage("I want ");
-  await assertSuggestionLabels(["UNDO", "DRINK", "WATER", "FOOD"]);
-  await selectLabel("WATER", { rowIndex: 0 });
+  await assertSuggestionLabels(["UNDO", "THE", "TO", "OF"]);
+  await selectLabel("WATER");
   await assertMessage("I want water ");
   steps.push(pass("phrase", "entered I want water with automatic trailing space through visible row/column scanning"));
 
   await selectLabel("UNDO", { rowIndex: 0 });
   await assertMessage("I want ");
-  await selectLabel("FOOD", { rowIndex: 0 });
+  await selectLabel("FOOD");
   await assertMessage("I want food ");
   steps.push(pass("undo-correction", "undid WATER and selected FOOD"));
 
@@ -204,6 +251,212 @@ async function scenarioPhraseAndUndo() {
   await waitForUi();
   await assertMessage("I want food ");
   steps.push(pass("session-draft", "restored current composed message after reload"));
+}
+
+async function scenarioStrictScanTiming() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 24,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: 600,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 600,
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
+
+  await evaluate(`
+    (() => {
+      globalThis.__strictScanTiming?.observer?.disconnect();
+      const appElement = document.querySelector("#app");
+      const state = {
+        events: [],
+        lastTarget: "",
+        activationScheduled: false,
+        selectionScheduled: false,
+        resetRequestedAt: 0,
+        observer: null,
+        transitionListener: null
+      };
+      const targetState = () => {
+        const phase = document.querySelector(".phase")?.dataset.scanPhase ?? "";
+        const tile = document.querySelector(".tile.is-current");
+        const row = tile?.closest(".row");
+        const board = row?.closest(".board");
+        const rowIndex = row && board ? [...board.children].indexOf(row) : -1;
+        const cellIndex = tile && row ? [...row.children].indexOf(tile) : -1;
+        return { phase, rowIndex, cellIndex, signature: phase + ":" + rowIndex + ":" + cellIndex };
+      };
+      const record = (kind, details = {}) => {
+        state.events.push({ kind, at: performance.now(), ...targetState(), ...details });
+      };
+      const recordTarget = () => {
+        const current = targetState();
+        if (current.rowIndex < 0 || current.signature === state.lastTarget) return;
+        state.lastTarget = current.signature;
+        state.events.push({ kind: "target", at: performance.now(), ...current });
+      };
+      state.observer = new MutationObserver(recordTarget);
+      state.observer.observe(appElement, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+      state.transitionListener = (event) => {
+        if (event.propertyName !== "transform" || !event.target.matches(".progress-fill")) return;
+        const firstActiveFill = document.querySelector(".tile.is-current .progress-fill");
+        if (event.target !== firstActiveFill) return;
+        const kind = event.type === "transitionrun" ? "progress-run" : "progress-end";
+        const durationMs = Number.parseFloat(getComputedStyle(event.target).transitionDuration) * 1000;
+        record(kind, { durationMs });
+        const current = targetState();
+        if (
+          kind === "progress-run" &&
+          current.phase === "Rows" &&
+          current.rowIndex === 1 &&
+          !state.activationScheduled
+        ) {
+          state.activationScheduled = true;
+          window.setTimeout(() => {
+            record("activation", { purpose: "row" });
+            globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
+          }, Math.min(400, Math.max(120, durationMs * 0.35)));
+        }
+        if (
+          kind === "progress-run" &&
+          current.phase === "Symbols" &&
+          current.cellIndex === 2 &&
+          !state.selectionScheduled
+        ) {
+          state.selectionScheduled = true;
+          window.setTimeout(() => {
+            record("activation", { purpose: "selection" });
+            globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
+          }, Math.min(400, Math.max(120, durationMs * 0.35)));
+        }
+      };
+      appElement.addEventListener("transitionrun", state.transitionListener);
+      appElement.addEventListener("transitionend", state.transitionListener);
+      globalThis.__strictScanTiming = state;
+
+      document.querySelector(".config-button")?.click();
+      const resetButton = document.querySelector('[data-action="reset"]');
+      if (!resetButton) throw new Error("Timing probe could not open configuration");
+      state.events.length = 0;
+      state.lastTarget = "";
+      state.resetRequestedAt = performance.now();
+      resetButton.click();
+    })()
+  `);
+  await delay(8000);
+  const trace = await evaluate(`
+    (() => {
+      const state = globalThis.__strictScanTiming;
+      state?.observer?.disconnect();
+      if (state?.transitionListener) {
+        document.querySelector("#app")?.removeEventListener("transitionrun", state.transitionListener);
+        document.querySelector("#app")?.removeEventListener("transitionend", state.transitionListener);
+      }
+      return { resetRequestedAt: state?.resetRequestedAt ?? 0, events: state?.events ?? [] };
+    })()
+  `);
+
+  const eventAfter = (kind, afterAt, predicate = () => true) => trace.events.find((event) =>
+    event.kind === kind && event.at >= afterAt && predicate(event)
+  );
+  const resetTarget = eventAfter("target", trace.resetRequestedAt, (event) => event.phase === "Rows");
+  const rowRun = eventAfter("progress-run", resetTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows");
+  const nextRowTarget = eventAfter("target", rowRun?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows" && event.rowIndex === 1);
+  const nextRowRun = eventAfter("progress-run", nextRowTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows" && event.rowIndex === 1);
+  const activation = eventAfter("activation", nextRowRun?.at ?? trace.resetRequestedAt, (event) => event.purpose === "row");
+  const firstTarget = eventAfter("target", activation?.at ?? trace.resetRequestedAt, (event) => event.phase === "First");
+  const firstRun = eventAfter("progress-run", firstTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "First");
+  const secondTarget = eventAfter("target", firstRun?.at ?? trace.resetRequestedAt, (event) => event.phase === "Symbols" && event.cellIndex === 1);
+  const secondRun = eventAfter("progress-run", secondTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Symbols" && event.cellIndex === 1);
+  const thirdTarget = eventAfter("target", secondRun?.at ?? trace.resetRequestedAt, (event) => event.phase === "Symbols" && event.cellIndex === 2);
+  const thirdRun = eventAfter("progress-run", thirdTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Symbols" && event.cellIndex === 2);
+  const selectionActivation = eventAfter("activation", thirdRun?.at ?? trace.resetRequestedAt, (event) => event.purpose === "selection");
+  const postSelectionTarget = eventAfter("target", selectionActivation?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows");
+  const postSelectionRun = eventAfter("progress-run", postSelectionTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows");
+  const required = {
+    resetTarget,
+    rowRun,
+    nextRowTarget,
+    nextRowRun,
+    activation,
+    firstTarget,
+    firstRun,
+    secondTarget,
+    secondRun,
+    thirdTarget,
+    thirdRun,
+    selectionActivation,
+    postSelectionTarget,
+    postSelectionRun
+  };
+  if (Object.values(required).some((event) => !event)) {
+    throw new Error(`Strict scan timing trace is incomplete: ${JSON.stringify(trace)}`);
+  }
+
+  const metrics = {
+    resetToTargetMs: resetTarget.at - trace.resetRequestedAt,
+    resetTargetToProgressMs: rowRun.at - resetTarget.at,
+    rowDeadlineDriftMs: nextRowTarget.at - (rowRun.at + rowRun.durationMs),
+    nextRowTargetToProgressMs: nextRowRun.at - nextRowTarget.at,
+    activationToTargetMs: firstTarget.at - activation.at,
+    activationTargetToProgressMs: firstRun.at - firstTarget.at,
+    firstDeadlineDriftMs: secondTarget.at - (firstRun.at + firstRun.durationMs),
+    secondTargetToProgressMs: secondRun.at - secondTarget.at,
+    laterDeadlineDriftMs: thirdTarget.at - (secondRun.at + secondRun.durationMs),
+    thirdTargetToProgressMs: thirdRun.at - thirdTarget.at,
+    selectionToTargetMs: postSelectionTarget.at - selectionActivation.at,
+    selectionTargetToProgressMs: postSelectionRun.at - postSelectionTarget.at
+  };
+  const maximumVisibleGapMs = 80;
+  const maximumDeadlineDriftMs = 50;
+  const failures = [
+    ["reset to target", metrics.resetToTargetMs, maximumVisibleGapMs],
+    ["reset target to progress", metrics.resetTargetToProgressMs, maximumVisibleGapMs],
+    ["next row target to progress", metrics.nextRowTargetToProgressMs, maximumVisibleGapMs],
+    ["activation to target", metrics.activationToTargetMs, maximumVisibleGapMs],
+    ["activation target to progress", metrics.activationTargetToProgressMs, maximumVisibleGapMs],
+    ["second target to progress", metrics.secondTargetToProgressMs, maximumVisibleGapMs],
+    ["third target to progress", metrics.thirdTargetToProgressMs, maximumVisibleGapMs],
+    ["selection to target", metrics.selectionToTargetMs, maximumVisibleGapMs],
+    ["selection target to progress", metrics.selectionTargetToProgressMs, maximumVisibleGapMs]
+  ].filter(([, value, limit]) => value < 0 || value > limit);
+  for (const [name, value] of [
+    ["row deadline drift", metrics.rowDeadlineDriftMs],
+    ["first deadline drift", metrics.firstDeadlineDriftMs],
+    ["later deadline drift", metrics.laterDeadlineDriftMs]
+  ]) {
+    if (Math.abs(value) > maximumDeadlineDriftMs) failures.push([name, value, maximumDeadlineDriftMs]);
+  }
+  if (failures.length > 0) {
+    throw new Error(`Strict scan timing gaps exceeded limits: ${JSON.stringify({ metrics, failures, events: trace.events })}`);
+  }
+  steps.push(pass("strict-scan-timing", `non-polling trace ${JSON.stringify(metrics)}`));
+  await selectLabel("CLR", { activationDelayMs: 300 });
+  await assertMessage("");
+  await evaluate(`
+    localStorage.removeItem("shine-aac-text-history-v1");
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
 }
 
 async function scenarioFirstColumnProgressTiming() {
@@ -441,14 +694,24 @@ async function scenarioClearAndMovie() {
     await selectLabel(label, { occurrence: "last" });
   }
   await assertMessage("movi");
-  await assertSuggestionLabels(["UNDO", "SPC", "MOVIE", "E"]);
+  await assertSuggestionLabels(["UNDO", "MOVIE", "MOVING"]);
+  const spellingSuggestionRows = await evaluate(`document.querySelectorAll(".dynamic-suggestion-row").length`);
+  if (spellingSuggestionRows !== 2) {
+    throw new Error(`English spelling should keep two ranked suggestion rows, got ${spellingSuggestionRows}`);
+  }
   await selectLabel("MOVIE", { rowIndex: 0 });
   await assertMessage("movie ");
+  const boundarySuggestionRows = await evaluate(`document.querySelectorAll(".dynamic-suggestion-row").length`);
+  if (boundarySuggestionRows !== 2) {
+    throw new Error(`English word boundary should preserve two suggestion rows, got ${boundarySuggestionRows}`);
+  }
   steps.push(pass("completion", "typed movi and completed to movie with automatic trailing space"));
 
-  await selectLabel("DEL");
-  await assertMessage("movie");
-  steps.push(pass("delete", "selected DEL and removed the automatic trailing space"));
+  await selectLabel("UNDO", { rowIndex: 0 });
+  await assertMessage("movi");
+  steps.push(pass("undo-completion", "selected UNDO and restored the spelling before whole-word completion"));
+  await selectLabel("MOVIE", { rowIndex: 0 });
+  await assertMessage("movie ");
 
   const history = await evaluate(`
     (() => {
@@ -466,10 +729,10 @@ async function scenarioClearAndMovie() {
   if (history.entries[0].text !== "I want food " || history.entries[0].closed !== true) {
     throw new Error(`Previous history line was not closed by CLR: ${JSON.stringify(history.entries)}`);
   }
-  if (history.entries[1].text !== "movie" || history.entries[1].closed !== false) {
-    throw new Error(`Current history line did not stay live through DEL: ${JSON.stringify(history.entries)}`);
+  if (history.entries[1].text !== "movie " || history.entries[1].closed !== false) {
+    throw new Error(`Current history line did not stay live through UNDO: ${JSON.stringify(history.entries)}`);
   }
-  if (history.exported !== "I want food \nmovie\n") {
+  if (history.exported !== "I want food \nmovie \n") {
     throw new Error(`Text history export did not use one line per reset: ${JSON.stringify(history.exported)}`);
   }
   steps.push(pass("text-history-reset", "started a new history line only after CLR and kept later edits on that line"));
@@ -497,7 +760,7 @@ async function scenarioHistoryUpgradeMigration() {
   if (versionOne.stored.version !== 3 || versionOne.stored.entries.length !== 1) {
     throw new Error(`Version 1 snapshots were not compacted: ${JSON.stringify(versionOne)}`);
   }
-  if (versionOne.stored.entries[0].text !== "movie" || versionOne.stored.entries[0].closed !== false || versionOne.exported !== "movie\n") {
+  if (versionOne.stored.entries[0].text !== "movie " || versionOne.stored.entries[0].closed !== false || versionOne.exported !== "movie \n") {
     throw new Error(`Version 1 migration did not retain one live final line: ${JSON.stringify(versionOne)}`);
   }
 
@@ -522,10 +785,98 @@ async function scenarioHistoryUpgradeMigration() {
   if (versionTwo.stored.version !== 3 || versionTwo.stored.entries.length !== 1) {
     throw new Error(`Code-42 version 2 snapshots were not repaired: ${JSON.stringify(versionTwo)}`);
   }
-  if (versionTwo.stored.entries[0].text !== "movie" || versionTwo.stored.entries[0].closed !== false || versionTwo.exported !== "movie\n") {
+  if (versionTwo.stored.entries[0].text !== "movie " || versionTwo.stored.entries[0].closed !== false || versionTwo.exported !== "movie \n") {
     throw new Error(`Version 2 repair did not retain one live final line: ${JSON.stringify(versionTwo)}`);
   }
   steps.push(pass("text-history-migration", "compacted version 1 and code-42 version 2 per-input snapshots into one live line"));
+}
+
+async function scenarioTextExportResult() {
+  await evaluate(`
+    (() => {
+      globalThis.__textExportTest = { exports: [], opens: 0 };
+      globalThis.ShineAacAndroid = {
+        exportTextHistory: (text, fileName) => globalThis.__textExportTest.exports.push({ text, fileName }),
+        openLastTextExport: () => { globalThis.__textExportTest.opens += 1; }
+      };
+      document.querySelector('.config-button')?.click();
+      document.querySelector('[data-action="export-text"]')?.click();
+    })()
+  `);
+  let state = await evaluate(`
+    (() => ({
+      calls: globalThis.__textExportTest.exports,
+      exportLabel: document.querySelector('[data-action="export-text"]')?.textContent?.trim()
+    }))()
+  `);
+  if (state.calls.length !== 1 || !state.calls[0].fileName.endsWith(".txt") || state.exportLabel !== "Export text") {
+    throw new Error(`Text export did not reach the native save flow: ${JSON.stringify(state)}`);
+  }
+
+  await evaluate(`
+    globalThis.ShineAacTextExport.completed(JSON.stringify({
+      fileName: "communication-2026-08-08.txt",
+      canOpen: true
+    }))
+  `);
+  state = await evaluate(`
+    (() => {
+      const dialog = document.querySelector('[data-testid="text-export-result"]');
+      return {
+        page: globalThis.ShineAacNavigation.currentPage(),
+        title: dialog?.querySelector('h1')?.textContent,
+        fileName: dialog?.querySelector('.text-export-file strong')?.textContent,
+        openLabel: dialog?.querySelector('[data-action="open-export"]')?.textContent
+      };
+    })()
+  `);
+  if (
+    state.page !== "text-export-result" ||
+    state.title !== "Text exported" ||
+    state.fileName !== "communication-2026-08-08.txt" ||
+    state.openLabel !== "Open text file"
+  ) {
+    throw new Error(`Successful export did not offer the saved file directly: ${JSON.stringify(state)}`);
+  }
+  await evaluate(`document.querySelector('[data-action="open-export"]')?.click()`);
+  state = await evaluate(`({
+    opens: globalThis.__textExportTest.opens,
+    page: globalThis.ShineAacNavigation.currentPage(),
+    dialog: Boolean(document.querySelector('[data-testid="text-export-result"]'))
+  })`);
+  if (state.opens !== 1 || state.page !== "config" || state.dialog) {
+    throw new Error(`Open exported text action did not return cleanly to Config: ${JSON.stringify(state)}`);
+  }
+
+  await evaluate(`
+    globalThis.ShineAacTextExport.failed(JSON.stringify({
+      fileName: "communication-2026-08-08.txt",
+      canOpen: false,
+      message: "The file could not be written."
+    }))
+  `);
+  state = await evaluate(`
+    (() => {
+      const dialog = document.querySelector('[data-testid="text-export-result"]');
+      return {
+        title: dialog?.querySelector('h1')?.textContent,
+        detail: dialog?.querySelector('p')?.textContent,
+        hasOpen: Boolean(dialog?.querySelector('[data-action="open-export"]'))
+      };
+    })()
+  `);
+  if (state.title !== "Could not export text" || state.detail !== "The file could not be written." || state.hasOpen) {
+    throw new Error(`Failed export did not show a clear retry result: ${JSON.stringify(state)}`);
+  }
+  await evaluate(`
+    (() => {
+      document.querySelector('[data-action="close-export"]')?.click();
+      document.querySelector('[data-action="cancel"]')?.click();
+      delete globalThis.ShineAacAndroid;
+      delete globalThis.__textExportTest;
+    })()
+  `);
+  steps.push(pass("text-export-result", "shows the saved filename, opens the exact Android document directly, and reports write failures"));
 }
 
 async function scenarioReviewHold() {
@@ -541,6 +892,7 @@ async function scenarioReviewHold() {
       inputLatencyCompensationMs: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
@@ -550,7 +902,7 @@ async function scenarioReviewHold() {
     location.reload();
   `);
   await waitForUi();
-  await selectLabel("I", { rowIndex: 0 });
+  await selectLabel("I");
   await assertMessage("I ");
 
   let snapshot = await getSnapshot();
@@ -569,7 +921,7 @@ async function scenarioReviewHold() {
   snapshot = await getSnapshot();
   if (snapshot.reviewHold) throw new Error("Review hold should release on activation without selecting a tile");
   if (snapshot.message !== "I ") throw new Error(`Review release should not change message, got ${snapshot.message}`);
-  steps.push(pass("review-hold", "default hold pauses after suggestion changes and resumes on next activation"));
+  steps.push(pass("review-hold", "opt-in hold pauses after suggestion changes and resumes on next activation"));
 
   await selectLabel("CLR");
   await assertMessage("");
@@ -661,8 +1013,8 @@ async function scenarioLargeTextLabelCompatibility() {
       inputLatencyCompensationMs: 0,
       symbols: [
         "I", "WANT", "WATER", "HELP",
-        "YES", "NO", "COMMUNICATION", "BATHROOM",
-        "SAY=<speak>", "DEL=<delete>", "CLR=<clear>", "UNDO=<undo>"
+        "YES", "NO", "TALK", "TOILET",
+        "SAY=<speak>", "CLR=<clear>", "UNDO=<undo>"
       ].join("\\n")
     }));
     location.reload();
@@ -703,19 +1055,130 @@ async function scenarioLargeTextLabelCompatibility() {
       });
       return {
         labelCount: labels.length,
-        longLabelCount: labels.filter((label) => label.textContent.length >= 8).length,
         fittedCount: labels.filter((label) => label.style.fontSize.length > 0).length,
+        belowReadableCount: labels.filter((label) => {
+          const tile = label.closest(".tile");
+          const acceptedFloor = Math.min(Number.parseFloat(getComputedStyle(tile).fontSize), 18);
+          return Number.parseFloat(getComputedStyle(label).fontSize) + 0.75 < acceptedFloor;
+        }).length,
         violations
       };
     })()
   `);
-  if (result.longLabelCount === 0 || result.fittedCount === 0 || result.violations.length > 0) {
+  if (result.fittedCount === 0 || result.belowReadableCount > 0 || result.violations.length > 0) {
     throw new Error(`Large AAC text did not fit every fixed cell: ${JSON.stringify(result)}`);
   }
+  await assertFunctionKeyPartsFit("large-text-function-key-layout");
   await assertNoViewportOverflow("large-text-phone-layout");
-  steps.push(pass("large-text-cell-fit", `fit ${result.labelCount} labels, including ${result.longLabelCount} long labels, without clipping`));
+  steps.push(pass("large-text-cell-fit", `fit ${result.labelCount} realistic board labels on one line at 18px or larger without clipping`));
 
   await evaluate(`document.querySelector("#e2e-large-aac-text")?.remove(); window.dispatchEvent(new Event("resize"));`);
+}
+
+async function scenarioLongEnglishSuggestionSpans() {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 393,
+    height: 851,
+    deviceScaleFactor: 2.75,
+    mobile: true
+  });
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 23,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0,
+      suggestionDictionary: [
+        "ACCESSIBILITY=accessibility",
+        "ACCESSIBLE=accessible",
+        "ACCESSING=accessing",
+        "ACCESS=access"
+      ].join("\\n"),
+      symbols: [
+        "I", "WANT", "WATER", "HELP",
+        "YES", "NO", "TALK", "TOILET",
+        "SAY=<speak>", "CLR=<clear>", "UNDO=<undo>"
+      ].join("\\n")
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
+  await delay(300);
+
+  const defaultLayout = await evaluate(`
+    (() => {
+      const row = document.querySelector(".dynamic-suggestion-row");
+      const wordTiles = [...row.querySelectorAll('.tile[data-action="append"]')]
+        .filter((tile) => tile.dataset.label.length > 1);
+      const first = wordTiles[0];
+      const label = first?.querySelector(".tile-label");
+      return {
+        visualColumns: Number(row?.dataset.visualColumns),
+        wordCount: wordTiles.length,
+        firstLabel: first?.dataset.label,
+        firstSpan: Number(first?.dataset.columnSpan),
+        tileFontSize: Number.parseFloat(getComputedStyle(first).fontSize),
+        labelFontSize: Number.parseFloat(getComputedStyle(label).fontSize),
+        clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1
+      };
+    })()
+  `);
+  if (
+    defaultLayout.firstLabel !== "ACCESSIBILITY" ||
+    defaultLayout.firstSpan < 2 ||
+    defaultLayout.wordCount >= defaultLayout.visualColumns ||
+    Math.abs(defaultLayout.tileFontSize - defaultLayout.labelFontSize) > 0.1 ||
+    defaultLayout.clipped
+  ) {
+    throw new Error(`Long English suggestion did not span at normal text size: ${JSON.stringify(defaultLayout)}`);
+  }
+
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 320,
+    height: 694,
+    deviceScaleFactor: 2.75,
+    mobile: true
+  });
+  await evaluate(`
+    (() => {
+      const style = document.createElement("style");
+      style.id = "e2e-long-suggestion-scale";
+      style.textContent = ".tile { font-size: 40px !important; }";
+      document.head.append(style);
+      window.dispatchEvent(new Event("resize"));
+    })()
+  `);
+  await delay(350);
+  const scaledLayout = await evaluate(`
+    (() => {
+      const first = document.querySelector('.dynamic-suggestion-row .tile[data-label="ACCESSIBILITY"]');
+      const label = first?.querySelector(".tile-label");
+      return {
+        span: Number(first?.dataset.columnSpan),
+        tileFontSize: Number.parseFloat(getComputedStyle(first).fontSize),
+        labelFontSize: Number.parseFloat(getComputedStyle(label).fontSize),
+        clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1
+      };
+    })()
+  `);
+  if (
+    scaledLayout.span < defaultLayout.firstSpan ||
+    Math.abs(scaledLayout.tileFontSize - scaledLayout.labelFontSize) > 0.1 ||
+    scaledLayout.clipped
+  ) {
+    throw new Error(`Long English suggestion did not adapt at 200% text size: ${JSON.stringify(scaledLayout)}`);
+  }
+  await assertNoViewportOverflow("long-English-suggestion-span-layout");
+  steps.push(pass(
+    "long-English-suggestion-spans",
+    `kept ACCESSIBILITY at the normal word size while expanding from ${defaultLayout.firstSpan} to ${scaledLayout.span} columns`
+  ));
+
+  await evaluate(`document.querySelector("#e2e-long-suggestion-scale")?.remove();`);
 }
 
 async function scenarioInputCalibration() {
@@ -1034,7 +1497,7 @@ async function scenarioDeveloperDemoMode() {
     location.href = ${JSON.stringify(appUrl)};
   `);
   await waitForUi();
-  await selectLabel("I", { rowIndex: 0 });
+  await selectLabel("I");
   await assertMessage("I ");
   let snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow);
@@ -1056,7 +1519,7 @@ async function scenarioDeveloperDemoMode() {
   if (snapshot.reviewHold || snapshot.cameraHold) throw new Error("Demo activation should release all scanning holds");
   const storedDraft = await evaluate(`localStorage.getItem("shine-aac-session-draft-v1")`);
   if (storedDraft !== null) throw new Error(`Demo activation should clear the saved draft, got ${storedDraft}`);
-  await assertMessage("I need help ", 30000);
+  await assertMessage("I need help ", 60000);
   await delay(3000);
   if (!await isDemoActive()) throw new Error("Rich demo should remain active after the first utterance");
   snapshot = await getSnapshot();
@@ -1068,9 +1531,9 @@ async function scenarioDeveloperDemoMode() {
 async function scenarioZhTwHomeDemoMode() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 18,
+      configVersion: 22,
       profileId: "zh-TW",
-      columns: 2,
+      columns: 6,
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
@@ -1087,16 +1550,22 @@ async function scenarioZhTwHomeDemoMode() {
   `);
   await waitForRenderedBoard();
   await waitForDemoActive();
-  const demoStats = await waitForPagedContinuationCommit();
-  if (!await isDemoActive()) throw new Error("zh-TW demo stopped after paging to a continuation");
+  const demoStats = await waitForZhuyinCommit();
+  if (!await isDemoActive()) throw new Error("zh-TW demo stopped after its first direct Zhuyin commit");
   const snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
   await waitForDemoInactive();
   await evaluate(`globalThis.ShineAacDemoError = ""`);
-  steps.push(pass("zh-tw-demo-mode", `completed a candidate after paging to a later Zhuyin continuation (${demoStats.pagedContinuationCommits} commit)`));
+  steps.push(pass("zh-tw-demo-mode", `completed a candidate using the complete first-layer Zhuyin board (${demoStats.zhuyinCommits} commit)`));
 }
 
 async function scenarioZhTwLayoutMigration() {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 393,
+    height: 851,
+    deviceScaleFactor: 2.75,
+    mobile: true
+  });
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       configVersion: 8,
@@ -1143,6 +1612,7 @@ async function scenarioZhTwLayoutMigration() {
       ].join("\\n")
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: true,
@@ -1151,7 +1621,7 @@ async function scenarioZhTwLayoutMigration() {
     }));
     location.reload();
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "EN"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "ㄚ", "ㄦ", "英文"]);
   await evaluate(`
     globalThis.__zhuyinSpeechCalls = [];
     globalThis.ShineAacAndroid = {
@@ -1164,13 +1634,14 @@ async function scenarioZhTwLayoutMigration() {
   let snapshot = await getSnapshot();
   let labels = snapshot.rows.flat().map((tile) => tile.label);
   assertArrayEqual(snapshot.rows[4].map((tile) => tile.label), ["是", "不", "幫忙", "痛"], "zh-TW static core response row");
-  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "說", "刪", "清除"]) {
+  for (const expected of ["英文", "ㄅ", "ㄧ", "ㄩ", "ㄚ", "ㄡ", "ㄦ", "朗讀", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW layout missing ${expected}`);
   }
   for (const rejected of ["E", "T", "空格", "我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW layout should not include ${rejected}`);
   }
-  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "EN", "不"]);
+  await assertTileLabelsFit(["ㄅ", "ㄓ", "ㄧ", "英文", "不"]);
+  await assertFunctionKeyPartsFit("zh-tw-dense-function-key-layout");
 
   await selectLabel("ㄅ");
   const zhuyinSpeechCalls = await evaluate(`globalThis.__zhuyinSpeechCalls`);
@@ -1183,7 +1654,11 @@ async function scenarioZhTwLayoutMigration() {
   if (!labels.includes("復原")) throw new Error("zh-TW undo suggestion should be localized as 復原");
   if (labels.includes("UNDO")) throw new Error("zh-TW undo suggestion should not render as UNDO");
   if (labels.includes("重選")) throw new Error("zh-TW 重選 should stay hidden for a single-symbol buffer");
-  if (!labels.includes("ㄚ")) throw new Error("zh-TW following Zhuyin suggestion missing ㄚ after ㄅ");
+  if (!labels.includes("ㄚ")) throw new Error("zh-TW static first layer lost ㄚ after entering ㄅ");
+  const redundantSuggestionSymbols = snapshot.rows.slice(0, 4).flat().filter((tile) => /^[ㄅ-ㄩㄚ-ㄦ]$/.test(tile.label));
+  if (redundantSuggestionSymbols.length > 0) {
+    throw new Error(`zh-TW suggestions duplicate static Zhuyin symbols: ${redundantSuggestionSymbols.map((tile) => tile.label).join(",")}`);
+  }
   await selectLabel("ㄧ");
   await assertMessage("ㄅㄧ");
   snapshot = await getSnapshot();
@@ -1220,6 +1695,18 @@ async function scenarioZhTwLayoutMigration() {
     labels.forEach((label) => meiPages.add(label));
   }
   if (!meiPages.has("沒有")) throw new Error("zh-TW ㄇㄟ suggestion pages should keep phrase 沒有 reachable");
+  const pageBeforeMistake = snapshot.rows.slice(0, 4).flat().map((tile) => tile.label);
+  const mistakenCandidate = snapshot.rows.slice(0, 4).flat().find((tile) => tile.action === "commit-candidate");
+  if (!mistakenCandidate) throw new Error("zh-TW paged suggestions should include a candidate for the undo regression");
+  await selectLabel(mistakenCandidate.label);
+  await selectLabel("復原");
+  await assertMessage("ㄇㄟ");
+  snapshot = await getSnapshot();
+  assertArrayEqual(
+    snapshot.rows.slice(0, 4).flat().map((tile) => tile.label),
+    pageBeforeMistake,
+    "candidate page restored after 復原"
+  );
   await evaluate(`
     delete globalThis.ShineAacAndroid;
     delete globalThis.__zhuyinSpeechCalls;
@@ -1234,14 +1721,83 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       document.querySelector('[data-action="reset"]')?.click();
     })()
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "EN"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "英文"]);
   const snapshot = await getSnapshot();
   const labels = snapshot.rows.flat().map((tile) => tile.label);
-  for (const expected of ["EN", "ㄅ", "ㄧ", "ㄩ", "說", "刪", "清除"]) {
+  for (const expected of ["英文", "ㄅ", "ㄧ", "ㄩ", "朗讀", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW reset layout missing ${expected}`);
   }
   for (const rejected of ["E", "T", "空格", "我要喝水", "我要吃飯", "。", "謝謝", "ㄅㄆㄇㄈ", "注音", "需要", "表達"]) {
     if (labels.includes(rejected)) throw new Error(`zh-TW reset layout should not include ${rejected}`);
+  }
+  const renderedColumns = await evaluate(`
+    Array.from(document.querySelectorAll(".row")).map((row) =>
+      getComputedStyle(row).gridTemplateColumns.split(/\\s+/).filter(Boolean).length
+    )
+  `);
+  const coreRowIndex = snapshot.rows.findIndex((row) => row.some((tile) => tile.label === "是"));
+  const zhuyinRowIndex = snapshot.rows.findIndex((row) => row.some((tile) => tile.label === "ㄅ"));
+  const finalZhuyinRowIndex = snapshot.rows.findIndex((row) => row.some((tile) => tile.label === "ㄦ"));
+  const actionRowIndex = snapshot.rows.findIndex((row) => row.some((tile) => tile.label === "英文"));
+  if (
+    renderedColumns[coreRowIndex] !== 4 ||
+    renderedColumns[zhuyinRowIndex] !== 6 ||
+    renderedColumns[finalZhuyinRowIndex] !== 5 ||
+    renderedColumns[actionRowIndex] !== 3
+  ) {
+    throw new Error(`zh-TW reset should render 4/6-5/3 core, stable Zhuyin, and action columns: ${JSON.stringify(renderedColumns)}`);
+  }
+  const presentation = await evaluate(`
+    (() => {
+      const clear = document.querySelector('[data-action="clear"]');
+      const speak = document.querySelector('[data-action="speak"]');
+      const input = document.querySelector('.tile.action-append:not(.function-key)');
+      const noops = Array.from(document.querySelectorAll('.tile.noop'));
+      return {
+        clearBorderWidth: clear ? getComputedStyle(clear).borderTopWidth : null,
+        speakBorderWidth: speak ? getComputedStyle(speak).borderTopWidth : null,
+        clearBoxShadow: clear ? getComputedStyle(clear).boxShadow : null,
+        speakBoxShadow: speak ? getComputedStyle(speak).boxShadow : null,
+        inputBorderWidth: input ? getComputedStyle(input).borderTopWidth : null,
+        inputBackground: input ? getComputedStyle(input).backgroundColor : null,
+        controls: Array.from(document.querySelectorAll('.tile.function-key')).map((tile) => ({
+          action: tile.dataset.action,
+          visibleLabel: tile.dataset.label,
+          ariaLabel: tile.getAttribute('aria-label'),
+          borderWidth: getComputedStyle(tile).borderTopWidth,
+          background: getComputedStyle(tile).backgroundColor
+        })),
+        inputsMarkedAsControls: document.querySelectorAll('.tile.action-append.function-key, .tile.action-commit-candidate.function-key').length,
+        noops: noops.map((tile) => ({
+          visibility: getComputedStyle(tile).visibility,
+          role: tile.getAttribute('role'),
+          ariaHidden: tile.getAttribute('aria-hidden')
+        }))
+      };
+    })()
+  `);
+  if (
+    presentation.clearBorderWidth !== presentation.inputBorderWidth ||
+    presentation.speakBorderWidth !== presentation.inputBorderWidth ||
+    presentation.clearBoxShadow === presentation.speakBoxShadow
+  ) {
+    throw new Error(`zh-TW clear control should retain a distinct destructive treatment within the function-key system: ${JSON.stringify(presentation)}`);
+  }
+  const requiredControlActions = ["clear", "speak", "open-category", "more-suggestions"];
+  if (
+    presentation.inputsMarkedAsControls !== 0 ||
+    presentation.controls.some((control) => control.action === "backspace") ||
+    requiredControlActions.some((action) => !presentation.controls.some((control) => control.action === action)) ||
+    presentation.controls.some((control) =>
+      Array.from(control.visibleLabel ?? "").length !== 2 ||
+      control.borderWidth !== presentation.inputBorderWidth ||
+      control.background === presentation.inputBackground
+    )
+  ) {
+    throw new Error(`zh-TW function keys should share word-key metrics and use spacing-independent styling: ${JSON.stringify(presentation.controls)}`);
+  }
+  if (presentation.noops.some((tile) => tile.visibility !== "hidden" || tile.role !== "presentation" || tile.ariaHidden !== "true")) {
+    throw new Error(`zh-TW empty placeholders should be invisible and non-semantic: ${JSON.stringify(presentation.noops)}`);
   }
   const stored = await evaluate(`
     (() => {
@@ -1249,20 +1805,26 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       return {
         configVersion: config.configVersion,
         profileId: config.profileId,
+        columns: config.columns,
+        scanIntervalMs: config.scanIntervalMs,
+        firstCellPauseMs: config.firstCellPauseMs,
         symbols: config.symbols,
         symbolLines: config.symbols.split(/\\n/),
         suggestionDictionary: config.suggestionDictionary
       };
     })()
   `);
-  if (stored.configVersion < 18 || stored.profileId !== "zh-TW") {
+  if (stored.configVersion < 22 || stored.profileId !== "zh-TW" || stored.columns !== 6) {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
+  }
+  if (stored.scanIntervalMs !== 1800 || stored.firstCellPauseMs !== stored.scanIntervalMs) {
+    throw new Error(`zh-TW reset should use one consistent default scan interval: ${JSON.stringify(stored)}`);
   }
   if (
     !stored.symbols.includes("ㄅ") ||
-    !stored.symbols.includes("EN=<category:english>") ||
-    !stored.symbols.includes("說=<speak>") ||
-    !stored.symbols.includes("刪=<delete>") ||
+    !stored.symbols.includes("英文=<category:english>") ||
+    !stored.symbols.includes("朗讀=<speak>") ||
+    stored.symbols.includes("刪除=<delete>") ||
     !stored.symbols.includes("清除=<clear>") ||
     stored.symbols.includes("SAY=<speak>") ||
     stored.symbols.includes("DEL=<delete>") ||
@@ -1279,9 +1841,87 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   steps.push(pass("zh-tw-reset", "reset restored packaged zh-TW defaults instead of stale stored layout"));
 }
 
+async function scenarioFunctionLabelScaleMatrix() {
+  const cases = [
+    { name: "function-label-default-default", width: 393, height: 851, fontSize: null },
+    { name: "function-label-default-larger-display", width: 320, height: 694, fontSize: null },
+    { name: "function-label-200pct-default", width: 393, height: 851, fontSize: 40 },
+    { name: "function-label-200pct-larger-display", width: 320, height: 694, fontSize: 40 }
+  ];
+
+  for (const testCase of cases) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
+      width: testCase.width,
+      height: testCase.height,
+      deviceScaleFactor: 2.75,
+      mobile: true
+    });
+    await evaluate(`
+      (() => {
+        document.querySelector("#e2e-function-label-scale")?.remove();
+        const fontSize = ${JSON.stringify(testCase.fontSize)};
+        if (fontSize) {
+          const style = document.createElement("style");
+          style.id = "e2e-function-label-scale";
+          style.textContent = ".tile { font-size: " + fontSize + "px !important; }";
+          document.head.append(style);
+        }
+        window.dispatchEvent(new Event("resize"));
+      })()
+    `);
+    await delay(250);
+    await assertFunctionKeyPartsFit(testCase.name);
+    const labelReadabilityViolations = await evaluate(`
+      [...document.querySelectorAll(".tile-label")].flatMap((label) => {
+        const text = label.textContent?.trim() ?? "";
+        if (Array.from(text).length === 0) return [];
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+        const lineTops = [...new Set(rects.map((rect) => Math.round(rect.top)))];
+        const tile = label.closest(".tile");
+        const labelFontSize = Number.parseFloat(getComputedStyle(label).fontSize);
+        const acceptedFloor = Math.min(Number.parseFloat(getComputedStyle(tile).fontSize), 18);
+        return lineTops.length > 1 || labelFontSize + 0.75 < acceptedFloor
+          ? [{ text, fontSize: labelFontSize, acceptedFloor, lineTops }]
+          : [];
+      })
+    `);
+    if (labelReadabilityViolations.length > 0) {
+      throw new Error(`${testCase.name} wrapped or undersized labels: ${JSON.stringify(labelReadabilityViolations)}`);
+    }
+    await assertNoViewportOverflow(`${testCase.name}-viewport`);
+    const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
+    writeFileSync(join(artifactDir, `${testCase.name}.png`), Buffer.from(screenshot.data, "base64"));
+  }
+
+  await evaluate(`document.querySelector("#e2e-function-label-scale")?.remove(); window.dispatchEvent(new Event("resize"));`);
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 393,
+    height: 851,
+    deviceScaleFactor: 2.75,
+    mobile: true
+  });
+  await delay(250);
+}
+
 async function scenarioZhTwLanguageSwitchReviewHold() {
   await evaluate(`
+    (() => {
+      const config = JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}");
+      config.configVersion = 24;
+      config.profileId = "zh-TW";
+      config.columns = 6;
+      config.scanIntervalMs = ${BrowserSmokeScanMs};
+      config.transitionPauseMs = 0;
+      config.firstCellPauseMs = ${BrowserSmokeScanMs};
+      config.inputLatencyCompensationMs = 0;
+      delete config.symbols;
+      delete config.suggestionDictionary;
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify(config));
+    })();
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
@@ -1290,11 +1930,11 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
     }));
     location.reload();
   `);
-  await waitForLabels(["\u3105", "\u3127", "\u3129", "EN"]);
+  await waitForLabels(["\u3105", "\u3127", "\u3129", "英文"]);
 
-  await selectLabel("EN");
+  await selectLabel("英文");
   let snapshot = await getSnapshot();
-  if (!snapshot.reviewHold) throw new Error("Language switch to EN should use suggestion-change review hold");
+  if (!snapshot.reviewHold) throw new Error("Language switch to 英文 should use suggestion-change review hold");
   if (!snapshot.rows.flat().some((tile) => tile.label === "\u6ce8\u97f3")) {
     throw new Error("English category should show 注音 close tile");
   }
@@ -1304,16 +1944,21 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
   await clickTarget(snapshot.activeRow);
   await delay(40);
 
-  await selectLabel("\u6ce8\u97f3", { rowIndex: 0 });
+  await selectLabel("\u6ce8\u97f3", { rowIndex: 2 });
   snapshot = await getSnapshot();
   if (!snapshot.reviewHold) throw new Error("Language switch back to Zhuyin should use suggestion-change review hold");
-  if (!snapshot.rows.flat().some((tile) => tile.label === "EN")) {
-    throw new Error("Zhuyin board should show EN entry point after closing English category");
+  if (!snapshot.rows.flat().some((tile) => tile.label === "英文")) {
+    throw new Error("Zhuyin board should show 英文 entry point after closing English category");
   }
   await clickTarget(snapshot.activeRow);
   await delay(40);
 
   await evaluate(`
+    (() => {
+      const config = JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}");
+      config.inputLatencyCompensationMs = 0;
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify(config));
+    })();
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
       scanVoice: false,
@@ -1323,30 +1968,108 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
     }));
     location.reload();
   `);
-  await waitForLabels(["\u3105", "\u3127", "\u3129", "EN"]);
-  steps.push(pass("zh-tw-language-switch-review-hold", "EN and 注音 language switches use the suggestion-change review hold setting"));
+  await waitForLabels(["\u3105", "\u3127", "\u3129", "英文"]);
+  await selectLabel("英文");
+  snapshot = await getSnapshot();
+  for (const expected of ["THE", "TO", "空格", "注音", "朗讀", "復原", "清除"]) {
+    if (!snapshot.rows.flat().some((tile) => tile.label === expected)) {
+      throw new Error(`zh-TW English board missing shared suggestion/control tile ${expected}`);
+    }
+  }
+  const visibleLabels = snapshot.rows.flat().map((tile) => tile.label).filter(Boolean);
+  const duplicateLabels = [...new Set(visibleLabels.filter((label, index) => visibleLabels.indexOf(label) !== index))];
+  if (duplicateLabels.length > 0) {
+    throw new Error(`zh-TW English board repeats visible keys: ${duplicateLabels.join(",")}`);
+  }
+  await selectLabel("P");
+  await selectLabel("H");
+  snapshot = await getSnapshot();
+  const completion = snapshot.rows[0].find((tile) => tile.action === "append" && /^[A-Z]{2,}$/.test(tile.label));
+  if (!completion) {
+    throw new Error(`zh-TW English board did not reuse English completions: ${JSON.stringify(snapshot.rows[0])}`);
+  }
+  await selectLabel(completion.label, { rowIndex: 0 });
+  await assertMessage(`${completion.label.toLowerCase()} `);
+  await selectLabel("注音", { rowIndex: 2 });
+  await assertMessage(completion.label.toLowerCase());
+  steps.push(pass("zh-tw-language-switch-review-hold", "英文 and 注音 switches preserve review hold; the embedded English board reuses English suggestions"));
+}
+
+async function scenarioZhTwLocaleConsistency() {
+  const result = await evaluate(`
+    (() => {
+      document.querySelector(".config-button")?.click();
+      const configText = document.querySelector(".config-panel")?.innerText ?? "";
+      document.querySelector('[data-action="calibrate"]')?.click();
+      const testText = document.querySelector(".calibration-panel")?.innerText ?? "";
+      globalThis.ShineAacNavigation?.back?.();
+      document.querySelector('[data-action="app-info"]')?.click();
+      const infoText = document.querySelector('[data-testid="app-info"]')?.innerText ?? "";
+      globalThis.ShineAacNavigation?.back?.();
+      setTimeout(() => location.reload(), 0);
+      return { configText, testText, infoText };
+    })()
+  `);
+  for (const [area, text, required, rejected] of [
+    ["config", result.configText, ["設定", "語言", "掃描速度預設", "開關輸入", "儲存"], ["Configuration", "Language", "Scan preset", "Switch input", "Save"]],
+    ["input test", result.testText, ["輸入測試", "按鍵或開關", "感測器", "返回設定"], ["Input Test", "Button or switch", "Sensor", "Back to config"]],
+    ["app info", result.infoText, ["版本", "您的資料", "隱私權政策", "返回"], ["Version", "Your data", "Privacy policy", "Back"]]
+  ]) {
+    if (required.some((label) => !text.includes(label)) || rejected.some((label) => text.includes(label))) {
+      throw new Error(`zh-TW ${area} locale is inconsistent: ${JSON.stringify(text)}`);
+    }
+  }
+  await waitForRenderedBoard();
+  steps.push(pass("zh-tw-locale", "configuration, input test, and app information remain consistently Traditional Chinese"));
 }
 
 async function selectLabel(label, options = {}) {
   const position = await findLabel(label, options);
-  await selectCell(position.rowIndex, position.cellIndex);
+  await selectCell(position.rowIndex, position.cellIndex, options);
 }
 
-async function selectCell(rowIndex, cellIndex) {
+async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
   const initialSnapshot = await getSnapshot();
   const rowTimeoutMs = Math.max(30000, (initialSnapshot.rows.length + 2) * 1500);
-  const rowSnapshot = await waitForActive(
-    ({ activeRow }) => activeRow?.rowIndex === rowIndex,
-    `row ${rowIndex}`,
-    rowTimeoutMs
+  await activateWhenRenderedTargetIsCurrent("active-row", rowIndex, 0, rowTimeoutMs);
+  await activateWhenRenderedTargetIsCurrent(
+    "active-cell",
+    rowIndex,
+    cellIndex,
+    cellIndex === 0 ? 30000 : 12000,
+    activationDelayMs
   );
-  await clickTarget(rowSnapshot.activeRow);
-  const cellSnapshot = await waitForActive(
-    ({ activeCell }) => activeCell?.rowIndex === rowIndex && activeCell?.cellIndex === cellIndex,
-    `cell ${rowIndex}:${cellIndex}`,
-    cellIndex === 0 ? 30000 : 12000
-  );
-  await clickTarget(cellSnapshot.activeCell);
+}
+
+async function activateWhenRenderedTargetIsCurrent(className, rowIndex, cellIndex, timeoutMs, stableMs = 0) {
+  await evaluate(`
+    new Promise((resolve, reject) => {
+      const deadline = performance.now() + ${timeoutMs};
+      let activeSince = 0;
+      const check = () => {
+        const row = document.querySelectorAll(".row")[${rowIndex}];
+        const tile = row?.querySelectorAll(".tile")[${cellIndex}];
+        const active = tile?.classList.contains(${JSON.stringify(className)}) === true;
+        if (active) {
+          if (!activeSince) activeSince = performance.now();
+          if (performance.now() - activeSince >= ${stableMs}) {
+            globalThis.ShineAacInput.receive({ intent: "activate", source: "e2e-scanner" });
+            resolve();
+            return;
+          }
+        } else {
+          activeSince = 0;
+        }
+        if (performance.now() >= deadline) {
+          reject(new Error("Timed out waiting for ${className} ${rowIndex}:${cellIndex}"));
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      check();
+    })
+  `);
+  await delay(10);
 }
 
 async function findLabel(label, { rowIndex, occurrence = 0 } = {}) {
@@ -1371,7 +2094,14 @@ async function waitForActive(predicate, description, timeoutMs = 8000) {
     if (predicate(snapshot)) return snapshot;
     await delay(20);
   }
-  throw new Error(`Timed out waiting for active ${description}`);
+  const snapshot = await getSnapshot();
+  throw new Error(`Timed out waiting for active ${description}: ${JSON.stringify({
+    phase: snapshot.phase,
+    activeRow: snapshot.activeRow,
+    activeCell: snapshot.activeCell,
+    reviewHold: snapshot.reviewHold,
+    message: snapshot.message
+  })}`);
 }
 
 async function clickTarget(target) {
@@ -1562,17 +2292,17 @@ async function waitForDemoInactive(timeoutMs = DemoStopTimeoutMs) {
   throw new Error("Demo mode did not stop after completing scenario");
 }
 
-async function waitForPagedContinuationCommit(timeoutMs = 180000) {
+async function waitForZhuyinCommit(timeoutMs = 180000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const demoError = await evaluate(`globalThis.ShineAacDemoError || ""`).catch(() => "");
     if (demoError) throw new Error(demoError);
     const stats = await evaluate(`globalThis.ShineAacDemoStats ?? {}`);
-    if (Number(stats.pagedContinuationCommits ?? 0) > 0) return stats;
+    if (Number(stats.zhuyinCommits ?? 0) > 0) return stats;
     await delay(20);
   }
   const stats = await evaluate(`globalThis.ShineAacDemoStats ?? {}`);
-  throw new Error(`zh-TW demo did not complete a candidate after a later-page continuation: ${JSON.stringify(stats)}`);
+  throw new Error(`zh-TW demo did not complete a candidate from the first-layer Zhuyin board: ${JSON.stringify(stats)}`);
 }
 
 async function waitForCalibration(kind) {
@@ -1667,6 +2397,184 @@ async function assertTileLabelsFit(labels) {
   if (clipped.length > 0) throw new Error(`Tile labels clipped: ${JSON.stringify(clipped)}`);
 }
 
+async function assertFunctionKeyPartsFit(name) {
+  const result = await evaluate(`
+    (() => {
+      const tolerance = 1;
+      const minimumAcceptedFontSize = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--minimum-function-label-size")
+      ) || 20;
+      const inputTiles = [...document.querySelectorAll(".tile:not(.function-key):not(.noop)")];
+      const tileSpacingProperties = [
+        "display", "alignItems", "justifyContent",
+        "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+        "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+        "borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"
+      ];
+      const labelMetricProperties = [
+        "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "fontWeight"
+      ];
+      const violations = [...document.querySelectorAll(".tile.function-key")].flatMap((tile) => {
+        const label = tile.querySelector(".tile-label");
+        if (!label) return [{ action: tile.dataset.action, missingLabel: true }];
+        const tileRect = tile.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        const textRange = document.createRange();
+        textRange.selectNodeContents(label);
+        const textRect = textRange.getBoundingClientRect();
+        const peer = inputTiles.find((inputTile) =>
+          Math.abs(inputTile.getBoundingClientRect().width - tileRect.width) <= 2
+        ) ?? inputTiles[0];
+        const tileStyle = getComputedStyle(tile);
+        const labelStyle = getComputedStyle(label);
+        const peerStyle = peer ? getComputedStyle(peer) : null;
+        const peerLabel = peer?.querySelector(".tile-label");
+        const peerLabelStyle = peerLabel ? getComputedStyle(peerLabel) : null;
+        const lineHeightRatio = Number.parseFloat(labelStyle.lineHeight) / Number.parseFloat(labelStyle.fontSize);
+        const peerLineHeightRatio = peerLabelStyle
+          ? Number.parseFloat(peerLabelStyle.lineHeight) / Number.parseFloat(peerLabelStyle.fontSize)
+          : Number.NaN;
+        const sharedMetrics = Boolean(peerStyle && peerLabelStyle) &&
+          tileSpacingProperties.every((property) => tileStyle[property] === peerStyle[property]) &&
+          labelMetricProperties.every((property) => labelStyle[property] === peerLabelStyle[property]) &&
+          Math.abs(lineHeightRatio - peerLineHeightRatio) <= 0.01;
+        const metricDifferences = !peerStyle || !peerLabelStyle ? ["missing-comparable-word-key"] : [
+          ...tileSpacingProperties
+            .filter((property) => tileStyle[property] !== peerStyle[property])
+            .map((property) => property + ":" + tileStyle[property] + "!=" + peerStyle[property]),
+          ...labelMetricProperties
+            .filter((property) => labelStyle[property] !== peerLabelStyle[property])
+            .map((property) => "label." + property + ":" + labelStyle[property] + "!=" + peerLabelStyle[property]),
+          ...(Math.abs(lineHeightRatio - peerLineHeightRatio) > 0.01
+            ? ["label.lineHeightRatio:" + lineHeightRatio + "!=" + peerLineHeightRatio]
+            : [])
+        ];
+        const inside = [labelRect, textRect].every((rect) =>
+          rect.left >= tileRect.left - tolerance && rect.right <= tileRect.right + tolerance &&
+          rect.top >= tileRect.top - tolerance && rect.bottom <= tileRect.bottom + tolerance
+        );
+        const unclipped = label.scrollWidth <= label.clientWidth + tolerance &&
+          label.scrollHeight <= label.clientHeight + tolerance;
+        const labelFontSize = Number.parseFloat(labelStyle.fontSize);
+        const tileFontSize = Number.parseFloat(tileStyle.fontSize);
+        const meetsMinimum = Number.isFinite(labelFontSize) &&
+          labelFontSize + 0.75 >= Math.min(tileFontSize, minimumAcceptedFontSize);
+        const noCompetingCues = !tile.querySelector(".function-cue, .function-icon");
+        return sharedMetrics && inside && unclipped && meetsMinimum && noCompetingCues ? [] : [{
+          action: tile.dataset.action,
+          labelText: label.textContent,
+          sharedMetrics,
+          metricDifferences,
+          inside,
+          unclipped,
+          meetsMinimum,
+          noCompetingCues,
+          labelFontSize,
+          tileFontSize,
+          minimumAcceptedFontSize,
+          tile: { left: tileRect.left, top: tileRect.top, right: tileRect.right, bottom: tileRect.bottom },
+          label: { left: labelRect.left, top: labelRect.top, right: labelRect.right, bottom: labelRect.bottom },
+          text: { left: textRect.left, top: textRect.top, right: textRect.right, bottom: textRect.bottom }
+        }];
+      });
+      const functionFontSizes = [...document.querySelectorAll(".tile.function-key .tile-label")]
+        .map((label) => Number.parseFloat(getComputedStyle(label).fontSize))
+        .filter(Number.isFinite);
+      return {
+        count: document.querySelectorAll(".tile.function-key").length,
+        minimumRenderedFontSize: functionFontSizes.length ? Math.min(...functionFontSizes) : null,
+        maximumRenderedFontSize: functionFontSizes.length ? Math.max(...functionFontSizes) : null,
+        violations
+      };
+    })()
+  `);
+  if (result.count === 0 || result.violations.length > 0) {
+    throw new Error(`${name} failed: ${JSON.stringify(result)}`);
+  }
+  steps.push(pass(name, `${result.count} function keys share word-key metrics; rendered ${result.minimumRenderedFontSize}-${result.maximumRenderedFontSize}px with a 20px normal-board floor`));
+}
+
+async function legacyAssertFunctionKeyPartsFit(name) {
+  const result = await evaluate(`
+    (() => {
+      const tolerance = 1;
+      const minimumAcceptedFontSize = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--minimum-function-label-size")
+      ) || 20;
+      const allInputLabels = [...document.querySelectorAll(".tile:not(.function-key):not(.noop) .tile-label")];
+      const violations = [...document.querySelectorAll(".tile.function-key")].flatMap((tile) => {
+        const cue = tile.querySelector(".function-cue");
+        const label = tile.querySelector(".tile-label");
+        const icon = tile.querySelector(".function-icon");
+        if (!cue || !label || !icon) return [{ action: tile.dataset.action, missingPart: true }];
+        const tileRect = tile.getBoundingClientRect();
+        const cueRect = cue.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        const iconRect = icon.getBoundingClientRect();
+        const textRange = document.createRange();
+        textRange.selectNodeContents(label);
+        const textRect = textRange.getBoundingClientRect();
+        const cueVisible = getComputedStyle(cue).display !== "none" && cueRect.width > 0 && cueRect.height > 0;
+        const iconVisible = getComputedStyle(icon).display !== "none" && iconRect.width > 0 && iconRect.height > 0;
+        const visibleRects = [textRect, ...(cueVisible ? [cueRect] : []), ...(iconVisible ? [iconRect] : [])];
+        const inside = visibleRects.every((rect) =>
+          rect.left >= tileRect.left - tolerance && rect.right <= tileRect.right + tolerance &&
+          rect.top >= tileRect.top - tolerance && rect.bottom <= tileRect.bottom + tolerance
+        );
+        const rectanglesOverlap = (left, right) =>
+          left.left < right.right - tolerance && left.right > right.left + tolerance &&
+          left.top < right.bottom - tolerance && left.bottom > right.top + tolerance;
+        const separated = (!iconVisible || !rectanglesOverlap(textRect, iconRect)) &&
+          (!cueVisible || (!rectanglesOverlap(textRect, cueRect) && (!iconVisible || !rectanglesOverlap(cueRect, iconRect))));
+        const unclipped = label.scrollWidth <= label.clientWidth + tolerance &&
+          label.scrollHeight <= label.clientHeight + tolerance;
+        const labelLength = Array.from(label.textContent ?? "").length;
+        const comparableInputSizes = allInputLabels.flatMap((inputLabel) => {
+          const inputTile = inputLabel.closest(".tile");
+          if (!inputTile || Array.from(inputLabel.textContent ?? "").length !== labelLength) return [];
+          const inputRect = inputTile.getBoundingClientRect();
+          if (Math.abs(inputRect.width - tileRect.width) > 2) return [];
+          return [Number.parseFloat(getComputedStyle(inputLabel).fontSize)];
+        }).filter(Number.isFinite);
+        const labelFontSize = Number.parseFloat(getComputedStyle(label).fontSize);
+        const tileFontSize = Number.parseFloat(getComputedStyle(tile).fontSize);
+        const comparisonFontSize = comparableInputSizes.length > 0
+          ? Math.min(...comparableInputSizes)
+          : tileFontSize;
+        const readableAsInput = Number.isFinite(labelFontSize) && Number.isFinite(comparisonFontSize) &&
+          labelFontSize + 0.75 >= Math.min(tileFontSize, comparisonFontSize);
+        const meetsMinimum = Number.isFinite(labelFontSize) &&
+          labelFontSize + 0.75 >= Math.min(tileFontSize, minimumAcceptedFontSize);
+        return inside && separated && unclipped && readableAsInput && meetsMinimum ? [] : [{
+          action: tile.dataset.action,
+          text: label.textContent,
+          cueVisible,
+          iconVisible,
+          inside,
+          separated,
+          unclipped,
+          readableAsInput,
+          meetsMinimum,
+          minimumAcceptedFontSize,
+          labelFontSize,
+          comparisonFontSize,
+          comparableInputSizes,
+          tile: { left: tileRect.left, top: tileRect.top, right: tileRect.right, bottom: tileRect.bottom },
+          cue: { left: cueRect.left, top: cueRect.top, right: cueRect.right, bottom: cueRect.bottom },
+          label: { left: labelRect.left, top: labelRect.top, right: labelRect.right, bottom: labelRect.bottom },
+          text: { left: textRect.left, top: textRect.top, right: textRect.right, bottom: textRect.bottom },
+          icon: { left: iconRect.left, top: iconRect.top, right: iconRect.right, bottom: iconRect.bottom }
+        }];
+      });
+      return { count: document.querySelectorAll(".tile.function-key").length, violations };
+    })()
+  `);
+  if (result.count === 0 || result.violations.length > 0) {
+    throw new Error(`${name} failed: ${JSON.stringify(result)}`);
+  }
+  steps.push(pass(name, `${result.count} function keys meet the 20px/default-input label floor without clipping; non-text cues collapse before labels shrink`));
+}
+
 function assertArrayEqual(actual, expected, description) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`Expected ${description} ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
@@ -1709,7 +2617,8 @@ async function getSnapshot() {
       const activeCell = rows.flat().find((tile) => tile.activeCell) ?? null;
       const messageNode = document.querySelector('[data-testid="message"]');
       const message = messageNode?.dataset.rawMessage ?? null;
-      const phase = document.querySelector(".phase")?.textContent ?? "";
+      const phaseElement = document.querySelector(".phase");
+      const phase = phaseElement?.dataset.scanPhase ?? phaseElement?.textContent ?? "";
       const current = activeCell ?? activeRow;
       return {
         message,
@@ -1743,7 +2652,7 @@ async function evaluate(expression) {
     expression,
     awaitPromise: true,
     returnByValue: true
-  });
+  }, 45000);
   if (result.exceptionDetails) {
     throw new Error(result.exceptionDetails.text);
   }
@@ -1815,7 +2724,7 @@ class CdpClient {
     });
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 10000) {
     const id = this.nextId++;
     const payload = JSON.stringify({ id, method, params });
     sendFrame(this.socket, payload);
@@ -1825,7 +2734,7 @@ class CdpClient {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
         reject(new Error(`CDP timeout: ${method}`));
-      }, 10000).unref();
+      }, timeoutMs).unref();
     });
   }
 

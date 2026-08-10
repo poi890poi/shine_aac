@@ -26,7 +26,7 @@ const demoScenarios = Object.freeze({
       pause(6000),
       ...saySpelled("LEFT LEG PAIN", 7000),
       pause(6500),
-      ...saySpelledWithCorrection([...letters("HOP"), select("DEL"), letter("T")], 6500),
+      ...saySpelledWithCorrection([...letters("HOP"), select("UNDO"), letter("T")], 6500),
       pause(6000),
       ...sayWords(["NO", "STOP"], 5200),
       pause(7000),
@@ -54,7 +54,7 @@ const demoScenarios = Object.freeze({
       pause(7000),
       ...saySpelled("MOVE LEFT", 7600),
       pause(6500),
-      ...saySpelledWithCorrection([...letters("WATR"), select("DEL"), letter("E"), letter("R")], 7600),
+      ...saySpelledWithCorrection([...letters("WATR"), select("UNDO"), letter("E"), letter("R")], 7600),
       pause(6500),
       ...sayWords(["YES"], 4600),
       pause(5200),
@@ -124,7 +124,8 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     globalThis.ShineAacDemoStats = Object.freeze({
       moreSelections: 0,
       continuationMoreSelections: 0,
-      pagedContinuationCommits: 0
+      pagedContinuationCommits: 0,
+      zhuyinCommits: 0
     });
     runScenario(scenario, currentRunId).catch((error) => {
       if (stopped || runId !== currentRunId) return;
@@ -162,6 +163,8 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
         await delay(step.ms);
       } else if (step.type === "zh-tw-commit") {
         await commitZhTwLabel(step, currentRunId);
+      } else if (step.type === "spell-with-suggestions") {
+        await spellTextWithSuggestions(step.text, currentRunId);
       } else {
         await chooseTarget(step, currentRunId);
         await resumeAfterReviewHold(currentRunId);
@@ -195,6 +198,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
       if (Number(globalThis.ShineAacDemoStats?.continuationMoreSelections ?? 0) > continuationMoreBefore) {
         recordPagedContinuationCommit();
       }
+      recordZhuyinCommit();
       await resumeAfterReviewHold(currentRunId);
       await delay(260);
       return;
@@ -233,13 +237,51 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     return false;
   }
 
+  async function spellTextWithSuggestions(text, currentRunId) {
+    const words = String(text).trim().split(/\s+/).filter(Boolean);
+    for (let wordIndex = 0; wordIndex < words.length; wordIndex += 1) {
+      const desiredWord = words[wordIndex];
+      for (const character of Array.from(desiredWord)) {
+        const suggestion = visibleWordSuggestion(desiredWord);
+        if (suggestion) {
+          await chooseTarget(suggestion, currentRunId);
+          await resumeAfterReviewHold(currentRunId);
+          await delay(260);
+          break;
+        }
+        await chooseTarget(letter(character), currentRunId);
+        await resumeAfterReviewHold(currentRunId);
+        await delay(260);
+      }
+
+      const needsBoundary = wordIndex < words.length - 1 && !/\s$/u.test(getSession().message);
+      if (needsBoundary) {
+        await chooseTarget(actionTarget(TileAction.Space), currentRunId);
+        await resumeAfterReviewHold(currentRunId);
+        await delay(260);
+      }
+    }
+  }
+
+  function visibleWordSuggestion(wordText) {
+    const normalizedWord = String(wordText).toLowerCase();
+    const candidate = (visibleBoard(getSession())[0] ?? []).find((tile) =>
+      [TileAction.Append, TileAction.CommitCandidate].includes(tile.action) &&
+      tile.output.toLowerCase() === normalizedWord
+    );
+    return candidate
+      ? select(candidate.label, { output: candidate.output, action: candidate.action })
+      : null;
+  }
+
   function recordDemoPaging(target) {
     const previous = globalThis.ShineAacDemoStats ?? {};
     const isContinuation = target.action === TileAction.Append && ZhuyinInputSymbols.includes(target.output);
     globalThis.ShineAacDemoStats = Object.freeze({
       moreSelections: Number(previous.moreSelections ?? 0) + 1,
       continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0) + (isContinuation ? 1 : 0),
-      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0)
+      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0),
+      zhuyinCommits: Number(previous.zhuyinCommits ?? 0)
     });
   }
 
@@ -248,7 +290,18 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     globalThis.ShineAacDemoStats = Object.freeze({
       moreSelections: Number(previous.moreSelections ?? 0),
       continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0),
-      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0) + 1
+      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0) + 1,
+      zhuyinCommits: Number(previous.zhuyinCommits ?? 0)
+    });
+  }
+
+  function recordZhuyinCommit() {
+    const previous = globalThis.ShineAacDemoStats ?? {};
+    globalThis.ShineAacDemoStats = Object.freeze({
+      moreSelections: Number(previous.moreSelections ?? 0),
+      continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0),
+      pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0),
+      zhuyinCommits: Number(previous.zhuyinCommits ?? 0) + 1
     });
   }
 
@@ -368,28 +421,17 @@ function zhTwMessage(labels) {
 function zhTwPodcastMessage() {
   return [
     ...zhTwMessage(["\u807d"]),
-    ...zhTwEnglishText(" podcast "),
+    ...zhTwEnglishText("podcast"),
     ...zhTwMessage(["\u65b0", "\u8cc7\u6599", "\u593e"])
   ];
 }
 
 function zhTwEnglishText(text) {
   return [
-    select("EN", { output: "english", action: TileAction.OpenCategory }),
-    ...zhTwSpellText(text),
+    select("\u82f1\u6587", { output: "english", action: TileAction.OpenCategory }),
+    spellWithSuggestions(text),
     select("\u6ce8\u97f3", { action: TileAction.CloseCategory })
   ];
-}
-
-function zhTwSpellText(text) {
-  return Array.from(text).map((character) => {
-    if (character === " ") return zhTwSpace();
-    return letter(character);
-  });
-}
-
-function zhTwSpace() {
-  return select("\u7a7a\u683c", { output: " ", action: TileAction.Space });
 }
 
 function zhTwClearBreak(waitMs) {
@@ -456,7 +498,14 @@ function wordUndoCorrection(labels, replacementLabels, waitMs) {
 }
 
 function saySpelled(text, waitMs) {
-  return saySpelledWithCorrection(spellText(text), waitMs);
+  return [
+    spellWithSuggestions(text),
+    pause(waitMs),
+    select("SAY"),
+    pause(1800),
+    select("CLR"),
+    pause(2200)
+  ];
 }
 
 function saySpelledWithCorrection(spellingSteps, waitMs) {
@@ -470,11 +519,8 @@ function saySpelledWithCorrection(spellingSteps, waitMs) {
   ];
 }
 
-function spellText(text) {
-  return Array.from(text).map((character) => {
-    if (character === " ") return select("SPC", { output: " " });
-    return letter(character);
-  });
+function spellWithSuggestions(text) {
+  return Object.freeze({ type: "spell-with-suggestions", text: String(text) });
 }
 
 function word(label) {

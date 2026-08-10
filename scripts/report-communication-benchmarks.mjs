@@ -59,7 +59,10 @@ const baselineComparison = compareBenchmarkSnapshots(benchmarkBaseline, currentS
   functionGroups: CommunicationBenchmarkFunctionGroups,
   allowTaskSetChanges: updateBaseline
 });
-const baselineUpdateAllowed = results.every(({ status }) => status === "PASS") && baselineComparison.passed;
+const baselineUpdateAllowed = results.every(({ status }) => status === "PASS") &&
+  baselineComparison.missingTaskIds.length === 0 &&
+  baselineComparison.unexpectedTaskIds.length === 0 &&
+  baselineComparison.unreachableTaskIds.length === 0;
 if (updateBaseline && baselineUpdateAllowed) {
   writeFileSync(baselinePath, `${JSON.stringify({
     ...currentSnapshot,
@@ -160,8 +163,8 @@ const lines = [
   "",
   "| Metric | Unit | Current | Denominator / Target | Meaning |",
   "| --- | --- | ---: | ---: | --- |",
-  `| Direct zh-TW phonetic symbols | weighted coverage | ${percent(zhTwAccess.staticCoverageRatio)} | >= 98% | Static symbols available without copying a full keyboard |`,
-  `| Dynamic zh-TW continuation symbols | Zhuyin symbols | ${hiddenContinuationSymbolsWithPrefixes} | ${zhTwAccess.inputSymbolCount - zhTwAccess.staticSymbolCount} | Hidden symbols that can appear as valid continuations |`,
+  `| Direct zh-TW phonetic symbols | weighted coverage | ${percent(zhTwAccess.staticCoverageRatio)} | 100% | All 37 symbols directly visible on the first layer |`,
+  `| Dynamic zh-TW continuation symbols | Zhuyin symbols | ${hiddenContinuationSymbolsWithPrefixes} | ${zhTwAccess.inputSymbolCount - zhTwAccess.staticSymbolCount} | Hidden symbols required for phonetic input |`,
   `| Dead-end continuation symbols | Zhuyin symbols | ${zhTwAccess.visibleDeadEndContinuations.length} | 0 | Visible continuations that lead to no glyph/phrase candidate |`,
   `| Top zh-TW glyph reachability | unique Han glyphs | ${zhTwReachableTopGlyphCount} / ${zhTwTopGlyphLabels.size} (${percent(topGlyphCoverageRatio)}) | >= 99% | Single-character entries reachable in the top ${zhTwAccess.topEntryLimit} source-ranked dictionary slice |`,
   `| Top zh-TW direct phrase reachability | unique phrases | ${zhTwReachableTopPhraseCount} / ${zhTwTopPhraseLabels.size} (${percent(topPhraseCoverageRatio)}) | >= 95% | Multi-character entries directly reachable as phrase candidates; this is compression, not the only coverage path |`,

@@ -1,7 +1,9 @@
 export const moeBopomofoVoiceName = "shine-aac-moe-bopomofo";
 export const androidSystemVoiceName = "android-system-default";
+export const currentUiConfigVersion = 1;
 
 export const defaultUiConfig = Object.freeze({
+  uiConfigVersion: currentUiConfigVersion,
   rowScanVoice: false,
   scanVoice: true,
   activationVoice: true,
@@ -10,7 +12,7 @@ export const defaultUiConfig = Object.freeze({
   hardwareButtons: true,
   cameraSwitch: false,
   switchInputProfile: "hardware-buttons",
-  holdAfterSuggestionChange: true
+  holdAfterSuggestionChange: false
 });
 
 export function loadUiConfig(storageKey) {
@@ -51,6 +53,7 @@ function loadNativeUiConfig() {
 }
 
 export function normalizeUiConfig(config) {
+  const storedVersion = Number(config?.uiConfigVersion) || 0;
   const profile = normalizeSwitchInputProfile(config.switchInputProfile, config);
   const requestedSpeechVoiceName = typeof config.speechVoiceName === "string"
     ? config.speechVoiceName.slice(0, 200)
@@ -59,6 +62,10 @@ export function normalizeUiConfig(config) {
   return {
     ...defaultUiConfig,
     ...config,
+    uiConfigVersion: currentUiConfigVersion,
+    holdAfterSuggestionChange: storedVersion >= currentUiConfigVersion
+      ? config.holdAfterSuggestionChange === true
+      : false,
     // Blank is the pre-selector device-default value. Migrate it to the
     // lightweight Ministry of Education Bopomofo option.
     speechVoiceName,

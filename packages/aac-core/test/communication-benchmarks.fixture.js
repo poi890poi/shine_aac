@@ -1,4 +1,8 @@
-import { ProjectCoreUniversalCoreWords } from "../src/index.js";
+const ProjectCoreUniversalCoreWords = Object.freeze([
+  "all", "can", "different", "do", "done", "get", "go", "good", "he", "help", "here", "I",
+  "in", "it", "like", "look", "make", "more", "not", "on", "open", "put", "same", "she",
+  "some", "stop", "that", "turn", "up", "want", "what", "when", "where", "who", "why", "you"
+]);
 
 export const CommunicationBenchmarkSources = Object.freeze({
   projectCoreUniversalCore: Object.freeze({
@@ -249,8 +253,8 @@ const ZhTwPhoneticCoreBenchmarks = Object.freeze([
     sourceExample: "Home setting request with embedded English media word in a zh-TW sentence.",
     purpose: "multilingual-home-media-request",
     targetConcepts: ["聽", "podcast", "新", "資料", "夾"],
-    acceptableTokenSequences: [["聽", " podcast ", "新", "資料", "夾"]],
-    expectedFinalMessages: ["聽 podcast 新資料夾"],
+    acceptableTokenSequences: [["聽", "podcast", "新", "資料", "夾"]],
+    expectedFinalMessages: ["聽podcast新資料夾"],
     maxSelections: 30
   }),
   Object.freeze({
@@ -260,8 +264,8 @@ const ZhTwPhoneticCoreBenchmarks = Object.freeze([
     sourceExample: "Home setting media repair with an embedded English source label.",
     purpose: "multilingual-home-audio-repair",
     targetConcepts: ["podcast", "音量", "小"],
-    acceptableTokenSequences: [["podcast ", "音量", "小"]],
-    expectedFinalMessages: ["podcast 音量小"],
+    acceptableTokenSequences: [["podcast", "音量", "小"]],
+    expectedFinalMessages: ["podcast音量小"],
     maxSelections: 23
   }),
   Object.freeze({

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
+  LanguageProfiles,
   ZhuyinStaticInputSymbols,
   analyzeZhTwPhoneticAccess
 } from "../packages/aac-core/src/index.js";
@@ -18,12 +19,13 @@ const lines = [
   "",
   `Generated: ${new Date().toISOString()}`,
   "",
-  "This report treats Zhuyin input as a constrained AAC access graph, not as a full keyboard IME.",
-  "It measures whether static first-level symbols and dynamic continuation suggestions keep dictionary-backed paths reachable without hand-crafted phrase shortcuts.",
+  "This report treats Zhuyin input as an AAC access graph with a complete, stable first-layer symbol inventory.",
+  "It measures whether all phonetic paths and dictionary-backed candidates remain reachable without hidden symbols or hand-crafted phrase shortcuts.",
   "",
   "## Summary",
   "",
-  `- Columns: ${analysis.columns}`,
+  `- Recommendation columns: ${analysis.columns}`,
+  `- First-layer Zhuyin columns: ${LanguageProfiles["zh-TW"].columns}`,
   `- Static Zhuyin symbols: ${analysis.staticSymbolCount} / ${analysis.inputSymbolCount}`,
   `- Static symbol set: ${staticSymbols}`,
   `- Dictionary entries analyzed: ${analysis.dictionaryEntryCount}`,
@@ -79,10 +81,11 @@ const lines = [
   "",
   "## Design Meaning",
   "",
-  "- Top-level Zhuyin symbols should be selected by weighted dictionary coverage and AAC value, not by copying a full keyboard.",
-  "- Hidden symbols are acceptable only when they are reachable as valid continuations from visible prefixes.",
+  "- All 37 Zhuyin symbols remain visible in stable phonetic order on the first layer.",
+  "- Recommendation rows should contain output candidates and repairs, not duplicate first-layer Zhuyin symbols.",
+  "- `更多` pages output candidates only; no phonetic symbol depends on paging for discovery.",
   "- Benchmark failures should change general weights, symbol coverage rules, or continuation ordering, not add phrase-specific shortcuts.",
-  "- Japanese kana input is a useful analogy only at the level of progressive phonetic disclosure and candidate conversion; the zh-TW profile must remain grounded in Traditional Chinese/Zhuyin data.",
+  "- The zh-TW profile remains grounded in Traditional Chinese/Zhuyin data and AAC target-size constraints.",
   ""
 ];
 

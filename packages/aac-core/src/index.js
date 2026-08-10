@@ -1,4 +1,5 @@
 import { ZhTwChewingDictionaryEntries } from "./data/zh-tw-chewing.generated.js";
+import { EnUsFrequencyEntries } from "./data/en-us-frequency.generated.js";
 
 export const ScanStage = Object.freeze({
   Rows: "Rows",
@@ -27,9 +28,9 @@ export const TileAction = Object.freeze({
 });
 
 export const DefaultColumns = 4;
-export const DefaultScanIntervalMs = 1300;
+export const DefaultScanIntervalMs = 1800;
 export const DefaultTransitionPauseMs = 0;
-export const DefaultFirstCellPauseMs = 1700;
+export const DefaultFirstCellPauseMs = DefaultScanIntervalMs;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
 export const ScanTimingPresets = Object.freeze({
@@ -44,10 +45,10 @@ export const ScanTimingPresets = Object.freeze({
   slower: Object.freeze({
     id: "slower",
     label: "Slower switch",
-    scanIntervalMs: 1800,
+    scanIntervalMs: 2400,
     transitionPauseMs: 0,
-    firstCellPauseMs: 2300,
-    inputLatencyCompensationMs: 300
+    firstCellPauseMs: 3000,
+    inputLatencyCompensationMs: 350
   }),
   cameraLongBlink: Object.freeze({
     id: "cameraLongBlink",
@@ -62,7 +63,7 @@ export const ScanTimingPresets = Object.freeze({
     label: "First symbol support",
     scanIntervalMs: DefaultScanIntervalMs,
     transitionPauseMs: 0,
-    firstCellPauseMs: 2300,
+    firstCellPauseMs: 3000,
     inputLatencyCompensationMs: 300
   }),
   cancelable: Object.freeze({
@@ -74,10 +75,13 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 18;
-const PreviousDefaultScanIntervalMs = 900;
+export const CurrentConfigVersion = 24;
+const LegacyDefaultScanIntervalMs = 900;
+const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
-const PreviousDefaultFirstCellPauseMs = 900;
+const LegacyDefaultFirstCellPauseMs = 900;
+const EarlierDefaultFirstCellPauseMs = 1700;
+const PreviousDefaultFirstCellPauseMs = 2300;
 export const DefaultProfileId = "en-US";
 export const AutoSpaceMode = Object.freeze({
   Word: "word",
@@ -188,10 +192,14 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
     if (candidate.action === TileAction.Backspace) return "刪除";
     if (candidate.action === TileAction.Clear) return "清除";
     if (candidate.action === TileAction.Undo) return "復原";
-    if (candidate.action === TileAction.Speak) return "說出";
+    if (candidate.action === TileAction.Speak) return "朗讀";
     if (candidate.action === TileAction.EnterMode) return "用注音找字";
     if (candidate.action === TileAction.ExitMode) return "返回";
-    if (candidate.action === TileAction.OpenCategory) return candidate.label;
+    if (candidate.action === TileAction.OpenCategory) {
+      return candidate.output === "english" || candidate.label.toUpperCase() === "EN"
+        ? "英文"
+        : candidate.label;
+    }
     if (candidate.action === TileAction.CloseCategory) return "返回";
     if (candidate.action === TileAction.ZhuyinGroup || candidate.action === TileAction.ZhuyinSymbol) {
       return zhuyinSpeech(candidate.label || candidate.output);
@@ -310,60 +318,19 @@ export const LegacySuggestionDictionaryV7 = Object.freeze([
   tile("HOW", "how")
 ]);
 
-export const AacCoreVocabularyWords = Object.freeze([
-  "I", "you", "we", "they", "he", "she", "it", "me", "my", "your", "mine", "this", "that", "here", "there",
-  "want", "need", "help", "stop", "go", "come", "look", "watch", "turn", "move", "give", "get", "make", "put",
-  "take", "open", "close", "eat", "drink", "sleep", "feel", "know", "think", "like", "don't", "can", "do", "is",
-  "yes", "no", "not", "more", "all", "some", "again", "done", "now", "later", "good", "bad", "big", "little",
-  "hot", "cold", "up", "down", "in", "out", "on", "off", "with", "without", "and", "or", "because", "what",
-  "where", "when", "why", "how", "please", "thanks"
-]);
-
-export const ProjectCoreUniversalCoreWords = Object.freeze([
-  "all", "can", "different", "do", "done", "get", "go", "good", "he", "help", "here", "I",
-  "in", "it", "like", "look", "make", "more", "not", "on", "open", "put", "same", "she",
-  "some", "stop", "that", "turn", "up", "want", "what", "when", "where", "who", "why", "you"
-]);
-
-export const CommonEnglishServiceWords = Object.freeze([
-  "the", "be", "to", "of", "and", "a", "in", "have", "it", "for", "not", "on", "with", "as", "at", "by",
-  "from", "but", "about", "into", "over", "after", "before", "between", "through", "during", "under", "around",
-  "time", "person", "year", "way", "day", "thing", "man", "woman", "child", "world", "life", "hand", "eye",
-  "place", "work", "week", "case", "point", "problem", "fact", "home", "room", "bed", "chair", "door", "phone",
-  "water", "food", "medicine", "bathroom", "toilet", "pain", "family", "friend", "doctor", "nurse", "name",
-  "question", "answer", "people", "school", "house", "car", "money", "book", "music", "movie", "game", "TV",
-  "light", "fan", "blanket", "pillow", "clothes", "shirt", "pants", "shoes", "shower", "breakfast", "lunch",
-  "dinner", "snack", "coffee", "tea", "milk", "juice", "left", "right", "front", "back", "side", "first", "last",
-  "new", "old", "long", "short", "great", "small", "different", "same", "high", "low", "early", "young", "important",
-  "public", "able", "own", "other", "right", "wrong", "ready", "busy", "tired", "sick", "happy", "sad", "angry",
-  "scared", "sorry", "funny", "nice", "hard", "easy", "fast", "slow", "safe", "hurt", "clean", "dirty", "dry", "wet",
-  "say", "tell", "ask", "use", "find", "try", "call", "leave", "keep", "let", "begin", "start", "finish", "wait",
-  "change", "show", "hear", "listen", "read", "write", "sit", "stand", "walk", "run", "play", "rest", "wash", "wear",
-  "bring", "buy", "choose", "remember", "forget", "live", "stay", "talk", "work", "happen", "seem", "become"
-]);
-
-export const AacFringeStarterWords = Object.freeze([
-  "mom", "dad", "parent", "sister", "brother", "caregiver", "teacher", "therapist", "tablet", "video", "internet",
-  "homework", "hospital", "clinic", "kitchen", "outside", "inside", "morning", "afternoon", "night", "today",
-  "tomorrow", "yesterday", "wheelchair", "switch", "charger", "battery", "volume", "voice"
-]);
-
 export const DefaultSuggestionDictionary = Object.freeze(
-  distinctBy(
-    [
-      ...LegacySuggestionDictionaryV7,
-      ...wordTiles(AacCoreVocabularyWords),
-      ...wordTiles(CommonEnglishServiceWords),
-      ...wordTiles(AacFringeStarterWords)
-    ],
-    (candidate) => candidate.label.toUpperCase()
-  )
+  EnUsFrequencyEntries.map(([word, frequency]) => Object.freeze({
+    ...tile(labelForWord(word), word),
+    frequency
+  }))
 );
+const LegacyBuiltInEnglishDictionaryV22Length = 280;
+const LegacyBuiltInEnglishDictionaryV22Fingerprint = "3e7080b7";
 
 const frequencyLetters = ["E", "T", "A", "O", "I", "N", "S", "R", "H", "L", "D", "C", "U", "M", "F", "P", "G", "W", "Y", "B", "V", "K", "X", "J", "Q", "Z"];
 const letterTile = (label) => tile(label, label.toLowerCase());
 
-export const DefaultTiles = Object.freeze([
+const DefaultTilesWithBackspaceV21 = Object.freeze([
   tile("YES", "yes"),
   tile("NO", "no"),
   tile("HELP", "help"),
@@ -384,6 +351,9 @@ export const DefaultTiles = Object.freeze([
   tile("SPC", " ", TileAction.Space),
   ...frequencyLetters.map(letterTile)
 ]);
+export const DefaultTiles = Object.freeze(
+  DefaultTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
+);
 
 export const LegacyFrequencyDefaultTilesV3 = Object.freeze([
   tile("YES", "yes"),
@@ -523,12 +493,21 @@ const ZhTwNextSymbolsByPrefix = buildZhTwNextSymbolsByPrefix(ZhTwFrequencyDictio
 const ZhTwPhraseCompletionsByPrefix = buildZhTwPhraseCompletionsByPrefix(ZhTwFrequencyDictionary);
 const ZhTwValidPrefixSet = zhTwValidPrefixSet(ZhTwFrequencyDictionary);
 
-export const ZhuyinStaticInputSymbols = Object.freeze(
+const LegacyZhuyinStaticInputSymbolsV18 = Object.freeze(
   ZhuyinInputSymbols.slice(0, 24)
 );
 
-export function zhTwVisibleNextSymbolsForPrefix(prefix, columns = DefaultColumns) {
-  return zhTwNextSymbolTiles(prefix, columns).map((candidate) => candidate.output);
+export const ZhuyinStaticInputSymbols = ZhuyinInputSymbols;
+
+export function zhTwVisibleNextSymbolsForPrefix(
+  prefix,
+  columns = DefaultColumns,
+  staticSymbols = ZhuyinStaticInputSymbols
+) {
+  const staticSet = new Set(staticSymbols);
+  return zhTwNextSymbolTiles(prefix, columns)
+    .map((candidate) => candidate.output)
+    .filter((symbol) => !staticSet.has(symbol));
 }
 
 export function analyzeZhTwPhoneticAccess(options = {}) {
@@ -677,9 +656,21 @@ export const ZhTwPhraseCategories = Object.freeze({
   })
 });
 
-export const ZhTwTiles = Object.freeze([
+const ZhTwTilesWithBackspaceV21 = Object.freeze([
   ...ZhTwCoreResponseTiles,
   ...ZhuyinStaticInputSymbols.map((symbol) => tile(symbol)),
+  categoryTile("英文", EnglishCategoryId),
+  tile("朗讀", "SAY", TileAction.Speak),
+  tile("刪除", "DEL", TileAction.Backspace),
+  tile("清除", "CLR", TileAction.Clear)
+]);
+export const ZhTwTiles = Object.freeze(
+  ZhTwTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
+);
+
+const LegacyZhTwTilesV18 = Object.freeze([
+  ...ZhTwCoreResponseTiles,
+  ...LegacyZhuyinStaticInputSymbolsV18.map((symbol) => tile(symbol)),
   categoryTile("EN", EnglishCategoryId),
   tile("說", "SAY", TileAction.Speak),
   tile("刪", "DEL", TileAction.Backspace),
@@ -732,7 +723,7 @@ export const LanguageProfiles = Object.freeze({
     id: "zh-TW",
     displayName: "繁體中文（台灣）",
     writingSystem: "traditional-chinese",
-    columns: 4,
+    columns: 6,
     scanIntervalMs: DefaultScanIntervalMs,
     transitionPauseMs: DefaultTransitionPauseMs,
     firstCellPauseMs: DefaultFirstCellPauseMs,
@@ -801,17 +792,99 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
   const safeColumns = clampInt(normalized.columns, 2, 8);
   if (normalized.profileId === "zh-TW") {
     if (inputState.activeCategory) {
-      const categoryRows = categorySuggestionRows(inputState.activeCategory, safeColumns);
+      const categoryRows = categorySuggestionRows(
+        inputState.activeCategory,
+        safeColumns,
+        zhTwSuggestionColumnCount(safeColumns),
+        message,
+        canUndo,
+        normalized.suggestionColumnSpans
+      );
       if (categoryRows.length > 0) return categoryRows;
     }
+    const suggestionColumns = zhTwSuggestionColumnCount(safeColumns);
     return [
-      ...zhTwSuggestionRows(message, normalized.suggestionDictionary, safeColumns, canUndo, inputState),
-      ...chunk(normalized.symbols, safeColumns)
+      ...zhTwSuggestionRows(
+        message,
+        normalized.suggestionDictionary,
+        suggestionColumns,
+        canUndo,
+        inputState,
+        normalized.symbols
+      ),
+      ...zhTwFirstLayerRows(normalized.symbols, safeColumns)
     ];
   }
 
-  const suggestions = suggestionRow(message, normalized.suggestionDictionary, safeColumns, canUndo, normalized);
-  return [suggestions, ...chunk(normalized.symbols, safeColumns)];
+  const suggestions = englishSuggestionRows(message, normalized.suggestionDictionary, safeColumns, canUndo, {
+    ...normalized,
+    excludeTiles: normalized.symbols
+  });
+  return [...suggestions, ...chunk(normalized.symbols, safeColumns)];
+}
+
+function zhTwSuggestionColumnCount(symbolColumns) {
+  return Math.min(clampInt(symbolColumns, 2, 8), DefaultColumns);
+}
+
+function zhTwFirstLayerRows(symbols, symbolColumns) {
+  const firstZhuyinIndex = symbols.findIndex(isZhuyinInputTile);
+  if (firstZhuyinIndex < 0) return chunk(symbols, symbolColumns);
+
+  const zhuyinTiles = symbols.slice(firstZhuyinIndex, firstZhuyinIndex + ZhuyinInputSymbols.length);
+  const hasCanonicalZhuyinBlock = zhuyinTiles.length === ZhuyinInputSymbols.length &&
+    zhuyinTiles.every((candidate, index) =>
+      isZhuyinInputTile(candidate) && candidate.output === ZhuyinInputSymbols[index]
+    );
+  if (!hasCanonicalZhuyinBlock) return chunk(symbols, symbolColumns);
+
+  const compactColumns = zhTwSuggestionColumnCount(symbolColumns);
+  return [
+    ...chunk(symbols.slice(0, firstZhuyinIndex), compactColumns),
+    ...zhTwSymbolRows(zhuyinTiles, symbolColumns),
+    ...chunk(symbols.slice(firstZhuyinIndex + ZhuyinInputSymbols.length), compactColumns)
+  ];
+}
+
+function zhTwSymbolRows(items, maxColumns) {
+  const safeMaxColumns = clampInt(maxColumns, 2, 8);
+  if (items.length === ZhuyinInputSymbols.length && safeMaxColumns === 6) {
+    // Preserve the conventional linear order. Among the 21 possible placements
+    // of two six-key rows, this stable pattern minimizes corpus-weighted row +
+    // cell scan cost without teaching users a new symbol order.
+    return chunkByRowSizes(items, [6, 5, 5, 5, 6, 5, 5]);
+  }
+  return balancedChunk(items, safeMaxColumns);
+}
+
+function chunkByRowSizes(items, rowSizes) {
+  const rows = [];
+  let offset = 0;
+  for (const rowSize of rowSizes) {
+    rows.push(items.slice(offset, offset + rowSize));
+    offset += rowSize;
+  }
+  return offset === items.length ? rows : balancedChunk(items, Math.max(...rowSizes));
+}
+
+function balancedChunk(items, maxColumns) {
+  if (items.length === 0) return [];
+  const safeMaxColumns = clampInt(maxColumns, 2, 8);
+  const rowCount = Math.ceil(items.length / safeMaxColumns);
+  const baseRowSize = Math.floor(items.length / rowCount);
+  const widerRowCount = items.length % rowCount;
+  const rows = [];
+  let offset = 0;
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const rowSize = baseRowSize + (rowIndex < widerRowCount ? 1 : 0);
+    rows.push(items.slice(offset, offset + rowSize));
+    offset += rowSize;
+  }
+  return rows;
+}
+
+function isZhuyinInputTile(candidate) {
+  return candidate?.action === TileAction.Append && ZhuyinInputSymbolSet.has(candidate.output);
 }
 
 export function parseDictionary(text) {
@@ -886,6 +959,24 @@ export function loadProfileSymbolsForConfig(storedSymbols, storedVersion, profil
   return migrateSymbolsForConfig(parsedSymbols, storedVersion, profile.id);
 }
 
+export function loadProfileColumnsForConfig(
+  storedColumns,
+  storedVersion,
+  profileId = DefaultProfileId,
+  storedSymbols = ""
+) {
+  const profile = languageProfileForId(profileId);
+  const columns = clampInt(storedColumns, 2, 8);
+  const previousBuiltInColumns = storedVersion >= 19 ? 5 : DefaultColumns;
+  if (profile.id !== "zh-TW" || columns !== previousBuiltInColumns || storedVersion >= CurrentConfigVersion) {
+    return columns;
+  }
+  const parsedSymbols = String(storedSymbols).trim().length > 0
+    ? parseSymbols(storedSymbols)
+    : LegacyZhTwTilesV18;
+  return shouldMigrateBuiltInZhTwSymbols(parsedSymbols, storedVersion) ? profile.columns : columns;
+}
+
 function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = DefaultProfileId) {
   if (profileId === "zh-TW" && shouldMigrateBuiltInZhTwSymbols(parsedSymbols, storedVersion)) {
     return ZhTwTiles;
@@ -895,7 +986,11 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
   }
   if (
     storedVersion < CurrentConfigVersion &&
-    (sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) || sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3))
+    (
+      sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) ||
+      sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3) ||
+      sameTiles(parsedSymbols, DefaultTilesWithBackspaceV21)
+    )
   ) {
     return DefaultTiles;
   }
@@ -905,10 +1000,11 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
 function localizeZhTwStandardActionLabels(symbols) {
   return symbols.map((candidate) => {
     if (candidate.action === TileAction.Space && candidate.label === "SPC") return tile("空格", " ", TileAction.Space);
-    if (candidate.action === TileAction.Backspace && candidate.label === "DEL") return tile("刪", "DEL", TileAction.Backspace);
+    if (candidate.action === TileAction.OpenCategory && candidate.output === EnglishCategoryId) return categoryTile("英文", EnglishCategoryId);
+    if (candidate.action === TileAction.Backspace && ["DEL", "刪"].includes(candidate.label)) return tile("刪除", "DEL", TileAction.Backspace);
     if (candidate.action === TileAction.Clear && candidate.label === "CLR") return tile("清除", "CLR", TileAction.Clear);
     if (candidate.action === TileAction.Undo && candidate.label === "UNDO") return tile("復原", "UNDO", TileAction.Undo);
-    if (candidate.action === TileAction.Speak && candidate.label === "SAY") return tile("說", "SAY", TileAction.Speak);
+    if (candidate.action === TileAction.Speak && ["SAY", "說"].includes(candidate.label)) return tile("朗讀", "SAY", TileAction.Speak);
     if (candidate.action === TileAction.MoreSuggestions && candidate.label === "MORE") return zhTwMoreSuggestionsTile;
     return candidate;
   });
@@ -931,23 +1027,47 @@ function migrateSuggestionDictionaryForConfig(parsedDictionary, storedVersion, p
   }
   if (
     storedVersion < CurrentConfigVersion &&
-    (sameTiles(parsedDictionary, LegacySuggestionDictionaryV6) || sameTiles(parsedDictionary, LegacySuggestionDictionaryV7))
+    (
+      sameTiles(parsedDictionary, LegacySuggestionDictionaryV6) ||
+      sameTiles(parsedDictionary, LegacySuggestionDictionaryV7) ||
+      isLegacyBuiltInEnglishDictionaryV22(parsedDictionary)
+    )
   ) {
     return DefaultSuggestionDictionary;
   }
   return parsedDictionary;
 }
 
+function isLegacyBuiltInEnglishDictionaryV22(dictionary) {
+  return dictionary.length === LegacyBuiltInEnglishDictionaryV22Length &&
+    tileSequenceFingerprint(dictionary) === LegacyBuiltInEnglishDictionaryV22Fingerprint;
+}
+
+function tileSequenceFingerprint(items) {
+  const source = items
+    .map((candidate) => `${candidate.label}\u0000${candidate.output}\u0000${candidate.action}`)
+    .join("\n");
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 function shouldMigrateBuiltInZhTwSymbols(symbols, storedVersion) {
   if (storedVersion >= CurrentConfigVersion) return false;
+  if (sameTiles(symbols, LegacyZhTwTilesV18)) return true;
+  if (sameTiles(symbols, ZhTwTilesWithBackspaceV21)) return true;
+  if (sameTiles(symbols, ZhTwTiles)) return true;
   const labels = new Set(symbols.map((candidate) => candidate.label));
-  const hasDirectZhuyinBoard = ZhuyinStaticInputSymbols.every((symbol) => labels.has(symbol)) &&
+  const hasDirectZhuyinBoard = LegacyZhuyinStaticInputSymbolsV18.every((symbol) => labels.has(symbol)) &&
     !labels.has("注音") &&
     !labels.has("ㄅㄆㄇㄈ");
   const hasEnglishStaticBoard = frequencyLetters.every((letter) => labels.has(letter)) &&
     labels.has("\u7a7a\u683c");
   const hasEnglishEntryPoint = symbols.some((candidate) =>
-    candidate.label === "EN" &&
+    ["EN", "英文"].includes(candidate.label) &&
     candidate.action === TileAction.OpenCategory &&
     candidate.output === EnglishCategoryId
   );
@@ -978,7 +1098,12 @@ function shouldMigrateBuiltInZhTwDictionary(dictionary, storedVersion) {
 export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
   if (
     storedVersion < CurrentConfigVersion &&
-    (storedPauseMs === LegacyFirstCellPauseMsV6 || storedPauseMs === PreviousDefaultFirstCellPauseMs)
+    (
+      storedPauseMs === LegacyFirstCellPauseMsV6 ||
+      storedPauseMs === LegacyDefaultFirstCellPauseMs ||
+      storedPauseMs === EarlierDefaultFirstCellPauseMs ||
+      storedPauseMs === PreviousDefaultFirstCellPauseMs
+    )
   ) {
     return DefaultFirstCellPauseMs;
   }
@@ -986,7 +1111,10 @@ export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
 }
 
 export function loadScanIntervalForConfig(storedScanMs, storedVersion) {
-  if (storedVersion < CurrentConfigVersion && storedScanMs === PreviousDefaultScanIntervalMs) {
+  if (
+    storedVersion < CurrentConfigVersion &&
+    (storedScanMs === LegacyDefaultScanIntervalMs || storedScanMs === PreviousDefaultScanIntervalMs)
+  ) {
     return DefaultScanIntervalMs;
   }
   return storedScanMs;
@@ -999,45 +1127,26 @@ export function loadTransitionPauseForConfig(storedPauseMs, storedVersion) {
   return storedPauseMs;
 }
 
+const EnglishPrefixCandidateCache = new WeakMap();
+
 export function suggestTiles(message, dictionary, maxSuggestions, options = {}) {
   const safeMax = Math.max(1, Math.trunc(maxSuggestions));
   if (options.autoSpace === AutoSpaceMode.None) {
-    return suggestTilesWithoutSpaces(message, dictionary, safeMax);
+    return suggestTilesWithoutSpaces(message, dictionary, safeMax, options);
   }
 
   const text = message.toLowerCase();
   const trimmed = text.trim();
   const endsWithBoundary = message.length === 0 || /\s$/.test(message);
   const currentToken = endsWithBoundary ? "" : trimmed.substring(trimmed.lastIndexOf(" ") + 1);
-  const previousToken = endsWithBoundary
-    ? trimmed.substring(trimmed.lastIndexOf(" ") + 1)
-    : trimmed.includes(" ")
-      ? trimmed.substring(0, trimmed.lastIndexOf(" ")).substring(trimmed.substring(0, trimmed.lastIndexOf(" ")).lastIndexOf(" ") + 1)
-      : "";
-
   const ranked = currentToken
-    ? dictionary
-      .filter((candidate) => {
-        const label = candidate.label.toLowerCase();
-        const output = candidate.output.toLowerCase();
-        return (label.startsWith(currentToken) || output.startsWith(currentToken)) &&
-          label !== currentToken &&
-          output !== currentToken;
-      })
-      .sort((left, right) => completionRank(currentToken, left) - completionRank(currentToken, right))
-    : previousToken
-      ? [...dictionary].sort((left, right) =>
-          transitionRank(previousToken, left.output.toLowerCase()) -
-          transitionRank(previousToken, right.output.toLowerCase())
-        )
-      : dictionary;
+    ? englishPrefixCandidates(dictionary, currentToken)
+    : dictionary;
 
-  return distinctBy(ranked, (candidate) => candidate.label.toUpperCase())
-    .filter((candidate) => candidate.output.trim().length > 0)
-    .slice(0, safeMax);
+  return nonredundantTiles(ranked, options.excludeTiles, safeMax);
 }
 
-function suggestTilesWithoutSpaces(message, dictionary, maxSuggestions) {
+function suggestTilesWithoutSpaces(message, dictionary, maxSuggestions, options = {}) {
   const currentText = message.replace(/\s+/g, "");
   const ranked = currentText
     ? dictionary
@@ -1048,44 +1157,123 @@ function suggestTilesWithoutSpaces(message, dictionary, maxSuggestions) {
           label !== currentText &&
           output !== currentText;
       })
-      .sort((left, right) => left.output.length - right.output.length)
     : dictionary;
 
-  return distinctBy(ranked.length > 0 ? ranked : dictionary, (candidate) => candidate.label)
-    .filter((candidate) => candidate.output.trim().length > 0)
-    .slice(0, maxSuggestions);
+  return nonredundantTiles(
+    (ranked.length > 0 ? ranked : dictionary)
+      .filter((candidate) => candidate.output.trim().length > 0),
+    options.excludeTiles,
+    maxSuggestions
+  );
+}
+
+function englishPrefixCandidates(dictionary, currentToken) {
+  let dictionaryCache = EnglishPrefixCandidateCache.get(dictionary);
+  if (!dictionaryCache) {
+    dictionaryCache = new Map();
+    EnglishPrefixCandidateCache.set(dictionary, dictionaryCache);
+  }
+  const cached = dictionaryCache.get(currentToken);
+  if (cached) return cached;
+
+  const candidates = dictionary.filter((candidate) => {
+    const label = candidate.label.toLowerCase();
+    const output = candidate.output.toLowerCase();
+    return (label.startsWith(currentToken) || output.startsWith(currentToken)) &&
+      label !== currentToken &&
+      output !== currentToken;
+  });
+  dictionaryCache.set(currentToken, candidates);
+  return candidates;
 }
 
 export function suggestionRow(message, dictionary, columns, canUndo = false, options = {}) {
+  return englishSuggestionRows(message, dictionary, columns, canUndo, {
+    ...options,
+    rowCount: 1
+  })[0];
+}
+
+function englishSuggestionRows(message, dictionary, columns, canUndo = false, options = {}) {
   const safeColumns = clampInt(columns, 2, 8);
   const suggestionCount = Math.min(safeColumns, 4);
+  const rowCount = clampInt(options.rowCount ?? 2, 1, 2);
+  const candidatePoolSize = suggestionCount * rowCount * 4;
   const commandSuggestions = [];
   if (canUndo) commandSuggestions.push(UndoSuggestionTile);
   if (options.autoSpace !== AutoSpaceMode.None && message.trim().length > 0 && !/\s$/.test(message)) {
     commandSuggestions.push(SpaceSuggestionTile);
   }
 
-  const suggestions = distinctBy(
+  const suggestions = nonredundantTiles(
     [
       ...commandSuggestions,
-      ...suggestTiles(message, dictionary, suggestionCount, options),
+      ...suggestTiles(message, dictionary, candidatePoolSize, options),
       ...(options.autoSpace === AutoSpaceMode.None ? [] : SuggestionFallbackLetters)
     ],
-    (candidate) => candidate.label.toUpperCase()
-  ).slice(0, suggestionCount);
+    options.excludeTiles
+  ).slice(0, candidatePoolSize);
 
+  return packSuggestionRows(
+    suggestions,
+    safeColumns,
+    rowCount,
+    options.suggestionColumnSpans
+  );
+}
+
+function packSuggestionRows(suggestions, columns, rowCount, spanByLabel) {
+  const rows = [];
+  const remaining = [...suggestions];
+
+  while (rows.length < rowCount) {
+    const tiles = [];
+    let usedColumns = 0;
+    while (usedColumns < columns) {
+      const availableColumns = columns - usedColumns;
+      const candidateIndex = remaining.findIndex((candidate) =>
+        suggestionColumnSpan(candidate, spanByLabel, columns) <= availableColumns
+      );
+      if (candidateIndex < 0) break;
+      const [candidate] = remaining.splice(candidateIndex, 1);
+      const requestedSpan = suggestionColumnSpan(candidate, spanByLabel, columns);
+      tiles.push({ ...candidate, columnSpan: requestedSpan });
+      usedColumns += requestedSpan;
+    }
+    rows.push(padPackedSuggestionRow(tiles, usedColumns, columns));
+  }
+  return rows;
+}
+
+function suggestionColumnSpan(candidate, spanByLabel, columns) {
+  return isSpannableWordSuggestion(candidate)
+    ? clampInt(spanByLabel?.[candidate.label] ?? 1, 1, columns)
+    : 1;
+}
+
+function padPackedSuggestionRow(tiles, usedColumns, columns) {
   return [
-    ...suggestions,
-    ...Array.from({ length: safeColumns - suggestions.length }, () => tile("", "", TileAction.Noop))
+    ...tiles,
+    ...Array.from(
+      { length: columns - usedColumns },
+      () => ({ ...tile("", "", TileAction.Noop), columnSpan: 1 })
+    )
   ];
 }
 
-function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}) {
+function isSpannableWordSuggestion(candidate) {
+  return candidate.action === TileAction.CommitCandidate || (
+    candidate.action === TileAction.Append &&
+    Array.from(candidate.output.trim()).length > 1
+  );
+}
+
+function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}, staticTiles = ZhTwTiles) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const commandSuggestions = zhTwCommandSuggestionTiles(message, canUndo);
-  const allSuggestions = zhTwSuggestionTiles(message, dictionary, safeColumns);
-  const totalSuggestions = distinctBy([...commandSuggestions, ...allSuggestions], (candidate) => zhTwSuggestionKey(candidate));
+  const allSuggestions = zhTwSuggestionTiles(message, dictionary, safeColumns, staticTiles);
+  const totalSuggestions = nonredundantTiles([...commandSuggestions, ...allSuggestions], staticTiles);
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
   const needsMore = pageCount > 1;
@@ -1106,14 +1294,21 @@ function zhTwCommandSuggestionTiles(message, canUndo) {
   ];
 }
 
-function zhTwSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary, columns = DefaultColumns) {
+function zhTwSuggestionTiles(
+  message,
+  dictionary = ZhTwSuggestionDictionary,
+  columns = DefaultColumns,
+  staticTiles = ZhTwTiles
+) {
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
-    ? zhTwBufferedSuggestionTiles(buffer, columns)
+    ? zhTwBufferedSuggestionTiles(buffer, columns, staticTiles)
     : zhTwUnbufferedSuggestionTiles(message, dictionary);
 
-  return distinctBy(candidates, (candidate) => `${candidate.label}\u0000${candidate.output}`)
-    .filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label));
+  return nonredundantTiles(
+    candidates.filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label)),
+    staticTiles
+  );
 }
 
 function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary) {
@@ -1130,7 +1325,7 @@ function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDicti
   return [...configuredSuggestions, ...sourceBackfill];
 }
 
-function zhTwBufferedSuggestionTiles(buffer, columns) {
+function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
   const rankedCandidates = distinctBy(
     (ZhTwDictionaryByPrefix.get(buffer) ?? [])
       .map((entry) => zhTwCandidateForBuffer(entry, buffer))
@@ -1138,7 +1333,9 @@ function zhTwBufferedSuggestionTiles(buffer, columns) {
       .sort((left, right) => zhTwCandidateRankForBuffer(left, right, buffer)),
     (candidate) => `${candidate.label}\u0000${candidate.output}`
   );
-  const nextSymbols = zhTwNextSymbolTiles(buffer);
+  const staticSymbols = new Set(staticTiles.filter(isZhuyinInputTile).map((candidate) => candidate.output));
+  const nextSymbols = zhTwNextSymbolTiles(buffer)
+    .filter((candidate) => !staticSymbols.has(candidate.output));
   if (rankedCandidates.length === 0 && nextSymbols.length === 0) {
     return zhTwRepairSuggestionTiles(buffer, columns);
   }
@@ -1483,21 +1680,22 @@ function isHanCharacter(character) {
   return /^\p{Script=Han}$/u.test(character);
 }
 
-function zhTwSuggestionPageCount(message, dictionary, columns, canUndo = false) {
+function zhTwSuggestionPageCount(message, dictionary, columns, canUndo = false, staticTiles = ZhTwTiles) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const count = zhTwSuggestionTiles(message, dictionary, safeColumns).length +
-    zhTwCommandSuggestionTiles(message, canUndo).length;
+  const count = nonredundantTiles(
+    [
+      ...zhTwCommandSuggestionTiles(message, canUndo),
+      ...zhTwSuggestionTiles(message, dictionary, safeColumns, staticTiles)
+    ],
+    staticTiles
+  ).length;
   return zhTwSuggestionPageCountForTotal(count, pageSize);
 }
 
 function zhTwSuggestionPageCountForTotal(total, pageSize) {
   if (total <= pageSize) return 1;
   return clampInt(Math.ceil(total / Math.max(1, pageSize - 1)), 1, MaxZhTwSuggestionPages);
-}
-
-function zhTwSuggestionKey(candidate) {
-  return `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`;
 }
 
 function padSuggestions(suggestions, size) {
@@ -1517,19 +1715,47 @@ function zhuyinRows(inputState, columns) {
   return [commandRow, ...bodyRows];
 }
 
-function categorySuggestionRows(categoryId, columns) {
+function categorySuggestionRows(
+  categoryId,
+  columns,
+  commandColumns = columns,
+  message = "",
+  canUndo = false,
+  suggestionColumnSpans = undefined
+) {
   const category = ZhTwPhraseCategories[categoryId];
   if (!category) return [];
-  const commandTiles = categoryId === EnglishCategoryId
-    ? [
+  if (categoryId === EnglishCategoryId) {
+    const commandTiles = [
       zhuyinCategoryCloseTile,
-      categoryCloseTile,
-      tile("說", "SAY", TileAction.Speak),
-      tile("刪", "DEL", TileAction.Backspace)
-    ]
-    : [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
-  const commandRow = paddedRow(commandTiles, columns);
+      tile("朗讀", "SAY", TileAction.Speak),
+      tile("復原", "UNDO", TileAction.Undo),
+      tile("清除", "CLR", TileAction.Clear)
+    ];
+    const suggestions = englishSuggestionRows(
+      trailingEnglishCategoryText(message),
+      DefaultSuggestionDictionary,
+      commandColumns,
+      canUndo,
+      {
+        autoSpace: AutoSpaceMode.Word,
+        excludeTiles: [...commandTiles, ...category.tiles],
+        suggestionColumnSpans
+      }
+    ).map((row) => row.map((candidate) => {
+      if (candidate.action === TileAction.Undo) return zhTwUndoSuggestionTile;
+      if (candidate.action === TileAction.Space) return tile("空格", " ", TileAction.Space);
+      return candidate;
+    }));
+    return [...suggestions, paddedRow(commandTiles, commandColumns), ...chunk(category.tiles, columns)];
+  }
+  const commandTiles = [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
+  const commandRow = paddedRow(commandTiles, commandColumns);
   return [commandRow, ...chunk(category.tiles, columns)];
+}
+
+function trailingEnglishCategoryText(message) {
+  return message.match(/[A-Za-z']+(?:\s+[A-Za-z']+)*\s*$/u)?.[0] ?? "";
 }
 
 function zhuyinCommandRow(state, columns) {
@@ -1683,7 +1909,7 @@ function zhTwHiddenSymbolAccessStats(symbol, dictionary, staticSet, columns) {
         if (!staticSet.has(key.at(0))) continue;
         entryUsesSymbol = true;
         if (!prefixMap.has(prefix)) {
-          const visible = zhTwVisibleNextSymbolsForPrefix(prefix, columns).includes(symbol);
+          const visible = zhTwVisibleNextSymbolsForPrefix(prefix, columns, staticSet).includes(symbol);
           prefixMap.set(prefix, visible);
           if (visible) visiblePrefixCount += 1;
         }
@@ -1730,7 +1956,7 @@ function zhTwVisibleDeadEndContinuations(dictionary, staticSet, columns) {
 
   for (const prefix of prefixes) {
     if (!prefix || !staticSet.has(prefix.at(0))) continue;
-    for (const symbol of zhTwVisibleNextSymbolsForPrefix(prefix, columns)) {
+    for (const symbol of zhTwVisibleNextSymbolsForPrefix(prefix, columns, staticSet)) {
       const nextPrefix = `${prefix}${symbol}`;
       const key = `${prefix}\u0000${symbol}`;
       if (checked.has(key)) continue;
@@ -1775,7 +2001,7 @@ function zhTwKeyAccessPath(entry, key, staticSet, columns) {
   for (let index = 1; index < key.length; index += 1) {
     const symbol = key.at(index);
     const prefix = key.slice(0, index);
-    const available = staticSet.has(symbol) || zhTwVisibleNextSymbolsForPrefix(prefix, columns).includes(symbol);
+    const available = staticSet.has(symbol) || zhTwVisibleNextSymbolsForPrefix(prefix, columns, staticSet).includes(symbol);
     if (!available) {
       return Object.freeze({
         label: entry.label,
@@ -1917,7 +2143,9 @@ export function appendToken(current, selectedTile, options = {}) {
   if (isSpellingLetter) return current + token;
 
   if (token.length > 1 && current.length > 0 && !/\s$/.test(current)) {
-    const currentTokenStart = current.lastIndexOf(" ") + 1;
+    const currentTokenStart = options.embeddedEnglish
+      ? trailingEnglishTokenStart(current)
+      : current.lastIndexOf(" ") + 1;
     const currentToken = current.slice(currentTokenStart);
     if (
       currentToken.length > 0 &&
@@ -1929,7 +2157,13 @@ export function appendToken(current, selectedTile, options = {}) {
   }
   if (current.trim().length === 0) return `${token} `;
   if (current.endsWith(" ")) return `${current}${token} `;
+  if (options.embeddedEnglish && /\p{Script=Han}$/u.test(current)) return `${current}${token} `;
   return `${current.trimEnd()} ${token} `;
+}
+
+function trailingEnglishTokenStart(text) {
+  const match = text.match(/[A-Za-z']+$/u);
+  return match ? match.index : text.length;
 }
 
 export function createSession(overrides = {}) {
@@ -1943,6 +2177,7 @@ export function createSession(overrides = {}) {
     zhuyinStage: "initialGroup",
     zhuyinGroup: null,
     suggestionPage: 0,
+    suggestionPageHistory: [],
     scannerState: createScannerState(),
     lockedRow: null,
     lastSelection: null,
@@ -2015,6 +2250,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     zhuyinStage: applied.zhuyinStage ?? session.zhuyinStage,
     zhuyinGroup: applied.zhuyinGroup ?? session.zhuyinGroup,
     suggestionPage: applied.suggestionPage ?? session.suggestionPage,
+    suggestionPageHistory: applied.suggestionPageHistory ?? session.suggestionPageHistory,
     scannerState: confirmation.nextState,
     lockedRow: null,
     lastSelection: {
@@ -2030,7 +2266,13 @@ export function applyTile(message, messageHistory, selectedTile, config = create
   if (selectedTile.action === TileAction.MoreSuggestions) {
     const normalized = createBoardConfig(config);
     const pageCount = normalized.profileId === "zh-TW"
-      ? zhTwSuggestionPageCount(message, normalized.suggestionDictionary, normalized.columns, messageHistory.length > 0)
+      ? zhTwSuggestionPageCount(
+        message,
+        normalized.suggestionDictionary,
+        zhTwSuggestionColumnCount(normalized.columns),
+        messageHistory.length > 0,
+        normalized.symbols
+      )
       : 1;
     return {
       message,
@@ -2073,8 +2315,11 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     };
   }
   if (selectedTile.action === TileAction.CloseCategory) {
+    const nextMessage = inputState.activeCategory === EnglishCategoryId
+      ? message.replace(/(?<=[A-Za-z'])\s+$/u, "")
+      : message;
     return {
-      message,
+      message: nextMessage,
       messageHistory,
       effect: "category",
       inputMode: "board",
@@ -2109,6 +2354,7 @@ export function applyTile(message, messageHistory, selectedTile, config = create
       return {
         message: nextMessage,
         messageHistory: [...messageHistory, message].slice(-24),
+        suggestionPageHistory: pushSuggestionPageHistory(inputState),
         effect: "message",
         inputMode: "board",
         activeCategory: null,
@@ -2129,6 +2375,9 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     return {
       message: nextMessage,
       messageHistory: nextMessage === message ? messageHistory : [...messageHistory, message].slice(-24),
+      suggestionPageHistory: nextMessage === message
+        ? normalizeSuggestionPageHistory(inputState)
+        : pushSuggestionPageHistory(inputState),
       effect: nextMessage === message ? "none" : "message",
       inputMode: "board",
       activeCategory: null,
@@ -2139,21 +2388,50 @@ export function applyTile(message, messageHistory, selectedTile, config = create
   if (selectedTile.action === TileAction.Undo) {
     const previous = messageHistory.at(-1);
     if (previous === undefined) return { message, messageHistory, effect: "none" };
-    return { message: previous, messageHistory: messageHistory.slice(0, -1), effect: "undo", suggestionPage: 0 };
+    const suggestionPageHistory = normalizeSuggestionPageHistory(inputState);
+    return {
+      message: previous,
+      messageHistory: messageHistory.slice(0, -1),
+      effect: "undo",
+      suggestionPage: suggestionPageHistory.at(-1) ?? 0,
+      suggestionPageHistory: suggestionPageHistory.slice(0, -1)
+    };
   }
   if (selectedTile.action === TileAction.Speak) {
     return { message, messageHistory, effect: "speak" };
   }
 
-  const nextMessage = updateMessage(message, selectedTile, config);
+  const embeddedEnglish = config.profileId === "zh-TW" && inputState.activeCategory === EnglishCategoryId;
+  const nextMessage = updateMessage(
+    message,
+    selectedTile,
+    embeddedEnglish ? { ...config, autoSpace: AutoSpaceMode.Word, embeddedEnglish: true } : config
+  );
   if (nextMessage === message) return { message, messageHistory, effect: "none" };
   return {
     message: nextMessage,
     messageHistory: [...messageHistory, message].slice(-24),
+    suggestionPageHistory: pushSuggestionPageHistory(inputState),
     effect: "message",
     activeCategory: inputState.activeCategory ?? null,
     suggestionPage: 0
   };
+}
+
+function normalizeSuggestionPageHistory(inputState) {
+  return Array.isArray(inputState.suggestionPageHistory)
+    ? inputState.suggestionPageHistory
+      .filter(Number.isInteger)
+      .map((page) => Math.max(0, page))
+      .slice(-24)
+    : [];
+}
+
+function pushSuggestionPageHistory(inputState) {
+  return [
+    ...normalizeSuggestionPageHistory(inputState),
+    Math.max(0, Number.isInteger(inputState.suggestionPage) ? inputState.suggestionPage : 0)
+  ].slice(-24);
 }
 
 function commitCandidateMessage(message, selectedTile, config) {
@@ -2259,75 +2537,57 @@ function nextSelectableRow(rowIndex, rowCount, columnCountForRow) {
   return rowIndex;
 }
 
-function transitionRank(previousWord, candidate) {
-  if (previousWord === "i" || previousWord === "you") {
-    return orderedTransitionRank(candidate, PronounTransitionWords);
-  }
-  if (previousWord === "want") {
-    return orderedTransitionRank(candidate, WantTransitionWords);
-  }
-  if (previousWord === "need") {
-    return orderedTransitionRank(candidate, NeedTransitionWords);
-  }
-  if (previousWord === "feel") {
-    return orderedTransitionRank(candidate, FeelingTransitionWords);
-  }
-  if (previousWord === "no" || previousWord === "not" || previousWord === "don't") {
-    return orderedTransitionRank(candidate, RefusalTransitionWords);
-  }
-  if (previousWord === "go" || previousWord === "turn" || previousWord === "move") {
-    return orderedTransitionRank(candidate, DirectionTransitionWords);
-  }
-  return 4;
-}
-
-function orderedTransitionRank(candidate, orderedWords) {
-  const index = orderedWords.indexOf(candidate);
-  return index >= 0 ? index : orderedWords.length + 1;
-}
-
-function completionRank(currentToken, candidate) {
-  const output = candidate.output.toLowerCase();
-  if (projectCoreUniversalCorePriorityWords.has(output)) return 0;
-  return aacPriorityWords.has(output) ? 1 : 2;
-}
-
-function wordTiles(words) {
-  return words.map((word) => tile(labelForWord(word), word));
-}
-
 function labelForWord(word) {
   if (word === "I") return "I";
   if (word === "TV") return "TV";
   return word.toUpperCase();
 }
 
-const aacPriorityWords = new Set([
-  ...LegacySuggestionDictionaryV7.map((candidate) => candidate.output.toLowerCase()),
-  ...AacCoreVocabularyWords.map((word) => word.toLowerCase()),
-  ...AacFringeStarterWords.map((word) => word.toLowerCase())
-]);
+function nonredundantTiles(items, unavailableTiles = [], maxResults = Number.POSITIVE_INFINITY) {
+  const unavailable = Array.isArray(unavailableTiles) ? unavailableTiles : [];
+  const unavailableSemantics = new Set(unavailable.map(tileSemanticKey).filter(Boolean));
+  const unavailableActionLabels = new Set(unavailable.map(tileActionLabelKey).filter(Boolean));
+  const visibleLabels = new Set();
+  const semantics = new Set();
 
-const projectCoreUniversalCorePriorityWords = new Set(
-  ProjectCoreUniversalCoreWords.map((word) => word.toLowerCase())
-);
+  const result = [];
+  for (const candidate of items) {
+    if (!candidate || candidate.action === TileAction.Noop) continue;
+    const label = normalizedTileLabel(candidate);
+    const semantic = tileSemanticKey(candidate);
+    if (
+      (semantic && unavailableSemantics.has(semantic)) ||
+      unavailableActionLabels.has(tileActionLabelKey(candidate)) ||
+      (label && visibleLabels.has(label)) ||
+      (semantic && semantics.has(semantic))
+    ) continue;
+    if (label) visibleLabels.add(label);
+    if (semantic) semantics.add(semantic);
+    result.push(candidate);
+    if (result.length >= maxResults) break;
+  }
+  return result;
+}
 
-const PronounTransitionWords = Object.freeze([
-  "want", "need", "feel", "like", "go", "help", "stop", "look", "watch", "make", "get", "do"
-]);
-const WantTransitionWords = Object.freeze([
-  "drink", "water", "food", "bathroom", "toilet", "more", "music", "movie", "TV", "book", "game", "phone"
-]);
-const NeedTransitionWords = Object.freeze([
-  "help", "drink", "water", "food", "bathroom", "toilet", "medicine", "sleep", "blanket", "pillow", "family", "doctor"
-]);
-const FeelingTransitionWords = Object.freeze([
-  "sick", "tired", "good", "bad", "happy", "sad", "angry", "scared", "hot", "cold", "pain", "hurt"
-]);
-const RefusalTransitionWords = Object.freeze([
-  "drink", "food", "medicine", "help", "more", "go", "stop", "touch", "move", "bathroom", "shower"
-]);
-const DirectionTransitionWords = Object.freeze(["up", "down", "left", "right", "in", "out", "on", "off"]);
+function normalizedTileLabel(candidate) {
+  return String(candidate?.label ?? "")
+    .normalize("NFKC")
+    .trim()
+    .toLocaleUpperCase("en-US");
+}
+
+function tileSemanticKey(candidate) {
+  if (!candidate || candidate.action === TileAction.Noop) return "";
+  const action = String(candidate.action ?? TileAction.Append);
+  const output = String(candidate.output ?? "").normalize("NFKC");
+  return `${action}\u0000${output}`;
+}
+
+function tileActionLabelKey(candidate) {
+  if (!candidate || candidate.action === TileAction.Noop) return "";
+  const label = normalizedTileLabel(candidate);
+  return label ? `${String(candidate.action ?? TileAction.Append)}\u0000${label}` : "";
+}
 
 function distinctBy(items, keyForItem) {
   const seen = new Set();

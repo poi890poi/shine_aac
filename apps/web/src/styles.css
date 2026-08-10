@@ -8,6 +8,7 @@
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
+  --minimum-function-label-size: 20px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -114,8 +115,9 @@ textarea {
 }
 
 .phase {
-  font-size: 18px;
-  font-weight: 800;
+  color: #4f5b66;
+  font-size: 17px;
+  font-weight: 700;
 }
 
 body.demo-active .phase::after {
@@ -125,8 +127,9 @@ body.demo-active .phase::after {
 }
 
 .voice {
-  font-size: 16px;
-  font-weight: 800;
+  color: #4f5b66;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .camera-status {
@@ -207,7 +210,9 @@ body.demo-active .phase::after {
 
 .config-button {
   color: #6750a4;
-  border-color: transparent;
+  border-color: #6750a4;
+  background: #f2edff;
+  box-shadow: 0 2px 0 #c9bce8;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
@@ -251,6 +256,12 @@ body.demo-active .phase::after {
   border-color: #9aa4ae;
 }
 
+.tile.function-key {
+  border-color: #40596d;
+  background: #dfeaf2;
+  box-shadow: inset 0 -4px 0 #91a9ba;
+}
+
 .tile.replacement {
   background: #fff3bf;
   border-color: #c47f17;
@@ -258,15 +269,22 @@ body.demo-active .phase::after {
 }
 
 .tile.noop {
-  background: #f1f3f5;
+  visibility: hidden;
+  border-color: transparent;
+  background: transparent;
   color: transparent;
+  pointer-events: none;
 }
 
-.tile.action-backspace,
-.tile.action-clear,
-.tile.action-undo {
+.tile.action-backspace {
   background: #f4e4e1;
   border-color: #b77970;
+}
+
+.tile.action-clear {
+  border-color: #97483d;
+  background: #efcbc5;
+  box-shadow: inset 0 -4px 0 #c56b5e;
 }
 
 .tile.active-row {
@@ -321,11 +339,30 @@ body.demo-active .phase::after {
   max-height: 100%;
   padding: 4px 6px;
   text-align: center;
-  line-height: 1.08;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow: hidden;
+}
+
+.tile-label-measure-probe {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  width: max-content;
+  max-width: none;
+  max-height: none;
+  visibility: hidden;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dynamic-suggestion-row .tile.wrapped-word .tile-label {
   white-space: normal;
   overflow-wrap: anywhere;
-  word-break: break-word;
-  overflow: hidden;
+  word-break: normal;
+  hyphens: auto;
 }
 
 .board.dense-board,
@@ -373,6 +410,94 @@ body.demo-active .phase::after {
 .config-panel h1 {
   margin: 0 0 14px;
   font-size: 26px;
+}
+
+.text-export-backdrop {
+  z-index: 8;
+  align-items: center;
+  background: rgba(23, 32, 39, 0.48);
+}
+
+.text-export-panel {
+  display: grid;
+  width: min(520px, 100%);
+  gap: 14px;
+  padding: 24px;
+  border: 3px solid #536878;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.34);
+  text-align: center;
+}
+
+.text-export-panel.success {
+  border-color: #1f6f78;
+}
+
+.text-export-panel.error {
+  border-color: #a33d32;
+}
+
+.text-export-mark {
+  display: inline-grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  justify-self: center;
+  border-radius: 50%;
+  background: #1f6f78;
+  color: #ffffff;
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.text-export-panel.error .text-export-mark {
+  background: #a33d32;
+}
+
+.text-export-panel h1,
+.text-export-panel p {
+  margin: 0;
+}
+
+.text-export-panel p {
+  color: #3f4e58;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.text-export-file {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #9aaab5;
+  border-radius: 8px;
+  background: #eef4f6;
+  overflow-wrap: anywhere;
+}
+
+.text-export-file span {
+  color: #52616c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.text-export-file strong {
+  color: #172027;
+  font-size: 17px;
+}
+
+.text-export-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.text-export-actions .primary-button,
+.text-export-actions .secondary-button {
+  min-height: 54px;
+  font-size: 17px;
 }
 
 .info-panel {
@@ -1059,6 +1184,10 @@ body.demo-active .phase::after {
   .config-actions .secondary-button,
   .config-actions .primary-button {
     flex: 1 1 130px;
+  }
+
+  .text-export-actions {
+    grid-template-columns: 1fr;
   }
 
   .info-list > div {

@@ -2,12 +2,15 @@ package org.shineaac.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.KeyEvent
@@ -34,6 +37,7 @@ import org.json.JSONArray
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private var webView: WebView? = null
@@ -48,21 +52,39 @@ class MainActivity : ComponentActivity() {
     private var webBackNavigationPending = false
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
     private var pendingTextHistoryExport: String? = null
+    private var pendingTextHistoryExportFileName: String? = null
+    private var lastTextHistoryExportUri: Uri? = null
     private val textHistoryDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
         val exportText = pendingTextHistoryExport
+        val suggestedFileName = pendingTextHistoryExportFileName ?: "saytome-aac-text-history.txt"
         pendingTextHistoryExport = null
+        pendingTextHistoryExportFileName = null
         if (uri == null || exportText == null) return@registerForActivityResult
 
         try {
-            contentResolver.openOutputStream(uri, "wt")?.use { output ->
+            val outputStream = contentResolver.openOutputStream(uri, "wt")
+                ?: error("The selected document could not be opened for writing")
+            outputStream.use { output ->
                 output.writer(Charsets.UTF_8).use { writer ->
                     writer.write(exportText)
                 }
             }
+            lastTextHistoryExportUri = uri
+            notifyTextExportResult(
+                success = true,
+                fileName = textExportDisplayName(uri, suggestedFileName),
+                canOpen = true,
+            )
         } catch (error: Exception) {
             Log.e("ShineAacExport", "Could not save text history", error)
+            notifyTextExportResult(
+                success = false,
+                fileName = suggestedFileName,
+                canOpen = false,
+                message = "文字檔沒有儲存，請返回設定後再試一次。",
+            )
         }
     }
     private val cameraPermissionLauncher = registerForActivityResult(
@@ -99,7 +121,7 @@ class MainActivity : ComponentActivity() {
             webChromeClient = WebChromeClient()
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.textZoom = 100
+            settings.textZoom = webTextZoomPercent(resources.configuration.fontScale)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.allowFileAccess = true
             settings.allowContentAccess = true
@@ -187,6 +209,33 @@ class MainActivity : ComponentActivity() {
     private fun notifySpeechVoicesChanged() {
         webView?.post {
             webView?.evaluateJavascript("globalThis.ShineAacSpeechVoices?.refresh?.()", null)
+        }
+    }
+
+    private fun textExportDisplayName(uri: Uri, fallback: String): String = try {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (nameIndex >= 0 && cursor.moveToFirst()) cursor.getString(nameIndex) else null
+        }?.takeIf { it.isNotBlank() } ?: fallback
+    } catch (_: Exception) {
+        fallback
+    }
+
+    private fun notifyTextExportResult(
+        success: Boolean,
+        fileName: String,
+        canOpen: Boolean,
+        message: String = "",
+    ) {
+        val payload = JSONObject()
+            .put("fileName", fileName)
+            .put("canOpen", canOpen)
+            .put("message", message)
+            .toString()
+        val callback = if (success) "completed" else "failed"
+        val javascript = "globalThis.ShineAacTextExport?.$callback?.(${JSONObject.quote(payload)})"
+        webView?.post {
+            webView?.evaluateJavascript(javascript, null)
         }
     }
 
@@ -555,7 +604,7 @@ class MainActivity : ComponentActivity() {
 
             return JSONObject()
                 .put("configVersion", prefs.getInt("configVersion", CurrentConfigVersion))
-                .put("columns", prefs.getInt("columns", 4))
+                .put("columns", prefs.getInt("columns", 6))
                 .put("profileId", prefs.getString("profileId", "en-US"))
                 .put("scanIntervalMs", prefs.getFloat("scanIntervalMs", DefaultScanIntervalMs).toDouble())
                 .put("transitionPauseMs", prefs.getFloat("transitionPauseMs", DefaultTransitionPauseMs).toDouble())
@@ -570,6 +619,7 @@ class MainActivity : ComponentActivity() {
             if (!prefs.getBoolean("e2eEnabled", false)) return ""
 
             return JSONObject()
+                .put("uiConfigVersion", 1)
                 .put("rowScanVoice", prefs.getBoolean("rowScanVoice", false))
                 .put("scanVoice", prefs.getBoolean("scanVoice", true))
                 .put("activationVoice", prefs.getBoolean("activationVoice", true))
@@ -581,7 +631,7 @@ class MainActivity : ComponentActivity() {
                 .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
                 .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))
-                .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", true))
+                .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", false))
                 .toString()
         }
 
@@ -681,7 +731,31 @@ class MainActivity : ComponentActivity() {
                 .let { if (it.endsWith(".txt", ignoreCase = true)) it else "$it.txt" }
             runOnUiThread {
                 pendingTextHistoryExport = exportText
+                pendingTextHistoryExportFileName = fileName
                 textHistoryDocumentLauncher.launch(fileName)
+            }
+        }
+
+        @JavascriptInterface
+        fun openLastTextExport() {
+            runOnUiThread {
+                val uri = lastTextHistoryExportUri ?: return@runOnUiThread
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "text/plain")
+                    clipData = ClipData.newRawUri("exported text", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                try {
+                    startActivity(intent)
+                } catch (error: ActivityNotFoundException) {
+                    Log.w("ShineAacExport", "No app can open the exported text file", error)
+                    notifyTextExportResult(
+                        success = false,
+                        fileName = textExportDisplayName(uri, "saytome-aac-text-history.txt"),
+                        canOpen = false,
+                        message = "找不到可開啟文字檔的應用程式。檔案仍然已儲存。",
+                    )
+                }
             }
         }
 
@@ -695,10 +769,10 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
-        const val CurrentConfigVersion = 18
-        const val DefaultScanIntervalMs = 1300f
+        const val CurrentConfigVersion = 24
+        const val DefaultScanIntervalMs = 1800f
         const val DefaultTransitionPauseMs = 0f
-        const val DefaultFirstCellPauseMs = 1700f
+        const val DefaultFirstCellPauseMs = DefaultScanIntervalMs
         const val MaxTextHistoryExportChars = 500_000
         const val MaxSessionDraftJsonChars = 100_000
         const val SessionDraftPreferences = "shine_aac_session_draft"
@@ -749,3 +823,6 @@ class MainActivity : ComponentActivity() {
             profile == SwitchInputCameraLongBlink || profile == SwitchInputHardwareAndCamera
     }
 }
+
+internal fun webTextZoomPercent(fontScale: Float): Int =
+    (fontScale * 100f).roundToInt().coerceIn(50, 200)

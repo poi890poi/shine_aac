@@ -6,9 +6,11 @@ import {
   TileAction,
   advanceSession,
   applyScanTimingPreset,
+  boardRows,
   createBoardConfig,
   createSession,
   compactTextHistorySnapshots,
+  loadProfileColumnsForConfig,
   loadProfileSuggestionDictionaryForConfig,
   loadProfileSymbolsForConfig,
   loadScanIntervalForConfig,
@@ -51,6 +53,42 @@ const TextHistoryMaxStorageChars = 480000;
 const SessionDraftVersion = 1;
 const SessionDraftMaxHistoryEntries = 24;
 const SessionDraftMaxMessageChars = 10000;
+const FunctionTileActions = new Set([
+  TileAction.Space,
+  TileAction.Backspace,
+  TileAction.Clear,
+  TileAction.Undo,
+  TileAction.Speak,
+  TileAction.EnterMode,
+  TileAction.ExitMode,
+  TileAction.OpenCategory,
+  TileAction.CloseCategory,
+  TileAction.ZhuyinGroup,
+  TileAction.ZhuyinClear,
+  TileAction.MoreSuggestions
+]);
+const FunctionTileIcons = Object.freeze({
+  [TileAction.Space]: "␠",
+  [TileAction.Backspace]: "⌫",
+  [TileAction.Clear]: "✕",
+  [TileAction.Undo]: "↶",
+  [TileAction.Speak]: "▶",
+  [TileAction.EnterMode]: "⇄",
+  [TileAction.ExitMode]: "←",
+  [TileAction.OpenCategory]: "⇄",
+  [TileAction.CloseCategory]: "←",
+  [TileAction.ZhuyinGroup]: "⇄",
+  [TileAction.ZhuyinClear]: "↺",
+  [TileAction.MoreSuggestions]: "⋯"
+});
+
+function isZhTwUi() {
+  return session.config.profileId === "zh-TW";
+}
+
+function uiText(english, traditionalChinese) {
+  return isZhTwUi() ? traditionalChinese : english;
+}
 
 const initialConfig = loadConfig();
 let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
@@ -58,11 +96,12 @@ let uiConfig = loadUiConfig(uiStorageKey);
 let highlightStartedAt = performance.now();
 let highlightDeadlineAt = highlightStartedAt;
 let timerId = 0;
-let animationFrameId = 0;
 let configOpen = false;
 let calibrationOpen = false;
 let appInfoOpen = false;
 let speechVoicesOpen = false;
+let textExportDialogOpen = false;
+let textExportPreviewUrl = "";
 let speechVoiceRefreshTimerId = 0;
 let speechVoiceStatusMessage = "";
 const speechVoiceDownloadRequests = new Map();
@@ -90,6 +129,7 @@ let currentProgressFills = [];
 let progressTargetKey = "";
 let pendingAdvanceSession = null;
 let prepareAdvanceTimerId = 0;
+let animationFrameId = 0;
 let scanScheduleToken = 0;
 let cameraStatus = { state: "off", label: "Camera off", updatedAt: 0 };
 let cameraStatusTimerId = 0;
@@ -110,6 +150,11 @@ globalThis.ShineAacTextHistory = {
   exportText: exportTextHistoryText,
   record: () => recordTextHistory("manual", "manual")
 };
+
+globalThis.ShineAacTextExport = Object.freeze({
+  completed: (resultJson) => showTextExportResult(parseTextExportResult(resultJson, true)),
+  failed: (resultJson) => showTextExportResult(parseTextExportResult(resultJson, false))
+});
 
 globalThis.ShineAacNavigation = Object.freeze({
   back: navigateBackWithinApp,
@@ -135,7 +180,12 @@ function loadConfig() {
     const profileDefaults = createBoardConfig({ profileId: storedProfileId });
     return createBoardConfig({
       profileId: storedProfileId,
-      columns: numberOrDefault(stored.columns, defaults.columns),
+      columns: loadProfileColumnsForConfig(
+        numberOrDefault(stored.columns, profileDefaults.columns),
+        storedVersion,
+        storedProfileId,
+        stored.symbols ?? serializeSymbols(profileDefaults.symbols)
+      ),
       scanIntervalMs: loadScanIntervalForConfig(
         numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
         storedVersion
@@ -179,7 +229,11 @@ function loadNativeConfig(defaults) {
     const storedVersion = Number(stored.configVersion) || 0;
     return createBoardConfig({
       profileId: stored.profileId,
-      columns: numberOrDefault(stored.columns, defaults.columns),
+      columns: loadProfileColumnsForConfig(
+        numberOrDefault(stored.columns, defaults.columns),
+        storedVersion,
+        stored.profileId
+      ),
       scanIntervalMs: loadScanIntervalForConfig(
         numberOrDefault(stored.scanIntervalMs, defaults.scanIntervalMs),
         storedVersion
@@ -249,7 +303,10 @@ function loadSessionDraft(config) {
       zhuyinBuffer: sanitizeDraftText(stored.zhuyinBuffer),
       zhuyinStage: typeof stored.zhuyinStage === "string" ? stored.zhuyinStage : "initialGroup",
       zhuyinGroup: typeof stored.zhuyinGroup === "string" ? stored.zhuyinGroup : null,
-      suggestionPage: Number.isInteger(stored.suggestionPage) ? stored.suggestionPage : 0
+      suggestionPage: Number.isInteger(stored.suggestionPage) ? stored.suggestionPage : 0,
+      suggestionPageHistory: Array.isArray(stored.suggestionPageHistory)
+        ? stored.suggestionPageHistory.filter(Number.isInteger).map((page) => Math.max(0, page)).slice(-SessionDraftMaxHistoryEntries)
+        : []
     };
   } catch {
     return {};
@@ -270,7 +327,10 @@ function saveSessionDraft() {
     zhuyinBuffer: sanitizeDraftText(session.zhuyinBuffer),
     zhuyinStage: session.zhuyinStage,
     zhuyinGroup: session.zhuyinGroup,
-    suggestionPage: session.suggestionPage
+    suggestionPage: session.suggestionPage,
+    suggestionPageHistory: session.suggestionPageHistory
+      .filter(Number.isInteger)
+      .slice(-SessionDraftMaxHistoryEntries)
   });
   try {
     localStorage.setItem(sessionDraftStorageKey, value);
@@ -431,7 +491,105 @@ function exportTextHistory() {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
+  showTextExportResult({
+    success: true,
+    fileName,
+    canOpen: false,
+    previewText: text,
+    browserDownload: true
+  });
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function parseTextExportResult(resultJson, success) {
+  try {
+    const parsed = typeof resultJson === "string" ? JSON.parse(resultJson) : resultJson;
+    return {
+      success,
+      fileName: String(parsed?.fileName ?? ""),
+      canOpen: parsed?.canOpen === true,
+      message: String(parsed?.message ?? "")
+    };
+  } catch {
+    return { success, fileName: "", canOpen: false, message: "" };
+  }
+}
+
+function showTextExportResult(result) {
+  closeTextExportResult();
+  const isZhTw = session.config.profileId === "zh-TW";
+  const success = result?.success === true;
+  const canOpenNative = success && result?.canOpen === true &&
+    typeof globalThis.ShineAacAndroid?.openLastTextExport === "function";
+  const canPreview = success && typeof result?.previewText === "string";
+  const fileName = String(result?.fileName || (isZhTw ? "文字記錄.txt" : "text-history.txt"));
+
+  if (canPreview) {
+    textExportPreviewUrl = URL.createObjectURL(new Blob(
+      [result.previewText],
+      { type: "text/plain;charset=utf-8" }
+    ));
+  }
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "config-backdrop text-export-backdrop";
+  backdrop.dataset.testid = "text-export-result";
+  backdrop.addEventListener("click", closeTextExportResult);
+
+  const panel = document.createElement("section");
+  panel.className = `text-export-panel ${success ? "success" : "error"}`;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("aria-labelledby", "text-export-title");
+  panel.addEventListener("click", (event) => event.stopPropagation());
+
+  const title = success
+    ? isZhTw ? "文字已匯出" : "Text exported"
+    : isZhTw ? "無法匯出文字" : "Could not export text";
+  const detail = success
+    ? result.browserDownload
+      ? isZhTw ? "檔案已下載。您也可以直接查看這次匯出的內容。" : "The file was downloaded. You can also preview the exported text now."
+      : isZhTw ? "檔案已儲存。現在可以直接開啟，不必再尋找資料夾。" : "The file was saved. You can open it now without finding its folder."
+    : result?.message || (isZhTw ? "文字檔沒有儲存，請返回設定後再試一次。" : "The text file was not saved. Return to settings and try again.");
+  const primaryLabel = canOpenNative
+    ? isZhTw ? "開啟文字檔" : "Open text file"
+    : canPreview
+      ? isZhTw ? "查看匯出內容" : "Preview exported text"
+      : "";
+
+  panel.innerHTML = `
+    <div class="text-export-mark" aria-hidden="true">${success ? "✓" : "!"}</div>
+    <h1 id="text-export-title">${escapeHtml(title)}</h1>
+    <p>${escapeHtml(detail)}</p>
+    ${success ? `<p class="text-export-file"><span>${isZhTw ? "檔名" : "File"}</span><strong>${escapeHtml(fileName)}</strong></p>` : ""}
+    <div class="text-export-actions">
+      ${primaryLabel ? `<button class="primary-button" type="button" data-action="open-export">${escapeHtml(primaryLabel)}</button>` : ""}
+      <button class="secondary-button" type="button" data-action="close-export">${isZhTw ? "返回設定" : "Back to settings"}</button>
+    </div>
+  `;
+  panel.addEventListener("click", (event) => {
+    const action = event.target?.dataset?.action;
+    if (action === "close-export") closeTextExportResult();
+    if (action !== "open-export") return;
+    if (canOpenNative) {
+      globalThis.ShineAacAndroid.openLastTextExport();
+    } else if (textExportPreviewUrl) {
+      window.open(textExportPreviewUrl, "_blank", "noopener,noreferrer");
+    }
+    closeTextExportResult();
+  });
+
+  backdrop.append(panel);
+  app.append(backdrop);
+  textExportDialogOpen = true;
+  panel.querySelector(success && primaryLabel ? '[data-action="open-export"]' : '[data-action="close-export"]')?.focus();
+}
+
+function closeTextExportResult() {
+  app.querySelector('[data-testid="text-export-result"]')?.remove();
+  textExportDialogOpen = false;
+  if (textExportPreviewUrl) URL.revokeObjectURL(textExportPreviewUrl);
+  textExportPreviewUrl = "";
 }
 
 function exportTextHistoryText() {
@@ -723,7 +881,9 @@ function speakActivation(tile) {
 
 function updateCameraStatus(inputEvent = {}) {
   const state = String(inputEvent.state ?? detailValue(inputEvent.detail, "state") ?? "live");
-  const label = String(inputEvent.label ?? cameraStatusLabel(state));
+  const label = isZhTwUi()
+    ? cameraStatusLabel(state)
+    : String(inputEvent.label ?? cameraStatusLabel(state));
   setCameraStatus(state, label, state === "live" || state === "analysis");
   return true;
 }
@@ -739,7 +899,7 @@ function scheduleCameraStatusStaleCheck() {
   cameraStatusTimerId = window.setTimeout(() => {
     if (!cameraInputEnabled() || !cameraStatus.monitorStale) return;
     if (performance.now() - cameraStatus.updatedAt >= CameraStatusStaleMs) {
-      setCameraStatus("detectorStale", "Detect stale", false);
+      setCameraStatus("detectorStale", cameraStatusLabel("detectorStale"), false);
     } else {
       scheduleCameraStatusStaleCheck();
     }
@@ -752,34 +912,35 @@ function updateCameraStatusPresentation() {
   const visible = cameraInputEnabled();
   element.hidden = !visible;
   element.className = `camera-status camera-status-${cameraStatus.state}`;
-  element.textContent = visible ? cameraStatus.label : "";
+  element.textContent = visible ? (isZhTwUi() ? cameraStatusLabel(cameraStatus.state) : cameraStatus.label) : "";
 }
 
 function cameraStatusLabel(state) {
+  const zhTw = isZhTwUi();
   switch (state) {
     case "starting":
-      return "Cam start";
+      return zhTw ? "相機啟動" : "Cam start";
     case "live":
-      return "Cam live";
+      return zhTw ? "相機正常" : "Cam live";
     case "analysis":
-      return "Cam live";
+      return zhTw ? "相機正常" : "Cam live";
     case "blink":
-      return "Blink";
+      return zhTw ? "偵測眨眼" : "Blink";
     case "restarting":
-      return "Cam restart";
+      return zhTw ? "重新啟動" : "Cam restart";
     case "detectorStale":
-      return "Detect stale";
+      return zhTw ? "偵測中斷" : "Detect stale";
     case "cameraStale":
-      return "Cam stale";
+      return zhTw ? "相機中斷" : "Cam stale";
     case "permissionDenied":
-      return "Camera permission";
+      return zhTw ? "需要相機權限" : "Camera permission";
     case "stale":
-      return "Detect stale";
+      return zhTw ? "偵測中斷" : "Detect stale";
     case "stopped":
     case "off":
-      return "Camera off";
+      return zhTw ? "相機關閉" : "Camera off";
     default:
-      return "Camera status";
+      return zhTw ? "相機狀態" : "Camera status";
   }
 }
 
@@ -880,12 +1041,15 @@ function renderFull(board, boardKey) {
 
   const phase = document.createElement("div");
   phase.className = "phase";
+  phase.setAttribute("role", "status");
+  phase.setAttribute("aria-live", "polite");
   phase.textContent = statusPhaseLabel(scanner.stage);
+  phase.dataset.scanPhase = statusPhaseCode(scanner.stage);
   renderedPhaseElement = phase;
 
   const voice = document.createElement("div");
   voice.className = "voice";
-  voice.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
+  voice.textContent = voiceStatusLabel();
   renderedVoiceElement = voice;
 
   const cameraStatusElement = document.createElement("div");
@@ -896,7 +1060,7 @@ function renderFull(board, boardKey) {
   const configButton = document.createElement("button");
   configButton.className = "config-button";
   configButton.type = "button";
-  configButton.textContent = "Config";
+  configButton.textContent = session.config.profileId === "zh-TW" ? "⚙ 設定" : "⚙ Settings";
   configButton.addEventListener("click", (event) => {
     event.stopPropagation();
     if (suppressNextConfigClick) {
@@ -913,22 +1077,52 @@ function renderFull(board, boardKey) {
   const boardElement = document.createElement("section");
   boardElement.className = "board";
   if (board.length >= 18) boardElement.classList.add("dense-board");
+  const boardRowWeights = board.map((row, rowIndex) =>
+    isDynamicEnglishSuggestionRow(rowIndex) && row.some((candidate) =>
+      session.config.suggestionWrapLabels?.[candidate.label]
+    )
+      ? "2fr"
+      : "minmax(0, 1fr)"
+  );
+  if (boardRowWeights.some((weight) => weight === "2fr")) {
+    boardElement.classList.add("has-wrapped-suggestion");
+    boardElement.style.gridTemplateRows = boardRowWeights.join(" ");
+  }
   boardElement.setAttribute("data-testid", "board");
   boardElement.style.setProperty("--row-count", String(board.length));
 
   board.forEach((row, rowIndex) => {
     const rowElement = document.createElement("div");
     rowElement.className = "row";
-    rowElement.style.gridTemplateColumns = `repeat(${session.config.columns}, minmax(0, 1fr))`;
+    if (session.config.profileId === "zh-TW" && rowIndex < 4) rowElement.classList.add("suggestion-row");
+    if (isDynamicEnglishSuggestionRow(rowIndex)) rowElement.classList.add("dynamic-suggestion-row");
+    const visualColumns = visualColumnCountForRow(row, rowIndex);
+    rowElement.dataset.visualColumns = String(visualColumns);
+    rowElement.style.gridTemplateColumns = `repeat(${visualColumns}, minmax(0, 1fr))`;
     const renderedRow = [];
 
     row.forEach((candidate, cellIndex) => {
       const tile = document.createElement("div");
       tile.className = tileClass(candidate, false, false, false);
+      if (session.config.suggestionWrapLabels?.[candidate.label]) tile.classList.add("wrapped-word");
       tile.setAttribute("data-label", candidate.label);
       tile.setAttribute("data-action", candidate.action);
-      tile.setAttribute("role", "button");
-      tile.setAttribute("aria-label", candidate.label || "empty");
+      const columnSpan = Math.max(1, Number(candidate.columnSpan) || 1);
+      tile.dataset.columnSpan = String(columnSpan);
+      if (columnSpan > 1) tile.style.gridColumn = `span ${columnSpan}`;
+      if (isFunctionTile(candidate)) {
+        const functionName = session.config.profileId === "zh-TW" ? "功能鍵" : "function key";
+        tile.setAttribute("data-control-label", session.config.profileId === "zh-TW" ? "功能" : "KEY");
+        tile.setAttribute("data-control-icon", FunctionTileIcons[candidate.action] ?? "◆");
+        tile.setAttribute("aria-label", `${functionName}：${candidate.label}`);
+      }
+      if (candidate.action === TileAction.Noop) {
+        tile.setAttribute("role", "presentation");
+        tile.setAttribute("aria-hidden", "true");
+      } else {
+        tile.setAttribute("role", "button");
+        if (!tile.hasAttribute("aria-label")) tile.setAttribute("aria-label", candidate.label);
+      }
 
       const progressFill = document.createElement("div");
       progressFill.className = "progress-fill";
@@ -964,9 +1158,10 @@ function updateScanPresentation(board) {
   const nextProgressTargetKey = progressTargetKeyForScanner(scanner, reviewHoldActive);
   if (renderedPhaseElement) {
     renderedPhaseElement.textContent = statusPhaseLabel(scanner.stage);
+    renderedPhaseElement.dataset.scanPhase = statusPhaseCode(scanner.stage);
   }
   if (renderedVoiceElement) {
-    renderedVoiceElement.textContent = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice ? "Audio" : "Silent";
+    renderedVoiceElement.textContent = voiceStatusLabel();
   }
   updateCameraStatusPresentation();
 
@@ -1054,7 +1249,8 @@ function boardSignature(board) {
         candidate.label,
         candidate.output,
         candidate.action,
-        candidate.replaceLength ?? ""
+        candidate.replaceLength ?? "",
+        candidate.columnSpan ?? 1
       ].join("\u001f"))
       .join("\u001e"))
   ].join("\u001d");
@@ -1083,13 +1279,36 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   const classes = ["tile"];
   classes.push(`action-${candidate.action}`);
   if (candidate.action !== TileAction.Append) classes.push("command");
+  if (isFunctionTile(candidate)) classes.push("function-key");
   if (candidate.action === TileAction.Noop) classes.push("noop");
+  if (session.config.suggestionWrapLabels?.[candidate.label]) classes.push("wrapped-word");
   if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");
   if (reviewHold) classes.push("review-hold");
   if (cameraHold) classes.push("camera-hold");
   return classes.join(" ");
+}
+
+function isFunctionTile(candidate) {
+  return FunctionTileActions.has(candidate.action);
+}
+
+function isDynamicEnglishSuggestionRow(rowIndex) {
+  const hasEnglishSuggestions = session.config.profileId === "en-US" ||
+    (session.config.profileId === "zh-TW" && session.activeCategory === "english");
+  if (!hasEnglishSuggestions) return false;
+  return rowIndex >= 0 && rowIndex < 2;
+}
+
+function visualColumnCountForRow(row, rowIndex) {
+  if (isDynamicEnglishSuggestionRow(rowIndex)) {
+    return session.config.profileId === "zh-TW"
+      ? Math.min(session.config.columns, 4)
+      : session.config.columns;
+  }
+  if (session.config.profileId !== "zh-TW") return session.config.columns;
+  return Math.max(1, row.length);
 }
 
 window.addEventListener("pagehide", saveSessionDraft);
@@ -1114,14 +1333,20 @@ function fitTileLabels() {
   const labels = observedBoardElement?.querySelectorAll(".tile-label") ?? [];
   for (const label of labels) label.style.fontSize = "";
 
+  const spanUpdate = updateDynamicSuggestionSpans();
+  if (spanUpdate === null) return;
+  if (spanUpdate) return;
+
   for (const label of labels) {
     const tile = label.closest(".tile");
     if (!tile || label.clientWidth <= 0 || label.clientHeight <= 0 || tile.clientHeight <= 0) continue;
+    if (isRenderedWordSuggestion(tile) && tile.closest(".dynamic-suggestion-row")) continue;
 
     const maximumPx = Number.parseFloat(getComputedStyle(tile).fontSize);
     if (!Number.isFinite(maximumPx) || tileLabelFits(label)) continue;
 
-    let lowerPx = 4;
+    const lowerLimitPx = 10;
+    let lowerPx = lowerLimitPx;
     let upperPx = maximumPx;
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const candidatePx = (lowerPx + upperPx) / 2;
@@ -1133,8 +1358,112 @@ function fitTileLabels() {
   }
 }
 
+function updateDynamicSuggestionSpans() {
+  const rowElements = [...(observedBoardElement?.querySelectorAll(".dynamic-suggestion-row") ?? [])];
+  const rowElement = rowElements[0];
+  if (!rowElement) return false;
+  if (session.scannerState.stage !== ScanStage.Rows) return null;
+
+  const columns = Math.max(1, Number.parseInt(rowElement.dataset.visualColumns ?? "", 10) || 1);
+  const rowStyle = getComputedStyle(rowElement);
+  const gapPx = Number.parseFloat(rowStyle.columnGap) || 0;
+  const baseColumnWidth = (rowElement.clientWidth - gapPx * (columns - 1)) / columns;
+  const sampleTile = rowElement.querySelector(".tile:not(.noop)");
+  if (!sampleTile || baseColumnWidth <= 0) return false;
+
+  const unspannedConfig = createBoardConfig({
+    ...session.config,
+    suggestionColumnSpans: Object.create(null)
+  });
+  const sourceRows = boardRows(
+    unspannedConfig,
+    session.message,
+    session.messageHistory.length > 0,
+    session
+  ).slice(0, rowElements.length);
+  const nextSpans = Object.create(null);
+  const nextWrapLabels = Object.create(null);
+
+  for (const candidate of sourceRows.flat()) {
+    if (!isDynamicWordSuggestion(candidate) || !candidate.label) continue;
+    const requiredWidth = measureTileLabelWidth(candidate.label, sampleTile);
+    let span = columns;
+    for (let candidateSpan = 1; candidateSpan <= columns; candidateSpan += 1) {
+      const availableWidth = baseColumnWidth * candidateSpan + gapPx * (candidateSpan - 1);
+      if (requiredWidth <= availableWidth + 0.5) {
+        span = candidateSpan;
+        break;
+      }
+    }
+    nextSpans[candidate.label] = span;
+    const fullRowWidth = baseColumnWidth * columns + gapPx * (columns - 1);
+    if (requiredWidth > fullRowWidth + 0.5) nextWrapLabels[candidate.label] = true;
+  }
+
+  if (
+    sameSuggestionSpans(session.config.suggestionColumnSpans, nextSpans) &&
+    sameSuggestionSpans(session.config.suggestionWrapLabels, nextWrapLabels)
+  ) return false;
+  session = {
+    ...session,
+    config: createBoardConfig({
+      ...session.config,
+      suggestionColumnSpans: nextSpans,
+      suggestionWrapLabels: nextWrapLabels
+    })
+  };
+  render();
+  return true;
+}
+
+function measureTileLabelWidth(text, sampleTile) {
+  const tileStyle = getComputedStyle(sampleTile);
+  const sampleLabel = sampleTile.querySelector(".tile-label");
+  const labelStyle = sampleLabel ? getComputedStyle(sampleLabel) : tileStyle;
+  const probe = document.createElement("span");
+  probe.className = "tile-label tile-label-measure-probe";
+  probe.textContent = text;
+  probe.style.fontFamily = tileStyle.fontFamily;
+  probe.style.fontSize = tileStyle.fontSize;
+  probe.style.fontStyle = tileStyle.fontStyle;
+  probe.style.fontWeight = tileStyle.fontWeight;
+  probe.style.letterSpacing = tileStyle.letterSpacing;
+  probe.style.lineHeight = labelStyle.lineHeight;
+  probe.style.padding = labelStyle.padding;
+  document.body.append(probe);
+  const width = probe.getBoundingClientRect().width + 2;
+  probe.remove();
+  return width;
+}
+
+function isDynamicWordSuggestion(candidate) {
+  return candidate.action === TileAction.CommitCandidate || (
+    candidate.action === TileAction.Append &&
+    Array.from(String(candidate.output ?? "").trim()).length > 1
+  );
+}
+
+function isRenderedWordSuggestion(tile) {
+  if (tile.matches(".action-commit-candidate")) return true;
+  if (!tile.matches(".action-append")) return false;
+  return Array.from(String(tile.dataset.label ?? "").trim()).length > 1;
+}
+
+function sameSuggestionSpans(current, next) {
+  const currentEntries = Object.entries(current ?? {}).sort(([left], [right]) => left.localeCompare(right));
+  const nextEntries = Object.entries(next).sort(([left], [right]) => left.localeCompare(right));
+  return currentEntries.length === nextEntries.length && currentEntries.every(
+    ([label, span], index) => label === nextEntries[index][0] && Number(span) === nextEntries[index][1]
+  );
+}
+
 function tileLabelFits(label) {
-  return label.scrollWidth <= label.clientWidth && label.scrollHeight <= label.clientHeight;
+  if (label.scrollWidth > label.clientWidth || label.scrollHeight > label.clientHeight) return false;
+  const range = document.createRange();
+  range.selectNodeContents(label);
+  const lineRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+  if (lineRects.length < 2) return true;
+  return lineRects.every((rect) => Math.abs(rect.top - lineRects[0].top) <= 1);
 }
 
 window.addEventListener("resize", scheduleTileLabelFit);
@@ -1154,6 +1483,35 @@ function appendVisibleMessage(container, value) {
 }
 
 function phaseLabel(stage) {
+  const zhTw = session.config.profileId === "zh-TW";
+  switch (stage) {
+    case ScanStage.Rows:
+      return zhTw ? "目前：選列" : "Now: select row";
+    case ScanStage.RowSelected:
+      return zhTw ? "再按一次取消" : "Press again to cancel";
+    case ScanStage.FirstCell:
+      return zhTw ? "目前：選格" : "Now: select item";
+    case ScanStage.Cells:
+      return zhTw ? "目前：選格" : "Now: select item";
+    default:
+      return "";
+  }
+}
+
+function statusPhaseLabel(stage) {
+  const zhTw = session.config.profileId === "zh-TW";
+  if (cameraHoldActive) return zhTw ? "眨眼確認中" : "Blink detected";
+  if (reviewHoldActive) return zhTw ? "暫停確認" : "Review pause";
+  return phaseLabel(stage);
+}
+
+function statusPhaseCode(stage) {
+  if (cameraHoldActive) return "Blink";
+  if (reviewHoldActive) return "Review";
+  return phaseCode(stage);
+}
+
+function phaseCode(stage) {
   switch (stage) {
     case ScanStage.Rows:
       return "Rows";
@@ -1168,13 +1526,14 @@ function phaseLabel(stage) {
   }
 }
 
-function statusPhaseLabel(stage) {
-  if (cameraHoldActive) return "Blink";
-  if (reviewHoldActive) return "Review";
-  return phaseLabel(stage);
+function voiceStatusLabel() {
+  const enabled = uiConfig.rowScanVoice || uiConfig.scanVoice || uiConfig.activationVoice;
+  if (session.config.profileId === "zh-TW") return enabled ? "語音：開" : "語音：關";
+  return enabled ? "Voice: on" : "Voice: off";
 }
 
 function openConfig() {
+  closeTextExportResult();
   configOpen = true;
   calibrationOpen = false;
   appInfoOpen = false;
@@ -1188,6 +1547,7 @@ function openConfig() {
 }
 
 function closeConfig() {
+  closeTextExportResult();
   configOpen = false;
   calibrationOpen = false;
   appInfoOpen = false;
@@ -1240,6 +1600,10 @@ function navigateBackWithinApp() {
     demoMode.stop();
     return true;
   }
+  if (textExportDialogOpen) {
+    closeTextExportResult();
+    return true;
+  }
   if (calibrationOpen) {
     closeCalibration();
     return true;
@@ -1260,6 +1624,7 @@ function navigateBackWithinApp() {
 }
 
 function currentAppPage() {
+  if (textExportDialogOpen) return "text-export-result";
   if (calibrationOpen) return "calibration";
   if (speechVoicesOpen) return "speech-voices";
   if (appInfoOpen) return "app-info";
@@ -1305,30 +1670,30 @@ function renderAppInfo() {
   panel.innerHTML = `
     <header class="info-header">
       <h1>${escapeHtml(info.appName)}</h1>
-      <strong>Version ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</strong>
-      <p>An augmentative and alternative communication app for composing and speaking messages with touch, switch, or camera input.</p>
+      <strong>${uiText("Version", "版本")} ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</strong>
+      <p>${uiText("An augmentative and alternative communication app for composing and speaking messages with touch, switch, or camera input.", "使用觸控、開關或相機輸入來組合並朗讀訊息的輔助溝通程式。")}</p>
     </header>
     <section class="info-section" aria-labelledby="info-data-heading">
-      <h2 id="info-data-heading">Your data</h2>
+      <h2 id="info-data-heading">${uiText("Your data", "您的資料")}</h2>
       <dl class="info-list">
-        <div><dt>Communication data</dt><dd>Stored locally on this device</dd></div>
-        <div><dt>Text history</dt><dd>Saved locally; oldest entries are recycled at storage limits</dd></div>
-        <div><dt>Export</dt><dd>Saved to a user-chosen text file only when the user selects Export text</dd></div>
-        <div><dt>Backup</dt><dd>Android cloud and device-transfer backup disabled</dd></div>
-        <div><dt>Camera</dt><dd>Processed on device; frames are not stored by SayToMe AAC</dd></div>
-        <div><dt>Core communication</dt><dd>Works offline after installation</dd></div>
+        <div><dt>${uiText("Communication data", "溝通資料")}</dt><dd>${uiText("Stored locally on this device", "只儲存在這部裝置")}</dd></div>
+        <div><dt>${uiText("Text history", "文字記錄")}</dt><dd>${uiText("Saved locally; oldest entries are recycled at storage limits", "儲存在本機；空間達上限時會移除最舊記錄")}</dd></div>
+        <div><dt>${uiText("Export", "匯出")}</dt><dd>${uiText("Saved only when requested; after saving, the app shows the filename and a direct open button", "只在使用者要求時儲存；完成後顯示檔名及直接開啟按鈕")}</dd></div>
+        <div><dt>${uiText("Backup", "備份")}</dt><dd>${uiText("Android cloud and device-transfer backup disabled", "已停用 Android 雲端及裝置轉移備份")}</dd></div>
+        <div><dt>${uiText("Camera", "相機")}</dt><dd>${uiText("Processed on device; frames are not stored by SayToMe AAC", "影像只在裝置上處理；本程式不會儲存畫面")}</dd></div>
+        <div><dt>${uiText("Core communication", "基本溝通")}</dt><dd>${uiText("Works offline after installation", "安裝後可離線使用")}</dd></div>
       </dl>
     </section>
     <section class="info-section" aria-labelledby="info-project-heading">
-      <h2 id="info-project-heading">Help and information</h2>
+      <h2 id="info-project-heading">${uiText("Help and information", "協助與資訊")}</h2>
       <div class="info-links">
-        <button class="secondary-button" type="button" data-url="https://poi890poi.github.io/shine_aac/privacy-policy/">Privacy policy</button>
-        <button class="secondary-button" type="button" data-url="https://poi890poi.github.io/shine_aac/support/">Support</button>
-        <button class="secondary-button" type="button" data-url="https://github.com/poi890poi/shine_aac">Source code</button>
+        <button class="secondary-button" type="button" data-url="https://poi890poi.github.io/shine_aac/privacy-policy/">${uiText("Privacy policy", "隱私權政策")}</button>
+        <button class="secondary-button" type="button" data-url="https://poi890poi.github.io/shine_aac/support/">${uiText("Support", "使用協助")}</button>
+        <button class="secondary-button" type="button" data-url="https://github.com/poi890poi/shine_aac">${uiText("Source code", "原始碼")}</button>
       </div>
     </section>
     <div class="config-actions info-actions">
-      <button class="primary-button" type="button" data-action="back">Back</button>
+      <button class="primary-button" type="button" data-action="back">${uiText("Back", "返回")}</button>
     </div>
   `;
   panel.addEventListener("click", (event) => {
@@ -1353,77 +1718,78 @@ function renderConfig() {
   panel.addEventListener("click", (event) => event.stopPropagation());
 
   const title = document.createElement("h1");
-  title.textContent = "Configuration";
+  title.textContent = uiText("Configuration", "設定");
 
   const form = document.createElement("form");
+  const exportButtonLabel = session.config.profileId === "zh-TW" ? "匯出文字記錄" : "Export text";
   form.innerHTML = `
     <div class="config-grid">
-      <label class="field wide">Language
+      <label class="field wide">${uiText("Language", "語言")}
         <select name="profileId">
           ${profileOptionsHtml(session.config.profileId)}
         </select>
       </label>
-      <label class="field">Columns
+      <label class="field">${uiText("Maximum symbol columns", "每列最多格數")}
         <input name="columns" type="number" min="2" max="8" step="1" value="${session.config.columns}">
       </label>
-      <label class="field">Scan preset
+      <label class="field">${uiText("Scan preset", "掃描速度預設")}
         <select name="scanTimingPreset">
           ${scanTimingPresetOptionsHtml(session.config)}
         </select>
       </label>
-      <label class="field">Switch speed ms
+      <label class="field">${uiText("Switch speed ms", "掃描間隔（毫秒）")}
         <input name="scanIntervalMs" type="number" min="300" max="5000" step="50" value="${session.config.scanIntervalMs}">
       </label>
-      <label class="field">Row cancel pause ms
+      <label class="field">${uiText("Row cancel pause ms", "選列取消等待（毫秒）")}
         <input name="transitionPauseMs" type="number" min="0" max="4000" step="50" value="${session.config.transitionPauseMs}">
       </label>
-      <label class="field">First symbol hold ms
+      <label class="field">${uiText("First symbol hold ms", "第一格停留（毫秒）")}
         <input name="firstCellPauseMs" type="number" min="300" max="6000" step="50" value="${session.config.firstCellPauseMs}">
       </label>
-      <label class="field">Latency compensation ms
+      <label class="field">${uiText("Latency compensation ms", "輸入延遲補償（毫秒）")}
         <input name="inputLatencyCompensationMs" type="number" min="0" max="1200" step="25" value="${session.config.inputLatencyCompensationMs}">
       </label>
       <label class="field check-field">
         <input name="rowScanVoice" type="checkbox" ${uiConfig.rowScanVoice ? "checked" : ""}>
-        Voice while row scanning
+        ${uiText("Voice while row scanning", "選列時朗讀")}
       </label>
       <label class="field check-field">
         <input name="scanVoice" type="checkbox" ${uiConfig.scanVoice ? "checked" : ""}>
-        Voice while symbol scanning
+        ${uiText("Voice while symbol scanning", "選格時朗讀")}
       </label>
       <label class="field check-field">
         <input name="activationVoice" type="checkbox" ${uiConfig.activationVoice ? "checked" : ""}>
-        Voice on activation
+        ${uiText("Voice on activation", "選定後朗讀")}
       </label>
       ${speechVoiceSettingHtml(uiConfig.speechVoiceName)}
       <label class="field check-field">
         <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
-        Restart scan at top after input
+        ${uiText("Restart scan at top after input", "輸入後從第一列重新開始")}
       </label>
-      <label class="field">Switch input
+      <label class="field">${uiText("Switch input", "開關輸入")}
         <select name="switchInputProfile">
           ${switchInputProfileOptionsHtml(uiConfig.switchInputProfile)}
         </select>
       </label>
       <div class="field">
-        <button class="secondary-button" type="button" data-action="camera-calibration">Camera setup</button>
+        <button class="secondary-button" type="button" data-action="camera-calibration">${uiText("Camera setup", "相機設定")}</button>
       </div>
       <label class="field check-field">
         <input name="holdAfterSuggestionChange" type="checkbox" ${uiConfig.holdAfterSuggestionChange ? "checked" : ""}>
-        Hold after suggestion changes
+        ${uiText("Hold after suggestion changes", "候選字詞更新後暫停")}
       </label>
       ${suggestionDictionaryFieldHtml(session.config)}
-      <label class="field wide">Board symbols
+      <label class="field wide">${uiText("Board symbols", "版面內容")}
         <textarea name="symbols">${escapeHtml(serializeSymbols(session.config.symbols))}</textarea>
       </label>
     </div>
     <div class="config-actions">
-      <button class="secondary-button" type="button" data-action="app-info">App info</button>
-      <button class="secondary-button" type="button" data-action="reset">Reset</button>
-      <button class="secondary-button" type="button" data-action="calibrate">Input test</button>
-      <button class="secondary-button" type="button" data-action="export-text">Export text</button>
-      <button class="secondary-button" type="button" data-action="cancel">Cancel</button>
-      <button class="primary-button" type="submit">Save</button>
+      <button class="secondary-button" type="button" data-action="app-info">${uiText("App info", "關於本程式")}</button>
+      <button class="secondary-button" type="button" data-action="reset">${uiText("Reset", "恢復預設")}</button>
+      <button class="secondary-button" type="button" data-action="calibrate">${uiText("Input test", "輸入測試")}</button>
+      <button class="secondary-button" type="button" data-action="export-text">${exportButtonLabel}</button>
+      <button class="secondary-button" type="button" data-action="cancel">${uiText("Cancel", "取消")}</button>
+      <button class="primary-button" type="submit">${uiText("Save", "儲存")}</button>
     </div>
   `;
 
@@ -1471,7 +1837,7 @@ function renderConfig() {
       return;
     }
     if (!Array.from(form.elements.scanTimingPreset.options).some((option) => option.value === "custom")) {
-      form.elements.scanTimingPreset.add(new Option("Custom", "custom"));
+      form.elements.scanTimingPreset.add(new Option(uiText("Custom", "自訂"), "custom"));
     }
     form.elements.scanTimingPreset.value = "custom";
   };
@@ -1615,26 +1981,26 @@ function renderCalibration() {
   panel.className = "config-panel calibration-panel";
 
   const title = document.createElement("h1");
-  title.textContent = "Input Test";
+  title.textContent = uiText("Input Test", "輸入測試");
 
   const body = document.createElement("div");
   body.className = "calibration-body";
   body.innerHTML = `
     <section class="calibration-intro">
-      <strong>Communication is paused.</strong>
-      <span>Use the same input the person will use, then check whether each intentional action becomes one activation.</span>
+      <strong>${uiText("Communication is paused.", "溝通功能已暫停。")}</strong>
+      <span>${uiText("Use the same input the person will use, then check whether each intentional action becomes one activation.", "請使用本人實際會用的輸入方式，確認每次有意操作只產生一次啟動。")}</span>
     </section>
-    <div class="calibration-mode" role="group" aria-label="Input source type">
+    <div class="calibration-mode" role="group" aria-label="${uiText("Input source type", "輸入來源類型")}">
       <button class="mode-button ${calibrationState.inputClass === "reliable" ? "selected" : ""}" type="button" data-calibration-class="reliable">
-        Button or switch
+        ${uiText("Button or switch", "按鍵或開關")}
       </button>
       <button class="mode-button ${calibrationState.inputClass === "unreliable" ? "selected" : ""}" type="button" data-calibration-class="unreliable">
-        Sensor
+        ${uiText("Sensor", "感測器")}
       </button>
     </div>
     ${calibrationState.inputClass === "reliable" ? reliableCalibrationHtml() : unreliableCalibrationHtml()}
     <details class="calibration-details">
-      <summary>Event details</summary>
+      <summary>${uiText("Event details", "事件詳細資料")}</summary>
       ${calibrationStatsHtml()}
       ${calibrationEventLogHtml()}
     </details>
@@ -1645,8 +2011,8 @@ function renderCalibration() {
   const actions = document.createElement("div");
   actions.className = "config-actions";
   actions.innerHTML = `
-    <button class="secondary-button" type="button" data-calibration-action="clear">Clear test</button>
-    <button class="primary-button" type="button" data-calibration-action="back">Back to config</button>
+    <button class="secondary-button" type="button" data-calibration-action="clear">${uiText("Clear test", "清除測試")}</button>
+    <button class="primary-button" type="button" data-calibration-action="back">${uiText("Back to config", "返回設定")}</button>
   `;
   actions.addEventListener("click", handleCalibrationClick);
 
@@ -1662,44 +2028,44 @@ function reliableCalibrationHtml() {
   const cleanCount = Math.max(0, Math.min(5, total - duplicates));
   const ready = total >= 5 && duplicates === 0 && !disabled;
   const status = ready
-    ? "Good"
+    ? uiText("Good", "良好")
     : disabled
-      ? "Disabled"
+      ? uiText("Disabled", "未啟用")
       : duplicates > 0
-        ? "Needs adjustment"
-        : "Waiting";
+        ? uiText("Needs adjustment", "需要調整")
+        : uiText("Waiting", "等待輸入");
   const last = calibrationState.events.at(-1);
   const lastDetected = last && performance.now() - last.at < 1200;
   const guidance = ready
-    ? "This source is behaving like a reliable switch."
+    ? uiText("This source is behaving like a reliable switch.", "這個來源的表現符合可靠開關。")
     : disabled
-      ? "Choose a switch input profile that includes this source."
+      ? uiText("Choose a switch input profile that includes this source.", "請選擇包含這個來源的開關輸入設定。")
       : duplicates > 0
-        ? "The app saw repeated activations too close together. Increase debounce in the adapter or try sensor testing."
-        : "Press the input five times at a comfortable pace.";
+        ? uiText("The app saw repeated activations too close together. Increase debounce in the adapter or try sensor testing.", "程式收到間隔過短的重複啟動。請增加防彈跳時間，或改用感測器測試。")
+        : uiText("Press the input five times at a comfortable pace.", "請用舒適的速度操作五次。");
   return `
     <section class="calibration-section" data-testid="calibration-reliable">
       <div class="calibration-steps">
         <div class="calibration-step current">
           <span>1</span>
-          <strong>Press input</strong>
-          <small>Use touch, a key, volume button, or external switch.</small>
+          <strong>${uiText("Press input", "操作輸入")}</strong>
+          <small>${uiText("Use touch, a key, volume button, or external switch.", "可使用觸控、鍵盤、音量鍵或外接開關。")}</small>
         </div>
         <div class="calibration-step">
           <span>2</span>
-          <strong>Repeat five times</strong>
-          <small>Each press should count once.</small>
+          <strong>${uiText("Repeat five times", "重複五次")}</strong>
+          <small>${uiText("Each press should count once.", "每次操作應只計算一次。")}</small>
         </div>
       </div>
       <div class="calibration-live ${lastDetected ? "detected" : ""}">
-        <strong>${lastDetected ? "Detected" : "Waiting for input"}</strong>
-        <span>${escapeHtml(last?.source ?? "No source yet")}</span>
+        <strong>${lastDetected ? uiText("Detected", "已偵測") : uiText("Waiting for input", "等待輸入")}</strong>
+        <span>${escapeHtml(last ? inputSourceLabel(last.source) : uiText("No source yet", "尚無輸入來源"))}</span>
       </div>
       <div class="calibration-status ${ready ? "good" : duplicates > 0 || disabled ? "warn" : ""}">
         <strong>${status}</strong>
-        <span>${cleanCount} / 5 clean presses</span>
+        <span>${uiText(`${cleanCount} / 5 clean presses`, `${cleanCount}／5 次有效操作`)}</span>
       </div>
-      <div class="calibration-meter" aria-label="Reliable input progress">
+      <div class="calibration-meter" aria-label="${uiText("Reliable input progress", "可靠輸入進度")}">
         <div style="width: ${Math.min(100, (cleanCount / 5) * 100)}%"></div>
       </div>
       <p class="calibration-guidance">${guidance}</p>
@@ -1714,17 +2080,17 @@ function unreliableCalibrationHtml() {
   const capturedTrials = trials.results.filter((events) => events?.length > 0).length;
   const extraFires = trials.results.reduce((count, events) => count + Math.max(0, (events?.length ?? 0) - 1), 0);
   const restStatus = restEvents > 0
-    ? `${restEvents} at rest`
+    ? uiText(`${restEvents} at rest`, `休息時 ${restEvents} 次`)
     : calibrationState.rest.running
       ? `${Math.ceil(restRemainingMs / 1000)}s`
-      : "Quiet";
+      : uiText("Quiet", "安靜");
   const trialStatus = trials.index >= trials.total
-    ? "Done"
+    ? uiText("Done", "完成")
     : !trials.running
-      ? "Not started"
+      ? uiText("Not started", "尚未開始")
       : trials.awaitingNext
-      ? "Captured"
-      : `Trial ${trials.index + 1}`;
+      ? uiText("Captured", "已收到")
+      : uiText(`Trial ${trials.index + 1}`, `第 ${trials.index + 1} 次`);
   const last = calibrationState.events.at(-1);
   const lastDetected = last && performance.now() - last.at < 1200;
   return `
@@ -1732,40 +2098,40 @@ function unreliableCalibrationHtml() {
       <div class="calibration-steps">
         <div class="calibration-step ${calibrationState.rest.running ? "current" : ""}">
           <span>1</span>
-          <strong>Rest watch</strong>
-          <small>Relax without making the action. Any activation here is noise.</small>
+          <strong>${uiText("Rest watch", "休息觀察")}</strong>
+          <small>${uiText("Relax without making the action. Any activation here is noise.", "放鬆且不要做指定動作；這時出現的啟動都屬於雜訊。")}</small>
         </div>
         <div class="calibration-step ${trials.running ? "current" : ""}">
           <span>2</span>
-          <strong>Action trials</strong>
-          <small>Make one deliberate action for each trial.</small>
+          <strong>${uiText("Action trials", "動作測試")}</strong>
+          <small>${uiText("Make one deliberate action for each trial.", "每次測試只做一次有意動作。")}</small>
         </div>
       </div>
       <div class="calibration-live ${lastDetected ? "detected" : ""}">
-        <strong>${lastDetected ? "Detected" : "Waiting for sensor"}</strong>
-        <span>${escapeHtml(last?.source ?? "No source yet")}</span>
+        <strong>${lastDetected ? uiText("Detected", "已偵測") : uiText("Waiting for sensor", "等待感測器")}</strong>
+        <span>${escapeHtml(last ? inputSourceLabel(last.source) : uiText("No source yet", "尚無輸入來源"))}</span>
       </div>
       <div class="calibration-cards">
         <div class="calibration-card ${restEvents === 0 ? "good" : "warn"}">
-          <span>Rest watch</span>
+          <span>${uiText("Rest watch", "休息觀察")}</span>
           <strong>${restStatus}</strong>
         </div>
         <div class="calibration-card ${extraFires === 0 ? "good" : "warn"}">
-          <span>Trials</span>
+          <span>${uiText("Trials", "動作測試")}</span>
           <strong>${capturedTrials} / ${trials.total}</strong>
         </div>
         <div class="calibration-card ${extraFires === 0 ? "" : "warn"}">
-          <span>Extra fires</span>
+          <span>${uiText("Extra fires", "多餘啟動")}</span>
           <strong>${extraFires}</strong>
         </div>
       </div>
       <div class="calibration-actions-inline">
         <button class="secondary-button" type="button" data-calibration-action="start-rest">
-          ${calibrationState.rest.running ? "Restart rest" : "Start rest"}
+          ${calibrationState.rest.running ? uiText("Restart rest", "重新觀察") : uiText("Start rest", "開始觀察")}
         </button>
-        <button class="secondary-button" type="button" data-calibration-action="start-trials">Start trials</button>
-        <button class="secondary-button" type="button" data-calibration-action="missed" ${!trials.running || trials.index >= trials.total ? "disabled" : ""}>Missed</button>
-        <button class="secondary-button" type="button" data-calibration-action="next-trial" ${!trials.awaitingNext ? "disabled" : ""}>Next trial</button>
+        <button class="secondary-button" type="button" data-calibration-action="start-trials">${uiText("Start trials", "開始測試")}</button>
+        <button class="secondary-button" type="button" data-calibration-action="missed" ${!trials.running || trials.index >= trials.total ? "disabled" : ""}>${uiText("Missed", "未偵測")}</button>
+        <button class="secondary-button" type="button" data-calibration-action="next-trial" ${!trials.awaitingNext ? "disabled" : ""}>${uiText("Next trial", "下一次")}</button>
       </div>
       <div class="calibration-status ${restEvents === 0 && extraFires === 0 && capturedTrials >= trials.total ? "good" : restEvents > 0 || extraFires > 0 ? "warn" : ""}">
         <strong>${trialStatus}</strong>
@@ -1789,32 +2155,32 @@ function calibrationStatsHtml() {
   return `
     <section class="calibration-grid" data-testid="calibration-stats">
       <div class="calibration-card">
-        <span>Last source</span>
-        <strong>${escapeHtml(last?.source ?? "none")}</strong>
+        <span>${uiText("Last source", "最近來源")}</span>
+        <strong>${escapeHtml(last ? inputSourceLabel(last.source) : uiText("none", "無"))}</strong>
       </div>
       <div class="calibration-card">
-        <span>Main source</span>
-        <strong>${escapeHtml(topSource)}</strong>
+        <span>${uiText("Main source", "主要來源")}</span>
+        <strong>${escapeHtml(topSource === "none" ? uiText("none", "無") : inputSourceLabel(topSource))}</strong>
       </div>
       <div class="calibration-card">
-        <span>Total</span>
+        <span>${uiText("Total", "總數")}</span>
         <strong>${events.length}</strong>
       </div>
       <div class="calibration-card ${duplicates > 0 ? "warn" : ""}">
-        <span>Under 300ms</span>
+        <span>${uiText("Under 300ms", "少於 300 毫秒")}</span>
         <strong>${duplicates}</strong>
       </div>
       <div class="calibration-card">
-        <span>Median interval</span>
+        <span>${uiText("Median interval", "間隔中位數")}</span>
         <strong>${interval === null ? "-" : `${Math.round(interval)}ms`}</strong>
       </div>
       <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
-        <span>Hardware input</span>
-        <strong>${hardwareInputEnabled() ? "On" : "Off"}</strong>
+        <span>${uiText("Hardware input", "按鍵輸入")}</span>
+        <strong>${hardwareInputEnabled() ? uiText("On", "開") : uiText("Off", "關")}</strong>
       </div>
       <div class="calibration-card ${last?.disabledBySettings ? "warn" : ""}">
-        <span>Camera input</span>
-        <strong>${cameraInputEnabled() ? "On" : "Off"}</strong>
+        <span>${uiText("Camera input", "相機輸入")}</span>
+        <strong>${cameraInputEnabled() ? uiText("On", "開") : uiText("Off", "關")}</strong>
       </div>
     </section>
   `;
@@ -1826,7 +2192,7 @@ function calibrationEventLogHtml() {
     .reverse()
     .map((event) => `
       <tr>
-        <td>${escapeHtml(event.source)}</td>
+        <td>${escapeHtml(inputSourceLabel(event.source))}</td>
         <td>${event.deltaMs === null ? "-" : Math.round(event.deltaMs)}</td>
         <td>${event.confidence === null ? "-" : Math.round(event.confidence * 100) / 100}</td>
       </tr>
@@ -1836,9 +2202,9 @@ function calibrationEventLogHtml() {
     <section class="calibration-log">
       <table>
         <thead>
-          <tr><th>Source</th><th>Delta ms</th><th>Confidence</th></tr>
+          <tr><th>${uiText("Source", "來源")}</th><th>${uiText("Delta ms", "間隔毫秒")}</th><th>${uiText("Confidence", "可信度")}</th></tr>
         </thead>
-        <tbody>${rows || "<tr><td colspan=\"3\">No activations yet</td></tr>"}</tbody>
+        <tbody>${rows || `<tr><td colspan="3">${uiText("No activations yet", "尚無啟動事件")}</td></tr>`}</tbody>
       </table>
     </section>
   `;
@@ -1943,22 +2309,36 @@ function stopCalibrationTimer() {
 }
 
 function unreliableRecommendation(restEvents, capturedTrials, extraFires) {
-  if (restEvents > 0) return "False activations while resting";
-  if (extraFires > 0) return "Multiple events from one action";
-  if (capturedTrials >= calibrationState.trials.total) return "Usable as a switch source";
-  return "Waiting for trial activations";
+  if (restEvents > 0) return uiText("False activations while resting", "休息時出現誤啟動");
+  if (extraFires > 0) return uiText("Multiple events from one action", "一次動作產生多個事件");
+  if (capturedTrials >= calibrationState.trials.total) return uiText("Usable as a switch source", "可嘗試作為開關來源");
+  return uiText("Waiting for trial activations", "等待測試動作");
 }
 
 function unreliableGuidance(restEvents, capturedTrials, extraFires) {
-  if (restEvents > 0) return "Raise the trigger threshold, change the gesture, or improve mounting before using this source for communication.";
-  if (extraFires > 0) return "Add a lockout/debounce period so one intentional action cannot select twice.";
-  if (capturedTrials >= calibrationState.trials.total) return "This sensor can be tried as a switch source. Re-test when posture, lighting, electrode placement, or fatigue changes.";
-  return "Run rest watch first, then start trials. Use Missed when the person tried but no activation arrived.";
+  if (restEvents > 0) return uiText("Raise the trigger threshold, change the gesture, or improve mounting before using this source for communication.", "使用這個來源溝通前，請提高觸發門檻、改變動作，或改善固定方式。");
+  if (extraFires > 0) return uiText("Add a lockout/debounce period so one intentional action cannot select twice.", "請增加鎖定或防彈跳時間，避免一次有意動作選取兩次。");
+  if (capturedTrials >= calibrationState.trials.total) return uiText("This sensor can be tried as a switch source. Re-test when posture, lighting, electrode placement, or fatigue changes.", "可以嘗試把這個感測器當作開關來源；姿勢、光線、電極位置或疲勞改變時請重新測試。");
+  return uiText("Run rest watch first, then start trials. Use Missed when the person tried but no activation arrived.", "先執行休息觀察，再開始動作測試。本人已嘗試但沒有收到啟動時，請按「未偵測」。");
+}
+
+function inputSourceLabel(source) {
+  const value = String(source ?? "unknown");
+  if (!isZhTwUi()) return value;
+  if (/touch/i.test(value)) return "觸控";
+  if (/keyboard|key/i.test(value)) return "鍵盤";
+  if (/volume/i.test(value)) return "音量鍵";
+  if (/external|switch/i.test(value)) return "外接開關";
+  if (/camera.*blink|blink/i.test(value)) return "相機長眨眼";
+  if (/camera/i.test(value)) return "相機";
+  if (/emg/i.test(value)) return "肌電感測器";
+  if (value === "unknown") return "未知";
+  return value;
 }
 
 function suggestionDictionaryFieldHtml(config) {
   return `
-      <label class="field wide" data-suggestion-dictionary-field${config.profileId === "zh-TW" ? " hidden" : ""}>Suggestion dictionary
+      <label class="field wide" data-suggestion-dictionary-field${config.profileId === "zh-TW" ? " hidden" : ""}>${uiText("Suggestion dictionary", "候選字詞庫")}
         <textarea name="suggestionDictionary">${escapeHtml(serializeDictionary(config.suggestionDictionary))}</textarea>
       </label>
   `;
@@ -1968,7 +2348,8 @@ function profileOptionsHtml(selectedProfileId) {
   return Object.values(LanguageProfiles)
     .map((profile) => {
       const selected = profile.id === selectedProfileId ? " selected" : "";
-      return `<option value="${escapeHtml(profile.id)}"${selected}>${escapeHtml(profile.displayName)}</option>`;
+      const displayName = isZhTwUi() && profile.id === "en-US" ? "英文" : profile.displayName;
+      return `<option value="${escapeHtml(profile.id)}"${selected}>${escapeHtml(displayName)}</option>`;
     })
     .join("");
 }
@@ -1978,20 +2359,28 @@ function scanTimingPresetOptionsHtml(config) {
   const presetOptions = Object.values(ScanTimingPresets)
     .map((preset) => {
       const selected = preset.id === selectedPresetId ? " selected" : "";
-      return `<option value="${escapeHtml(preset.id)}"${selected}>${escapeHtml(preset.label)}</option>`;
+      const zhTwLabels = {
+        default: "一般開關",
+        slower: "較慢開關",
+        cameraLongBlink: "相機長眨眼",
+        firstCellSupport: "第一格加長",
+        cancelable: "可取消選列"
+      };
+      const label = isZhTwUi() ? zhTwLabels[preset.id] ?? preset.label : preset.label;
+      return `<option value="${escapeHtml(preset.id)}"${selected}>${escapeHtml(label)}</option>`;
     });
   if (selectedPresetId === "custom") {
-    presetOptions.push("<option value=\"custom\" selected>Custom</option>");
+    presetOptions.push(`<option value="custom" selected>${uiText("Custom", "自訂")}</option>`);
   }
   return presetOptions.join("");
 }
 
 function switchInputProfileOptionsHtml(selectedProfile) {
   const options = [
-    ["hardware-buttons", "Phone/external buttons"],
-    ["camera-long-blink", "Camera long blink"],
-    ["hardware-and-camera", "Buttons + camera"],
-    ["off", "Off"]
+    ["hardware-buttons", uiText("Phone/external buttons", "手機／外接按鍵")],
+    ["camera-long-blink", uiText("Camera long blink", "相機長眨眼")],
+    ["hardware-and-camera", uiText("Buttons + camera", "按鍵＋相機")],
+    ["off", uiText("Off", "關閉")]
   ];
   return options
     .map(([value, label]) => {

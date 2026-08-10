@@ -91,7 +91,7 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="18" />
+    <int name="configVersion" value="24" />
     <string name="profileId">en-US</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
@@ -117,7 +117,7 @@ function Write-ZhTwTestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="18" />
+    <int name="configVersion" value="24" />
     <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
@@ -296,21 +296,49 @@ function Assert-ShineForeground {
     }
 }
 
-function Select-SuggestionCell([int]$CellIndex, [string]$ExpectedLabel) {
-    $null = Dismiss-SystemAnrDialogIfPresent
-    Wait-RenderState "suggestion row for $ExpectedLabel" @('"stage":"Rows"', '"rowIndex":0')
-    Switch-Activate "suggestion row for $ExpectedLabel"
+function Get-LatestE2EState {
+    $lines = @(Get-E2ELog)
+    for ($index = $lines.Count - 1; $index -ge 0; $index--) {
+        if ($lines[$index] -match 'SHINE_AAC_E2E_STATE (\{.*\})\s*$') {
+            return ($Matches[1] | ConvertFrom-Json)
+        }
+    }
 
-    if ($CellIndex -eq 0) {
+    throw "No rendered SHINE_AAC_E2E_STATE was available."
+}
+
+function Select-RenderedLabel([string]$ExpectedLabel) {
+    $null = Dismiss-SystemAnrDialogIfPresent
+    $state = Get-LatestE2EState
+    $targetRow = -1
+    $targetCell = -1
+    for ($rowIndex = 0; $rowIndex -lt $state.rows.Count; $rowIndex++) {
+        for ($cellIndex = 0; $cellIndex -lt $state.rows[$rowIndex].Count; $cellIndex++) {
+            if ([string]$state.rows[$rowIndex][$cellIndex] -ceq $ExpectedLabel) {
+                $targetRow = $rowIndex
+                $targetCell = $cellIndex
+                break
+            }
+        }
+        if ($targetRow -ge 0) { break }
+    }
+    if ($targetRow -lt 0) {
+        throw "Rendered board does not contain '$ExpectedLabel'."
+    }
+
+    Wait-RenderState "row $targetRow for $ExpectedLabel" @('"stage":"Rows"', ('"rowIndex":' + $targetRow))
+    Switch-Activate "row $targetRow for $ExpectedLabel"
+
+    if ($targetCell -eq 0) {
         $null = Dismiss-SystemAnrDialogIfPresent
-        Wait-RenderState "suggestion cell 0 ($ExpectedLabel)" @('"rowIndex":0', '"cellIndex":0')
+        Wait-RenderState "cell 0 ($ExpectedLabel)" @(('"rowIndex":' + $targetRow), '"cellIndex":0')
         Start-Sleep -Milliseconds 300
     } else {
         $null = Dismiss-SystemAnrDialogIfPresent
-        Wait-RenderState "suggestion cell $CellIndex ($ExpectedLabel)" @('"stage":"Cells"', '"rowIndex":0', ('"cellIndex":' + $CellIndex))
+        Wait-RenderState "cell $targetCell ($ExpectedLabel)" @('"stage":"Cells"', ('"rowIndex":' + $targetRow), ('"cellIndex":' + $targetCell))
         Start-Sleep -Milliseconds 300
     }
-    Switch-Activate "suggestion cell $CellIndex ($ExpectedLabel)"
+    Switch-Activate "cell $targetCell ($ExpectedLabel)"
     Start-Sleep -Milliseconds 350
 }
 
@@ -378,9 +406,9 @@ if (-not $SkipDemo) {
 }
 
 Write-Step "Entering complete phrase with Android hardware-button input"
-Select-SuggestionCell 0 "I"
-Select-SuggestionCell 1 "WANT"
-Select-SuggestionCell 2 "WATER"
+Select-RenderedLabel "I"
+Select-RenderedLabel "WANT"
+Select-RenderedLabel "WATER"
 
 Start-Sleep -Milliseconds 800
 Wait-LoggedMessage "I want water "

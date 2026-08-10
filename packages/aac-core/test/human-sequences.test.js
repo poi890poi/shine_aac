@@ -75,8 +75,9 @@ function selectLabel(session, label, options = {}) {
 test("SPC does not create confusing duplicate spaces", () => {
   let session = createSession({ message: "I", messageHistory: [""] });
 
-  assert.deepEqual(labelsForRow(session).slice(0, 2), ["UNDO", "SPC"]);
-  session = selectLabel(session, "SPC", { rowIndex: 0 });
+  assert.equal(labelsForRow(session).includes("SPC"), false);
+  assert.equal(visibleBoard(session).flat().filter((candidate) => candidate.label === "SPC").length, 1);
+  session = selectLabel(session, "SPC");
   assert.equal(session.message, "I ");
   assert.equal(session.messageHistory.at(-1), "I");
 
@@ -85,14 +86,14 @@ test("SPC does not create confusing duplicate spaces", () => {
   assert.equal(session.lastSelection.effect, "none");
 });
 
-test("DEL, SPC, CLR, and UNDO repair a message through switch selections", () => {
+test("UNDO, SPC, and CLR repair a message through switch selections", () => {
   let session = createSession({ message: "watch", messageHistory: ["", "w", "wa", "wat", "watc"] });
 
-  session = selectLabel(session, "DEL");
-  assert.equal(session.lastSelection.tile.label, "DEL");
+  session = selectLabel(session, "UNDO", { rowIndex: 0 });
+  assert.equal(session.lastSelection.tile.label, "UNDO");
   assert.equal(session.message, "watc");
 
-  session = selectLabel(session, "SPC", { rowIndex: 0 });
+  session = selectLabel(session, "SPC");
   assert.equal(session.message, "watc ");
 
   session = selectLabel(session, "CLR");
@@ -113,7 +114,7 @@ test("partial-word suggestion completes the current token instead of appending a
   }
 
   assert.equal(session.message, "movi");
-  assert.deepEqual(labelsForRow(session), ["UNDO", "SPC", "MOVIE", "E"]);
+  assert.deepEqual(labelsForRow(session), ["UNDO", "MOVIE", "MOVING", "MOVIES"]);
 
   session = selectLabel(session, "MOVIE", { rowIndex: 0 });
   assert.equal(session.message, "movie ");
@@ -122,17 +123,17 @@ test("partial-word suggestion completes the current token instead of appending a
 test("human correction sequence: wrong need word, undo, then choose the intended need", () => {
   let session = createSession();
 
-  session = selectLabel(session, "I", { rowIndex: 0 });
-  session = selectLabel(session, "WANT", { rowIndex: 0 });
-  assert.deepEqual(labelsForRow(session), ["UNDO", "DRINK", "WATER", "FOOD"]);
+  session = selectLabel(session, "I");
+  session = selectLabel(session, "WANT");
+  assert.deepEqual(labelsForRow(session), ["UNDO", "THE", "TO", "OF"]);
 
-  session = selectLabel(session, "DRINK", { rowIndex: 0 });
-  assert.equal(session.message, "I want drink ");
+  session = selectLabel(session, "THE", { rowIndex: 0 });
+  assert.equal(session.message, "I want the ");
 
   session = selectLabel(session, "UNDO", { rowIndex: 0 });
   assert.equal(session.message, "I want ");
 
-  session = selectLabel(session, "FOOD", { rowIndex: 0 });
+  session = selectLabel(session, "FOOD");
   assert.equal(session.message, "I want food ");
 });
 
@@ -152,21 +153,22 @@ test("accidental row activation can be cancelled before any symbol is entered", 
   assert.equal(session.message, "");
 });
 
-test("drink is available as an offline suggestion and need word", () => {
+test("drink is available through neutral AOSP prefix completion", () => {
   let session = createSession();
 
-  session = selectLabel(session, "I", { rowIndex: 0 });
-  session = selectLabel(session, "WANT", { rowIndex: 0 });
+  for (const letter of ["D", "R", "I", "N"]) {
+    session = selectLabel(session, letter, { occurrence: "last" });
+  }
   assert.ok(labelsForRow(session).includes("DRINK"));
 
   session = selectLabel(session, "DRINK", { rowIndex: 0 });
-  assert.equal(session.message, "I want drink ");
+  assert.equal(session.message, "drink ");
 });
 
 test("question mark no longer consumes a singleton row in the default board", () => {
   const rows = visibleBoard(createSession());
 
-  assert.equal(rows.at(-1).length, 4);
+  assert.equal(rows.at(-1).length, 3);
   assert.equal(rows.flat().some((candidate) => candidate.label === "?"), false);
 });
 
@@ -187,11 +189,13 @@ test("early symbol activation compensates to the previous symbol in the selected
   assert.equal(session.message, "need ");
 });
 
-test("suggestion row fills unused slots with reachable helpers instead of empty traps", () => {
-  let session = createSession({ message: "want", messageHistory: [""] });
-  assert.deepEqual(labelsForRow(session), ["UNDO", "SPC", "E", "T"]);
+test("suggestion row does not fill unused slots with keys already available on the static board", () => {
+  const session = createSession({ message: "want", messageHistory: [""] });
+  const recommendationRow = visibleBoard(session)[0];
 
-  session = selectLabel(session, "E", { rowIndex: 0 });
-  assert.equal(session.message, "wante");
-  assert.equal(visibleBoard(session)[0].some((candidate) => candidate.label === ""), false);
+  assert.deepEqual(labelsForRow(session), ["UNDO", "WANTED", "WANTS", "WANTING"]);
+  assert.deepEqual(
+    recommendationRow.filter((candidate) => candidate.action !== "noop").map((candidate) => candidate.label),
+    ["UNDO", "WANTED", "WANTS", "WANTING"]
+  );
 });
