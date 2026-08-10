@@ -30,7 +30,6 @@ import android.os.HandlerThread
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.text.TextUtils
 import android.util.Range
 import android.util.Size
 import android.view.Gravity
@@ -84,6 +83,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var currentSpeechId: String? = null
     private var currentSpeechDone: (() -> Unit)? = null
     private var cueSet = CalibrationCueText.forProfile("en-US")
+    private var zhTwUi = false
     private var phase = Phase.Idle
     private var captureEndsAtMs = 0L
     private var activeStepLabel = ""
@@ -120,7 +120,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         mainHandler = Handler(mainLooper)
-        cueSet = CalibrationCueText.forProfile(intent.getStringExtra(ExtraProfileId) ?: "en-US")
+        val profileId = intent.getStringExtra(ExtraProfileId) ?: "en-US"
+        cueSet = CalibrationCueText.forProfile(profileId)
+        zhTwUi = profileId == "zh-TW"
+        ttsVoiceLabel = tr("Voice pending", "語音準備中")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
         calibratedZoomRatio = savedSettings.zoomRatio
@@ -223,9 +226,12 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun showCameraPermissionRecovery() {
-        statusView?.text = "Camera permission is required. Open Android settings to allow it."
+        statusView?.text = tr(
+            "Camera permission is required. Open Android settings to allow it.",
+            "需要相機權限。請開啟 Android 設定並允許相機。"
+        )
         startButton?.apply {
-            text = "Open app settings"
+            text = tr("Open app settings", "開啟設定")
             isEnabled = true
             setOnClickListener { openAppSettings() }
         }
@@ -234,7 +240,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun restoreCameraPermissionActions() {
         startButton?.apply {
-            text = "Start setup"
+            text = tr("Start setup", "開始")
             setOnClickListener { startAutoCalibration() }
         }
         testButton?.isEnabled = true
@@ -259,28 +265,25 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
         val title = TextView(this).apply {
-            text = "Camera setup"
+            text = tr("Camera setup", "相機設定")
             setTextColor(Color.WHITE)
             textSize = 22f
             typeface = Typeface.DEFAULT_BOLD
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
+            maxLines = 2
         }
         statusView = TextView(this).apply {
-            text = "Center your face, then tap Start setup."
+            text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
             setTextColor(Color.rgb(220, 227, 235))
             textSize = 16f
             setPadding(0, dp(8), 0, dp(8))
-            maxLines = 2
-            ellipsize = TextUtils.TruncateAt.END
+            maxLines = 3
         }
         metricsView = TextView(this).apply {
-            text = "Waiting for camera"
+            text = tr("Waiting for camera", "等待相機")
             setTextColor(Color.rgb(159, 173, 188))
             textSize = 14f
             setPadding(0, 0, 0, dp(8))
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
+            maxLines = 2
         }
         holdView = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -295,7 +298,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             setPadding(0, dp(4), 0, dp(4))
         }
         val feedbackView = TextView(this).apply {
-            text = "Green: eyes. Amber: face."
+            text = tr("Green: eyes. Amber: face.", "綠框：眼睛。黃框：臉部。")
             setTextColor(Color.rgb(183, 196, 210))
             textSize = 14f
             setPadding(0, 0, 0, dp(10))
@@ -332,31 +335,32 @@ class CameraSwitchCalibrationActivity : Activity() {
         previewFrame.addView(overlayView)
 
         val actions = LinearLayout(this).apply {
-            orientation = if (wideLayout) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            setPadding(if (wideLayout) dp(12) else 0, dp(4), 0, 0)
         }
-        startButton = actionButton("Start setup", primary = true) {
+        startButton = actionButton(tr("Start setup", "開始"), primary = true) {
             setOnClickListener { startAutoCalibration() }
         }
-        testButton = actionButton("Test blink", primary = false) {
+        testButton = actionButton(tr("Test blink", "測試"), primary = false) {
             setOnClickListener { startLongBlinkTest() }
         }
-        val closeButton = actionButton("Done", primary = false) {
+        val closeButton = actionButton(tr("Done", "完成"), primary = false) {
             setOnClickListener { finish() }
         }
-        actions.addView(startButton, actionButtonParams(wideLayout))
-        actions.addView(testButton, actionButtonParams(wideLayout))
-        actions.addView(closeButton, actionButtonParams(wideLayout))
+        actions.addView(startButton, actionButtonParams(horizontal = true))
+        actions.addView(testButton, actionButtonParams(horizontal = true))
+        actions.addView(closeButton, actionButtonParams(horizontal = true))
 
         val holdActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(8))
         }
-        holdActions.addView(actionButton("-100 ms", primary = false) {
+        holdActions.addView(actionButton(tr("-100 ms", "-100 毫秒"), primary = false) {
             setOnClickListener { adjustHoldMs(-100L) }
         }, actionButtonParams(horizontal = true))
-        holdActions.addView(actionButton("+100 ms", primary = false) {
+        holdActions.addView(actionButton(tr("+100 ms", "+100 毫秒"), primary = false) {
             setOnClickListener { adjustHoldMs(100L) }
         }, actionButtonParams(horizontal = true))
 
@@ -365,10 +369,10 @@ class CameraSwitchCalibrationActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(8))
         }
-        zoomActions.addView(actionButton("Zoom -", primary = false) {
+        zoomActions.addView(actionButton(tr("Zoom -", "縮小"), primary = false) {
             setOnClickListener { adjustZoomRatio(-0.2f) }
         }, actionButtonParams(horizontal = true))
-        zoomActions.addView(actionButton("Zoom +", primary = false) {
+        zoomActions.addView(actionButton(tr("Zoom +", "放大"), primary = false) {
             setOnClickListener { adjustZoomRatio(0.2f) }
         }, actionButtonParams(horizontal = true))
 
@@ -387,11 +391,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             addView(zoomView)
             addView(zoomActions)
             addView(feedbackView)
-            addView(actions)
         }
         val controlsScroll = ScrollView(this).apply {
-            isFillViewport = false
+            isFillViewport = true
             clipToPadding = false
+            isVerticalScrollBarEnabled = true
+            isScrollbarFadingEnabled = false
             addView(
                 controls,
                 FrameLayout.LayoutParams(
@@ -400,13 +405,31 @@ class CameraSwitchCalibrationActivity : Activity() {
                 )
             )
         }
+        val controlsArea = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(
+                controlsScroll,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+            )
+            addView(
+                actions,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
 
         if (wideLayout) {
             root.addView(previewPane, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 3f))
-            root.addView(controlsScroll, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2f))
+            root.addView(controlsArea, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2f))
         } else {
             root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f))
-            root.addView(controlsScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f))
+            root.addView(controlsArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f))
         }
         updateHoldUi()
         updateZoomUi()
@@ -416,11 +439,14 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun updateSavedCalibrationUi() {
         val quality = savedCalibrationRecord?.qualityDetail
         if (quality != null) {
-            statusView?.text = "Ready. Long blink is calibrated; use Test blink after moving the phone."
-            metricsView?.text = quality
+            statusView?.text = tr(
+                "Ready. Long blink is calibrated; use Test blink after moving the phone.",
+                "設定完成。移動手機後，請使用「測試眨眼」確認。"
+            )
+            metricsView?.text = localizedQualityDetail(quality)
         } else {
-            statusView?.text = "Center your face, then tap Start setup."
-            metricsView?.text = "No saved setup yet."
+            statusView?.text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
+            metricsView?.text = tr("No saved setup yet.", "尚未儲存設定。")
         }
         testButton?.isEnabled = true
         updateHoldUi()
@@ -434,20 +460,23 @@ class CameraSwitchCalibrationActivity : Activity() {
             ?.firstOrNull { it.locale.toLanguageTag().equals(cueSet.locale.toLanguageTag(), ignoreCase = true) }
         if (exactVoice != null) {
             engine.setVoice(exactVoice)
-            ttsVoiceLabel = "Voice ${exactVoice.locale.toLanguageTag()}"
+            ttsVoiceLabel = tr("Voice ${exactVoice.locale.toLanguageTag()}", "語音 ${exactVoice.locale.toLanguageTag()}")
         } else {
             val result = engine.setLanguage(cueSet.locale)
             if ((result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) &&
                 cueSet.locale.language == "zh"
             ) {
                 engine.setLanguage(Locale.TRADITIONAL_CHINESE)
-                ttsVoiceLabel = "Voice ${engine.voice?.locale?.toLanguageTag() ?: Locale.TRADITIONAL_CHINESE.toLanguageTag()}"
+                ttsVoiceLabel = tr(
+                    "Voice ${engine.voice?.locale?.toLanguageTag() ?: Locale.TRADITIONAL_CHINESE.toLanguageTag()}",
+                    "語音 ${engine.voice?.locale?.toLanguageTag() ?: Locale.TRADITIONAL_CHINESE.toLanguageTag()}"
+                )
             } else {
                 val actualTag = engine.voice?.locale?.toLanguageTag() ?: cueSet.locale.toLanguageTag()
                 ttsVoiceLabel = if (cueSet.locale.toLanguageTag() == "zh-TW" && actualTag != "zh-TW") {
-                    "Voice $actualTag; Taiwan voice unavailable"
+                    "語音 $actualTag；找不到台灣語音"
                 } else {
-                    "Voice $actualTag"
+                    tr("Voice $actualTag", "語音 $actualTag")
                 }
             }
         }
@@ -499,7 +528,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         activeStepLabel = step.label
         captureEndsAtMs = 0L
         statusView?.text = step.cue
-        metricsView?.text = "$ttsVoiceLabel | ${step.label} starts after the start tone"
+        metricsView?.text = tr(
+            "$ttsVoiceLabel | ${step.label} starts after the start tone",
+            "$ttsVoiceLabel｜開始提示音後進行${step.label}"
+        )
         speakThen(step.cue) {
             if (runId != calibrationRunId) return@speakThen
             if (step.durationMs <= 0L) {
@@ -509,7 +541,10 @@ class CameraSwitchCalibrationActivity : Activity() {
             mainHandler?.postDelayed({
                 if (runId == calibrationRunId) {
                     playStartCue()
-                    statusView?.text = "${step.label}: capturing for ${step.durationMs / 1000} seconds"
+                    statusView?.text = tr(
+                        "${step.label}: capturing for ${step.durationMs / 1000} seconds",
+                        "${step.label}：記錄 ${step.durationMs / 1000} 秒"
+                    )
                     mainHandler?.postDelayed({
                         if (runId == calibrationRunId) {
                             beginCapture(step)
@@ -528,9 +563,9 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun calibrationSteps(): List<CalibrationStep> =
         listOf(
-            CalibrationStep(Phase.Prepare, "Prepare", cueSet.prepare, 0L),
-            CalibrationStep(Phase.Rest, "Rest", cueSet.rest, 8000L),
-            CalibrationStep(Phase.LongBlink, "Slow blink trials", cueSet.longBlink, 12000L)
+            CalibrationStep(Phase.Prepare, tr("Prepare", "準備"), cueSet.prepare, 0L),
+            CalibrationStep(Phase.Rest, tr("Rest", "放鬆"), cueSet.rest, 8000L),
+            CalibrationStep(Phase.LongBlink, tr("Slow blink trials", "慢眨眼測試"), cueSet.longBlink, 12000L)
         )
 
     private fun beginCapture(step: CalibrationStep) {
@@ -566,7 +601,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         )
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         updateHoldUi()
-        val message = "${cueSet.complete} ${quality.label}. Long blink hold ${calibratedLongBlinkHoldMs}ms."
+        val message = tr(
+            "${cueSet.complete} ${quality.label}. Long blink hold ${calibratedLongBlinkHoldMs}ms.",
+            "${cueSet.complete} ${quality.label}。長眨眼需維持 ${calibratedLongBlinkHoldMs} 毫秒。"
+        )
         statusView?.text = message
         metricsView?.text = quality.detail
         speakThen(message) {}
@@ -584,12 +622,15 @@ class CameraSwitchCalibrationActivity : Activity() {
         calibratedLongBlinkHoldMs = clampLong(calibratedLongBlinkHoldMs + deltaMs, MinLongBlinkMs, MaxLongBlinkMs)
         CameraSwitchPreferences.saveTiming(this, calibratedLongBlinkHoldMs, 900L)
         updateHoldUi()
-        statusView?.text = "Long blink hold updated."
-        metricsView?.text = "Test blink to confirm the new hold time works."
+        statusView?.text = tr("Long blink hold updated.", "已更新長眨眼時間。")
+        metricsView?.text = tr("Test blink to confirm the new hold time works.", "請測試眨眼，確認新設定是否合適。")
     }
 
     private fun updateHoldUi() {
-        holdView?.text = "Long blink hold: ${calibratedLongBlinkHoldMs} ms"
+        holdView?.text = tr(
+            "Long blink hold: ${calibratedLongBlinkHoldMs} ms",
+            "長眨眼時間：${calibratedLongBlinkHoldMs} 毫秒"
+        )
     }
 
     private fun adjustZoomRatio(delta: Float) {
@@ -598,12 +639,18 @@ class CameraSwitchCalibrationActivity : Activity() {
         CameraSwitchPreferences.saveZoom(this, calibratedZoomRatio)
         applyZoomToRepeatingRequest()
         updateZoomUi()
-        statusView?.text = "Camera zoom updated."
-        metricsView?.text = "Keep the face centered; green box means ML Kit can read the eyes."
+        statusView?.text = tr("Camera zoom updated.", "已更新相機縮放。")
+        metricsView?.text = tr(
+            "Keep the face centered; green box means ML Kit can read the eyes.",
+            "臉部保持置中；綠框表示系統能辨識眼睛。"
+        )
     }
 
     private fun updateZoomUi() {
-        zoomView?.text = "Camera zoom: ${"%.1f".format(calibratedZoomRatio)}x"
+        zoomView?.text = tr(
+            "Camera zoom: ${"%.1f".format(calibratedZoomRatio)}x",
+            "相機縮放：${"%.1f".format(calibratedZoomRatio)} 倍"
+        )
     }
 
     private fun calibrationQuality(): CalibrationQuality {
@@ -611,17 +658,17 @@ class CameraSwitchCalibrationActivity : Activity() {
         val falseLongBlinks = restClosedDurations.count { it >= calibratedLongBlinkHoldMs }
         val restOk = falseLongBlinks == 0
         val label = when {
-            slowBlinkOk && restOk -> "Quality good"
-            slowBlinkOk -> "Quality weak"
-            else -> "Quality needs retry"
+            slowBlinkOk && restOk -> tr("Quality good", "品質良好")
+            slowBlinkOk -> tr("Quality weak", "品質偏低")
+            else -> tr("Quality needs retry", "請重新設定")
         }
         val detail = buildString {
             append(label)
-            append(" | slow blinks ").append(longBlinkDurations.size)
-            append(", rest false ").append(falseLongBlinks)
-            append(", hold ").append(calibratedLongBlinkHoldMs).append("ms")
-            append(", zoom ").append("%.1f".format(calibratedZoomRatio)).append("x")
-            if (!slowBlinkOk) append(" | no measured slow blink; default hold used")
+            append(tr(" | slow blinks ", "｜慢眨眼 ")).append(longBlinkDurations.size)
+            append(tr(", rest false ", "，放鬆時誤判 ")).append(falseLongBlinks)
+            append(tr(", hold ", "，維持 ")).append(calibratedLongBlinkHoldMs).append(tr("ms", " 毫秒"))
+            append(tr(", zoom ", "，縮放 ")).append("%.1f".format(calibratedZoomRatio)).append(tr("x", " 倍"))
+            if (!slowBlinkOk) append(tr(" | no measured slow blink; default hold used", "｜未測得慢眨眼，使用預設時間"))
         }
         return CalibrationQuality(label, detail)
     }
@@ -636,15 +683,21 @@ class CameraSwitchCalibrationActivity : Activity() {
         testLongBlinkClosedStartedAt = 0L
         testHoldCuePlayed = false
         phase = Phase.Instruction
-        activeStepLabel = "Long blink test"
+        activeStepLabel = tr("Long blink test", "長眨眼測試")
         captureEndsAtMs = 0L
         startButton?.isEnabled = false
         testButton?.isEnabled = false
         val runId = calibrationRunId
         val holdSeconds = max(1L, (calibratedLongBlinkHoldMs + 999L) / 1000L)
-        val cue = "After the start tone, close your eyes until you hear the low tone, then open. The test runs for 10 seconds."
+        val cue = tr(
+            "After the start tone, close your eyes until you hear the low tone, then open. The test runs for 10 seconds.",
+            "聽到開始提示音後閉眼，直到聽到低音再睜眼。測試時間為十秒。"
+        )
         statusView?.text = cue
-        metricsView?.text = "Long blink test starts after the start tone | hold about $holdSeconds seconds"
+        metricsView?.text = tr(
+            "Long blink test starts after the start tone | hold about $holdSeconds seconds",
+            "開始提示音後測試長眨眼｜閉眼約 $holdSeconds 秒"
+        )
         speakThen(cue) {
             mainHandler?.postDelayed({
                 if (runId == calibrationRunId) {
@@ -653,7 +706,10 @@ class CameraSwitchCalibrationActivity : Activity() {
                         if (runId == calibrationRunId) {
                             phase = Phase.TestLongBlink
                             captureEndsAtMs = System.currentTimeMillis() + LongBlinkTestMs
-                            statusView?.text = "Testing long blink for ${LongBlinkTestMs / 1000} seconds"
+                            statusView?.text = tr(
+                                "Testing long blink for ${LongBlinkTestMs / 1000} seconds",
+                                "測試長眨眼 ${LongBlinkTestMs / 1000} 秒"
+                            )
                             mainHandler?.postDelayed({ finishLongBlinkTest(runId) }, LongBlinkTestMs)
                         }
                     }, BeepLeadMs)
@@ -672,9 +728,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         captureEndsAtMs = 0L
         val passed = testLongBlinkDurations.any { it >= calibratedLongBlinkHoldMs }
         val best = testLongBlinkDurations.maxOrNull() ?: 0L
-        val result = if (passed) "Long blink test passed" else "Long blink test failed"
+        val result = if (passed) tr("Long blink test passed", "長眨眼測試通過") else tr("Long blink test failed", "長眨眼測試未通過")
         statusView?.text = result
-        metricsView?.text = "$result | detected ${testLongBlinkDurations.size}, longest ${best}ms, required ${calibratedLongBlinkHoldMs}ms"
+        metricsView?.text = tr(
+            "$result | detected ${testLongBlinkDurations.size}, longest ${best}ms, required ${calibratedLongBlinkHoldMs}ms",
+            "$result｜偵測 ${testLongBlinkDurations.size} 次，最長 ${best} 毫秒，需要 ${calibratedLongBlinkHoldMs} 毫秒"
+        )
         speakThen(result) {}
         startButton?.isEnabled = true
         testButton?.isEnabled = true
@@ -731,7 +790,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         } ?: run {
             cameraOpening = false
             stopCamera()
-            runOnUiThread { statusView?.text = "Front camera unavailable." }
+            runOnUiThread { statusView?.text = tr("Front camera unavailable.", "找不到前置相機。") }
             return
         }
         val characteristics = manager.getCameraCharacteristics(cameraId)
@@ -772,13 +831,18 @@ class CameraSwitchCalibrationActivity : Activity() {
                     cameraOpening = false
                     camera.close()
                     cameraDevice = null
-                    runOnUiThread { statusView?.text = "Camera error $error" }
+                    runOnUiThread { statusView?.text = tr("Camera error $error", "相機錯誤 $error") }
                 }
             }, cameraHandler)
         } catch (error: Exception) {
             cameraOpening = false
             stopCamera()
-            runOnUiThread { statusView?.text = "Camera setup failed: ${error.javaClass.simpleName}" }
+            runOnUiThread {
+                statusView?.text = tr(
+                    "Camera setup failed: ${error.javaClass.simpleName}",
+                    "相機設定失敗：${error.javaClass.simpleName}"
+                )
+            }
         }
     }
 
@@ -804,7 +868,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
 
             override fun onConfigureFailed(captureSession: CameraCaptureSession) {
-                runOnUiThread { statusView?.text = "Camera setup failed." }
+                runOnUiThread { statusView?.text = tr("Camera setup failed.", "相機設定失敗。") }
             }
         }, cameraHandler)
     }
@@ -834,7 +898,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         try {
             captureSession.setRepeatingRequest(builder.build(), null, handler)
         } catch (_: Exception) {
-            runOnUiThread { statusView?.text = "Camera zoom could not be applied." }
+            runOnUiThread { statusView?.text = tr("Camera zoom could not be applied.", "無法套用相機縮放。") }
         }
     }
 
@@ -885,11 +949,11 @@ class CameraSwitchCalibrationActivity : Activity() {
                     when (previewBlink) {
                         PreviewBlink.Short -> {
                             playShortCue()
-                            statusView?.text = "Short blink detected."
+                            statusView?.text = tr("Short blink detected.", "偵測到短眨眼。")
                         }
                         PreviewBlink.Long -> {
                             playLongAcceptedCue()
-                            statusView?.text = "Long blink accepted. Current position works."
+                            statusView?.text = tr("Long blink accepted. Current position works.", "長眨眼已接受。目前位置合適。")
                         }
                         PreviewBlink.None -> Unit
                     }
@@ -897,7 +961,12 @@ class CameraSwitchCalibrationActivity : Activity() {
                 }
             }
             .addOnFailureListener {
-                mainHandler?.post { metricsView?.text = "ML Kit model unavailable or still downloading." }
+                mainHandler?.post {
+                    metricsView?.text = tr(
+                        "ML Kit model unavailable or still downloading.",
+                        "辨識模型尚未提供，或仍在下載。"
+                    )
+                }
             }
             .addOnCompleteListener {
                 image.close()
@@ -908,20 +977,29 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun updateMetrics(score: Double?) {
         if (shouldPreviewMonitor()) {
             metricsView?.text = if (score == null) {
-                "Face not detected"
+                tr("Face not detected", "未偵測到臉部")
             } else {
-                "Eyes ${"%.2f".format(score)} | short $previewShortBlinkCount | long $previewLongBlinkCount"
+                tr(
+                    "Eyes ${"%.2f".format(score)} | short $previewShortBlinkCount | long $previewLongBlinkCount",
+                    "眼睛 ${"%.2f".format(score)}｜短眨眼 $previewShortBlinkCount｜長眨眼 $previewLongBlinkCount"
+                )
             }
             return
         }
         if (phase != Phase.Complete) {
             val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
             metricsView?.text = if (score == null) {
-                "$ttsVoiceLabel | Face not detected"
+                tr("$ttsVoiceLabel | Face not detected", "$ttsVoiceLabel｜未偵測到臉部")
             } else if (captureEndsAtMs > 0L) {
-                "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | score ${"%.2f".format(score)} | long blinks ${longBlinkDurations.size}"
+                tr(
+                    "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | score ${"%.2f".format(score)} | long blinks ${longBlinkDurations.size}",
+                    "$activeStepLabel 剩下 ${((remainingMs + 999L) / 1000L)} 秒｜分數 ${"%.2f".format(score)}｜長眨眼 ${longBlinkDurations.size}"
+                )
             } else {
-                "$ttsVoiceLabel | score ${"%.2f".format(score)}"
+                tr(
+                    "$ttsVoiceLabel | score ${"%.2f".format(score)}",
+                    "$ttsVoiceLabel｜分數 ${"%.2f".format(score)}"
+                )
             }
         }
     }
@@ -1071,6 +1149,24 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
 
+    private fun tr(english: String, traditionalChinese: String): String =
+        if (zhTwUi) traditionalChinese else english
+
+    private fun localizedQualityDetail(detail: String): String {
+        if (!zhTwUi) return detail
+        return detail
+            .replace("Quality good", "品質良好")
+            .replace("Quality weak", "品質偏低")
+            .replace("Quality needs retry", "請重新設定")
+            .replace(" | slow blinks ", "｜慢眨眼 ")
+            .replace(", rest false ", "，放鬆時誤判 ")
+            .replace(", hold ", "，維持 ")
+            .replace(", zoom ", "，縮放 ")
+            .replace(" | no measured slow blink; default hold used", "｜未測得慢眨眼，使用預設時間")
+            .replace("ms", " 毫秒")
+            .replace("x", " 倍")
+    }
+
     private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = Button(this).apply {
         this.text = text
         isAllCaps = false
@@ -1078,7 +1174,6 @@ class CameraSwitchCalibrationActivity : Activity() {
         minWidth = 0
         textSize = 14f
         maxLines = 2
-        ellipsize = TextUtils.TruncateAt.END
         setPadding(dp(8), 0, dp(8), 0)
         setTextColor(if (primary) Color.WHITE else Color.rgb(226, 234, 242))
         background = roundedBackground(
