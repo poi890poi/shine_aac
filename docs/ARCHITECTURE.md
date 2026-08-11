@@ -11,6 +11,8 @@ Preferred near-term direction:
 3. Package the browser UI for Android and future iOS with a thin native wrapper such as Capacitor.
 4. Keep Android device testing as a smoke test for packaging and input delivery, not as the primary place to debug scanning rules.
 
+Scanner rules remain deterministic in the core, but user-visible timing must also satisfy the physical-device acceptance and hot-path invariants in `docs/SCAN_PERFORMANCE_GUARDRAILS.md`.
+
 ## Boundary
 
 ```text

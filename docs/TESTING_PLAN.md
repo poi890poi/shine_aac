@@ -12,6 +12,7 @@ This document defines how SHINE AAC should be tested before release candidates. 
 - Use existing source data where possible. `zh-TW` dictionary quality should be judged against source-backed Traditional Chinese/Zhuyin data, not generated filler or hand-picked rescue phrases.
 - Measure reachability and efficiency without real-time waits. Virtual core benchmarks should scan the same visible rows and suggestions, but they should count selections, activations, advances, and estimated configured time instead of sleeping.
 - Use real-time scanning only where it matters. Browser and APK E2E should verify that the UI, timing loop, persistence, input adapters, and WebView shell behave correctly, using a small set of representative flows.
+- Follow `docs/SCAN_PERFORMANCE_GUARDRAILS.md` for suggestion, board, rendering, or timer changes. Scan timing acceptance requires physical Android measurements plus deterministic work-count tests; emulator timing alone is insufficient.
 - Keep language profiles isolated. English, `zh-TW`, and future symbol profiles must not mutate each other's layout, spacing, dictionary, or migration behavior.
 - Treat failures as design information. A failing benchmark should usually trigger a general data, ranking, or access-rule improvement, not a special-case exception.
 - Report gaps honestly. A high glyph reachability score does not mean real daily conversation coverage is complete.
