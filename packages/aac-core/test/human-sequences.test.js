@@ -114,7 +114,7 @@ test("partial-word suggestion completes the current token instead of appending a
   }
 
   assert.equal(session.message, "movi");
-  assert.deepEqual(labelsForRow(session), ["UNDO", "MOVIE", "MOVING", "MOVIES"]);
+  assert.deepEqual(labelsForRow(session), ["UNDO", "MOVIE", "MOVING", "MOVIE'S"]);
 
   session = selectLabel(session, "MOVIE", { rowIndex: 0 });
   assert.equal(session.message, "movie ");
@@ -193,9 +193,9 @@ test("suggestion row does not fill unused slots with keys already available on t
   const session = createSession({ message: "want", messageHistory: [""] });
   const recommendationRow = visibleBoard(session)[0];
 
-  assert.deepEqual(labelsForRow(session), ["UNDO", "WANTED", "WANTS", "WANTING"]);
+  assert.deepEqual(labelsForRow(session), ["UNDO", "WANTED", "WANTING", "WANTON"]);
   assert.deepEqual(
     recommendationRow.filter((candidate) => candidate.action !== "noop").map((candidate) => candidate.label),
-    ["UNDO", "WANTED", "WANTS", "WANTING"]
+    ["UNDO", "WANTED", "WANTING", "WANTON"]
   );
 });

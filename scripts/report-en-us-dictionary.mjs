@@ -49,10 +49,11 @@ The replacement is a neutral frequency-ranked slice of the official Android Open
 | Raw source entries | ${EnUsFrequencySource.sourceEntryCount.toLocaleString()} |
 | Entries matching the supported word form | ${EnUsFrequencySource.supportedEntryCount.toLocaleString()} |
 | Supported entries suppressed at frequency 0 | ${EnUsFrequencySource.frequencyZeroEntryCount.toLocaleString()} |
+| Simple +s plurals removed during generation | ${EnUsFrequencySource.simplePluralEntryCount.toLocaleString()} |
 | Minimum retained frequency | ${EnUsFrequencySource.minimumFrequency} |
 | Retained entries | ${EnUsFrequencySource.retainedEntryCount.toLocaleString()} |
 
-Supported forms are ordinary lowercase alphabetic words with optional internal apostrophes, plus the source forms \`I\`, \`OK\`, and \`TV\`. Proper names, arbitrary abbreviations, punctuation-only tokens, and every source entry with frequency 0 are excluded by rule.
+Supported forms are ordinary lowercase alphabetic words with optional internal apostrophes, plus the source forms \`I\`, \`OK\`, and \`TV\`. Proper names, arbitrary abbreviations, punctuation-only tokens, and every source entry with frequency 0 are excluded by rule. A frequency-qualified word ending in \`s\` is also excluded when its exact base (the word without that final \`s\`) is frequency-qualified. A small explicit exception set preserves suffix collisions and non-plurals such as \`his\`, \`its\`, \`does\`, \`news\`, \`species\`, and possessive pronouns.
 
 Source: [AOSP LatinIME en_US_wordlist.combined.gz](${EnUsFrequencySource.sourceUrl.replace("?format=TEXT", "")}). AOSP documents dictionary frequency as a logarithmic 0–255 value in its [combined dictionary format](${EnUsFrequencySource.sourceUrl.replace("en_US_wordlist.combined.gz?format=TEXT", "sample.combined")}).
 

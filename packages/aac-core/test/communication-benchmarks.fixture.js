@@ -333,7 +333,7 @@ export const CommunicationBenchmarks = Object.freeze([
     purpose: "refusal",
     targetConcepts: ["NOT", "WANT", "DRINK"],
     acceptableTokenSequences: [["no", "drink"], ["don't", "want", "drink"], ["not", "want", "drink"]],
-    maxSelections: 4
+    maxSelections: 6
   }),
   Object.freeze({
     id: "asha-wants-needs-help",

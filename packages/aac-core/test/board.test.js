@@ -48,6 +48,10 @@ import {
 import { ZhTwChewingDictionaryEntries } from "../src/data/zh-tw-chewing.generated.js";
 
 const SuppressedZhTwSuggestionLabelsForTest = new Set(["是不是", "要不要"]);
+const SimplePlusSNonPluralsForTest = new Set([
+  "besides", "corps", "does", "economics", "hers", "his", "its", "mathematics", "news", "ours",
+  "physics", "politics", "series", "sometimes", "species", "statistics", "theirs", "towards", "yours"
+]);
 const suggestionTilesAcrossPagesCache = new Map();
 let zhTwPrefixStatsCache = null;
 const ZhTwGoldenCommonGlyphs = Object.freeze(Array.from(
@@ -288,6 +292,20 @@ test("active English dictionary is the filtered neutral AOSP frequency source", 
   assert.equal(EnUsFrequencyEntries.every(([, frequency], index) =>
     index === 0 || frequency <= EnUsFrequencyEntries[index - 1][1]
   ), true);
+  const words = new Set(EnUsFrequencyEntries.map(([word]) => word));
+  const retainedSimplePlurals = EnUsFrequencyEntries
+    .map(([word]) => word)
+    .filter((word) => word === word.toLowerCase() && word.length > 2 && word.endsWith("s") && !word.endsWith("ss") &&
+      !SimplePlusSNonPluralsForTest.has(word) && words.has(word.slice(0, -1)));
+  assert.deepEqual(retainedSimplePlurals, []);
+  assert.equal(EnUsFrequencySource.simplePluralEntryCount > 0, true);
+  for (const singular of ["book", "car", "dog", "movie"]) {
+    assert.equal(words.has(singular), true);
+    assert.equal(words.has(`${singular}s`), false);
+  }
+  for (const nonPlural of ["does", "hers", "his", "is", "its", "news", "ours", "species", "this", "yes", "yours"]) {
+    assert.equal(words.has(nonPlural), true);
+  }
 });
 
 test("completion ranking preserves AOSP source-frequency order", () => {
@@ -321,7 +339,7 @@ test("word boundaries use the same AOSP unigram order without handcrafted transi
 
 test("suggestion row keeps stable width with space and fallback letters", () => {
   const row = suggestionRow("want", DefaultSuggestionDictionary, 4);
-  assert.deepEqual(row.map((candidate) => candidate.label), ["SPC", "WANTED", "WANTS", "WANTING"]);
+  assert.deepEqual(row.map((candidate) => candidate.label), ["SPC", "WANTED", "WANTING", "WANTON"]);
 });
 
 test("long word suggestions span columns and reduce the row without becoming extra scan cells", () => {
@@ -437,7 +455,7 @@ test("English board keeps two ranked suggestion rows at every input stage", () =
     after.slice(0, 2).map((row) => row.filter((candidate) => candidate.action !== TileAction.Noop).map((candidate) => candidate.label)),
     [
       ["UNDO", "MOVED", "MOVE", "MOVEMENT"],
-      ["MOVIE", "MOVING", "MOVIES", "MOVEMENTS"]
+      ["MOVIE", "MOVING", "MOVABLE", "MOVIE'S"]
     ]
   );
 });
@@ -750,7 +768,7 @@ test("zh-TW English recommendations do not repeat static letters or the localize
   const staticLabels = new Set(staticTiles.map((candidate) => candidate.label.toLocaleUpperCase("en-US")));
   const staticSemantics = new Set(staticTiles.map((candidate) => `${candidate.action}\u0000${candidate.output}`));
 
-  assert.deepEqual(recommendations.slice(0, 3).map((candidate) => candidate.label), ["PODCAST", "PODCASTS", "PODCASTING"]);
+  assert.deepEqual(recommendations.slice(0, 3).map((candidate) => candidate.label), ["PODCAST", "PODCASTING"]);
   assert.equal(rows[2].some((candidate) => candidate.label === "復原"), true);
   for (const candidate of recommendations) {
     assert.equal(staticLabels.has(candidate.label.toLocaleUpperCase("en-US")), false, `${candidate.label} repeats a visible static key`);
