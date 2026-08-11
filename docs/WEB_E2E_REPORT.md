@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-11T02:57:53.624Z
+Generated: 2026-08-11T03:23:02.040Z
 
 Result: PASS
 
@@ -11,7 +11,7 @@ Result: PASS
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with the existing dashed review cue until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":55.5,"resetTargetToProgressMs":32.69999998807907,"rowDeadlineDriftMs":-28.799999982118607,"nextRowTargetToProgressMs":29.299999982118607,"activationToTargetMs":1.5,"activationTargetToProgressMs":24.099999994039536,"firstDeadlineDriftMs":-22.599999994039536,"secondTargetToProgressMs":22,"laterDeadlineDriftMs":-16.900000005960464,"thirdTargetToProgressMs":17.69999998807907,"selectionToTargetMs":4.300000011920929,"selectionTargetToProgressMs":17.19999998807907} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":63.70000001788139,"resetTargetToProgressMs":33.599999994039536,"rowDeadlineDriftMs":-31.80000001192093,"nextRowTargetToProgressMs":31.700000017881393,"activationToTargetMs":1.5999999940395355,"activationTargetToProgressMs":20.099999994039536,"firstDeadlineDriftMs":-16.19999998807907,"secondTargetToProgressMs":32.19999998807907,"laterDeadlineDriftMs":-20.099999994039536,"thirdTargetToProgressMs":20,"selectionToTargetMs":4,"selectionTargetToProgressMs":55.099999994039536} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -57,7 +57,7 @@ Result: PASS
 | zh-tw-language-switch-review-hold | PASS | 英文 and 注音 switches preserve review hold; the embedded English board reuses English suggestions |
 | zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | zh-tw-demo-mode | PASS | completed a candidate using the complete first-layer Zhuyin board (1 commit) |
-| screenshot | PASS | E:\workspace\shine_aac\.tmp\fixed-code71-ime\e2e-artifacts\web-e2e-final.png |
+| screenshot | PASS | E:\workspace\shine_aac\.tmp\code47-release\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:
 
