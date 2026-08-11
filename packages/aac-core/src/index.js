@@ -1322,9 +1322,7 @@ function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDicti
   const contextCompletions = zhTwContextCompletionTiles(message);
   if (contextCompletions.length > 0) return contextCompletions;
 
-  const configuredSuggestions = dictionary
-    .filter((candidate) => candidate.action !== TileAction.Noop)
-    .filter((candidate) => !ZhTwCoreResponseLabels.has(candidate.label));
+  const configuredSuggestions = zhTwConfiguredSuggestionCandidates(dictionary);
 
   if (message.length === 0) return configuredSuggestions;
 
@@ -2506,6 +2504,14 @@ export function selectableCount(row) {
     if (candidate.action !== TileAction.Noop) count += 1;
   }
   return count;
+}
+
+function* zhTwConfiguredSuggestionCandidates(dictionary) {
+  for (const candidate of dictionary) {
+    if (candidate.action === TileAction.Noop) continue;
+    if (ZhTwCoreResponseLabels.has(candidate.label)) continue;
+    yield candidate;
+  }
 }
 
 export function withLockedRow(rows, scannerState, lockedRow) {
