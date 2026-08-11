@@ -114,6 +114,7 @@ let renderedBoardKey = "";
 let renderedMessage = "";
 let renderedTiles = [];
 let renderedTileGrid = [];
+let renderedRows = [];
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
 let renderedCameraStatusElement = null;
@@ -1149,6 +1150,7 @@ function renderFull(board, boardKey) {
     });
 
     renderedTileGrid.push(renderedRow);
+    renderedRows.push(rowElement);
     boardElement.append(rowElement);
   });
 
@@ -1180,6 +1182,13 @@ function updateScanPresentation(board) {
   const nextActiveTiles = activeRenderedTilesForScanner(scanner);
   const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
   const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles])];
+
+  for (const [rowIndex, rowElement] of renderedRows.entries()) {
+    rowElement.classList.toggle(
+      "review-hold-row",
+      reviewHoldActive && scanner.stage === ScanStage.Rows && scanner.rowIndex === rowIndex
+    );
+  }
 
   for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
@@ -1243,6 +1252,7 @@ function invalidateRenderedBoard() {
   renderedMessage = "";
   renderedTiles = [];
   renderedTileGrid = [];
+  renderedRows = [];
   renderedPhaseElement = null;
   renderedVoiceElement = null;
   renderedCameraStatusElement = null;

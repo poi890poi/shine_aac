@@ -233,6 +233,21 @@ body.demo-active .phase::after {
   min-height: 0;
 }
 
+.row.review-hold-row {
+  position: relative;
+}
+
+.row.review-hold-row::after {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  box-sizing: border-box;
+  border: 6px solid #111111;
+  border-radius: 10px;
+  content: "";
+  pointer-events: none;
+}
+
 .tile {
   position: relative;
   display: flex;
@@ -299,10 +314,6 @@ body.demo-active .phase::after {
   outline: 3px solid #111111;
   outline-offset: -4px;
   background: #f4d35e;
-}
-
-.tile.review-hold {
-  border-style: dashed;
 }
 
 .tile.camera-hold {

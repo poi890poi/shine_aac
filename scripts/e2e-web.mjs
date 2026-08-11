@@ -2125,7 +2125,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
 async function scenarioInitialFirstRowHold(snapshot) {
   await assertFirstRowHold(snapshot, "initial launch");
   await releaseFirstRowHold();
-  steps.push(pass("initial-first-row-hold", "initial launch holds row 1 with the existing dashed review cue until activation"));
+  steps.push(pass("initial-first-row-hold", "initial launch holds row 1 with a high-contrast whole-row frame until activation"));
 }
 
 async function assertFirstRowHold(snapshot, context) {
@@ -2135,14 +2135,38 @@ async function assertFirstRowHold(snapshot, context) {
   const presentation = await evaluate(`
     (() => {
       const tile = document.querySelector(".tile.active-row.review-hold");
-      return tile ? {
-        borderStyle: getComputedStyle(tile).borderTopStyle,
+      const row = tile?.closest(".row.review-hold-row");
+      const frame = row ? getComputedStyle(row, "::after") : null;
+      const rectValues = (element) => {
+        const rect = element?.getBoundingClientRect();
+        return rect ? [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value * 10) / 10) : null;
+      };
+      const framedGeometry = rectValues(row);
+      row?.classList.remove("review-hold-row");
+      const unframedGeometry = rectValues(row);
+      row?.classList.add("review-hold-row");
+      return tile && row && frame ? {
+        frameBorderStyle: frame.borderTopStyle,
+        frameBorderWidth: frame.borderTopWidth,
+        frameBorderColor: frame.borderTopColor,
+        framePointerEvents: frame.pointerEvents,
+        rowPosition: getComputedStyle(row).position,
+        framedGeometry,
+        unframedGeometry,
         progress: Number.parseFloat(tile.querySelector(".progress-fill")?.style.transform?.match(/[0-9.]+/)?.[0] ?? "0")
       } : null;
     })()
   `);
-  if (!presentation || presentation.borderStyle !== "dashed") {
-    throw new Error(`${context} should show a dashed first-row hold cue: ${JSON.stringify(presentation)}`);
+  if (
+    !presentation ||
+    presentation.frameBorderStyle !== "solid" ||
+    presentation.frameBorderWidth !== "6px" ||
+    presentation.frameBorderColor !== "rgb(17, 17, 17)" ||
+    presentation.framePointerEvents !== "none" ||
+    presentation.rowPosition !== "relative" ||
+    JSON.stringify(presentation.framedGeometry) !== JSON.stringify(presentation.unframedGeometry)
+  ) {
+    throw new Error(`${context} should show a non-interactive high-contrast whole-row frame: ${JSON.stringify(presentation)}`);
   }
 }
 

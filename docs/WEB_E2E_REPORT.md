@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-11T15:26:14.774Z
+Generated: 2026-08-11T16:00:14.222Z
 
 Result: PASS
 
@@ -9,9 +9,9 @@ Result: PASS
 | server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
-| initial-first-row-hold | PASS | initial launch holds row 1 with the existing dashed review cue until activation |
+| initial-first-row-hold | PASS | initial launch holds row 1 with a high-contrast whole-row frame until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":54.10000002384186,"resetTargetToProgressMs":19.899999976158142,"rowDeadlineDriftMs":-14.599999994039536,"nextRowTargetToProgressMs":32,"activationToTargetMs":1.5,"activationTargetToProgressMs":16.200000017881393,"firstDeadlineDriftMs":-15.600000023841858,"secondTargetToProgressMs":32.80000001192093,"laterDeadlineDriftMs":-32.3000000059601,"thirdTargetToProgressMs":31.900000005960464,"selectionToHoldMs":3.9000000059604645,"holdReleaseToTargetMs":0.5,"selectionTargetToProgressMs":20.099999994039536} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":54.80000001192093,"resetTargetToProgressMs":27.69999998807907,"rowDeadlineDriftMs":-15.999999994039626,"nextRowTargetToProgressMs":33.099999994039536,"activationToTargetMs":1.399999976158142,"activationTargetToProgressMs":18,"firstDeadlineDriftMs":-16.19999998807907,"secondTargetToProgressMs":32.19999998807907,"laterDeadlineDriftMs":-29.19999998807907,"thirdTargetToProgressMs":29.5,"selectionToHoldMs":4.300000011920929,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":27.700000017881393} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
