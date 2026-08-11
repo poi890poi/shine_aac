@@ -835,6 +835,18 @@ test("zh-TW empty input never expands the phonetic corpus as a fallback", () => 
   assert.equal(reachableSuggestions.length, 44);
 });
 
+test("zh-TW nonempty Han input preserves bounded corpus backfill when context has no completion", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const suggestions = boardRows(config, "是不", false, { suggestionPage: 2 })
+    .slice(0, 4)
+    .flat();
+
+  assert.equal(
+    suggestions.some((candidate) => candidate.label === "之" && candidate.matchType === "base"),
+    true
+  );
+});
+
 test("zh-TW function labels are localized in runtime rows and persisted defaults", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const rowsWithUndo = boardRows(config, "ㄅ", true).slice(0, 4).flat();

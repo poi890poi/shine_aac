@@ -1279,9 +1279,23 @@ function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDicti
   const contextCompletions = zhTwContextCompletionTiles(message);
   if (contextCompletions.length > 0) return contextCompletions;
 
-  return dictionary
+  const configuredSuggestions = dictionary
     .filter((candidate) => candidate.action !== TileAction.Noop)
     .filter((candidate) => !ZhTwCoreResponseLabels.has(candidate.label));
+
+  if (message.length === 0) return configuredSuggestions;
+
+  return concatenateTileCandidates(
+    configuredSuggestions,
+    zhTwSourceBackfillCandidates()
+  );
+}
+
+function* zhTwSourceBackfillCandidates() {
+  for (const entry of ZhTwFrequencyDictionary) {
+    if (ZhTwCoreResponseLabels.has(entry.label)) continue;
+    yield zhTwCandidateTile(entry, 0, entry.key, "base");
+  }
 }
 
 function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
