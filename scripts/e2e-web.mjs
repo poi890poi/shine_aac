@@ -103,7 +103,7 @@ try {
     settings: document.querySelector(".config-button")?.textContent ?? ""
   })`);
   if (!packagedReferenceMode && (
-    !firstRunHeader.phase.startsWith("目前：") ||
+    firstRunHeader.phase !== "暫停確認" ||
     /Rows|First|Symbols/.test(firstRunHeader.phase) ||
     !firstRunHeader.voice.startsWith("語音：") ||
     firstRunHeader.settings !== "⚙ 設定"
@@ -111,6 +111,7 @@ try {
     throw new Error(`Clean first launch header is not instructional zh-TW: ${JSON.stringify(firstRunHeader)}`);
   }
   steps.push(pass("first-run-profile", "clean storage opens the zh-TW board with instructional status and a distinct Settings control"));
+  await scenarioInitialFirstRowHold(firstRunSnapshot);
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
@@ -359,6 +360,10 @@ async function scenarioStrictScanTiming() {
       state.lastTarget = "";
       state.resetRequestedAt = performance.now();
       resetButton.click();
+      window.setTimeout(() => {
+        record("activation", { purpose: "startup-hold" });
+        globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
+      }, 40);
     })()
   `);
   await delay(8000);
@@ -1721,8 +1726,9 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
       document.querySelector('[data-action="reset"]')?.click();
     })()
   `);
-  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "英文"]);
+  await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "英文"], { preserveInitialHold: true });
   const snapshot = await getSnapshot();
+  await assertFirstRowHold(snapshot, "zh-TW reset");
   const labels = snapshot.rows.flat().map((tile) => tile.label);
   for (const expected of ["英文", "ㄅ", "ㄧ", "ㄩ", "朗讀", "清除"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW reset layout missing ${expected}`);
@@ -1838,7 +1844,43 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   if (stored.suggestionDictionary.includes("我要喝水")) {
     throw new Error("zh-TW reset persisted old long suggestion dictionary");
   }
-  steps.push(pass("zh-tw-reset", "reset restored packaged zh-TW defaults instead of stale stored layout"));
+  await releaseFirstRowHold();
+  steps.push(pass("zh-tw-reset", "reset restored packaged zh-TW defaults and held the first row for deliberate startup"));
+}
+
+async function scenarioInitialFirstRowHold(snapshot) {
+  await assertFirstRowHold(snapshot, "initial launch");
+  await releaseFirstRowHold();
+  steps.push(pass("initial-first-row-hold", "initial launch holds row 1 with the existing dashed review cue until activation"));
+}
+
+async function assertFirstRowHold(snapshot, context) {
+  if (!snapshot.reviewHold || snapshot.phase !== "Review" || snapshot.activeRow?.rowIndex !== 0 || snapshot.activeCell) {
+    throw new Error(`${context} should hold the first row before scanning: ${JSON.stringify(snapshot)}`);
+  }
+  const presentation = await evaluate(`
+    (() => {
+      const tile = document.querySelector(".tile.active-row.review-hold");
+      return tile ? {
+        borderStyle: getComputedStyle(tile).borderTopStyle,
+        progress: Number.parseFloat(tile.querySelector(".progress-fill")?.style.transform?.match(/[0-9.]+/)?.[0] ?? "0")
+      } : null;
+    })()
+  `);
+  if (!presentation || presentation.borderStyle !== "dashed") {
+    throw new Error(`${context} should show a dashed first-row hold cue: ${JSON.stringify(presentation)}`);
+  }
+}
+
+async function releaseFirstRowHold() {
+  const snapshot = await getSnapshot();
+  if (!snapshot.reviewHold) return;
+  await clickTarget(snapshot.activeRow);
+  await delay(40);
+  const released = await getSnapshot();
+  if (released.reviewHold || released.activeRow?.rowIndex !== 0) {
+    throw new Error(`First-row hold did not release into row scanning: ${JSON.stringify(released)}`);
+  }
 }
 
 async function scenarioFunctionLabelScaleMatrix() {
@@ -2360,12 +2402,15 @@ async function isDemoActive() {
   return evaluate(`document.body.classList.contains("demo-active")`);
 }
 
-async function waitForLabels(expectedLabels) {
+async function waitForLabels(expectedLabels, { preserveInitialHold = false } = {}) {
   const deadline = Date.now() + UiWaitTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getSnapshot().catch(() => null);
     const labels = snapshot?.rows?.flat().map((tile) => tile.label) ?? [];
-    if (expectedLabels.every((label) => labels.includes(label))) return;
+    if (expectedLabels.every((label) => labels.includes(label))) {
+      if (!preserveInitialHold) await releaseFirstRowHold();
+      return;
+    }
     await delay(50);
   }
   throw new Error(`Timed out waiting for labels ${expectedLabels.join(", ")}`);

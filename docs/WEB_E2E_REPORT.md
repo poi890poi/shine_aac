@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-10T02:16:50.431Z
+Generated: 2026-08-11T02:57:53.624Z
 
 Result: PASS
 
@@ -9,8 +9,55 @@ Result: PASS
 | server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
+| initial-first-row-hold | PASS | initial launch holds row 1 with the existing dashed review cue until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":13,"resetTargetToProgressMs":41.20000000298023,"rowDeadlineDriftMs":-33.30000001192093,"nextRowTargetToProgressMs":48.70000000298023,"activationToTargetMs":2.7000000029802322,"activationTargetToProgressMs":47.8999999910593,"firstDeadlineDriftMs":-16.299999997019768,"secondTargetToProgressMs":47.20000000298023,"laterDeadlineDriftMs":-13.100000008940697,"thirdTargetToProgressMs":47.400000005960464,"selectionToTargetMs":5,"selectionTargetToProgressMs":35.29999999701977} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":55.5,"resetTargetToProgressMs":32.69999998807907,"rowDeadlineDriftMs":-28.799999982118607,"nextRowTargetToProgressMs":29.299999982118607,"activationToTargetMs":1.5,"activationTargetToProgressMs":24.099999994039536,"firstDeadlineDriftMs":-22.599999994039536,"secondTargetToProgressMs":22,"laterDeadlineDriftMs":-16.900000005960464,"thirdTargetToProgressMs":17.69999998807907,"selectionToTargetMs":4.300000011920929,"selectionTargetToProgressMs":17.19999998807907} |
+| first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
+| camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
+| camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
+| phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
+| undo-correction | PASS | undid WATER and selected FOOD |
+| text-history | PASS | updated one live history line through composition, undo, and correction |
+| session-draft | PASS | restored current composed message after reload |
+| clear | PASS | selected CLR from the visible board |
+| completion | PASS | typed movi and completed to movie with automatic trailing space |
+| undo-completion | PASS | selected UNDO and restored the spelling before whole-word completion |
+| text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |
+| text-history-migration | PASS | compacted version 1 and code-42 version 2 per-input snapshots into one live line |
+| review-hold | PASS | opt-in hold pauses after suggestion changes and resumes on next activation |
+| input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
+| app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
+| text-export-result | PASS | shows the saved filename, opens the exact Android document directly, and reports write failures |
+| speech-voice-settings | PASS | uses a dedicated accessible list with engine, ready/downloadable states, inline preview, immediate selection, and refresh |
+| back-navigation | PASS | system back contract returns App Info and Input Test to Configuration, then Configuration to the board |
+| demo-mode | PASS | activation clears the draft and holds, restarts top-row scanning, runs the demo, and tap exits it |
+| pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
+| tablet-portrait-layout | PASS | fits 13 rows in 1280px viewport without scrolling |
+| tablet-portrait-layout-config-actions | PASS | config action bar remains reachable |
+| tablet-landscape-layout | PASS | fits 13 rows in 800px viewport without scrolling |
+| tablet-landscape-layout-config-actions | PASS | config action bar remains reachable |
+| large-text-function-key-layout | PASS | 3 function keys share word-key metrics; rendered 23.2-34.7px with a 20px normal-board floor |
+| large-text-phone-layout | PASS | fits 5 rows in 851px viewport without scrolling |
+| large-text-cell-fit | PASS | fit 15 realistic board labels on one line at 18px or larger without clipping |
+| long-English-suggestion-span-layout | PASS | fits 5 rows in 694px viewport without scrolling |
+| long-English-suggestion-spans | PASS | kept ACCESSIBILITY at the normal word size while expanding from 2 to 4 columns |
+| zh-tw-dense-function-key-layout | PASS | 4 function keys share word-key metrics; rendered 20-20px with a 20px normal-board floor |
+| zh-tw-official-zhuyin-route | PASS | Zhuyin activation uses the dedicated Ministry of Education audio route |
+| zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
+| zh-tw-reset | PASS | reset restored packaged zh-TW defaults and held the first row for deliberate startup |
+| function-label-default-default | PASS | 4 function keys share word-key metrics; rendered 20-20px with a 20px normal-board floor |
+| function-label-default-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
+| function-label-default-larger-display | PASS | 4 function keys share word-key metrics; rendered 18-18px with a 20px normal-board floor |
+| function-label-default-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
+| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 31.5-31.5px with a 20px normal-board floor |
+| function-label-200pct-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
+| function-label-200pct-larger-display | PASS | 4 function keys share word-key metrics; rendered 22.7-22.7px with a 20px normal-board floor |
+| function-label-200pct-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
+| zh-tw-locale | PASS | configuration, input test, and app information remain consistently Traditional Chinese |
+| zh-tw-language-switch-review-hold | PASS | 英文 and 注音 switches preserve review hold; the embedded English board reuses English suggestions |
+| zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
+| zh-tw-demo-mode | PASS | completed a candidate using the complete first-layer Zhuyin board (1 commit) |
+| screenshot | PASS | E:\workspace\shine_aac\.tmp\fixed-code71-ime\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:
 

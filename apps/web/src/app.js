@@ -108,7 +108,7 @@ const speechVoiceDownloadRequests = new Map();
 const speechVoiceDownloadHelp = new Set();
 let calibrationTimerId = 0;
 let lastScanAnnouncementKey = "";
-let reviewHoldActive = false;
+let reviewHoldActive = true;
 let cameraHoldActive = false;
 let cameraHoldProgress = 0;
 let suppressNextConfigClick = false;
@@ -1545,7 +1545,7 @@ function openConfig() {
   renderConfig();
 }
 
-function closeConfig() {
+function closeConfig({ holdFirstRow = false } = {}) {
   closeTextExportResult();
   configOpen = false;
   calibrationOpen = false;
@@ -1553,7 +1553,7 @@ function closeConfig() {
   speechVoicesOpen = false;
   stopSpeechVoiceRefresh();
   stopCalibrationTimer();
-  reviewHoldActive = false;
+  reviewHoldActive = holdFirstRow;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
   render();
@@ -1863,7 +1863,7 @@ function renderConfig() {
       saveUiConfig(uiStorageKey, uiConfig);
       session = createSession({ config });
       clearSessionDraft();
-      closeConfig();
+      closeConfig({ holdFirstRow: true });
     }
   });
 
@@ -1898,7 +1898,7 @@ function renderConfig() {
     saveUiConfig(uiStorageKey, uiConfig);
     session = createSession({ config });
     clearSessionDraft();
-    closeConfig();
+    closeConfig({ holdFirstRow: true });
   });
 
   panel.append(title, form);
