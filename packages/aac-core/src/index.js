@@ -2276,9 +2276,8 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     const isLockingRow =
       session.scannerState.stage === ScanStage.Rows &&
       confirmation.nextState.stage === ScanStage.RowSelected;
-    const freshRows = boardRows(session.config, session.message, session.messageHistory.length > 0, session);
     if (isLockingRow && session.config.transitionPauseMs <= 0) {
-      const lockedRow = freshRows[confirmation.nextState.rowIndex];
+      const lockedRow = rows[confirmation.nextState.rowIndex];
       const nextState = advanceScanner(confirmation.nextState, rows.length, (row) => selectableCount(row === confirmation.nextState.rowIndex ? lockedRow : rows[row]));
       return {
         ...session,
@@ -2293,7 +2292,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
       lockedRow: confirmation.nextState.stage === ScanStage.Rows
         ? null
         : isLockingRow
-          ? freshRows[confirmation.nextState.rowIndex]
+          ? rows[confirmation.nextState.rowIndex]
           : session.lockedRow,
       lastSelection: null
     };
@@ -2502,13 +2501,18 @@ function commitCandidateMessage(message, selectedTile, config) {
 }
 
 export function selectableCount(row) {
-  return row.filter((candidate) => candidate.action !== TileAction.Noop).length;
+  let count = 0;
+  for (const candidate of row) {
+    if (candidate.action !== TileAction.Noop) count += 1;
+  }
+  return count;
 }
 
 export function withLockedRow(rows, scannerState, lockedRow) {
   if (!lockedRow || scannerState.stage === ScanStage.Rows || scannerState.rowIndex < 0 || scannerState.rowIndex >= rows.length) {
     return rows;
   }
+  if (rows[scannerState.rowIndex] === lockedRow) return rows;
   return rows.map((row, index) => index === scannerState.rowIndex ? lockedRow : row);
 }
 

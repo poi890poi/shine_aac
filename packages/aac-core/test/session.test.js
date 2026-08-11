@@ -67,6 +67,20 @@ test("scan-only transitions reuse the prepared logical board", () => {
 
   visibleBoard(session);
   const readsAfterPreparation = suggestionLabelReads;
+  const preparedRows = visibleBoard(session);
+
+  const activatedSession = pressSwitch(session, 1000);
+  assert.equal(suggestionLabelReads, readsAfterPreparation);
+  assert.equal(visibleBoard(activatedSession), preparedRows);
+
+  const pausedSession = {
+    ...session,
+    config: createBoardConfig({ ...session.config, transitionPauseMs: 850 })
+  };
+  const pausedActivation = pressSwitch(pausedSession, 1000);
+  assert.equal(suggestionLabelReads, readsAfterPreparation);
+  assert.equal(visibleBoard(pausedActivation), preparedRows);
+
   for (let step = 0; step < 24; step += 1) {
     session = advanceSession(session);
     visibleBoard(session);

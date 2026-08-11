@@ -119,6 +119,7 @@ let renderedTileGrid = [];
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
 let renderedCameraStatusElement = null;
+const boardSignatureCache = new WeakMap();
 let tileLabelFitFrame = 0;
 let observedBoardElement = null;
 const tileLabelResizeObserver = typeof ResizeObserver === "function"
@@ -1233,8 +1234,12 @@ function invalidateRenderedBoard() {
 }
 
 function boardSignature(board) {
-  return [
-    session.config.columns,
+  const columns = session.config.columns;
+  const cached = boardSignatureCache.get(board);
+  if (cached?.columns === columns) return cached.signature;
+
+  const signature = [
+    columns,
     ...board.map((row) => row
       .map((candidate) => [
         candidate.label,
@@ -1245,6 +1250,8 @@ function boardSignature(board) {
       ].join("\u001f"))
       .join("\u001e"))
   ].join("\u001d");
+  boardSignatureCache.set(board, { columns, signature });
+  return signature;
 }
 
 function scrollMessageToEnd(messageElement) {
