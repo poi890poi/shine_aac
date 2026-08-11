@@ -1218,7 +1218,9 @@ function englishSuggestionRows(message, dictionary, columns, canUndo = false, op
   const safeColumns = clampInt(columns, 2, 8);
   const suggestionCount = Math.min(safeColumns, 4);
   const rowCount = clampInt(options.rowCount ?? 2, 1, 2);
-  const candidatePoolSize = suggestionCount * rowCount * 4;
+  const hasWideSuggestions = Object.values(options.suggestionColumnSpans ?? {})
+    .some((span) => Number(span) > 1);
+  const candidatePoolSize = suggestionCount * rowCount * (hasWideSuggestions ? 4 : 1);
   const commandSuggestions = [];
   if (canUndo) commandSuggestions.push(UndoSuggestionTile);
   if (options.autoSpace !== AutoSpaceMode.None && message.trim().length > 0 && !/\s$/.test(message)) {
