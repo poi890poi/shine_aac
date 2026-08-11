@@ -51,6 +51,38 @@ test("locked suggestion row does not change while selecting a cell", () => {
   assert.deepEqual(visibleBoard(changedElsewhere)[0].map((candidate) => candidate.label), ["UNDO", "THE", "TO", "OF"]);
 });
 
+test("scan-only transitions reuse the prepared logical board", () => {
+  let suggestionLabelReads = 0;
+  const trackedSuggestion = {
+    get label() {
+      suggestionLabelReads += 1;
+      return "ALPHA";
+    },
+    output: "alpha",
+    action: "append"
+  };
+  let session = createSession({
+    config: createBoardConfig({ suggestionDictionary: [trackedSuggestion] })
+  });
+
+  visibleBoard(session);
+  const readsAfterPreparation = suggestionLabelReads;
+  for (let step = 0; step < 24; step += 1) {
+    session = advanceSession(session);
+    visibleBoard(session);
+  }
+  assert.equal(suggestionLabelReads, readsAfterPreparation);
+
+  visibleBoard({
+    ...session,
+    config: createBoardConfig({ ...session.config, scanIntervalMs: 300 })
+  });
+  assert.equal(suggestionLabelReads, readsAfterPreparation);
+
+  visibleBoard({ ...session, message: "a" });
+  assert.ok(suggestionLabelReads > readsAfterPreparation);
+});
+
 test("zero transition pause skips row-selected escape state", () => {
   const session = pressSwitch(createSession(), 1000);
 

@@ -2149,8 +2149,38 @@ export function createSession(overrides = {}) {
   };
 }
 
+const preparedBoardByDictionary = new WeakMap();
+
 export function visibleBoard(session) {
-  const rows = boardRows(session.config, session.message, session.messageHistory.length > 0, session);
+  const canUndo = session.messageHistory.length > 0;
+  const dictionary = session.config.suggestionDictionary;
+  const cached = preparedBoardByDictionary.get(dictionary);
+  const activeCategory = session.activeCategory ?? null;
+  const suggestionPage = session.suggestionPage ?? 0;
+  const rows = cached &&
+    cached.profileId === session.config.profileId &&
+    cached.autoSpace === session.config.autoSpace &&
+    cached.columns === session.config.columns &&
+    cached.symbols === session.config.symbols &&
+    cached.message === session.message &&
+    cached.canUndo === canUndo &&
+    cached.activeCategory === activeCategory &&
+    cached.suggestionPage === suggestionPage
+      ? cached.rows
+      : boardRows(session.config, session.message, canUndo, session);
+  if (!cached || rows !== cached.rows) {
+    preparedBoardByDictionary.set(dictionary, {
+      profileId: session.config.profileId,
+      autoSpace: session.config.autoSpace,
+      columns: session.config.columns,
+      symbols: session.config.symbols,
+      message: session.message,
+      canUndo,
+      activeCategory,
+      suggestionPage,
+      rows
+    });
+  }
   return withLockedRow(rows, session.scannerState, session.lockedRow);
 }
 

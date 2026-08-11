@@ -609,8 +609,8 @@ function setSession(nextSession) {
   reviewHoldActive = false;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
-  resetClock();
   render();
+  resetClock();
   scheduleScan();
   announceCurrentScanTarget();
 }
@@ -646,8 +646,8 @@ function activateSwitch(inputEvent = {}) {
   cancelScheduledScan();
   if (reviewHoldActive) {
     reviewHoldActive = false;
-    resetClock();
     render();
+    resetClock();
     scheduleScan();
     announceCurrentScanTarget();
     return;
@@ -674,8 +674,8 @@ function activateSwitch(inputEvent = {}) {
     }
   }
   reviewHoldActive = shouldHoldForSuggestionReview(selection);
-  resetClock();
   render();
+  resetClock();
   scheduleScan();
 
   if (selection?.effect === "speak") {
@@ -2871,6 +2871,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 render();
+resetClock();
 scheduleScan();
 syncNativeUiConfig(uiConfig);
 announceCurrentScanTarget();
