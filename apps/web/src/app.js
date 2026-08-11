@@ -1321,6 +1321,8 @@ function scheduleTileLabelFit() {
 
 function fitTileLabels() {
   tileLabelFitFrame = 0;
+  if (updateDynamicSuggestionSpans()) return;
+
   const labels = observedBoardElement?.querySelectorAll(".tile-label") ?? [];
   for (const label of labels) label.style.fontSize = "";
 
@@ -1398,7 +1400,11 @@ function updateDynamicSuggestionSpans() {
       suggestionWrapLabels: nextWrapLabels
     })
   };
+  cancelScheduledScan();
   render();
+  resetClock();
+  scheduleScan();
+  announceCurrentScanTarget();
   return true;
 }
 
