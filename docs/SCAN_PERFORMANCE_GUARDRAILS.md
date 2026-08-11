@@ -150,6 +150,21 @@ also count work directly:
 A throwing getter immediately after visible capacity also proves that bounded
 suggestion retrieval does not read beyond the required result pool.
 
+The automated large-N acceptance uses virtual one-million-entry English and
+zh-TW dictionaries without allocating a million persistent objects. It covers
+the computational worst cases directly:
+
+- a cold English prefix with its only match at entry 1,000,000 must make one
+  preparation pass within five seconds, then perform zero corpus reads through
+  10,000 scan transitions;
+- empty English input must read no more than the eight visible candidates;
+- empty zh-TW input with one million configured suggestions must stop below 100
+  reads, reflecting its bounded reachable result capacity.
+
+This gate measures N as corpus/candidate-pool size. The scan-transition loop is
+only a cache-invariance check after large-N preparation; repeated transitions
+are not treated as the computational data size.
+
 ### State-space equivalence
 
 When replacing a candidate algorithm, compare visible results against the
@@ -182,6 +197,19 @@ Required cases are:
 - a deeper Zhuyin prefix;
 - empty and growing English input;
 - a layout containing long English suggestions.
+
+The opt-in browser cumulative timing acceptance defaults to 80 row transitions
+and 80 cell transitions. It rejects:
+
+- mean absolute interval drift above 15 ms per transition;
+- p95 interval excess above 35 ms;
+- any single interval excess above 100 ms;
+- row-to-first-cell or cell-to-first-row activation latency above 75 ms.
+
+Run the core gate with `npm run test:scan-performance`. Run the visible browser
+gate with `SHINE_AAC_SCAN_INTERVAL_MS=300` and
+`node scripts/e2e-web.mjs --cumulative-timing`. The transition count may be
+raised for timer soak testing, but it is separate from corpus-size N.
 
 Instrument visible render/highlight timestamps if automation is used. Do not
 infer user-visible timing from the duration of a core function alone. Emulator

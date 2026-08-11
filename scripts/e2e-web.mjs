@@ -16,6 +16,7 @@ const edgePath = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\E
 const profileDir = join(process.env.TEMP ?? artifactDir, `shine-aac-edge-${Date.now()}`);
 const packagedWebViewMode = process.argv.includes("--packaged-webview");
 const timingOnlyMode = process.argv.includes("--timing-only");
+const cumulativeTimingMode = process.argv.includes("--cumulative-timing");
 const zhTwLayoutOnlyMode = process.argv.includes("--zh-tw-layout-only");
 const zhTwLanguageSwitchOnlyMode = process.argv.includes("--zh-tw-language-switch-only");
 const packagedReferenceMode = Boolean(process.env.SHINE_AAC_APP_PATH);
@@ -29,6 +30,9 @@ const DemoStartTimeoutMs = 10000;
 const DemoStopTimeoutMs = 60000;
 const CalibrationWaitTimeoutMs = 10000;
 const BrowserSmokeScanMs = 500;
+const CumulativeScanIntervalMs = Number(process.env.SHINE_AAC_SCAN_INTERVAL_MS ?? 300);
+const CumulativeScanTransitionCount = Number(process.env.SHINE_AAC_SCAN_TRANSITIONS ?? 80);
+const CpuThrottleRate = Number(process.env.SHINE_AAC_CPU_THROTTLE ?? 1);
 
 const steps = [];
 let serverProcess;
@@ -89,12 +93,16 @@ try {
     deviceScaleFactor: 2.75,
     mobile: true
   });
+  if (CpuThrottleRate > 1) {
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: CpuThrottleRate });
+    steps.push(pass("cpu-throttle", `${CpuThrottleRate}x CPU slowdown`));
+  }
   await waitForRenderedBoard();
   steps.push(pass("browser-load", "rendered board and message panel"));
 
   const firstRunSnapshot = await getSnapshot();
   const firstRunLabels = firstRunSnapshot.rows.flat().map((tile) => tile.label);
-  if (!firstRunLabels.includes("\u3105") || firstRunLabels.includes("I")) {
+  if (!cumulativeTimingMode && (!firstRunLabels.includes("\u3105") || firstRunLabels.includes("I"))) {
     throw new Error(`Clean first launch did not use the zh-TW profile: ${JSON.stringify(firstRunLabels)}`);
   }
   const firstRunHeader = await evaluate(`({
@@ -110,8 +118,10 @@ try {
   )) {
     throw new Error(`Clean first launch header is not instructional zh-TW: ${JSON.stringify(firstRunHeader)}`);
   }
-  steps.push(pass("first-run-profile", "clean storage opens the zh-TW board with instructional status and a distinct Settings control"));
-  await scenarioInitialFirstRowHold(firstRunSnapshot);
+  if (!cumulativeTimingMode) {
+    steps.push(pass("first-run-profile", "clean storage opens the zh-TW board with instructional status and a distinct Settings control"));
+    await scenarioInitialFirstRowHold(firstRunSnapshot);
+  }
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
@@ -148,6 +158,14 @@ try {
     await scenarioZhTwLanguageSwitchReviewHold();
     writeReport(true);
     console.log("ZH-TW LANGUAGE SWITCH E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+
+  if (cumulativeTimingMode) {
+    await scenarioCumulativeScanTiming();
+    writeReport(true);
+    console.log("CUMULATIVE SCAN TIMING E2E PASS");
     process.exitCode = 0;
     return;
   }
@@ -462,6 +480,231 @@ async function scenarioStrictScanTiming() {
     location.reload();
   `);
   await waitForUi();
+}
+
+async function scenarioCumulativeScanTiming() {
+  const intervalMs = Math.max(100, CumulativeScanIntervalMs);
+  const transitionCount = Math.max(20, Math.trunc(CumulativeScanTransitionCount));
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 24,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: ${intervalMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${intervalMs},
+      inputLatencyCompensationMs: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdAfterSuggestionChange: false,
+      switchInputProfile: "hardware-buttons"
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
+
+  const rowMetrics = await measureAutomaticScanTransitions("row", transitionCount, intervalMs);
+  const cellMetrics = await measureCellScanTransitions(transitionCount, intervalMs);
+  const metrics = {
+    appPath,
+    intervalMs,
+    transitionCount,
+    cpuThrottleRate: CpuThrottleRate,
+    row: rowMetrics,
+    cell: cellMetrics.transitions,
+    rowActivationToFirstCellMs: cellMetrics.rowActivationToFirstCellMs,
+    cellActivationToFirstRowMs: cellMetrics.cellActivationToFirstRowMs
+  };
+  const outputPath = join(artifactDir, "scan-timing-benchmark.json");
+  writeFileSync(outputPath, `${JSON.stringify(metrics, null, 2)}\n`);
+  console.log(`SCAN_TIMING_METRICS ${JSON.stringify(metrics)}`);
+  const maximumExcessPerTransitionMs = Number(process.env.SHINE_AAC_SCAN_MAX_EXCESS_MS ?? 15);
+  const maximumP95ExcessMs = Number(process.env.SHINE_AAC_SCAN_MAX_P95_EXCESS_MS ?? 35);
+  const maximumSingleExcessMs = Number(process.env.SHINE_AAC_SCAN_MAX_SINGLE_EXCESS_MS ?? 100);
+  const maximumActivationMs = Number(process.env.SHINE_AAC_SCAN_MAX_ACTIVATION_MS ?? 75);
+  const failures = [
+    ["row mean absolute drift", Math.abs(rowMetrics.excessPerTransitionMs), maximumExcessPerTransitionMs],
+    ["cell mean absolute drift", Math.abs(cellMetrics.transitions.excessPerTransitionMs), maximumExcessPerTransitionMs],
+    ["row p95 excess", rowMetrics.p95IntervalMs - intervalMs, maximumP95ExcessMs],
+    ["cell p95 excess", cellMetrics.transitions.p95IntervalMs - intervalMs, maximumP95ExcessMs],
+    ["row maximum excess", rowMetrics.maximumIntervalMs - intervalMs, maximumSingleExcessMs],
+    ["cell maximum excess", cellMetrics.transitions.maximumIntervalMs - intervalMs, maximumSingleExcessMs],
+    ["row activation to first cell", cellMetrics.rowActivationToFirstCellMs, maximumActivationMs],
+    ["cell activation to first row", cellMetrics.cellActivationToFirstRowMs, maximumActivationMs]
+  ].filter(([, measured, maximum]) => measured > maximum);
+  if (failures.length > 0) {
+    throw new Error(`Cumulative scan timing acceptance failed: ${JSON.stringify(failures)}`);
+  }
+  steps.push(pass("cumulative-scan-timing", JSON.stringify(metrics)));
+}
+
+async function measureAutomaticScanTransitions(mode, transitionCount, intervalMs) {
+  return evaluate(`
+    (() => new Promise((resolve, reject) => {
+      const desiredMode = ${JSON.stringify(mode)};
+      const transitionCount = ${transitionCount};
+      const intervalMs = ${intervalMs};
+      const samples = [];
+      let lastSignature = "";
+      let timeoutId = 0;
+      const currentTarget = () => {
+        const selector = desiredMode === "row" ? ".tile.active-row" : ".tile.active-cell";
+        const tile = document.querySelector(selector);
+        const row = tile?.closest(".row");
+        const board = row?.closest(".board");
+        if (!tile || !row || !board) return null;
+        const rowIndex = [...board.children].indexOf(row);
+        const cellIndex = [...row.children].indexOf(tile);
+        return { rowIndex, cellIndex, signature: rowIndex + ":" + cellIndex };
+      };
+      const finish = () => {
+        observer.disconnect();
+        window.clearTimeout(timeoutId);
+        const measuredSamples = samples.slice(1);
+        const intervals = measuredSamples.slice(1).map((sample, index) => sample.at - measuredSamples[index].at);
+        const sorted = [...intervals].sort((left, right) => left - right);
+        const percentile = (ratio) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * ratio))] ?? 0;
+        const actualTotalMs = measuredSamples.at(-1).at - measuredSamples[0].at;
+        const expectedTotalMs = transitionCount * intervalMs;
+        resolve({
+          samples: transitionCount,
+          expectedTotalMs,
+          actualTotalMs,
+          meanIntervalMs: actualTotalMs / transitionCount,
+          excessTotalMs: actualTotalMs - expectedTotalMs,
+          excessPerTransitionMs: (actualTotalMs - expectedTotalMs) / transitionCount,
+          minimumIntervalMs: sorted[0] ?? 0,
+          medianIntervalMs: percentile(0.5),
+          p95IntervalMs: percentile(0.95),
+          maximumIntervalMs: sorted.at(-1) ?? 0
+        });
+      };
+      const record = () => {
+        const target = currentTarget();
+        if (!target || target.signature === lastSignature) return;
+        lastSignature = target.signature;
+        samples.push({ at: performance.now(), ...target });
+        if (samples.length >= transitionCount + 2) finish();
+      };
+      const observer = new MutationObserver(record);
+      observer.observe(document.querySelector("#app"), {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+      record();
+      timeoutId = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error("Cumulative " + desiredMode + " scan timed out after " + samples.length + " targets"));
+      }, transitionCount * intervalMs + 20000);
+    }))()
+  `);
+}
+
+async function measureCellScanTransitions(transitionCount, intervalMs) {
+  const activationAndTransitions = await evaluate(`
+    (() => new Promise((resolve, reject) => {
+      const transitionCount = ${transitionCount};
+      const intervalMs = ${intervalMs};
+      const samples = [];
+      let lastSignature = "";
+      let firstCellAt = 0;
+      let timeoutId = 0;
+      const activatedAt = performance.now();
+      const currentCell = () => {
+        const tile = document.querySelector(".tile.active-cell");
+        const row = tile?.closest(".row");
+        const board = row?.closest(".board");
+        if (!tile || !row || !board) return null;
+        const rowIndex = [...board.children].indexOf(row);
+        const cellIndex = [...row.children].indexOf(tile);
+        return { rowIndex, cellIndex, signature: rowIndex + ":" + cellIndex };
+      };
+      const finish = () => {
+        observer.disconnect();
+        window.clearTimeout(timeoutId);
+        const measuredSamples = samples.slice(1);
+        const intervals = measuredSamples.slice(1).map((sample, index) => sample.at - measuredSamples[index].at);
+        const sorted = [...intervals].sort((left, right) => left - right);
+        const percentile = (ratio) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * ratio))] ?? 0;
+        const actualTotalMs = measuredSamples.at(-1).at - measuredSamples[0].at;
+        const expectedTotalMs = transitionCount * intervalMs;
+        resolve({
+          rowActivationToFirstCellMs: firstCellAt - activatedAt,
+          transitions: {
+            samples: transitionCount,
+            expectedTotalMs,
+            actualTotalMs,
+            meanIntervalMs: actualTotalMs / transitionCount,
+            excessTotalMs: actualTotalMs - expectedTotalMs,
+            excessPerTransitionMs: (actualTotalMs - expectedTotalMs) / transitionCount,
+            minimumIntervalMs: sorted[0] ?? 0,
+            medianIntervalMs: percentile(0.5),
+            p95IntervalMs: percentile(0.95),
+            maximumIntervalMs: sorted.at(-1) ?? 0
+          }
+        });
+      };
+      const record = () => {
+        const target = currentCell();
+        if (!target || target.signature === lastSignature) return;
+        const now = performance.now();
+        if (!firstCellAt) firstCellAt = now;
+        lastSignature = target.signature;
+        samples.push({ at: now, ...target });
+        if (samples.length >= transitionCount + 2) finish();
+      };
+      const observer = new MutationObserver(record);
+      observer.observe(document.querySelector("#app"), {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+      globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
+      record();
+      timeoutId = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error("Cumulative cell scan timed out after " + samples.length + " targets"));
+      }, transitionCount * intervalMs + 20000);
+    }))()
+  `);
+
+  const cellActivationToFirstRowMs = await evaluate(`
+    (() => new Promise((resolve, reject) => {
+      let timeoutId = 0;
+      const activatedAt = performance.now();
+      const findRow = () => document.querySelector(".tile.active-row");
+      const finish = () => {
+        observer.disconnect();
+        window.clearTimeout(timeoutId);
+        resolve(performance.now() - activatedAt);
+      };
+      const observer = new MutationObserver(() => {
+        if (findRow()) finish();
+      });
+      observer.observe(document.querySelector("#app"), {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+      globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
+      if (findRow()) finish();
+      timeoutId = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error("Cell activation did not return to row scanning"));
+      }, 5000);
+    }))()
+  `);
+  return { ...activationAndTransitions, cellActivationToFirstRowMs };
 }
 
 async function scenarioFirstColumnProgressTiming() {
@@ -2298,7 +2541,10 @@ async function waitForUi() {
   const deadline = Date.now() + UiWaitTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await getSnapshot().catch(() => null);
-    if (snapshot?.rows?.length > 0 && snapshot.rows.flat().some((tile) => tile.label === "WANT")) return;
+    if (snapshot?.rows?.length > 0 && snapshot.rows.flat().some((tile) => tile.label === "WANT")) {
+      await releaseFirstRowHold();
+      return;
+    }
     await delay(50);
   }
   throw new Error("Timed out waiting for web UI");
@@ -2693,11 +2939,14 @@ async function getCalibrationSnapshot() {
 }
 
 async function evaluate(expression) {
+  const timeoutMs = cumulativeTimingMode
+    ? Math.max(45000, CumulativeScanTransitionCount * CumulativeScanIntervalMs + 30000)
+    : 45000;
   const result = await cdp.send("Runtime.evaluate", {
     expression,
     awaitPromise: true,
     returnByValue: true
-  }, 45000);
+  }, timeoutMs);
   if (result.exceptionDetails) {
     throw new Error(result.exceptionDetails.text);
   }

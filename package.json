@@ -9,6 +9,7 @@
     "test:core:quick": "npm --prefix packages/aac-core run test:quick",
     "test:core:full": "npm --prefix packages/aac-core test",
     "test:core:benchmarks": "npm --prefix packages/aac-core run test:benchmarks",
+    "test:scan-performance": "npm --prefix packages/aac-core run test:scan-performance",
     "test:web:unit": "node --test apps/web/test/ui-config.test.js",
     "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
     "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",

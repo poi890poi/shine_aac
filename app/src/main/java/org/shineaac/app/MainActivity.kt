@@ -350,6 +350,11 @@ class MainActivity : ComponentActivity() {
             .put("source", event.source)
         if (event.detail.isNotBlank()) payload.put("detail", event.detail)
         if (keyCode != null) payload.put("keyCode", keyCode)
+        if (getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
+                .getBoolean("e2eEnabled", false)
+        ) {
+            Log.i(E2ELogTag, "SHINE_AAC_E2E_INPUT $payload")
+        }
         val script = """
             window.ShineAacInput &&
             window.ShineAacInput.receive($payload);
@@ -762,7 +767,7 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface
         fun onRender(stateJson: String) {
             if (isE2E()) {
-                Log.i("ShineAacE2E", "SHINE_AAC_E2E_STATE $stateJson")
+                Log.i(E2ELogTag, "SHINE_AAC_E2E_STATE $stateJson")
             }
         }
     }
@@ -781,6 +786,7 @@ class MainActivity : ComponentActivity() {
         const val AndroidSystemVoiceName = "android-system-default"
         const val SpeechPreviewText = "你好，我想喝水。重選。"
         const val PronunciationLogTag = "ShineAacPronunciation"
+        const val E2ELogTag = "ShineAacE2E"
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
