@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
             webChromeClient = WebChromeClient()
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.textZoom = webTextZoomPercent(resources.configuration.fontScale)
+            settings.textZoom = 100
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.allowFileAccess = true
             settings.allowContentAccess = true

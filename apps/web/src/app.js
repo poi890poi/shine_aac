@@ -1324,14 +1324,9 @@ function fitTileLabels() {
   const labels = observedBoardElement?.querySelectorAll(".tile-label") ?? [];
   for (const label of labels) label.style.fontSize = "";
 
-  const spanUpdate = updateDynamicSuggestionSpans();
-  if (spanUpdate === null) return;
-  if (spanUpdate) return;
-
   for (const label of labels) {
     const tile = label.closest(".tile");
     if (!tile || label.clientWidth <= 0 || label.clientHeight <= 0 || tile.clientHeight <= 0) continue;
-    if (isRenderedWordSuggestion(tile) && tile.closest(".dynamic-suggestion-row")) continue;
 
     const maximumPx = Number.parseFloat(getComputedStyle(tile).fontSize);
     if (!Number.isFinite(maximumPx) || tileLabelFits(label)) continue;
