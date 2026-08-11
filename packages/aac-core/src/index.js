@@ -1147,8 +1147,16 @@ export function loadTransitionPauseForConfig(storedPauseMs, storedVersion) {
 
 export function suggestTiles(message, dictionary, maxSuggestions, options = {}) {
   const safeMax = Math.max(1, Math.trunc(maxSuggestions));
+  return nonredundantTiles(
+    rankedSuggestionCandidates(message, dictionary, options),
+    options.excludeTiles,
+    safeMax
+  );
+}
+
+function rankedSuggestionCandidates(message, dictionary, options = {}) {
   if (options.autoSpace === AutoSpaceMode.None) {
-    return suggestTilesWithoutSpaces(message, dictionary, safeMax, options);
+    return rankedSuggestionCandidatesWithoutSpaces(message, dictionary);
   }
 
   const text = message.toLowerCase();
@@ -1178,14 +1186,10 @@ export function suggestTiles(message, dictionary, maxSuggestions, options = {}) 
         )
       : dictionary;
 
-  return nonredundantTiles(
-    ranked.filter((candidate) => candidate.output.trim().length > 0),
-    options.excludeTiles
-  )
-    .slice(0, safeMax);
+  return candidatesWithOutput(ranked);
 }
 
-function suggestTilesWithoutSpaces(message, dictionary, maxSuggestions, options = {}) {
+function rankedSuggestionCandidatesWithoutSpaces(message, dictionary) {
   const currentText = message.replace(/\s+/g, "");
   const ranked = currentText
     ? dictionary
@@ -1199,12 +1203,7 @@ function suggestTilesWithoutSpaces(message, dictionary, maxSuggestions, options 
       .sort((left, right) => left.output.length - right.output.length)
     : dictionary;
 
-  return nonredundantTiles(
-    (ranked.length > 0 ? ranked : dictionary)
-      .filter((candidate) => candidate.output.trim().length > 0),
-    options.excludeTiles
-  )
-    .slice(0, maxSuggestions);
+  return candidatesWithOutput(ranked.length > 0 ? ranked : dictionary);
 }
 
 export function suggestionRow(message, dictionary, columns, canUndo = false, options = {}) {
@@ -1217,13 +1216,14 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
   }
 
   const suggestions = nonredundantTiles(
-    [
-      ...commandSuggestions,
-      ...suggestTiles(message, dictionary, suggestionCount, options),
-      ...(options.autoSpace === AutoSpaceMode.None ? [] : SuggestionFallbackLetters)
-    ],
-    options.excludeTiles
-  ).slice(0, suggestionCount);
+    concatenateTileCandidates(
+      commandSuggestions,
+      rankedSuggestionCandidates(message, dictionary, options),
+      options.autoSpace === AutoSpaceMode.None ? [] : SuggestionFallbackLetters
+    ),
+    options.excludeTiles,
+    suggestionCount
+  );
 
   return [
     ...suggestions,
@@ -1234,9 +1234,13 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
 function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}, staticTiles = ZhTwTiles) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const commandSuggestions = zhTwCommandSuggestionTiles(message, canUndo);
-  const allSuggestions = zhTwSuggestionTiles(message, dictionary, safeColumns, staticTiles);
-  const totalSuggestions = nonredundantTiles([...commandSuggestions, ...allSuggestions], staticTiles);
+  const totalSuggestions = zhTwReachableSuggestions(
+    message,
+    dictionary,
+    safeColumns,
+    canUndo,
+    staticTiles
+  );
   const pageCount = zhTwSuggestionPageCountForTotal(totalSuggestions.length, pageSize);
   const page = floorMod(clampInt(inputState.suggestionPage ?? 0, 0, MaxZhTwSuggestionPages - 1), pageCount);
   const needsMore = pageCount > 1;
@@ -1268,24 +1272,16 @@ function zhTwSuggestionTiles(
     ? zhTwBufferedSuggestionTiles(buffer, columns, staticTiles)
     : zhTwUnbufferedSuggestionTiles(message, dictionary);
 
-  return nonredundantTiles(
-    candidates.filter((candidate) => !ZhTwSuppressedSuggestionLabels.has(candidate.label)),
-    staticTiles
-  );
+  return candidatesWithoutSuppressedLabels(candidates);
 }
 
 function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary) {
   const contextCompletions = zhTwContextCompletionTiles(message);
   if (contextCompletions.length > 0) return contextCompletions;
 
-  const configuredSuggestions = dictionary
+  return dictionary
     .filter((candidate) => candidate.action !== TileAction.Noop)
     .filter((candidate) => !ZhTwCoreResponseLabels.has(candidate.label));
-  const sourceBackfill = ZhTwFrequencyDictionary
-    .filter((entry) => !ZhTwCoreResponseLabels.has(entry.label))
-    .map((entry) => zhTwCandidateTile(entry, 0, entry.key, "base"));
-
-  return [...configuredSuggestions, ...sourceBackfill];
 }
 
 function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
@@ -1646,14 +1642,27 @@ function isHanCharacter(character) {
 function zhTwSuggestionPageCount(message, dictionary, columns, canUndo = false, staticTiles = ZhTwTiles) {
   const safeColumns = clampInt(columns, 2, 8);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
-  const count = nonredundantTiles(
-    [
-      ...zhTwCommandSuggestionTiles(message, canUndo),
-      ...zhTwSuggestionTiles(message, dictionary, safeColumns, staticTiles)
-    ],
+  const count = zhTwReachableSuggestions(
+    message,
+    dictionary,
+    safeColumns,
+    canUndo,
     staticTiles
   ).length;
   return zhTwSuggestionPageCountForTotal(count, pageSize);
+}
+
+function zhTwReachableSuggestions(message, dictionary, columns, canUndo, staticTiles) {
+  const pageSize = columns * ZhTwSuggestionRowCount;
+  const reachableLimit = (pageSize - 1) * MaxZhTwSuggestionPages;
+  return nonredundantTiles(
+    concatenateTileCandidates(
+      zhTwCommandSuggestionTiles(message, canUndo),
+      zhTwSuggestionTiles(message, dictionary, columns, staticTiles)
+    ),
+    staticTiles,
+    reachableLimit
+  );
 }
 
 function zhTwSuggestionPageCountForTotal(total, pageSize) {
@@ -2562,29 +2571,61 @@ const RefusalTransitionWords = Object.freeze([
 ]);
 const DirectionTransitionWords = Object.freeze(["up", "down", "left", "right", "in", "out", "on", "off"]);
 
-function nonredundantTiles(items, unavailableTiles = []) {
+function nonredundantTiles(items, unavailableTiles = [], maxResults = Number.POSITIVE_INFINITY) {
   const unavailable = Array.isArray(unavailableTiles) ? unavailableTiles : [];
-  const unavailableSemantics = new Set(unavailable.map(tileSemanticKey).filter(Boolean));
-  const unavailableActionLabels = new Set(unavailable.map(tileActionLabelKey).filter(Boolean));
+  const unavailableKeys = unavailable.map(tileDeduplicationKeys);
+  const unavailableSemantics = new Set(unavailableKeys.map((keys) => keys.semantic).filter(Boolean));
+  const unavailableActionLabels = new Set(unavailableKeys.map((keys) => keys.actionLabel).filter(Boolean));
   const visibleLabels = new Set();
   const semantics = new Set();
 
   const result = [];
   for (const candidate of items) {
     if (!candidate || candidate.action === TileAction.Noop) continue;
-    const label = normalizedTileLabel(candidate);
-    const semantic = tileSemanticKey(candidate);
+    const { label, semantic, actionLabel } = tileDeduplicationKeys(candidate);
     if (
       (semantic && unavailableSemantics.has(semantic)) ||
-      unavailableActionLabels.has(tileActionLabelKey(candidate)) ||
+      unavailableActionLabels.has(actionLabel) ||
       (label && visibleLabels.has(label)) ||
       (semantic && semantics.has(semantic))
     ) continue;
     if (label) visibleLabels.add(label);
     if (semantic) semantics.add(semantic);
     result.push(candidate);
+    if (result.length >= maxResults) break;
   }
   return result;
+}
+
+function* concatenateTileCandidates(...groups) {
+  for (const group of groups) {
+    yield* group;
+  }
+}
+
+function* candidatesWithOutput(items) {
+  for (const candidate of items) {
+    if (candidate.output.trim().length > 0) yield candidate;
+  }
+}
+
+function* candidatesWithoutSuppressedLabels(items) {
+  for (const candidate of items) {
+    if (!ZhTwSuppressedSuggestionLabels.has(candidate.label)) yield candidate;
+  }
+}
+
+function tileDeduplicationKeys(candidate) {
+  if (!candidate || candidate.action === TileAction.Noop) {
+    return { label: "", semantic: "", actionLabel: "" };
+  }
+  const action = String(candidate.action ?? TileAction.Append);
+  const label = normalizedTileLabel(candidate);
+  return {
+    label,
+    semantic: `${action}\u0000${String(candidate.output ?? "").normalize("NFKC")}`,
+    actionLabel: label ? `${action}\u0000${label}` : ""
+  };
 }
 
 function normalizedTileLabel(candidate) {
@@ -2592,19 +2633,6 @@ function normalizedTileLabel(candidate) {
     .normalize("NFKC")
     .trim()
     .toLocaleUpperCase("en-US");
-}
-
-function tileSemanticKey(candidate) {
-  if (!candidate || candidate.action === TileAction.Noop) return "";
-  const action = String(candidate.action ?? TileAction.Append);
-  const output = String(candidate.output ?? "").normalize("NFKC");
-  return `${action}\u0000${output}`;
-}
-
-function tileActionLabelKey(candidate) {
-  if (!candidate || candidate.action === TileAction.Noop) return "";
-  const label = normalizedTileLabel(candidate);
-  return label ? `${String(candidate.action ?? TileAction.Append)}\u0000${label}` : "";
 }
 
 function distinctBy(items, keyForItem) {

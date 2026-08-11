@@ -257,6 +257,22 @@ test("suggestions complete current partial words", () => {
   assert.deepEqual(suggestions, ["WAS", "WATER", "WAY", "WAIT"]);
 });
 
+test("suggestion row stops reading candidates after its visible results are filled", () => {
+  const dictionary = [tile("A"), tile("B"), tile("C"), tile("D")];
+  Object.defineProperty(dictionary, 4, {
+    configurable: true,
+    get() {
+      throw new Error("read beyond visible suggestions");
+    }
+  });
+  dictionary.length = 5;
+
+  assert.deepEqual(
+    suggestionRow("", dictionary, 4).map((candidate) => candidate.label),
+    ["A", "B", "C", "D"]
+  );
+});
+
 test("default suggestion dictionary is the active AOSP frequency corpus", () => {
   assert.equal(DefaultSuggestionDictionary.length, EnUsFrequencySource.retainedEntryCount);
   for (const label of ["THE", "TIME", "PEOPLE", "BATHROOM", "VOICE"]) {
@@ -807,6 +823,16 @@ test("zh-TW unbuffered suggestions start with AAC-useful daily targets", () => {
   for (const label of ["之", "回", "新聞", "ㄅ", "ㄆ", "ㄇ"]) {
     assert.equal(firstPageLabels.includes(label), false, `${label} should not crowd out first-page AAC suggestions`);
   }
+});
+
+test("zh-TW empty input never expands the phonetic corpus as a fallback", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const reachableSuggestions = [0, 1, 2]
+    .flatMap((suggestionPage) => boardRows(config, "", false, { suggestionPage }).slice(0, 4).flat())
+    .filter((candidate) => ![TileAction.Noop, TileAction.MoreSuggestions].includes(candidate.action));
+
+  assert.equal(reachableSuggestions.some((candidate) => candidate.matchType === "base"), false);
+  assert.equal(reachableSuggestions.length, 44);
 });
 
 test("zh-TW function labels are localized in runtime rows and persisted defaults", () => {
