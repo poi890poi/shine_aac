@@ -883,40 +883,39 @@ test("zh-TW function labels are localized in runtime rows and persisted defaults
   assert.equal(serializedSymbols.includes("CLR=<clear>"), false);
 });
 
-test("zh-TW offers 重選 only for multi-symbol Zhuyin buffers", () => {
+test("zh-TW relies on localized undo without a separate composition-clear command", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const emptySuggestions = boardRows(config, "", false, {}).slice(0, 4).flat();
   const singleSuggestions = boardRows(config, "ㄅ", true, {}).slice(0, 4).flat();
   const multipleSuggestions = boardRows(config, "ㄅㄧ", true, {}).slice(0, 4).flat();
 
-  assert.equal(emptySuggestions.some((candidate) => candidate.action === TileAction.ZhuyinClear), false);
-  assert.equal(singleSuggestions.some((candidate) => candidate.action === TileAction.ZhuyinClear), false);
-  assert.deepEqual(multipleSuggestions.slice(0, 2).map((candidate) => candidate.label), ["復原", "重選"]);
-  assert.equal(speechLabelForTile(multipleSuggestions[1], "zh-TW"), "重選");
+  assert.equal(emptySuggestions.some((candidate) => candidate.label === "重選"), false);
+  assert.equal(singleSuggestions.some((candidate) => candidate.label === "重選"), false);
+  assert.equal(multipleSuggestions.some((candidate) => candidate.label === "重選"), false);
+  assert.equal(multipleSuggestions[0].label, "復原");
+  assert.equal(speechLabelForTile(multipleSuggestions[0], "zh-TW"), "復原");
 });
 
-test("zh-TW 重選 removes only the trailing Zhuyin buffer and can be undone", () => {
+test("zh-TW undo removes a trailing Zhuyin buffer one selection at a time", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const message = "我想ㄅㄆㄅ";
-  const history = ["我想ㄅㄆ"];
-  const clearBuffer = findActionTile(boardRows(config, message, true, {}), "重選", TileAction.ZhuyinClear);
-  const cleared = applyTile(message, history, clearBuffer, config, {});
+  let state = {
+    message: "我想ㄅㄆㄅ",
+    messageHistory: ["我想", "我想ㄅ", "我想ㄅㄆ"]
+  };
 
-  assert.equal(cleared.message, "我想");
-  assert.deepEqual(cleared.messageHistory, ["我想ㄅㄆ", message]);
-  assert.equal(cleared.effect, "message");
-  assert.equal(cleared.suggestionPage, 0);
-
-  const undo = findActionTile(boardRows(config, cleared.message, true, cleared), "復原", TileAction.Undo);
-  const restored = applyTile(cleared.message, cleared.messageHistory, undo, config, cleared);
-  assert.equal(restored.message, message);
+  for (const expected of ["我想ㄅㄆ", "我想ㄅ", "我想"]) {
+    const undo = findActionTile(boardRows(config, state.message, true, state), "復原", TileAction.Undo);
+    state = { ...state, ...applyTile(state.message, state.messageHistory, undo, config, state) };
+    assert.equal(state.message, expected);
+  }
 });
 
-test("zh-TW dead-end repair suggestions keep 重選 ahead of corrected candidates", () => {
+test("zh-TW dead-end repair suggestions remain available after undo", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const suggestions = boardRows(config, "ㄅㄆㄅ", true, {}).slice(0, 4).flat();
 
-  assert.deepEqual(suggestions.slice(0, 2).map((candidate) => candidate.label), ["復原", "重選"]);
+  assert.equal(suggestions[0].label, "復原");
+  assert.equal(suggestions.some((candidate) => candidate.label === "重選"), false);
   assert.equal(suggestions.some((candidate) => candidate.matchType === "repair"), true);
 });
 

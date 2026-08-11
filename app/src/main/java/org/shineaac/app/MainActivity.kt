@@ -111,7 +111,6 @@ class MainActivity : ComponentActivity() {
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) {
                 tts?.language = Locale.getDefault()
-                tts?.let(::registerCustomPronunciations)
             }
             notifySpeechVoicesChanged()
         }
@@ -282,34 +281,6 @@ class MainActivity : ComponentActivity() {
         }
         ttsExecutor.shutdown()
         super.onDestroy()
-    }
-
-    private fun registerCustomPronunciations(engine: TextToSpeech) {
-        val phrases = resources.getStringArray(R.array.zh_tw_custom_pronunciation_phrases)
-        val audioResources = resources.obtainTypedArray(R.array.zh_tw_custom_pronunciation_audio)
-        try {
-            if (phrases.size != audioResources.length()) {
-                Log.e(
-                    PronunciationLogTag,
-                    "Custom pronunciation text/audio resource counts do not match",
-                )
-                return
-            }
-            phrases.forEachIndexed { index, phrase ->
-                val audioResource = audioResources.getResourceId(index, 0)
-                if (phrase.isBlank() || audioResource == 0) return@forEachIndexed
-                val result = engine.addSpeech(phrase, packageName, audioResource)
-                if (result != TextToSpeech.SUCCESS) {
-                    Log.e(PronunciationLogTag, "Could not register custom pronunciation")
-                }
-            }
-            Log.i(
-                PronunciationLogTag,
-                "Registered ${phrases.size} custom pronunciation resource(s)",
-            )
-        } finally {
-            audioResources.recycle()
-        }
     }
 
     private fun isHardwareActivationKey(keyCode: Int): Boolean {
@@ -784,8 +755,7 @@ class MainActivity : ComponentActivity() {
         const val SessionDraftKey = "current"
         const val MoeBopomofoVoiceName = "shine-aac-moe-bopomofo"
         const val AndroidSystemVoiceName = "android-system-default"
-        const val SpeechPreviewText = "你好，我想喝水。重選。"
-        const val PronunciationLogTag = "ShineAacPronunciation"
+        const val SpeechPreviewText = "你好，我想喝水。"
         const val E2ELogTag = "ShineAacE2E"
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"

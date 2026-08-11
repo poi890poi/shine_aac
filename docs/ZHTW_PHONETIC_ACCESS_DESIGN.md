@@ -157,7 +157,7 @@ Allowed fillers:
 
 - exact candidates for the current buffer
 - source-backed one-edit repair candidates when the complete buffer has no candidate or continuation path
-- contextual `重選` after two or more trailing Zhuyin symbols; it removes only that buffer and never clears committed text
+- localized `復原` whenever message history is available, including during Zhuyin composition
 - bounded `更多` paging when more useful candidates exist
 - repair actions such as `UNDO` when the user has history
 
@@ -172,7 +172,7 @@ If a very specific prefix has only one or two source-backed candidates, blank ce
 
 A source-empty buffer is different from a sparse valid prefix. It is treated as a recoverable input error. Repairs may delete, substitute, transpose, or insert one Zhuyin symbol at any position, but the newest symbol position is ranked first because it is the most recent selection. Repair candidates must resolve to a Chewing-backed prefix, replace the complete erroneous buffer when committed, remain within the normal page bound, and never introduce unrelated global defaults.
 
-`重選` is a contextual composition-repair affordance, not a second full-message clear action. It is hidden for zero or one Zhuyin symbol, appears immediately after `復原` for longer buffers, and becomes especially valuable on sparse or source-empty suggestion pages. Its spoken label is `重選注音`; the static `清除` control retains the distinct meaning of clearing the complete message.
+Zhuyin composition uses the same `復原` action as the rest of the board. Each activation removes the most recent selection, while source-empty one-edit repair candidates can still replace an erroneous complete buffer directly. Avoiding a second composition-clear command keeps the recovery model consistent and leaves one more high-priority candidate position available. The static `清除` control retains the distinct meaning of clearing the complete message.
 
 ## Reports And Tests
 

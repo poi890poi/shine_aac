@@ -131,7 +131,7 @@ Recommended first Taiwan Mandarin profile:
   - exact phonetic matches appear before broader ranked backfill
   - after an initial Zhuyin symbol, available phonetic continuations are prioritized so the user can keep composing without hunting through pages
   - a source-empty Zhuyin buffer offers bounded one-edit repairs, trying the newest symbol position first while keeping every position repairable
-  - after two or more trailing Zhuyin symbols, suggestions expose `重選` to discard only the current phonetic buffer while preserving committed text
+  - `復原` removes mistaken Zhuyin selections one at a time; there is no separate composition-clear command competing with candidate space
   - candidate tiles may replace the typed Zhuyin suffix before inserting the glyph or phrase
 
 The default `zh-TW` board should be intentionally minimalist, but it still needs a learnable route to words that are not visible on the first page. AAC output does not need to be perfectly grammatical or lexically exact to be successful. A user may choose an approximate word, a body-position word, or a nearby need word to communicate intent. The design should optimize for fast, high-information selections and predictable recovery from missing vocabulary.

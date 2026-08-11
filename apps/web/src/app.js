@@ -64,7 +64,6 @@ const FunctionTileActions = new Set([
   TileAction.OpenCategory,
   TileAction.CloseCategory,
   TileAction.ZhuyinGroup,
-  TileAction.ZhuyinClear,
   TileAction.MoreSuggestions
 ]);
 const FunctionTileIcons = Object.freeze({
@@ -78,7 +77,6 @@ const FunctionTileIcons = Object.freeze({
   [TileAction.OpenCategory]: "⇄",
   [TileAction.CloseCategory]: "←",
   [TileAction.ZhuyinGroup]: "⇄",
-  [TileAction.ZhuyinClear]: "↺",
   [TileAction.MoreSuggestions]: "⋯"
 });
 

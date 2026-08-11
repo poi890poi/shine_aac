@@ -170,7 +170,7 @@ internal class TaiwanVoicePack(
     )
 
     private companion object {
-        const val DefaultPreviewText = "你好，我想喝水。重選。"
+        const val DefaultPreviewText = "你好，我想喝水。"
         const val InterClipPauseMs = 45L
         const val LogTag = "ShineAacVoicePack"
         val IgnoredPunctuation = setOf(',', '.', '?', '!', '…', '、', ';', ':', '；', '：')

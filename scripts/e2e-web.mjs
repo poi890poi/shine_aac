@@ -1901,7 +1901,7 @@ async function scenarioZhTwLayoutMigration() {
   labels = snapshot.rows.flat().map((tile) => tile.label);
   if (!labels.includes("復原")) throw new Error("zh-TW undo suggestion should be localized as 復原");
   if (labels.includes("UNDO")) throw new Error("zh-TW undo suggestion should not render as UNDO");
-  if (labels.includes("重選")) throw new Error("zh-TW 重選 should stay hidden for a single-symbol buffer");
+  if (labels.includes("重選")) throw new Error("zh-TW should not expose the removed 重選 command");
   if (!labels.includes("ㄚ")) throw new Error("zh-TW static first layer lost ㄚ after entering ㄅ");
   const redundantSuggestionSymbols = snapshot.rows.slice(0, 4).flat().filter((tile) => /^[ㄅ-ㄩㄚ-ㄦ]$/.test(tile.label));
   if (redundantSuggestionSymbols.length > 0) {
@@ -1914,10 +1914,9 @@ async function scenarioZhTwLayoutMigration() {
   for (const expected of ["不要", "比", "筆"]) {
     if (!labels.includes(expected)) throw new Error(`zh-TW replacement suggestion missing ${expected}`);
   }
-  if (!labels.includes("重選")) throw new Error("zh-TW multi-symbol buffer should offer 重選");
-  await selectLabel("重選");
-  await assertMessage("");
-  await selectLabel("ㄅ");
+  if (labels.includes("重選")) throw new Error("zh-TW multi-symbol buffer should rely on 復原 without 重選");
+  await selectLabel("復原");
+  await assertMessage("ㄅ");
   await selectLabel("ㄧ");
   await assertTileLabelsFit(["不要", "比", "筆", "清除"]);
   await selectLabel("不要");

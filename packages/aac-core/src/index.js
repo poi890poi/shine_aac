@@ -21,7 +21,6 @@ export const TileAction = Object.freeze({
   CloseCategory: "close-category",
   ZhuyinGroup: "zhuyin-group",
   ZhuyinSymbol: "zhuyin-symbol",
-  ZhuyinClear: "zhuyin-clear",
   CommitCandidate: "commit-candidate",
   MoreSuggestions: "more-suggestions",
   Noop: "noop"
@@ -204,7 +203,6 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
     if (candidate.action === TileAction.ZhuyinGroup || candidate.action === TileAction.ZhuyinSymbol) {
       return zhuyinSpeech(candidate.label || candidate.output);
     }
-    if (candidate.action === TileAction.ZhuyinClear) return "重選";
     if (candidate.action === TileAction.CommitCandidate) return candidate.output.trim() || candidate.label;
     if (candidate.action === TileAction.MoreSuggestions) return "更多";
     if (isZhuyinLabel(candidate.label || candidate.output)) return zhuyinSpeech(candidate.label || candidate.output);
@@ -218,7 +216,6 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
   if (candidate.action === TileAction.ExitMode) return "exit mode";
   if (candidate.action === TileAction.OpenCategory) return candidate.label;
   if (candidate.action === TileAction.CloseCategory) return "close category";
-  if (candidate.action === TileAction.ZhuyinClear) return "clear composition";
   if (candidate.action === TileAction.CommitCandidate) return candidate.output.trim() || candidate.label;
   if (candidate.action === TileAction.MoreSuggestions) return "more";
   return candidate.output.trim() || candidate.label;
@@ -415,7 +412,6 @@ const zhuyinGroupTile = (label, groupId) => tile(label, groupId, TileAction.Zhuy
 const zhuyinSymbolTile = (label, output, kind) => ({ label, output, action: TileAction.ZhuyinSymbol, zhuyinKind: kind });
 const categoryCloseTile = Object.freeze(tile("返回", "category", TileAction.CloseCategory));
 const zhuyinCategoryCloseTile = Object.freeze(tile("注音", "category", TileAction.CloseCategory));
-const zhuyinClearTile = Object.freeze(tile("重選", "clear", TileAction.ZhuyinClear));
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
 const MaxZhTwContextChars = 3;
@@ -1297,11 +1293,7 @@ function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, input
 }
 
 function zhTwCommandSuggestionTiles(message, canUndo) {
-  const buffer = trailingZhuyinBuffer(message);
-  return [
-    ...(canUndo ? [zhTwUndoSuggestionTile] : []),
-    ...(buffer.length > 1 ? [zhuyinClearTile] : [])
-  ];
+  return canUndo ? [zhTwUndoSuggestionTile] : [];
 }
 
 function zhTwSuggestionTiles(
@@ -1596,8 +1588,8 @@ function zhTwPreferredCandidateCountBeforeNextSymbols(
   const establishedCount = columns * 2;
   if (buffer.length <= 1) return establishedCount;
   const firstPageUsableCount = columns * ZhTwSuggestionRowCount - 1;
-  // Multi-symbol buffers always show 重選 and may also show 復原, so reserve both command slots.
-  const availableWithCommandsAndContinuations = firstPageUsableCount - 2 - priorityNextSymbolCount;
+  // Preserve one leading command slot for 復原 when message history is available.
+  const availableWithCommandsAndContinuations = firstPageUsableCount - 1 - priorityNextSymbolCount;
   if (
     exactCandidateCount >= columns * 3 &&
     availableWithCommandsAndContinuations >= establishedCount + 2
@@ -1787,7 +1779,7 @@ function trailingEnglishCategoryText(message) {
 
 function zhuyinCommandRow(state, columns) {
   const label = state.zhuyinBuffer ? `找 ${state.zhuyinBuffer}` : "找讀音";
-  const row = [zhuyinClearTile, boardModeTile(), tile(label, label, TileAction.Noop)];
+  const row = [boardModeTile(), tile(label, label, TileAction.Noop)];
   return paddedRow(row.slice(0, columns), columns);
 }
 
@@ -2403,29 +2395,6 @@ export function applyTile(message, messageHistory, selectedTile, config = create
       effect: "zhuyin",
       inputMode: "zhuyin",
       ...nextZhuyinState(inputState, selectedTile)
-    };
-  }
-  if (selectedTile.action === TileAction.ZhuyinClear) {
-    const directBuffer = trailingZhuyinBuffer(message);
-    if (directBuffer.length > 0) {
-      const nextMessage = message.slice(0, message.length - directBuffer.length);
-      return {
-        message: nextMessage,
-        messageHistory: [...messageHistory, message].slice(-24),
-        suggestionPageHistory: pushSuggestionPageHistory(inputState),
-        effect: "message",
-        inputMode: "board",
-        activeCategory: null,
-        suggestionPage: 0,
-        ...emptyZhuyinState()
-      };
-    }
-    return {
-      message,
-      messageHistory,
-      effect: "zhuyin",
-      inputMode: "zhuyin",
-      ...emptyZhuyinState()
     };
   }
   if (selectedTile.action === TileAction.CommitCandidate) {
