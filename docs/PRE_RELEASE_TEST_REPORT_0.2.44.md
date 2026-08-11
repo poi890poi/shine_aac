@@ -1,6 +1,6 @@
 # SHINE AAC 0.2.44 Pre-release Test Report
 
-Generated: 2026-08-10
+Generated: 2026-08-11
 
 ## Candidate
 
@@ -14,14 +14,17 @@ Generated: 2026-08-10
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| AOSP English dictionary integrity | PASS | 34,251 source-ranked entries; 0 normalized duplicates; 0 invalid retained forms; all 26 initial letters have at least four candidates |
+| AOSP English dictionary integrity | PASS | 27,717 source-ranked entries after 6,534 simple +s forms are removed during generation; 0 normalized duplicates; 0 invalid retained forms |
 | English ranking simplification | PASS | Prefixes and word boundaries preserve AOSP unigram order; handcrafted AAC priority and transition tables removed |
 | Core-level recommendation nonredundancy | PASS | English, custom, zh-TW, and embedded-English unit coverage; filtering occurs before the visible limit so later useful candidates backfill duplicates |
-| Quick core/web suite | PASS | 119 / 119 core and 3 / 3 web configuration tests |
-| Communication efficiency gate | REGRESSION | 108 / 109; `shine-current-want-water` remains reachable but rises from 6.4 s to 16.7 s after duplicate shortcuts are removed |
+| Quick core/web suite | PASS | 123 / 123 core and 3 / 3 web configuration tests |
+| Full core suite | PASS | 237 / 237, including the reviewed communication baseline and large-corpus acceptance |
+| Communication efficiency gate | PASS | 109 / 109 against the reviewed baseline after the intentional plural-policy change |
 | Source and packaged Web interaction/scanning E2E | PASS | complete source run followed by rebuilt packaged-WebView run, including large text, tablet, zh-TW locale, Demo, and embedded-English board |
 | Packaged WebView interaction/scanning E2E | PASS | 41 steps including asset build, oversized English, dense 13-row Zhuyin, locale, and embedded-English suggestions |
 | Scan timing invariant | PASS | non-polling trace covers Reset/init, automatic row switch before activation, row activation, automatic column switches, and column activation; visible restart limit 80 ms and deadline-drift limit 50 ms |
+| Million-entry computation gate | PASS | adversarial English cold prefix: one 1,000,000-entry preparation pass in 640 ms and zero later scan reads; empty English: 8 reads; empty zh-TW: 45 reads |
+| Physical Android pause regression | PASS | user verified the scan-optimized candidate on a real Android device before official history reconstruction |
 | Android emulator hardware-input E2E | PASS | installed final debug assets, Config long-press Demo, volume-key entry of `I want water `, process recreation, and zh-TW first-layer render |
 | Android font mapping unit test | PASS | 85%, 100%, 130%, and 200%, plus bounds |
 | Kotlin compile and Android unit tests | PASS | app and camera input modules |
@@ -30,7 +33,7 @@ Generated: 2026-08-10
 
 ## Current Artifacts
 
-These files contain the active AOSP English dictionary and simplified source-order ranking:
+These files contain the active filtered AOSP English dictionary and simplified source-order ranking. Sizes and hashes below are replaced after the final clean-history build:
 
 - APK: 42,525,831 bytes; SHA-256
   `87274611c7f57dd6f4e613529687d7726c013229d351e76d46cbe9636b70cf42`.

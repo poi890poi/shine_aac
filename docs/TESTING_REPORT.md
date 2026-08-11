@@ -1,6 +1,6 @@
 # SHINE AAC Testing Report
 
-Current amended source: 0.2.44, Android code 47, targeting Android 16 / API level 36. The APK/AAB were rebuilt and signed from the current timer and recommendation source on 2026-08-10.
+Current amended source: 0.2.44, Android code 47, targeting Android 16 / API level 36. The official release history was reconstructed from the physically verified scan candidate on 2026-08-11.
 
 The amended code-47 APK and AAB retain the learnability/export changes and add adaptive large-text layout, shared English suggestions inside zh-TW, compact mixed-script composition, consistent function labels, and complete Traditional Chinese setup/status text.
 
@@ -13,21 +13,22 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Layer | Result | Evidence |
 | --- | --- | --- |
 | Clean dependency install | PASS | 0 vulnerabilities |
-| Functional core | PASS | 119 / 119 quick core tests; 3 / 3 web configuration tests |
-| Full core and efficiency | REGRESSION | focused communication suite: 108 / 109; `shine-current-want-water` remains reachable but exceeds its frozen scan-time baseline after duplicate shortcuts were removed |
+| Functional core | PASS | 123 / 123 quick core tests; 3 / 3 web configuration tests |
+| Full core and efficiency | PASS | 237 / 237 full core tests; focused communication suite 109 / 109 against the reviewed plural-filter baseline |
+| Large-corpus computation | PASS | one-million-entry cold English prefix prepared once in 640 ms; empty English reads 8; empty zh-TW reads 45; scanning reads 0 corpus entries |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
 | Source and packaged browser E2E | PASS | complete source run followed by rebuilt packaged-WebView run, including large text, tablet, zh-TW locale, Demo, and embedded-English nonredundancy |
 | Android APK lifecycle | PASS | code-47 emulator: Config Demo, hardware input, process recreation, and zh-TW rendering |
 | Signed release APK | PASS | current code-47 APK; SHA-256 `87274611c7f57dd6f4e613529687d7726c013229d351e76d46cbe9636b70cf42` |
 | Play Internal testing AAB | PASS | current code-47 AAB; SHA-256 `1f1a55c481e852577ed8144b4299cf049602de9d6aed54da30ca3abdb1db5620` |
-| Human UX | OPEN | physical-device owner/helper/user review required |
+| Human UX | PASS / OPEN | physical-device scan-pause regression passed; Samsung combined font/display-size matrix remains open |
 
-The current APK is ready for closed-tester handoff. The frozen communication-efficiency regression remains recorded and must be explicitly accepted before wider promotion or a Play upload.
+The current source is ready for the final signed code-47 build. The intentional plural-filter communication baseline is reviewed and passing; no timer diagnostic commits remain in the release history.
 
 ## 2026-08-09 0.2.44 Code-47 Amendment
 
 - Recommendation generation now performs core-level semantic/action-label deduplication against the full static board before truncation. English, custom, zh-TW, and embedded-English tests cover the invariant; in `podca`, `E`, `T`, and `空格` remain only in the static grid.
-- Focused verification after this amendment: quick core/web PASS (114 / 114 and 2 / 2); source and rebuilt packaged-WebView E2E PASS. Communication benchmark REGRESSION (108 / 109): `shine-current-want-water` rises from 6.4 s to 16.7 s because it must scan the static board instead of duplicate recommendation shortcuts. The frozen baseline was not rewritten.
+- The later official code-47 preparation adds a development-time simple-`+s` filter, reviews the resulting communication baseline, and passes 109 / 109 focused communication benchmarks.
 - Function and word keys share spacing and typography. Built-in boards expose `英文`, `朗讀`, and `清除`, while contextual `復原` handles both single-input and compound-operation correction without a separate visible backspace key.
 - Camera setup keeps `開始`, `測試`, and `完成` visible while secondary hold/zoom controls scroll, and all its zh-TW status text is localized.
 - WebView text zoom follows Android font scale up to 200%; fixed cell labels have a tested 10px fitting floor.
