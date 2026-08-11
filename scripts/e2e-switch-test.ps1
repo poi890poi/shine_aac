@@ -99,7 +99,6 @@ function Write-TestPreferences {
     <boolean name="activationVoice" value="true" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
-    <boolean name="holdAfterSuggestionChange" value="false" />
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
@@ -125,7 +124,6 @@ function Write-ZhTwTestPreferences {
     <boolean name="activationVoice" value="false" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
-    <boolean name="holdAfterSuggestionChange" value="false" />
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />

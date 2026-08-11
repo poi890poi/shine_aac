@@ -201,7 +201,6 @@ $prefsXml = @"
     <string name="switchInputProfile">hardware-buttons</string>
     <boolean name="hardwareButtons" value="true" />
     <boolean name="cameraSwitch" value="false" />
-    <boolean name="holdAfterSuggestionChange" value="false" />
     <float name="scanIntervalMs" value="$IntervalMs.0" />
     <float name="transitionPauseMs" value="0.0" />
     <float name="firstCellPauseMs" value="$IntervalMs.0" />

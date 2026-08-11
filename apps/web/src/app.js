@@ -669,8 +669,18 @@ function activateSwitch(inputEvent = {}) {
   const nextSessionWithTiming = pressSwitch(timedSession, elapsed);
   const nextSession = { ...nextSessionWithTiming, config: baseConfig };
   const selection = nextSession.lastSelection;
-  session = uiConfig.restartScanFromTop && selection
-    ? { ...nextSession, scannerState: { ...nextSession.scannerState, rowIndex: 0 } }
+  const shouldHold = shouldHoldAfterStateChange(selection);
+  session = (uiConfig.restartScanFromTop && selection) || shouldHold
+    ? {
+      ...nextSession,
+      scannerState: {
+        ...nextSession.scannerState,
+        stage: ScanStage.Rows,
+        rowIndex: 0,
+        cellIndex: 0
+      },
+      lockedRow: null
+    }
     : nextSession;
   if (selection && !["none", "speak"].includes(selection.effect)) {
     saveSessionDraft();
@@ -682,7 +692,7 @@ function activateSwitch(inputEvent = {}) {
       recordTextHistory(selection.effect, inputEvent.source ?? "switch");
     }
   }
-  reviewHoldActive = shouldHoldForSuggestionReview(selection);
+  reviewHoldActive = shouldHold;
   render();
   resetClock();
   scheduleScan();
@@ -815,10 +825,8 @@ function forceProgressLayout(progressFills) {
   }
 }
 
-function shouldHoldForSuggestionReview(selection) {
-  return uiConfig.holdAfterSuggestionChange &&
-    selection &&
-    ["message", "undo", "suggestion-page", "category"].includes(selection.effect);
+function shouldHoldAfterStateChange(selection) {
+  return Boolean(selection && !["none", "speak"].includes(selection.effect));
 }
 
 function effectiveTimingConfigForScan() {
@@ -1555,7 +1563,7 @@ function openConfig() {
   renderConfig();
 }
 
-function closeConfig({ holdFirstRow = false } = {}) {
+function closeConfig({ holdFirstRow = true } = {}) {
   closeTextExportResult();
   configOpen = false;
   calibrationOpen = false;
@@ -1563,6 +1571,18 @@ function closeConfig({ holdFirstRow = false } = {}) {
   speechVoicesOpen = false;
   stopSpeechVoiceRefresh();
   stopCalibrationTimer();
+  if (holdFirstRow) {
+    session = {
+      ...session,
+      scannerState: {
+        ...session.scannerState,
+        stage: ScanStage.Rows,
+        rowIndex: 0,
+        cellIndex: 0
+      },
+      lockedRow: null
+    };
+  }
   reviewHoldActive = holdFirstRow;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
@@ -1783,10 +1803,6 @@ function renderConfig() {
       <div class="field">
         <button class="secondary-button" type="button" data-action="camera-calibration">${uiText("Camera setup", "相機設定")}</button>
       </div>
-      <label class="field check-field">
-        <input name="holdAfterSuggestionChange" type="checkbox" ${uiConfig.holdAfterSuggestionChange ? "checked" : ""}>
-        ${uiText("Hold after suggestion changes", "候選字詞更新後暫停")}
-      </label>
       ${suggestionDictionaryFieldHtml(session.config)}
       <label class="field wide">${uiText("Board symbols", "版面內容")}
         <textarea name="symbols">${escapeHtml(serializeSymbols(session.config.symbols))}</textarea>
@@ -1902,8 +1918,7 @@ function renderConfig() {
       activationVoice: data.get("activationVoice") === "on",
       speechVoiceName: String(data.get("speechVoiceName") ?? uiConfig.speechVoiceName ?? ""),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
-      switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
-      holdAfterSuggestionChange: data.get("holdAfterSuggestionChange") === "on"
+      switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons")
     });
     saveUiConfig(uiStorageKey, uiConfig);
     session = createSession({ config });

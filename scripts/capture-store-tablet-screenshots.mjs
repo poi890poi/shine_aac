@@ -37,7 +37,6 @@ const seededUiConfig = JSON.stringify({
   activationVoice: false,
   restartScanFromTop: true,
   switchInputProfile: "hardware-buttons",
-  holdAfterSuggestionChange: false
 });
 
 const devices = [

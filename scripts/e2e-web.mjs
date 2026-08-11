@@ -137,8 +137,7 @@ try {
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
-      restartScanFromTop: true,
-      holdAfterSuggestionChange: false
+      restartScanFromTop: true
     }));
     localStorage.removeItem("shine-aac-text-history-v1");
     localStorage.removeItem("shine-aac-session-draft-v1");
@@ -289,7 +288,6 @@ async function scenarioStrictScanTiming() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
@@ -305,6 +303,7 @@ async function scenarioStrictScanTiming() {
         lastTarget: "",
         activationScheduled: false,
         selectionScheduled: false,
+        reviewReleaseScheduled: false,
         resetRequestedAt: 0,
         observer: null,
         transitionListener: null
@@ -326,6 +325,13 @@ async function scenarioStrictScanTiming() {
         if (current.rowIndex < 0 || current.signature === state.lastTarget) return;
         state.lastTarget = current.signature;
         state.events.push({ kind: "target", at: performance.now(), ...current });
+        if (current.phase === "Review" && state.selectionScheduled && !state.reviewReleaseScheduled) {
+          state.reviewReleaseScheduled = true;
+          window.setTimeout(() => {
+            record("activation", { purpose: "selection-hold-release" });
+            globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
+          }, 40);
+        }
       };
       state.observer = new MutationObserver(recordTarget);
       state.observer.observe(appElement, {
@@ -412,7 +418,9 @@ async function scenarioStrictScanTiming() {
   const thirdTarget = eventAfter("target", secondRun?.at ?? trace.resetRequestedAt, (event) => event.phase === "Symbols" && event.cellIndex === 2);
   const thirdRun = eventAfter("progress-run", thirdTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Symbols" && event.cellIndex === 2);
   const selectionActivation = eventAfter("activation", thirdRun?.at ?? trace.resetRequestedAt, (event) => event.purpose === "selection");
-  const postSelectionTarget = eventAfter("target", selectionActivation?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows");
+  const postSelectionHold = eventAfter("target", selectionActivation?.at ?? trace.resetRequestedAt, (event) => event.phase === "Review");
+  const holdReleaseActivation = eventAfter("activation", postSelectionHold?.at ?? trace.resetRequestedAt, (event) => event.purpose === "selection-hold-release");
+  const postSelectionTarget = eventAfter("target", holdReleaseActivation?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows");
   const postSelectionRun = eventAfter("progress-run", postSelectionTarget?.at ?? trace.resetRequestedAt, (event) => event.phase === "Rows");
   const required = {
     resetTarget,
@@ -427,11 +435,16 @@ async function scenarioStrictScanTiming() {
     thirdTarget,
     thirdRun,
     selectionActivation,
+    postSelectionHold,
+    holdReleaseActivation,
     postSelectionTarget,
     postSelectionRun
   };
   if (Object.values(required).some((event) => !event)) {
     throw new Error(`Strict scan timing trace is incomplete: ${JSON.stringify(trace)}`);
+  }
+  if (postSelectionHold.rowIndex !== 0 || postSelectionHold.cellIndex !== 0) {
+    throw new Error(`State-change hold should stay on row 1: ${JSON.stringify(postSelectionHold)}`);
   }
 
   const metrics = {
@@ -445,7 +458,8 @@ async function scenarioStrictScanTiming() {
     secondTargetToProgressMs: secondRun.at - secondTarget.at,
     laterDeadlineDriftMs: thirdTarget.at - (secondRun.at + secondRun.durationMs),
     thirdTargetToProgressMs: thirdRun.at - thirdTarget.at,
-    selectionToTargetMs: postSelectionTarget.at - selectionActivation.at,
+    selectionToHoldMs: postSelectionHold.at - selectionActivation.at,
+    holdReleaseToTargetMs: postSelectionTarget.at - holdReleaseActivation.at,
     selectionTargetToProgressMs: postSelectionRun.at - postSelectionTarget.at
   };
   const maximumVisibleGapMs = 80;
@@ -458,7 +472,8 @@ async function scenarioStrictScanTiming() {
     ["activation target to progress", metrics.activationTargetToProgressMs, maximumVisibleGapMs],
     ["second target to progress", metrics.secondTargetToProgressMs, maximumVisibleGapMs],
     ["third target to progress", metrics.thirdTargetToProgressMs, maximumVisibleGapMs],
-    ["selection to target", metrics.selectionToTargetMs, maximumVisibleGapMs],
+    ["selection to hold", metrics.selectionToHoldMs, maximumVisibleGapMs],
+    ["hold release to target", metrics.holdReleaseToTargetMs, maximumVisibleGapMs],
     ["selection target to progress", metrics.selectionTargetToProgressMs, maximumVisibleGapMs]
   ].filter(([, value, limit]) => value < 0 || value > limit);
   for (const [name, value] of [
@@ -501,7 +516,6 @@ async function scenarioCumulativeScanTiming() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false,
       switchInputProfile: "hardware-buttons"
     }));
     localStorage.removeItem("shine-aac-session-draft-v1");
@@ -722,7 +736,6 @@ async function scenarioFirstColumnProgressTiming() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -802,7 +815,6 @@ async function scenarioCameraHoldPausesScan() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false,
       switchInputProfile: "camera-long-blink"
     }));
     location.reload();
@@ -860,7 +872,6 @@ async function scenarioCameraHoldPausesScan() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -882,7 +893,6 @@ async function scenarioCameraHoldActivationIsImmediate() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false,
       switchInputProfile: "camera-long-blink"
     }));
     location.reload();
@@ -926,7 +936,6 @@ async function scenarioCameraHoldActivationIsImmediate() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -1144,8 +1153,7 @@ async function scenarioReviewHold() {
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
-      restartScanFromTop: true,
-      holdAfterSuggestionChange: true
+      restartScanFromTop: false
     }));
     location.reload();
   `);
@@ -1158,6 +1166,7 @@ async function scenarioReviewHold() {
   if (snapshot.phase !== "Review") throw new Error(`Expected Review phase during hold, got ${snapshot.phase}`);
   if ((snapshot.activeProgress ?? 0) < 99) throw new Error(`Expected held progress fill, got ${snapshot.activeProgress}`);
   const heldRow = snapshot.activeRow?.rowIndex;
+  if (heldRow !== 0) throw new Error(`State-change hold should return to row 1, got row ${heldRow}`);
   await delay(700);
   snapshot = await getSnapshot();
   if (snapshot.activeRow?.rowIndex !== heldRow) {
@@ -1169,7 +1178,7 @@ async function scenarioReviewHold() {
   snapshot = await getSnapshot();
   if (snapshot.reviewHold) throw new Error("Review hold should release on activation without selecting a tile");
   if (snapshot.message !== "I ") throw new Error(`Review release should not change message, got ${snapshot.message}`);
-  steps.push(pass("review-hold", "opt-in hold pauses after suggestion changes and resumes on next activation"));
+  steps.push(pass("review-hold", "state changes always hold row 1 and resume on the next activation"));
 
   await selectLabel("CLR");
   await assertMessage("");
@@ -1189,7 +1198,6 @@ async function scenarioReviewHold() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -1223,7 +1231,6 @@ async function scenarioTabletViewportCompatibility() {
         scanVoice: false,
         activationVoice: false,
         restartScanFromTop: true,
-        holdAfterSuggestionChange: false
       }));
       localStorage.removeItem("shine-aac-session-draft-v1");
       location.reload();
@@ -1709,7 +1716,8 @@ async function scenarioBackNavigation() {
   }
 
   const configHandled = await evaluate(`globalThis.ShineAacNavigation?.back?.()`);
-  await waitForUi();
+  await waitForRenderedBoard();
+  await assertFirstRowHold(await getSnapshot(), "return from Settings");
   const rootResult = await evaluate(`({
     handled: globalThis.ShineAacNavigation?.back?.(),
     page: globalThis.ShineAacNavigation?.currentPage?.()
@@ -1738,7 +1746,6 @@ async function scenarioDeveloperDemoMode() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false,
       switchInputProfile: "camera-long-blink"
     }));
     localStorage.removeItem("shine-aac-session-draft-v1");
@@ -1747,6 +1754,7 @@ async function scenarioDeveloperDemoMode() {
   await waitForUi();
   await selectLabel("I", { activationDelayMs: 300 });
   await assertMessage("I ");
+  await releaseFirstRowHold();
   let snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow);
   await evaluate(`
@@ -1814,7 +1822,6 @@ async function scenarioZhTwHomeDemoMode() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.href = ${JSON.stringify(`${appUrl}?demo=zh-tw-home`)};
   `);
@@ -1890,7 +1897,6 @@ async function scenarioZhTwLayoutMigration() {
       scanVoice: false,
       activationVoice: true,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -1942,6 +1948,7 @@ async function scenarioZhTwLayoutMigration() {
   if (labels.includes("重選")) throw new Error("zh-TW multi-symbol buffer should rely on 復原 without 重選");
   await selectLabel("復原");
   await assertMessage("ㄅ");
+  await assertFirstRowHold(await getSnapshot(), "復原");
   await selectLabel("ㄧ");
   await assertTileLabelsFit(["不要", "比", "筆", "清除"]);
   await selectLabel("不要");
@@ -2235,7 +2242,6 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: true
     }));
     location.reload();
   `);
@@ -2273,7 +2279,6 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
-      holdAfterSuggestionChange: false
     }));
     location.reload();
   `);
@@ -2338,6 +2343,7 @@ async function selectLabel(label, options = {}) {
 }
 
 async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
+  await releaseFirstRowHold();
   const initialSnapshot = await getSnapshot();
   const rowTimeoutMs = Math.max(30000, (initialSnapshot.rows.length + 2) * 1500);
   await activateWhenRenderedTargetIsCurrent("active-row", rowIndex, 0, rowTimeoutMs);

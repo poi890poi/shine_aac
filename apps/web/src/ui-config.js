@@ -11,8 +11,7 @@ export const defaultUiConfig = Object.freeze({
   restartScanFromTop: true,
   hardwareButtons: true,
   cameraSwitch: false,
-  switchInputProfile: "hardware-buttons",
-  holdAfterSuggestionChange: false
+  switchInputProfile: "hardware-buttons"
 });
 
 export function loadUiConfig(storageKey) {
@@ -53,19 +52,15 @@ function loadNativeUiConfig() {
 }
 
 export function normalizeUiConfig(config) {
-  const storedVersion = Number(config?.uiConfigVersion) || 0;
   const profile = normalizeSwitchInputProfile(config.switchInputProfile, config);
   const requestedSpeechVoiceName = typeof config.speechVoiceName === "string"
     ? config.speechVoiceName.slice(0, 200)
     : "";
   const speechVoiceName = requestedSpeechVoiceName || moeBopomofoVoiceName;
-  return {
+  const normalized = {
     ...defaultUiConfig,
     ...config,
     uiConfigVersion: currentUiConfigVersion,
-    holdAfterSuggestionChange: storedVersion >= currentUiConfigVersion
-      ? config.holdAfterSuggestionChange === true
-      : false,
     // Blank is the pre-selector device-default value. Migrate it to the
     // lightweight Ministry of Education Bopomofo option.
     speechVoiceName,
@@ -73,6 +68,8 @@ export function normalizeUiConfig(config) {
     hardwareButtons: profile === "hardware-buttons" || profile === "hardware-and-camera",
     cameraSwitch: profile === "camera-long-blink" || profile === "hardware-and-camera"
   };
+  delete normalized.holdAfterSuggestionChange;
+  return normalized;
 }
 
 export function normalizeSwitchInputProfile(profile, config = {}) {

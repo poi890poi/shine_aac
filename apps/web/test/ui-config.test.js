@@ -7,13 +7,12 @@ import {
   normalizeUiConfig
 } from "../src/ui-config.js";
 
-test("review hold is opt-in and legacy default-on configs migrate off", () => {
-  assert.equal(defaultUiConfig.holdAfterSuggestionChange, false);
-  assert.equal(normalizeUiConfig({ holdAfterSuggestionChange: true }).holdAfterSuggestionChange, false);
-  assert.equal(normalizeUiConfig({
+test("obsolete optional review-hold settings are discarded", () => {
+  assert.equal(Object.hasOwn(defaultUiConfig, "holdAfterSuggestionChange"), false);
+  assert.equal(Object.hasOwn(normalizeUiConfig({
     uiConfigVersion: currentUiConfigVersion,
-    holdAfterSuggestionChange: true
-  }).holdAfterSuggestionChange, true);
+    holdAfterSuggestionChange: false
+  }), "holdAfterSuggestionChange"), false);
 });
 
 test("Ministry of Education Bopomofo is the default speech option", () => {

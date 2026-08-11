@@ -607,7 +607,6 @@ class MainActivity : ComponentActivity() {
                 .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
                 .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))
-                .put("holdAfterSuggestionChange", prefs.getBoolean("holdAfterSuggestionChange", false))
                 .toString()
         }
 

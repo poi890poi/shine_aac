@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-11T05:48:50.938Z
+Generated: 2026-08-11T15:26:14.774Z
 
 Result: PASS
 
@@ -11,7 +11,7 @@ Result: PASS
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with the existing dashed review cue until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.30000001192093,"resetTargetToProgressMs":22.299999982118607,"rowDeadlineDriftMs":-16.799999982118607,"nextRowTargetToProgressMs":34.29999998211861,"activationToTargetMs":1.699999988079071,"activationTargetToProgressMs":26.900000005960464,"firstDeadlineDriftMs":-15.800000011920929,"secondTargetToProgressMs":15.300000011920929,"laterDeadlineDriftMs":-5.4000000059604645,"thirdTargetToProgressMs":21.900000005960464,"selectionToTargetMs":4.200000017881393,"selectionTargetToProgressMs":27.69999998807907} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":54.10000002384186,"resetTargetToProgressMs":19.899999976158142,"rowDeadlineDriftMs":-14.599999994039536,"nextRowTargetToProgressMs":32,"activationToTargetMs":1.5,"activationTargetToProgressMs":16.200000017881393,"firstDeadlineDriftMs":-15.600000023841858,"secondTargetToProgressMs":32.80000001192093,"laterDeadlineDriftMs":-32.3000000059601,"thirdTargetToProgressMs":31.900000005960464,"selectionToHoldMs":3.9000000059604645,"holdReleaseToTargetMs":0.5,"selectionTargetToProgressMs":20.099999994039536} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -24,7 +24,7 @@ Result: PASS
 | undo-completion | PASS | selected UNDO and restored the spelling before whole-word completion |
 | text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |
 | text-history-migration | PASS | compacted version 1 and code-42 version 2 per-input snapshots into one live line |
-| review-hold | PASS | opt-in hold pauses after suggestion changes and resumes on next activation |
+| review-hold | PASS | state changes always hold row 1 and resume on the next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
 | app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
 | text-export-result | PASS | shows the saved filename, opens the exact Android document directly, and reports write failures |
