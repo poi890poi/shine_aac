@@ -129,7 +129,8 @@ Required coverage:
 - suggestion-review hold is opt-in; legacy default-on UI configurations migrate off, Reset keeps it off, and selecting a word resumes row scanning without another activation
 - `zh-TW` `EN` entry point exposes English symbols without replacing the first-level Chinese surface
 - demo activation clears the draft and scanner holds, then restarts scanning from the top row
-- a `zh-TW` demo must select every phonetic symbol directly from the complete first-layer grid; `更多` may be used only to reach overflow output candidates, never hidden Zhuyin symbols
+- a `zh-TW` demo must select needed phonetic symbols directly from the complete first-layer grid, greedily accept the longest visible continuation before entering another symbol, and use `更多` only for overflow output candidates, never hidden Zhuyin symbols
+- Demo timing is an unsaved runtime cap of 600 ms for scan and first-cell intervals with no transition pause or latency compensation; faster user settings remain faster, and stopping Demo restores normal scheduling without changing stored accessibility timing
 - intentional demo exit must stop cleanly without leaking a failure into later app behavior
 - internal back navigation returns App Info and Input Test to Configuration, then Configuration to the communication board; only back from the root board may exit the app
 - reset restores packaged defaults

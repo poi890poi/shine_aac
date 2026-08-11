@@ -26,7 +26,7 @@ import {
   speechLabelForTile,
   visibleBoard
 } from "../../../packages/aac-core/src/index.js";
-import { createDemoMode } from "./demo-mode.js";
+import { createDemoMode, demoTimingConfig } from "./demo-mode.js";
 import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
 import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
 import {
@@ -136,8 +136,10 @@ let calibrationState = createCalibrationState();
 const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
   getSession: () => session,
+  getTimingConfig: effectiveTimingConfigForScan,
   isReviewHoldActive: () => reviewHoldActive,
   receiveInput: handleInputEvent,
+  refreshScanTiming: refreshScanTimingAfterDemo,
   resetSession: resetSessionForDemo
 });
 
@@ -620,6 +622,14 @@ function resetSessionForDemo() {
   setSession(createSession({ config: session.config }));
 }
 
+function refreshScanTimingAfterDemo() {
+  cancelScheduledScan();
+  render();
+  resetClock();
+  scheduleScan();
+  announceCurrentScanTarget();
+}
+
 function handleInputEvent(inputEvent = {}) {
   const intent = inputEvent.intent ?? InputIntent.Activate;
   if (calibrationOpen) {
@@ -812,12 +822,14 @@ function shouldHoldForSuggestionReview(selection) {
 }
 
 function effectiveTimingConfigForScan() {
+  if (demoMode.isActive()) return demoTimingConfig(session.config);
   return cameraInputEnabled()
     ? timingProfileConfig(session.config, ScanTimingPresets.cameraLongBlink)
     : session.config;
 }
 
 function effectiveTimingConfigForInput(source = "") {
+  if (source === "demo-mode") return demoTimingConfig(session.config);
   return isCameraInput(source)
     ? timingProfileConfig(session.config, ScanTimingPresets.cameraLongBlink)
     : session.config;

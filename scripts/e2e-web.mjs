@@ -1728,10 +1728,10 @@ async function scenarioDeveloperDemoMode() {
       configVersion: 18,
       profileId: "en-US",
       columns: 4,
-      scanIntervalMs: ${BrowserSmokeScanMs},
+      scanIntervalMs: 1800,
       transitionPauseMs: 0,
-      firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      firstCellPauseMs: 2400,
+      inputLatencyCompensationMs: 250
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -1745,7 +1745,7 @@ async function scenarioDeveloperDemoMode() {
     location.href = ${JSON.stringify(appUrl)};
   `);
   await waitForUi();
-  await selectLabel("I");
+  await selectLabel("I", { activationDelayMs: 300 });
   await assertMessage("I ");
   let snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow);
@@ -1765,6 +1765,24 @@ async function scenarioDeveloperDemoMode() {
     throw new Error(`Demo activation should restart row scanning from the top: ${JSON.stringify(snapshot)}`);
   }
   if (snapshot.reviewHold || snapshot.cameraHold) throw new Error("Demo activation should release all scanning holds");
+  const activeDemoStats = await evaluate(`globalThis.ShineAacDemoStats ?? {}`);
+  const expectedDemoTiming = {
+    scanIntervalMs: 600,
+    transitionPauseMs: 0,
+    firstCellPauseMs: 600,
+    inputLatencyCompensationMs: 0
+  };
+  if (JSON.stringify(activeDemoStats.timing) !== JSON.stringify(expectedDemoTiming)) {
+    throw new Error(`Demo should use temporary fast timing: ${JSON.stringify(activeDemoStats.timing)}`);
+  }
+  const storedConfigDuringDemo = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1"))`);
+  if (
+    storedConfigDuringDemo.scanIntervalMs !== 1800 ||
+    storedConfigDuringDemo.firstCellPauseMs !== 2400 ||
+    storedConfigDuringDemo.inputLatencyCompensationMs !== 250
+  ) {
+    throw new Error(`Demo timing should not overwrite saved accessibility timing: ${JSON.stringify(storedConfigDuringDemo)}`);
+  }
   const storedDraft = await evaluate(`localStorage.getItem("shine-aac-session-draft-v1")`);
   if (storedDraft !== null) throw new Error(`Demo activation should clear the saved draft, got ${storedDraft}`);
   await assertMessage("I need help ", 60000);
@@ -1773,7 +1791,11 @@ async function scenarioDeveloperDemoMode() {
   snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
   await waitForDemoInactive();
-  steps.push(pass("demo-mode", "activation clears the draft and holds, restarts top-row scanning, runs the demo, and tap exits it"));
+  const storedConfigAfterDemo = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1"))`);
+  if (storedConfigAfterDemo.scanIntervalMs !== 1800 || storedConfigAfterDemo.firstCellPauseMs !== 2400) {
+    throw new Error(`Stopping Demo should preserve saved accessibility timing: ${JSON.stringify(storedConfigAfterDemo)}`);
+  }
+  steps.push(pass("demo-mode", "activation resets state, uses unsaved 600 ms timing, preserves accessibility settings, and tap exits it"));
 }
 
 async function scenarioZhTwHomeDemoMode() {
@@ -1800,11 +1822,14 @@ async function scenarioZhTwHomeDemoMode() {
   await waitForDemoActive();
   const demoStats = await waitForZhuyinCommit();
   if (!await isDemoActive()) throw new Error("zh-TW demo stopped after its first direct Zhuyin commit");
+  if (Number(demoStats.greedySuggestionSelections ?? 0) < 1 || Number(demoStats.greedyCharacters ?? 0) < 1) {
+    throw new Error(`zh-TW Demo should greedily use a visible matching candidate: ${JSON.stringify(demoStats)}`);
+  }
   const snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
   await waitForDemoInactive();
   await evaluate(`globalThis.ShineAacDemoError = ""`);
-  steps.push(pass("zh-tw-demo-mode", `completed a candidate using the complete first-layer Zhuyin board (${demoStats.zhuyinCommits} commit)`));
+  steps.push(pass("zh-tw-demo-mode", `greedily completed a visible candidate after direct first-layer Zhuyin input (${demoStats.greedyCharacters} matched characters)`));
 }
 
 async function scenarioZhTwLayoutMigration() {

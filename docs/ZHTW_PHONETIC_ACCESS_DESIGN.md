@@ -151,7 +151,7 @@ Recommendation rows contain exact, source-backed, and repair candidates for the 
 
 A matching visible label is not automatically redundant when its action is different. For example, a Chinese candidate that commits and replaces the current Zhuyin buffer may legitimately share a label with a static key that only appends text.
 
-Automation follows the same rule as a user: every Zhuyin symbol is selected directly from the visible first layer. A demo may page through `更多` only for an overflow candidate, with no direct state mutation or scenario-only vocabulary.
+Automation follows the same rule as a user: it selects required Zhuyin symbols directly from the visible first layer and checks the complete visible board before each further symbol. When several candidates match the beginning of the remaining script, Demo selects the longest visible continuation. It may page through `更多` only for an overflow candidate, with no direct state mutation or scenario-only vocabulary.
 
 Allowed fillers:
 

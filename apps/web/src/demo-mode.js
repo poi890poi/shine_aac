@@ -2,6 +2,36 @@ import { ScanStage, TileAction, ZhTwFrequencyDictionary, ZhuyinInputSymbols, sca
 import { InputIntent } from "./input.js";
 
 const demoStorageKey = "shine-aac-demo-mode";
+export const DemoMaximumScanIntervalMs = 600;
+
+export function demoTimingConfig(baseConfig = {}) {
+  return {
+    ...baseConfig,
+    scanIntervalMs: Math.min(DemoMaximumScanIntervalMs, Math.max(1, Number(baseConfig.scanIntervalMs) || DemoMaximumScanIntervalMs)),
+    transitionPauseMs: 0,
+    firstCellPauseMs: Math.min(DemoMaximumScanIntervalMs, Math.max(1, Number(baseConfig.firstCellPauseMs) || DemoMaximumScanIntervalMs)),
+    inputLatencyCompensationMs: 0
+  };
+}
+
+export function longestVisibleContinuation(rows, targetText, options = {}) {
+  const caseInsensitive = options.caseInsensitive === true;
+  const minimumLengthExclusive = Math.max(0, Number(options.minimumLengthExclusive) || 0);
+  const normalizedTarget = normalizeDemoText(targetText, caseInsensitive);
+  let best = null;
+  let bestLength = minimumLengthExclusive;
+
+  for (const candidate of rows.flat()) {
+    if (![TileAction.Append, TileAction.CommitCandidate].includes(candidate?.action)) continue;
+    const output = String(candidate.output ?? "");
+    const outputLength = Array.from(output).length;
+    if (outputLength <= bestLength) continue;
+    if (!normalizedTarget.startsWith(normalizeDemoText(output, caseInsensitive))) continue;
+    best = candidate;
+    bestLength = outputLength;
+  }
+  return best;
+}
 const wordOutputs = Object.freeze({
   I: "I",
   YOU: "you",
@@ -99,7 +129,15 @@ const demoScenarios = Object.freeze({
   })
 });
 
-export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHoldActive, receiveInput, resetSession }) {
+export function createDemoMode({
+  getHighlightStartedAt,
+  getSession,
+  getTimingConfig,
+  isReviewHoldActive,
+  receiveInput,
+  refreshScanTiming,
+  resetSession
+}) {
   let active = false;
   let stopped = false;
   let runId = 0;
@@ -113,11 +151,11 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   function start(scenarioId) {
     const selectedScenarioId = scenarioId ?? (getSession().config.profileId === "zh-TW" ? "zh-tw-home" : "water");
     const scenario = demoScenarios[selectedScenarioId] ?? demoScenarios.water;
-    resetSession();
     const currentRunId = ++runId;
     active = true;
     stopped = false;
     activationCount = 0;
+    resetSession();
     document.body.classList.add("demo-active");
     document.addEventListener("pointerdown", stopFromPointer, true);
     globalThis.ShineAacDemoError = "";
@@ -125,7 +163,10 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
       moreSelections: 0,
       continuationMoreSelections: 0,
       pagedContinuationCommits: 0,
-      zhuyinCommits: 0
+      zhuyinCommits: 0,
+      greedySuggestionSelections: 0,
+      greedyCharacters: 0,
+      timing: Object.freeze(demoTimingSnapshot())
     });
     runScenario(scenario, currentRunId).catch((error) => {
       if (stopped || runId !== currentRunId) return;
@@ -142,6 +183,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     runId += 1;
     document.body.classList.remove("demo-active");
     document.removeEventListener("pointerdown", stopFromPointer, true);
+    refreshScanTiming?.();
   }
 
   function isActive() {
@@ -161,8 +203,8 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
       assertRunning(currentRunId);
       if (step.type === "pause") {
         await delay(step.ms);
-      } else if (step.type === "zh-tw-commit") {
-        await commitZhTwLabel(step, currentRunId);
+      } else if (step.type === "zh-tw-text") {
+        await composeZhTwText(step, currentRunId);
       } else if (step.type === "spell-with-suggestions") {
         await spellTextWithSuggestions(step.text, currentRunId);
       } else {
@@ -182,16 +224,46 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     receiveDemoInput();
   }
 
-  async function commitZhTwLabel(target, currentRunId) {
+  async function composeZhTwText(step, currentRunId) {
+    let remainingText = String(step.text);
+    while (remainingText) {
+      const visibleCandidate = await chooseVisibleContinuation(remainingText, currentRunId);
+      if (visibleCandidate) {
+        remainingText = consumeDemoPrefix(remainingText, visibleCandidate.output);
+        continue;
+      }
+
+      const target = step.targets.find((candidate) => remainingText.startsWith(candidate.label))
+        ?? zhTwTarget(Array.from(remainingText)[0]);
+      const committedText = await commitZhTwLabel(target, currentRunId, remainingText);
+      remainingText = consumeDemoPrefix(remainingText, committedText);
+    }
+  }
+
+  async function commitZhTwLabel(target, currentRunId, remainingText = target.label) {
     const continuationMoreBefore = Number(globalThis.ShineAacDemoStats?.continuationMoreSelections ?? 0);
+    let enteredSymbolCount = 0;
     for (const symbol of Array.from(target.key)) {
+      const visibleCandidate = await chooseVisibleContinuation(remainingText, currentRunId);
+      if (visibleCandidate) {
+        if (enteredSymbolCount > 0 && visibleCandidate.action === TileAction.CommitCandidate) recordZhuyinCommit();
+        return visibleCandidate.output;
+      }
+
       const symbolTarget = select(symbol, { output: symbol, action: TileAction.Append });
       const selected = await chooseTargetAcrossSuggestionPages(symbolTarget, currentRunId);
       if (!selected) {
         throw new Error(`Demo mode could not find zh-TW symbol ${symbol} while composing ${target.label} after ${target.key}`);
       }
+      enteredSymbolCount += 1;
       await resumeAfterReviewHold(currentRunId);
       await delay(120);
+    }
+
+    const visibleCandidate = await chooseVisibleContinuation(remainingText, currentRunId);
+    if (visibleCandidate) {
+      if (visibleCandidate.action === TileAction.CommitCandidate) recordZhuyinCommit();
+      return visibleCandidate.output;
     }
 
     if (await chooseTargetAcrossSuggestionPages(target, currentRunId)) {
@@ -201,7 +273,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
       recordZhuyinCommit();
       await resumeAfterReviewHold(currentRunId);
       await delay(260);
-      return;
+      return target.output;
     }
 
     if (Array.from(target.label).length <= 1) {
@@ -209,14 +281,12 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
     }
 
     for (const _symbol of Array.from(target.key)) {
-      await chooseTarget(actionTarget(TileAction.Backspace), currentRunId);
+      await chooseTarget(actionTarget(TileAction.Undo), currentRunId);
       await resumeAfterReviewHold(currentRunId);
       await delay(120);
     }
 
-    for (const character of Array.from(target.label)) {
-      await commitZhTwLabel(zhTwTarget(character), currentRunId);
-    }
+    return commitZhTwLabel(zhTwTarget(Array.from(target.label)[0]), currentRunId, remainingText);
   }
 
   async function chooseTargetAcrossSuggestionPages(target, currentRunId, maxPages = 3) {
@@ -238,46 +308,66 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   }
 
   async function spellTextWithSuggestions(text, currentRunId) {
-    const words = String(text).trim().split(/\s+/).filter(Boolean);
-    for (let wordIndex = 0; wordIndex < words.length; wordIndex += 1) {
-      const desiredWord = words[wordIndex];
-      for (const character of Array.from(desiredWord)) {
-        const suggestion = visibleWordSuggestion(desiredWord);
-        if (suggestion) {
-          await chooseTarget(suggestion, currentRunId);
+    const targetText = String(text).trim();
+    let consumedLength = 0;
+    let tokenStart = 0;
+
+    while (consumedLength < targetText.length) {
+      if (/\s/u.test(targetText[consumedLength])) {
+        if (!/\s$/u.test(getSession().message)) {
+          await chooseTarget(actionTarget(TileAction.Space), currentRunId);
           await resumeAfterReviewHold(currentRunId);
           await delay(260);
-          break;
         }
-        await chooseTarget(letter(character), currentRunId);
-        await resumeAfterReviewHold(currentRunId);
-        await delay(260);
+        consumedLength += 1;
+        tokenStart = consumedLength;
+        continue;
       }
 
-      const needsBoundary = wordIndex < words.length - 1 && !/\s$/u.test(getSession().message);
-      if (needsBoundary) {
-        await chooseTarget(actionTarget(TileAction.Space), currentRunId);
+      const candidate = longestVisibleContinuation(
+        visibleBoard(getSession()),
+        targetText.slice(tokenStart),
+        {
+          caseInsensitive: true,
+          minimumLengthExclusive: Array.from(targetText.slice(tokenStart, consumedLength)).length
+        }
+      );
+      if (candidate) {
+        await chooseTarget(select(candidate.label, { output: candidate.output, action: candidate.action }), currentRunId);
+        recordGreedySuggestion(candidate);
         await resumeAfterReviewHold(currentRunId);
         await delay(260);
+        consumedLength = tokenStart + candidate.output.length;
+        while (consumedLength < targetText.length && /\s/u.test(targetText[consumedLength]) && /\s$/u.test(getSession().message)) {
+          consumedLength += 1;
+        }
+        tokenStart = targetText.lastIndexOf(" ", Math.max(0, consumedLength - 1)) + 1;
+        continue;
       }
+
+      const character = Array.from(targetText.slice(consumedLength))[0];
+      await chooseTarget(letter(character), currentRunId);
+      await resumeAfterReviewHold(currentRunId);
+      await delay(260);
+      consumedLength += character.length;
     }
   }
 
-  function visibleWordSuggestion(wordText) {
-    const normalizedWord = String(wordText).toLowerCase();
-    const candidate = (visibleBoard(getSession())[0] ?? []).find((tile) =>
-      [TileAction.Append, TileAction.CommitCandidate].includes(tile.action) &&
-      tile.output.toLowerCase() === normalizedWord
-    );
-    return candidate
-      ? select(candidate.label, { output: candidate.output, action: candidate.action })
-      : null;
+  async function chooseVisibleContinuation(targetText, currentRunId) {
+    const candidate = longestVisibleContinuation(visibleBoard(getSession()), targetText);
+    if (!candidate) return null;
+    await chooseTarget(select(candidate.label, { output: candidate.output, action: candidate.action }), currentRunId);
+    recordGreedySuggestion(candidate);
+    await resumeAfterReviewHold(currentRunId);
+    await delay(260);
+    return candidate;
   }
 
   function recordDemoPaging(target) {
     const previous = globalThis.ShineAacDemoStats ?? {};
     const isContinuation = target.action === TileAction.Append && ZhuyinInputSymbols.includes(target.output);
     globalThis.ShineAacDemoStats = Object.freeze({
+      ...previous,
       moreSelections: Number(previous.moreSelections ?? 0) + 1,
       continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0) + (isContinuation ? 1 : 0),
       pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0),
@@ -288,6 +378,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   function recordPagedContinuationCommit() {
     const previous = globalThis.ShineAacDemoStats ?? {};
     globalThis.ShineAacDemoStats = Object.freeze({
+      ...previous,
       moreSelections: Number(previous.moreSelections ?? 0),
       continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0),
       pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0) + 1,
@@ -298,10 +389,20 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   function recordZhuyinCommit() {
     const previous = globalThis.ShineAacDemoStats ?? {};
     globalThis.ShineAacDemoStats = Object.freeze({
+      ...previous,
       moreSelections: Number(previous.moreSelections ?? 0),
       continuationMoreSelections: Number(previous.continuationMoreSelections ?? 0),
       pagedContinuationCommits: Number(previous.pagedContinuationCommits ?? 0),
       zhuyinCommits: Number(previous.zhuyinCommits ?? 0) + 1
+    });
+  }
+
+  function recordGreedySuggestion(candidate) {
+    const previous = globalThis.ShineAacDemoStats ?? {};
+    globalThis.ShineAacDemoStats = Object.freeze({
+      ...previous,
+      greedySuggestionSelections: Number(previous.greedySuggestionSelections ?? 0) + 1,
+      greedyCharacters: Number(previous.greedyCharacters ?? 0) + Array.from(String(candidate.output ?? "")).length
     });
   }
 
@@ -351,12 +452,23 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   function demoActivationTimeoutMs() {
     const session = getSession();
     const board = visibleBoard(session);
-    const rowCycleMs = Math.max(1, board.length) * Math.max(1, session.config.scanIntervalMs);
+    const timingConfig = getTimingConfig?.() ?? session.config;
+    const rowCycleMs = Math.max(1, board.length) * Math.max(1, timingConfig.scanIntervalMs);
     const longestRow = Math.max(1, ...board.map((row) => row.length));
-    const cellCycleMs = Math.max(1, session.config.firstCellPauseMs) +
-      Math.max(0, longestRow - 1) * Math.max(1, session.config.scanIntervalMs) +
-      Math.max(0, session.config.transitionPauseMs);
+    const cellCycleMs = Math.max(1, timingConfig.firstCellPauseMs) +
+      Math.max(0, longestRow - 1) * Math.max(1, timingConfig.scanIntervalMs) +
+      Math.max(0, timingConfig.transitionPauseMs);
     return Math.max(45000, (rowCycleMs + cellCycleMs) * 2 + 5000);
+  }
+
+  function demoTimingSnapshot() {
+    const timingConfig = getTimingConfig?.() ?? getSession().config;
+    return {
+      scanIntervalMs: timingConfig.scanIntervalMs,
+      transitionPauseMs: timingConfig.transitionPauseMs,
+      firstCellPauseMs: timingConfig.firstCellPauseMs,
+      inputLatencyCompensationMs: timingConfig.inputLatencyCompensationMs
+    };
   }
 
   function receiveDemoInput() {
@@ -372,7 +484,7 @@ export function createDemoMode({ getHighlightStartedAt, getSession, isReviewHold
   function highlightProgress() {
     const session = getSession();
     const elapsed = Math.max(0, performance.now() - getHighlightStartedAt());
-    const duration = Math.max(1, scanDurationForStage(session.scannerState, session.config));
+    const duration = Math.max(1, scanDurationForStage(session.scannerState, getTimingConfig?.() ?? session.config));
     return Math.min(1, elapsed / duration);
   }
 
@@ -415,7 +527,11 @@ function normalizeScenarioId(value) {
 }
 
 function zhTwMessage(labels) {
-  return labels.map(zhTwTarget);
+  return [Object.freeze({
+    type: "zh-tw-text",
+    text: labels.join(""),
+    targets: Object.freeze(labels.map(zhTwTarget))
+  })];
 }
 
 function zhTwPodcastMessage() {
@@ -549,4 +665,18 @@ function pause(ms) {
 
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function normalizeDemoText(value, caseInsensitive) {
+  const text = String(value ?? "");
+  return caseInsensitive ? text.toLocaleLowerCase("en-US") : text;
+}
+
+function consumeDemoPrefix(targetText, output) {
+  const text = String(targetText);
+  const prefix = String(output);
+  if (!prefix || !text.startsWith(prefix)) {
+    throw new Error(`Demo candidate ${JSON.stringify(prefix)} does not match remaining text ${JSON.stringify(text)}`);
+  }
+  return text.slice(prefix.length);
 }
