@@ -79,6 +79,16 @@ test("scan-only transitions reuse the prepared logical board", () => {
   });
   assert.equal(suggestionLabelReads, readsAfterPreparation);
 
+  const boardWithSpans = visibleBoard({
+    ...session,
+    config: createBoardConfig({
+      ...session.config,
+      suggestionColumnSpans: { ALPHA: 2 }
+    })
+  });
+  assert.equal(boardWithSpans[0][0].columnSpan, 2);
+  assert.ok(suggestionLabelReads > readsAfterPreparation);
+
   visibleBoard({ ...session, message: "a" });
   assert.ok(suggestionLabelReads > readsAfterPreparation);
 });

@@ -2242,6 +2242,7 @@ export function visibleBoard(session) {
     cached.autoSpace === session.config.autoSpace &&
     cached.columns === session.config.columns &&
     cached.symbols === session.config.symbols &&
+    cached.suggestionColumnSpans === session.config.suggestionColumnSpans &&
     cached.message === session.message &&
     cached.canUndo === canUndo &&
     cached.activeCategory === activeCategory &&
@@ -2254,6 +2255,7 @@ export function visibleBoard(session) {
       autoSpace: session.config.autoSpace,
       columns: session.config.columns,
       symbols: session.config.symbols,
+      suggestionColumnSpans: session.config.suggestionColumnSpans,
       message: session.message,
       canUndo,
       activeCategory,
