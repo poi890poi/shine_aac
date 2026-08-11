@@ -19,8 +19,8 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
 | Source and packaged browser E2E | PASS | complete source run followed by rebuilt packaged-WebView run, including large text, tablet, zh-TW locale, Demo, and embedded-English nonredundancy |
 | Android APK lifecycle | PASS | code-47 emulator: Config Demo, hardware input, process recreation, and zh-TW rendering |
-| Signed release APK | PASS | current code-47 APK; SHA-256 `87274611c7f57dd6f4e613529687d7726c013229d351e76d46cbe9636b70cf42` |
-| Play Internal testing AAB | PASS | current code-47 AAB; SHA-256 `1f1a55c481e852577ed8144b4299cf049602de9d6aed54da30ca3abdb1db5620` |
+| Signed release APK | PASS | code-47 APK; 42,493,955 bytes; SHA-256 `f9ae42bcf1e5adc3297d9c2327168401eefff0e4cbf44f99933fb5979af0dd50` |
+| Play Internal testing AAB | PASS | code-47 AAB; 22,184,114 bytes; SHA-256 `3af69b04dbd130457eae7683dff2beb0d6ff55727db17c2f829723f1611dfbbe` |
 | Human UX | PASS / OPEN | physical-device scan-pause regression passed; Samsung combined font/display-size matrix remains open |
 
 The current source is ready for the final signed code-47 build. The intentional plural-filter communication baseline is reviewed and passing; no timer diagnostic commits remain in the release history.

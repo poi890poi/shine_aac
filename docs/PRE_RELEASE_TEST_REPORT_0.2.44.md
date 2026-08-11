@@ -35,12 +35,10 @@ Generated: 2026-08-11
 
 These files contain the active filtered AOSP English dictionary and simplified source-order ranking. Sizes and hashes below are replaced after the final clean-history build:
 
-- APK: 42,525,831 bytes; SHA-256
-  `87274611c7f57dd6f4e613529687d7726c013229d351e76d46cbe9636b70cf42`.
-- APK ZIP: 21,975,618 bytes; SHA-256
-  `5f0350342915b748a1f0fa5fb1493be8ba6f5009b7aa95d84430002ed1c92ab3`.
-- AAB: 22,216,672 bytes; SHA-256
-  `1f1a55c481e852577ed8144b4299cf049602de9d6aed54da30ca3abdb1db5620`.
+- APK: 42,493,955 bytes; SHA-256
+  `f9ae42bcf1e5adc3297d9c2327168401eefff0e4cbf44f99933fb5979af0dd50`.
+- AAB: 22,184,114 bytes; SHA-256
+  `3af69b04dbd130457eae7683dff2beb0d6ff55727db17c2f829723f1611dfbbe`.
 
 ## Decision
 

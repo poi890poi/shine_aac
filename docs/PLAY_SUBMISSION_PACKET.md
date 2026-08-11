@@ -9,14 +9,14 @@ This packet is the review checklist for the current Google Play closed-testing s
 - Current source version: `0.2.44`
 - Current source version code: `47`
 - Compile and target SDK: `36`
-- Source tag: pending `v0.2.44`
-- Signed AAB: `.artifacts/releases/v0.2.44/shine-aac-v0.2.44-code47-release.aab`
-- Signed AAB SHA-256: `d725f2f361961cc81533f008dabcd8fd72a01c60d2b4e8e9dd60dd65ce5e7056`
-- AAB checksum file: `.artifacts/releases/v0.2.44/PLAY_AAB_SHA256SUMS.txt`
+- Source tag: `v0.2.44`
+- Signed AAB in release ZIP: `binaries/shine-aac-v0.2.44-code47-release.aab`
+- Signed AAB SHA-256: `3af69b04dbd130457eae7683dff2beb0d6ff55727db17c2f829723f1611dfbbe`
+- AAB checksum file: `binaries/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload an APK or any superseded bundle to Google Play. After committing and tagging the exact source and confirming that code 47 is unused, upload the versioned signed code-47 AAB above.
+Do not upload an APK or any superseded bundle to Google Play. After confirming that code 47 is unused, upload the tagged, versioned signed code-47 AAB above.
 
 ## Store Listing
 
