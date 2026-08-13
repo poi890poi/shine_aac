@@ -404,8 +404,14 @@ if (-not $SkipDemo) {
 }
 
 Write-Step "Entering complete phrase with Android hardware-button input"
+Switch-Activate "release first-row review hold"
+Start-Sleep -Milliseconds 350
 Select-RenderedLabel "I"
+Switch-Activate "release review hold after I"
+Start-Sleep -Milliseconds 350
 Select-RenderedLabel "WANT"
+Switch-Activate "release review hold after WANT"
+Start-Sleep -Milliseconds 350
 Select-RenderedLabel "WATER"
 
 Start-Sleep -Milliseconds 800

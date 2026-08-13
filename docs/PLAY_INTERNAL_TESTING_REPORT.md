@@ -1,19 +1,19 @@
 # SHINE AAC Google Play Closed Testing Report
 
-Generated: 2026-08-11
+Generated: 2026-08-13
 
 ## Upload Artifact
 
 - Track: Google Play Closed testing
-- Application source tag: `v0.2.44`
+- Application source tag: `v0.2.45`
 - Package: `org.shineaac.app`
-- Version: 0.2.44 (47)
+- Version: 0.2.45 (48)
 - Compile SDK: 36
 - Target SDK: 36
-- File: `shine-aac-v0.2.44-code47-release.aab`
-- Release-package path: `binaries/shine-aac-v0.2.44-code47-release.aab`
-- Size: 22,184,114 bytes
-- SHA-256: `3af69b04dbd130457eae7683dff2beb0d6ff55727db17c2f829723f1611dfbbe`
+- File: `shine-aac-v0.2.45-code48-release.aab`
+- Release-package path: `binaries/shine-aac-v0.2.45-code48-release.aab`
+- Size: 22,177,795 bytes
+- SHA-256: `2da121b0663ad9d2385f248b45a1381703b09829a365073337866b25765d86b9`
 - Checksum file: `binaries/PLAY_AAB_SHA256SUMS.txt`
 - Signing: existing private upload key; JAR signature verified
 - Bundle structure: `BundleConfig.pb`, base manifest, resources, and primary DEX verified
@@ -21,42 +21,34 @@ Generated: 2026-08-11
 
 ## Decision
 
-CONDITIONAL for upload to Google Play Closed testing. The signed AAB is valid
-and the exact source is committed for tag `v0.2.44`; version code 47 must still
-be confirmed unused in Play Console. Upload the versioned `.aab`, not the APK.
-
-This is an appropriate closed-testing candidate for evaluating the requested
-slower scanning default, adaptive large-text layout, localized setup flow, and
-embedded-English suggestions. It is not approved for a broader track until the
-physical Samsung scaling matrix and human timing/board review pass. The reviewed
-communication baseline now records the deliberate 1,800 ms first-use interval;
-all benchmark tasks and paired gates pass.
+READY for Google Play Closed testing after the owner confirms that version code
+48 is unused. Upload the versioned AAB, not the APK. This remains an early test
+build and is not approved for a broader track until the paused-row treatment,
+scaling matrix, speech, and human AAC workflow are reviewed on real devices.
 
 ## Supporting Verification
 
-- Quick functional core: 123 / 123 tests passed; web configuration unit tests:
-  3 / 3 passed.
-- Full core and communication suite: 237 / 237 passed.
-- Packaged WebView E2E: 41 steps passed, including generated assets, zh-TW
-  locale consistency, English completions, and compact language boundaries.
-- Android inputs: 14 / 14 unit tests passed; lint completed without errors
-  across all modules.
-- Android release: `assembleRelease bundleRelease` completed 153 actionable
-  tasks; data-policy verification passed.
-- Manifest: `org.shineaac.app`, version 0.2.44 code 47, min SDK 25, target SDK
-  36.
-- APK v2 signature, AAB JAR signature, checksums, bundle structure, and byte
-  identity all verified.
+- Full AAC core: 237 / 237 tests passed.
+- Web unit tests: 10 / 10 passed.
+- Communication reachability: 103 / 103 tasks; frozen paired gates passed.
+- Source and packaged-WebView E2E: 52 and 53 steps passed, including the new
+  paused-row visual contract and review-release behavior.
+- Android data policy, app/input unit tests, and lint: PASS.
+- Exact code-48 debug APK hardware-input/lifecycle/zh-TW smoke: PASS on API 34.
+- Exact signed release APK cold install and launch: PASS; version 0.2.45 (48),
+  `MainActivity` resumed, and no app crash/ANR was logged.
+- APK v2 signature, ZIP alignment, AAB JAR signature, required bundle entries,
+  checksums, and byte identity: PASS.
 
-Full evidence: `docs/PRE_RELEASE_TEST_REPORT_0.2.44.md`.
+Full evidence: `docs/PRE_RELEASE_TEST_REPORT_0.2.45.md`.
 
-## Required Internal Testing
+## Required Closed Testing
 
-- Human comfort and fatigue at the new default speed; retain per-user timing
-  calibration.
-- Recognition of header status versus the `⚙ 設定` control.
-- All-symbol Zhuyin finding, function-key recognition, `復原`, and candidate
-  paging.
-- Android Save As export followed by direct `開啟文字檔`.
-- Android 16 predictive back, edge-to-edge controls, phone/tablet layouts,
-  Activity recreation, Taiwan TTS, and real-person camera input.
+- Confirm the pale teal-gray paused row and solid dark-teal perimeter are easy
+  to locate without implying active scan progression.
+- Confirm review acknowledgements after state-changing selections are
+  understood and do not create avoidable fatigue.
+- Repeat default/200% font size with default/larger display size on the Galaxy
+  S23 Ultra.
+- Exercise Taiwan TTS, Android predictive back, text export, Activity
+  recreation, and optional camera input with users and helpers.

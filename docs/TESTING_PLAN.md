@@ -126,7 +126,7 @@ Required coverage:
 - `復原` after a mistaken candidate selection restores the same suggestion page, not page zero
 - the packaged default uses one consistent 1800 ms interval for row scanning and the first and later cells; migration removes the former 2300 ms default first-cell exception while preserving other customized timing
 - a non-polling in-page timing trace observes target mutations and progress-transition events after Reset, row activation, successive cells, a word selection into row-1 hold, and release from that hold; every visible transition gap must be at most 80 ms and scan-deadline drift at most 50 ms
-- every activation that changes message or board state, and every return from full-screen Settings, returns to a high-contrast whole-row hold frame on row 1 without changing board geometry; the next activation releases the hold without selecting anything, including after 復原
+- every activation that changes message or board state, and every return from full-screen Settings, returns to a clearly visible whole-row hold treatment on row 1 without changing board geometry: pale teal-gray tiles, a solid 3px dark-teal perimeter, no per-tile active outline, and no frozen progress fill; the next activation releases the hold without selecting anything, including after 復原
 - `zh-TW` `EN` entry point exposes English symbols without replacing the first-level Chinese surface
 - demo activation clears the draft and scanner holds, then restarts scanning from the top row
 - a `zh-TW` demo must select needed phonetic symbols directly from the complete first-layer grid, greedily accept the longest visible continuation before entering another symbol, and use `更多` only for overflow output candidates, never hidden Zhuyin symbols

@@ -1,8 +1,22 @@
 # Device Compatibility Review
 
-Generated: 2026-08-08
-Current automated candidate commit: pending v0.2.44 release commit
-Current automated candidate version: 0.2.44 (47), target SDK 36
+Generated: 2026-08-13
+Current automated candidate tag: v0.2.45
+Current automated candidate version: 0.2.45 (48), target SDK 36
+
+## 0.2.45 Hold And Scaling Review
+
+The Galaxy S23 Ultra passed the preceding adaptive-layout candidate. Code 48
+also consumes Android system/cutout insets in the native host, applies the
+system font scale through WebView text zoom, and prevents compact header labels
+from wrapping character by character. Source and packaged viewport matrices,
+Android unit/lint checks, and the exact APK lifecycle smoke pass.
+
+The review-hold row now uses pale teal-gray tiles with a solid 3 px dark-teal
+whole-row perimeter. Automated checks confirm that it preserves geometry,
+removes the active progress fill, and releases without selecting a tile. The
+visual was approved from a 592 x 1280 mockup; final S23 Ultra confirmation of
+visibility and fatigue remains a closed-testing task.
 
 ## Post-0.2.43 Accessibility-scaling Correction
 

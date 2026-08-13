@@ -1,6 +1,6 @@
 # zh-TW Phonetic Access Report
 
-Generated: 2026-08-08T12:01:06.423Z
+Generated: 2026-08-13T14:22:19.386Z
 
 This report treats Zhuyin input as an AAC access graph with a complete, stable first-layer symbol inventory.
 It measures whether all phonetic paths and dictionary-backed candidates remain reachable without hidden symbols or hand-crafted phrase shortcuts.

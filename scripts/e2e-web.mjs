@@ -2125,7 +2125,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
 async function scenarioInitialFirstRowHold(snapshot) {
   await assertFirstRowHold(snapshot, "initial launch");
   await releaseFirstRowHold();
-  steps.push(pass("initial-first-row-hold", "initial launch holds row 1 with a high-contrast whole-row frame until activation"));
+  steps.push(pass("initial-first-row-hold", "initial launch holds row 1 with a calm, visible whole-row treatment until activation"));
 }
 
 async function assertFirstRowHold(snapshot, context) {
@@ -2137,6 +2137,9 @@ async function assertFirstRowHold(snapshot, context) {
       const tile = document.querySelector(".tile.active-row.review-hold");
       const row = tile?.closest(".row.review-hold-row");
       const frame = row ? getComputedStyle(row, "::after") : null;
+      const tileStyle = tile ? getComputedStyle(tile) : null;
+      const progressFill = tile?.querySelector(".progress-fill");
+      const progressStyle = progressFill ? getComputedStyle(progressFill) : null;
       const rectValues = (element) => {
         const rect = element?.getBoundingClientRect();
         return rect ? [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value * 10) / 10) : null;
@@ -2145,12 +2148,15 @@ async function assertFirstRowHold(snapshot, context) {
       row?.classList.remove("review-hold-row");
       const unframedGeometry = rectValues(row);
       row?.classList.add("review-hold-row");
-      return tile && row && frame ? {
+      return tile && row && frame && tileStyle && progressStyle ? {
         frameBorderStyle: frame.borderTopStyle,
         frameBorderWidth: frame.borderTopWidth,
         frameBorderColor: frame.borderTopColor,
         framePointerEvents: frame.pointerEvents,
         rowPosition: getComputedStyle(row).position,
+        tileBackgroundColor: tileStyle.backgroundColor,
+        tileOutlineStyle: tileStyle.outlineStyle,
+        progressBackgroundColor: progressStyle.backgroundColor,
         framedGeometry,
         unframedGeometry,
         progress: Number.parseFloat(tile.querySelector(".progress-fill")?.style.transform?.match(/[0-9.]+/)?.[0] ?? "0")
@@ -2160,13 +2166,16 @@ async function assertFirstRowHold(snapshot, context) {
   if (
     !presentation ||
     presentation.frameBorderStyle !== "solid" ||
-    presentation.frameBorderWidth !== "6px" ||
-    presentation.frameBorderColor !== "rgb(17, 17, 17)" ||
+    presentation.frameBorderWidth !== "3px" ||
+    presentation.frameBorderColor !== "rgb(34, 111, 119)" ||
     presentation.framePointerEvents !== "none" ||
     presentation.rowPosition !== "relative" ||
+    presentation.tileBackgroundColor !== "rgb(238, 244, 243)" ||
+    presentation.tileOutlineStyle !== "none" ||
+    presentation.progressBackgroundColor !== "rgba(0, 0, 0, 0)" ||
     JSON.stringify(presentation.framedGeometry) !== JSON.stringify(presentation.unframedGeometry)
   ) {
-    throw new Error(`${context} should show a non-interactive high-contrast whole-row frame: ${JSON.stringify(presentation)}`);
+    throw new Error(`${context} should show a non-interactive calm whole-row pause treatment: ${JSON.stringify(presentation)}`);
   }
 }
 

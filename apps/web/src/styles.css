@@ -4,10 +4,6 @@
   background: #f6f4ee;
   color: #172027;
   --app-viewport-height: 100vh;
-  --app-safe-top: env(safe-area-inset-top, 0px);
-  --app-safe-right: env(safe-area-inset-right, 0px);
-  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --app-safe-left: env(safe-area-inset-left, 0px);
   --minimum-function-label-size: 20px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -52,7 +48,7 @@ textarea {
   gap: 12px;
   width: 100%;
   height: var(--app-viewport-height);
-  padding: calc(14px + var(--app-safe-top)) calc(14px + var(--app-safe-right)) calc(14px + var(--app-safe-bottom)) calc(14px + var(--app-safe-left));
+  padding: 14px;
 }
 
 .top-panel {
@@ -118,6 +114,7 @@ textarea {
   color: #4f5b66;
   font-size: 17px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 body.demo-active .phase::after {
@@ -130,6 +127,7 @@ body.demo-active .phase::after {
   color: #4f5b66;
   font-size: 15px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .camera-status {
@@ -213,6 +211,7 @@ body.demo-active .phase::after {
   border-color: #6750a4;
   background: #f2edff;
   box-shadow: 0 2px 0 #c9bce8;
+  white-space: nowrap;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
@@ -242,10 +241,16 @@ body.demo-active .phase::after {
   z-index: 3;
   inset: 0;
   box-sizing: border-box;
-  border: 6px solid #111111;
+  border: 3px solid #226f77;
   border-radius: 10px;
   content: "";
   pointer-events: none;
+}
+
+.row.review-hold-row .tile {
+  border-color: #b8c1ca;
+  outline: none;
+  background: #eef4f3;
 }
 
 .tile {
@@ -336,7 +341,7 @@ body.demo-active .phase::after {
 }
 
 .tile.review-hold .progress-fill {
-  background: rgba(31, 122, 140, 0.52);
+  background: transparent;
 }
 
 .tile.camera-hold .progress-fill {
@@ -1122,7 +1127,7 @@ body.demo-active .phase::after {
 
 @media (max-width: 720px) {
   .shell {
-    padding: calc(8px + var(--app-safe-top)) calc(8px + var(--app-safe-right)) calc(8px + var(--app-safe-bottom)) calc(8px + var(--app-safe-left));
+    padding: 8px;
     gap: 8px;
   }
 
@@ -1230,6 +1235,35 @@ body.demo-active .phase::after {
 
   .calibration-status span {
     text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-row {
+    grid-template-areas:
+      "phase config"
+      "voice config"
+      "camera camera";
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 8px;
+  }
+
+  .phase {
+    grid-area: phase;
+  }
+
+  .voice {
+    grid-area: voice;
+  }
+
+  .camera-status {
+    grid-area: camera;
+    justify-self: start;
+  }
+
+  .config-button {
+    grid-area: config;
+    align-self: stretch;
   }
 }
 

@@ -1,6 +1,6 @@
 # zh-TW Dictionary Inventory Report
 
-Generated: 2026-08-08T12:01:04.593Z
+Generated: 2026-08-13T14:22:17.109Z
 
 This is the fast inventory report. It estimates broad source-dictionary reachability and efficiency from the phonetic access graph instead of running real-time scanning or full virtual utterance benchmarks.
 
@@ -100,4 +100,4 @@ These samples are diagnostic, not hand-tuning instructions.
 - Direct candidate reachability estimates whether a label appears within the first reachable suggestion pages after composing its key.
 - Composable reachability treats long labels as possible when every component glyph has a direct candidate path.
 - Efficiency is estimated as two switch activations per selected tile. It intentionally excludes real-time row/cell waits; virtual communication benchmarks cover realistic scan path cost.
-- Runtime for this report: 1076 ms on this machine.
+- Runtime for this report: 1178 ms on this machine.

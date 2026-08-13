@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-08-11T02:48:20.766Z
+Generated: 2026-08-13T14:22:21.040Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -25,14 +25,14 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Unit | Total | Average | Median | P90 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Estimated scan time | seconds | 4915.80 | 47.73 | 19.80 | 55.80 |
+| Estimated scan time | seconds | 4872.60 | 47.31 | 19.80 | 55.80 |
 | Output selections | selected tiles | 411 | 3.99 | 2.00 | 4.00 |
 | Switch activations | activations | 822 | 7.98 | 4.00 | 8.00 |
-| Scanner advances | row/cell advances | 2731 | 26.51 | 11.00 | 31.00 |
+| Scanner advances | row/cell advances | 2707 | 26.28 | 11.00 | 31.00 |
 | Activations per target concept | activations/concept | 822 / 152 | 5.41 |
 | Selections per target concept | selections/concept | 411 / 152 | 2.70 |
 | Activations per output character | activations/character | 822 / 393 | 2.09 |
-| Estimated time per output character | seconds/character | 4915.80 / 393 | 12.51 |
+| Estimated time per output character | seconds/character | 4872.60 / 393 | 12.40 |
 | Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
 | Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
 | Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
@@ -41,7 +41,7 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 47.73 sec | <= 15 sec | gap |
+| Average benchmark time | 47.31 sec | <= 15 sec | gap |
 | Median urgent phrase time | 5.40 sec across 19 marked tasks | <= 10 sec | meets |
 | Average switch activations | 7.98 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
@@ -65,8 +65,8 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 | --- | ---: | ---: | ---: | ---: |
 | Selections | 198 | 189 | -9 | -4.55% |
 | Switch activations | 396 | 378 | -18 | -4.55% |
-| Scanner advances | 1555 | 1456 | -99 | -6.37% |
-| Estimated scan time sec | 2799 | 2620.80 | -178.20 | -6.37% |
+| Scanner advances | 1531 | 1437 | -94 | -6.14% |
+| Estimated scan time sec | 2755.80 | 2586.60 | -169.20 | -6.14% |
 
 | Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -79,165 +79,73 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 
 ## Paired Baseline Regression
 
-Frozen baseline: Accepted code-47 slower-access baseline (2026-08-09T01:21:42.664Z).
+Frozen baseline: Accepted code-47 slower-access baseline (2026-08-11T02:48:20.766Z).
 
-Regression gates: FAIL. Measured improvement over baseline: NO.
+Regression gates: PASS. Measured improvement over baseline: YES.
 
 The gates require aggregate motor effort and scan time, P90 effort and time, and every established communication-function group to remain stable or improve. One task may use at most one additional `更多` selection. This prevents a lower raw paging count from hiding slower or less equitable communication paths.
 
 | Metric | Baseline | Current | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Selections | 408 | 411 | +3 | 0.74% |
-| Switch activations | 816 | 822 | +6 | 0.74% |
-| Scanner advances | 2596 | 2731 | +135 | 5.20% |
-| Estimated scan time sec | 4827.80 | 4915.80 | +88 | 1.82% |
+| Selections | 411 | 411 | 0 | 0.00% |
+| Switch activations | 822 | 822 | 0 | 0.00% |
+| Scanner advances | 2731 | 2707 | -24 | -0.88% |
+| Estimated scan time sec | 4915.80 | 4872.60 | -43.20 | -0.88% |
 | 更多 selections | 56 | 56 | 0 | 0.00% |
 | P90 switch activations | 8 | 8 | 0 | 0.00% |
-| P90 scan time sec | 51.90 | 55.80 | +3.90 | 7.51% |
+| P90 scan time sec | 55.80 | 55.80 | 0 | 0.00% |
 
 | Gate | Status | Detail |
 | --- | --- | --- |
 | schema | PASS | baseline=1, candidate=1 |
-| task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=true |
+| task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=false |
 | reachability | PASS | unreachable=0 |
-| total-switches | FAIL | baseline=816, candidate=822 |
-| total-scan-time | FAIL | baseline=4827800, candidate=4915800 |
+| total-switches | PASS | baseline=822, candidate=822 |
+| total-scan-time | PASS | baseline=4915800, candidate=4872600 |
 | p90-switches | PASS | baseline=8, candidate=8 |
-| p90-scan-time | FAIL | baseline=51900, candidate=55800 |
+| p90-scan-time | PASS | baseline=55800, candidate=55800 |
 | bounded-task-paging | PASS | max additional pages=0 |
-| group-universal-core-switches | PASS | baseline=162, candidate=160 |
-| group-universal-core-scan-time | FAIL | baseline=902900, candidate=968400 |
+| group-universal-core-switches | PASS | baseline=160, candidate=160 |
+| group-universal-core-scan-time | PASS | baseline=968400, candidate=968400 |
 | group-daily-needs-switches | PASS | baseline=24, candidate=24 |
-| group-daily-needs-scan-time | PASS | baseline=70600, candidate=70200 |
+| group-daily-needs-scan-time | PASS | baseline=70200, candidate=70200 |
 | group-body-comfort-switches | PASS | baseline=24, candidate=24 |
-| group-body-comfort-scan-time | FAIL | baseline=94500, candidate=122400 |
-| group-refusal-control-switches | FAIL | baseline=20, candidate=28 |
-| group-refusal-control-scan-time | FAIL | baseline=78800, candidate=156600 |
+| group-body-comfort-scan-time | PASS | baseline=122400, candidate=122400 |
+| group-refusal-control-switches | PASS | baseline=28, candidate=28 |
+| group-refusal-control-scan-time | PASS | baseline=156600, candidate=156600 |
 | group-care-health-switches | PASS | baseline=18, candidate=18 |
-| group-care-health-scan-time | PASS | baseline=68300, candidate=64800 |
+| group-care-health-scan-time | PASS | baseline=64800, candidate=64800 |
 | group-positioning-switches | PASS | baseline=32, candidate=32 |
-| group-positioning-scan-time | PASS | baseline=138900, candidate=131400 |
+| group-positioning-scan-time | PASS | baseline=131400, candidate=131400 |
 | group-people-social-switches | PASS | baseline=22, candidate=22 |
-| group-people-social-scan-time | PASS | baseline=99100, candidate=93600 |
+| group-people-social-scan-time | PASS | baseline=93600, candidate=93600 |
 | group-preference-switches | PASS | baseline=22, candidate=22 |
-| group-preference-scan-time | PASS | baseline=113500, candidate=106200 |
+| group-preference-scan-time | PASS | baseline=106200, candidate=106200 |
 | group-conversation-repair-switches | PASS | baseline=46, candidate=46 |
-| group-conversation-repair-scan-time | PASS | baseline=208000, candidate=198000 |
+| group-conversation-repair-scan-time | PASS | baseline=198000, candidate=198000 |
 | group-regression-switches | PASS | baseline=6, candidate=6 |
-| group-regression-scan-time | FAIL | baseline=6400, candidate=21600 |
+| group-regression-scan-time | PASS | baseline=21600, candidate=21600 |
 
 | Communication Function | Baseline Activations | Current Activations | Baseline Time Sec | Current Time Sec | Status |
 | --- | ---: | ---: | ---: | ---: | --- |
-| universal-core | 162 | 160 | 902.90 | 968.40 | FAIL |
-| daily-needs | 24 | 24 | 70.60 | 70.20 | PASS |
-| body-comfort | 24 | 24 | 94.50 | 122.40 | FAIL |
-| refusal-control | 20 | 28 | 78.80 | 156.60 | FAIL |
-| care-health | 18 | 18 | 68.30 | 64.80 | PASS |
-| positioning | 32 | 32 | 138.90 | 131.40 | PASS |
-| people-social | 22 | 22 | 99.10 | 93.60 | PASS |
-| preference | 22 | 22 | 113.50 | 106.20 | PASS |
-| conversation-repair | 46 | 46 | 208.00 | 198.00 | PASS |
-| regression | 6 | 6 | 6.40 | 21.60 | FAIL |
+| universal-core | 160 | 160 | 968.40 | 968.40 | PASS |
+| daily-needs | 24 | 24 | 70.20 | 70.20 | PASS |
+| body-comfort | 24 | 24 | 122.40 | 122.40 | PASS |
+| refusal-control | 28 | 28 | 156.60 | 156.60 | PASS |
+| care-health | 18 | 18 | 64.80 | 64.80 | PASS |
+| positioning | 32 | 32 | 131.40 | 131.40 | PASS |
+| people-social | 22 | 22 | 93.60 | 93.60 | PASS |
+| preference | 22 | 22 | 106.20 | 106.20 | PASS |
+| conversation-repair | 46 | 46 | 198.00 | 198.00 | PASS |
+| regression | 6 | 6 | 21.60 | 21.60 | PASS |
 
 | Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |
 | --- | --- | ---: | ---: | ---: |
-| project-core-word-all | regressed | +2 | +21.10 | 0 |
-| project-core-word-can | improved | 0 | -2.80 | 0 |
-| project-core-word-different | regressed | 0 | +33 | 0 |
-| project-core-word-do | regressed | 0 | +12.10 | 0 |
-| project-core-word-done | regressed | +2 | +15.70 | 0 |
-| project-core-word-get | improved | -2 | -15.90 | 0 |
-| project-core-word-go | regressed | 0 | +1.30 | 0 |
-| project-core-word-good | improved | 0 | -1 | 0 |
-| project-core-word-he | improved | 0 | -2.80 | 0 |
-| project-core-word-help | regressed | 0 | +1.30 | 0 |
-| project-core-word-here | improved | 0 | -3.30 | 0 |
-| project-core-word-i | regressed | 0 | +9 | 0 |
-| project-core-word-in | improved | -2 | -14.90 | 0 |
-| project-core-word-it | regressed | 0 | +8.50 | 0 |
-| project-core-word-like | improved | 0 | -2.80 | 0 |
-| project-core-word-look | regressed | 0 | +1.30 | 0 |
-| project-core-word-make | regressed | 0 | +0.80 | 0 |
-| project-core-word-more | improved | 0 | -1 | 0 |
-| project-core-word-not | improved | 0 | -2.80 | 0 |
-| project-core-word-on | improved | 0 | -2.80 | 0 |
-| project-core-word-open | regressed | +2 | +17 | 0 |
-| project-core-word-put | regressed | +2 | +18.80 | 0 |
-| project-core-word-same | improved | -2 | -2.30 | 0 |
-| project-core-word-she | regressed | 0 | +1.30 | 0 |
-| project-core-word-some | improved | -2 | -6.40 | 0 |
-| project-core-word-stop | regressed | 0 | +1.30 | 0 |
-| project-core-word-that | improved | 0 | -4.60 | 0 |
-| project-core-word-turn | regressed | +2 | +15.20 | 0 |
-| project-core-word-up | improved | 0 | -1 | 0 |
-| project-core-word-want | regressed | 0 | +3.10 | 0 |
-| project-core-word-what | regressed | +2 | +15.20 | 0 |
-| project-core-word-when | improved | -4 | -29 | 0 |
-| project-core-word-where | improved | 0 | -5.10 | 0 |
-| project-core-word-who | improved | -2 | -24.90 | 0 |
-| project-core-word-why | regressed | 0 | +4.40 | 0 |
-| project-core-word-you | regressed | 0 | +8.50 | 0 |
-| zhtw-first-page-eat | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-toilet | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-rest | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-stop | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-uncomfortable | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-hot | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-tired | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-nausea | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-dizzy | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-family | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-nurse | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-not | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-help | improved | 0 | -0.50 | 0 |
-| zhtw-first-page-pain | improved | 0 | -0.50 | 0 |
-| zhtw-second-page-doctor | improved | 0 | -0.50 | 0 |
-| zhtw-second-page-medicine | improved | 0 | -1 | 0 |
-| zhtw-second-page-position | improved | 0 | -1 | 0 |
-| zhtw-second-page-wait | improved | 0 | -1 | 0 |
-| zhtw-second-page-can | improved | 0 | -0.50 | 0 |
-| zhtw-second-page-up | improved | 0 | -1 | 0 |
-| zhtw-second-page-down | improved | 0 | -1 | 0 |
-| zhtw-second-page-left | improved | 0 | -1 | 0 |
-| zhtw-second-page-right | improved | 0 | -0.50 | 0 |
-| zhtw-second-page-sit-up | improved | 0 | -1 | 0 |
-| zhtw-second-page-lie-down | improved | 0 | -1 | 0 |
-| zhtw-second-page-turn-over | improved | 0 | -1 | 0 |
-| zhtw-second-page-pillow | improved | 0 | -0.50 | 0 |
-| zhtw-second-page-mom | improved | 0 | -1 | 0 |
-| zhtw-second-page-dad | improved | 0 | -1 | 0 |
-| zhtw-third-page-caregiver | improved | 0 | -1 | 0 |
-| zhtw-third-page-friend | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-me | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-not-yes | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-want | improved | 0 | -1 | 0 |
-| zhtw-third-page-cannot | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-good | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-bad | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-know | improved | 0 | -1 | 0 |
-| zhtw-third-page-dont-know | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-like | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-dislike | improved | 0 | -1.50 | 0 |
-| zhtw-third-page-again | improved | 0 | -1 | 0 |
-| zhtw-third-page-finish | improved | 0 | -1.50 | 0 |
-| zhtw-utterance-help-position | improved | 0 | -1.50 | 0 |
-| zhtw-utterance-wait-repeat | improved | 0 | -2.50 | 0 |
-| zhtw-utterance-dont-know-repeat | improved | 0 | -3 | 0 |
-| zhtw-utterance-sit-up-pillow | improved | 0 | -2 | 0 |
-| zhtw-utterance-nausea-doctor | improved | 0 | -1.50 | 0 |
-| zhtw-utterance-finish | improved | 0 | -1.50 | 0 |
-| zhtw-phonetic-home-podcast | improved | 0 | -5.50 | 0 |
-| zhtw-multilingual-home-podcast | improved | 0 | -3.10 | 0 |
-| zhtw-multilingual-audio-repair | improved | 0 | -1.10 | 0 |
-| zhtw-phonetic-home-drink | improved | 0 | -16 | 0 |
-| zhtw-phonetic-home-audio-repair | improved | 0 | -9.50 | 0 |
-| zhtw-phonetic-home-feeling | improved | 0 | -19 | 0 |
-| project-core-go | regressed | 0 | +1.30 | 0 |
-| project-core-like | improved | 0 | -2.80 | 0 |
-| project-core-refuse-drink | regressed | +8 | +81.80 | 0 |
-| asha-wants-needs-help | regressed | 0 | +1.30 | 0 |
-| asha-feelings-sick | regressed | 0 | +30.90 | 0 |
-| shine-current-want-water | regressed | 0 | +15.20 | 0 |
+| zhtw-phonetic-home-podcast | improved | 0 | -1.80 | 0 |
+| zhtw-multilingual-home-podcast | improved | 0 | -1.80 | 0 |
+| zhtw-multilingual-audio-repair | improved | 0 | -5.40 | 0 |
+| zhtw-phonetic-home-audio-repair | improved | 0 | -12.60 | 0 |
+| zhtw-phonetic-home-feeling | improved | 0 | -21.60 | 0 |
 
 ## Read This Correctly
 
@@ -291,14 +199,14 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 4915.80 seconds
-- Average estimated scan time per passing task: 47.73 seconds
+- Total estimated scan time across passing tasks: 4872.60 seconds
+- Average estimated scan time per passing task: 47.31 seconds
 - Total selections across passing tasks: 411
 - Average selections per passing task: 3.99
 - Total switch activations across passing tasks: 822
 - Average switch activations per passing task: 7.98
-- Total scan advances across passing tasks: 2731
-- Average scan advances per passing task: 26.51
+- Total scan advances across passing tasks: 2707
+- Average scan advances per passing task: 26.28
 - Total target concepts across passing tasks: 152
 - Total output characters across passing tasks: 393
 - Activations per target concept: 5.41
@@ -467,12 +375,12 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | zhtw-utterance-sit-up-pillow | SHINE zh-TW telegraphic AAC utterances | 更多 坐起來 更多 枕頭 | 34.20 | 4 | 8 | 19 | append:2, more-suggestions:2 | selections<=4 | PASS |
 | zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 19.80 | 3 | 6 | 11 | append:2, more-suggestions:1 | selections<=3 | PASS |
 | zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 28.80 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
-| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 250.20 | 17 | 34 | 139 | append:13, commit-candidate:4 | selections<=18 | PASS |
-| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽 podcast 新 資料 夾 | 345.60 | 26 | 52 | 192 | append:20, close-category:1, commit-candidate:4, open-category:1 | selections<=30 | PASS |
-| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast 音量 小 | 243.00 | 19 | 38 | 135 | append:15, close-category:1, commit-candidate:2, open-category:1 | selections<=23 | PASS |
+| zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 248.40 | 17 | 34 | 138 | append:13, commit-candidate:4 | selections<=18 | PASS |
+| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽 podcast 新 資料 夾 | 343.80 | 26 | 52 | 191 | append:20, close-category:1, commit-candidate:4, open-category:1 | selections<=30 | PASS |
+| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast 音量 小 | 237.60 | 19 | 38 | 132 | append:15, close-category:1, commit-candidate:2, open-category:1 | selections<=23 | PASS |
 | zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 714.60 | 49 | 98 | 397 | append:37, commit-candidate:12 | selections<=54 | PASS |
-| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 351.00 | 24 | 48 | 195 | append:19, commit-candidate:5 | selections<=28 | PASS |
-| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 894.60 | 63 | 126 | 497 | append:50, commit-candidate:13 | selections<=70 | PASS |
+| zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 338.40 | 24 | 48 | 188 | append:19, commit-candidate:5 | selections<=28 | PASS |
+| zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 873.00 | 63 | 126 | 485 | append:50, commit-candidate:13 | selections<=70 | PASS |
 | project-core-go | Project Core Universal Core Vocabulary | go | 10.80 | 1 | 2 | 6 | append:1 | selections<=1 | PASS |
 | project-core-like | Project Core Universal Core Vocabulary | like | 21.60 | 2 | 4 | 12 | append:2 | selections<=2 | PASS |
 | project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 88.20 | 6 | 12 | 49 | append:6 | selections<=6 | PASS |

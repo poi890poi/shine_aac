@@ -6,17 +6,17 @@ This packet is the review checklist for the current Google Play closed-testing s
 
 - Track: Closed testing
 - Package id: `org.shineaac.app`
-- Current source version: `0.2.44`
-- Current source version code: `47`
+- Current source version: `0.2.45`
+- Current source version code: `48`
 - Compile and target SDK: `36`
-- Source tag: `v0.2.44`
-- Signed AAB in release ZIP: `binaries/shine-aac-v0.2.44-code47-release.aab`
-- Signed AAB SHA-256: `3af69b04dbd130457eae7683dff2beb0d6ff55727db17c2f829723f1611dfbbe`
+- Source tag: `v0.2.45`
+- Signed AAB in release ZIP: `binaries/shine-aac-v0.2.45-code48-release.aab`
+- Signed AAB SHA-256: `2da121b0663ad9d2385f248b45a1381703b09829a365073337866b25765d86b9`
 - AAB checksum file: `binaries/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload an APK or any superseded bundle to Google Play. After confirming that code 47 is unused, upload the tagged, versioned signed code-47 AAB above.
+Do not upload an APK or any superseded bundle to Google Play. After confirming that code 48 is unused, upload the tagged, versioned signed code-48 AAB above.
 
 ## Store Listing
 
@@ -30,7 +30,20 @@ The listing should keep the early-development warning and avoid medical-device o
 
 ## Release Notes
 
-Use this for 0.2.44 closed testing:
+Use this for 0.2.45 closed testing:
+
+```text
+早期測試版本，主要給台灣繁體中文使用者與協助者試用。
+
+- 暫停確認列改用淡青灰底色與深青色實線外框，保留位置提示但不再像掃描仍在前進
+- 修正部分裝置或顯示縮放設定可能重複保留系統邊界，造成間距不一致的問題
+- 系統字體大小會套用到 Android 內嵌介面；窄螢幕狀態文字不再逐字換行
+- 訊息或版面改變後會先停在第一列供確認，再按一次才繼續掃描
+- 示範模式加快並優先選取畫面上最長的可用候選，不會改變個人儲存的掃描速度
+- 這仍不是唯一或緊急溝通方式；請在實際裝置確認可見度、疲勞感與個人掃描速度
+```
+
+Previous 0.2.44 notes retained for reference:
 
 ```text
 早期測試版本，主要給台灣繁體中文使用者與協助者試用。
@@ -203,7 +216,7 @@ SayToMe AAC / 我想說 is an early development communication support tool. It i
 
 ## Verification To Refresh Before Upload
 
-- Confirm in Play Console that version code 46 has not already been used.
+- Confirm in Play Console that version code 48 has not already been used.
 - Rerun the full pre-release verification gate.
 - Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 - Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.

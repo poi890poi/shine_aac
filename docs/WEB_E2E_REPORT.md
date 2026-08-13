@@ -1,17 +1,18 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-11T16:00:14.222Z
+Generated: 2026-08-13T14:29:33.359Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5173/apps/web/ |
+| packaged-webview-build | PASS | built Android WebView assets with esbuild |
+| server | PASS | served http://127.0.0.1:5193/app/build/generated/assets/shineWeb/www/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
-| initial-first-row-hold | PASS | initial launch holds row 1 with a high-contrast whole-row frame until activation |
+| initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":54.80000001192093,"resetTargetToProgressMs":27.69999998807907,"rowDeadlineDriftMs":-15.999999994039626,"nextRowTargetToProgressMs":33.099999994039536,"activationToTargetMs":1.399999976158142,"activationTargetToProgressMs":18,"firstDeadlineDriftMs":-16.19999998807907,"secondTargetToProgressMs":32.19999998807907,"laterDeadlineDriftMs":-29.19999998807907,"thirdTargetToProgressMs":29.5,"selectionToHoldMs":4.300000011920929,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":27.700000017881393} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.19999998807907,"resetTargetToProgressMs":25.400000035762787,"rowDeadlineDriftMs":-15.900000035762787,"nextRowTargetToProgressMs":33.10000002384186,"activationToTargetMs":1.399999976158142,"activationTargetToProgressMs":32.19999998807907,"firstDeadlineDriftMs":-20.299999952316284,"secondTargetToProgressMs":19,"laterDeadlineDriftMs":-15.900000035762787,"thirdTargetToProgressMs":33.30000001192093,"selectionToHoldMs":4,"holdReleaseToTargetMs":0.5,"selectionTargetToProgressMs":32.30000001192093} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -51,7 +52,7 @@ Result: PASS
 | function-label-default-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
 | function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 31.5-31.5px with a 20px normal-board floor |
 | function-label-200pct-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
-| function-label-200pct-larger-display | PASS | 4 function keys share word-key metrics; rendered 22.7-22.7px with a 20px normal-board floor |
+| function-label-200pct-larger-display | PASS | 4 function keys share word-key metrics; rendered 21.9-21.9px with a 20px normal-board floor |
 | function-label-200pct-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
 | zh-tw-locale | PASS | configuration, input test, and app information remain consistently Traditional Chinese |
 | zh-tw-language-switch-review-hold | PASS | 英文 and 注音 switches preserve review hold; the embedded English board reuses English suggestions |

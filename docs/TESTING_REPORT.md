@@ -1,10 +1,10 @@
 # SHINE AAC Testing Report
 
-Current amended source: 0.2.44, Android code 47, targeting Android 16 / API level 36. The official release history was reconstructed from the physically verified scan candidate on 2026-08-11.
+Current release candidate: 0.2.45, Android code 48, targeting Android 16 / API level 36.
 
-The amended code-47 APK and AAB retain the learnability/export changes and add adaptive large-text layout, shared English suggestions inside zh-TW, compact mixed-script composition, consistent function labels, and complete Traditional Chinese setup/status text.
+Code 48 retains the learnability/export and adaptive layout work, makes review holds consistent after state changes, and replaces the heavy black hold frame with pale teal-gray tiles and a solid 3 px dark-teal whole-row perimeter.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.44.md`
+Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.45.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 
@@ -13,17 +13,17 @@ Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 | Layer | Result | Evidence |
 | --- | --- | --- |
 | Clean dependency install | PASS | 0 vulnerabilities |
-| Functional core | PASS | 123 / 123 quick core tests; 3 / 3 web configuration tests |
-| Full core and efficiency | PASS | 237 / 237 full core tests; focused communication suite 109 / 109 against the reviewed plural-filter baseline |
+| Functional core | PASS | 237 / 237 full core tests; 10 / 10 web unit tests |
+| Full core and efficiency | PASS | 103 / 103 communication tasks against the frozen paired baseline |
 | Large-corpus computation | PASS | one-million-entry cold English prefix prepared once in 640 ms; empty English reads 8; empty zh-TW reads 45; scanning reads 0 corpus entries |
 | Android input unit and lint | PASS | 14 / 14 unit tests; no lint errors |
-| Source and packaged browser E2E | PASS | complete source run followed by rebuilt packaged-WebView run, including large text, tablet, zh-TW locale, Demo, and embedded-English nonredundancy |
-| Android APK lifecycle | PASS | code-47 emulator: Config Demo, hardware input, process recreation, and zh-TW rendering |
-| Signed release APK | PASS | code-47 APK; 42,493,955 bytes; SHA-256 `f9ae42bcf1e5adc3297d9c2327168401eefff0e4cbf44f99933fb5979af0dd50` |
-| Play Internal testing AAB | PASS | code-47 AAB; 22,184,114 bytes; SHA-256 `3af69b04dbd130457eae7683dff2beb0d6ff55727db17c2f829723f1611dfbbe` |
-| Human UX | PASS / OPEN | physical-device scan-pause regression passed; Samsung combined font/display-size matrix remains open |
+| Source and packaged browser E2E | PASS | 52 source and 53 packaged steps, including held-row styling, release behavior, large text, tablet, zh-TW, Demo, and export |
+| Android APK lifecycle | PASS | code-48 emulator: Config Demo, hardware input with review acknowledgements, process recreation, and zh-TW rendering |
+| Signed release APK | PASS | code-48 APK; 42,489,045 bytes; SHA-256 `40c6426d2bebc2b5ecc7897a85e5464be12b3cc93f965556fc4ef544273e497e` |
+| Play closed-testing AAB | PASS | code-48 AAB; 22,177,795 bytes; SHA-256 `2da121b0663ad9d2385f248b45a1381703b09829a365073337866b25765d86b9` |
+| Human UX | PASS / OPEN | S23 Ultra adaptive layout passed; final paused-row device review remains a closed-testing task |
 
-The current source is ready for the final signed code-47 build. The intentional plural-filter communication baseline is reviewed and passing; no timer diagnostic commits remain in the release history.
+The current source and signed code-48 artifacts are ready for closed-tester handoff after confirming that Play version code 48 is unused.
 
 ## 2026-08-09 0.2.44 Code-47 Amendment
 

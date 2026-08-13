@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
             webChromeClient = WebChromeClient()
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.textZoom = 100
+            settings.textZoom = webTextZoomPercent(resources.configuration.fontScale)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.allowFileAccess = true
             settings.allowContentAccess = true
@@ -167,8 +167,12 @@ class MainActivity : ComponentActivity() {
                     WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
                 )
                 view.setPadding(systemInsets.left, systemInsets.top, systemInsets.right, systemInsets.bottom)
-                insets
+                // The native host owns system-bar and cutout clearance. Consuming the
+                // insets prevents WebView from exposing the same space to CSS safe-area
+                // variables and applying it a second time on some vendor WebViews.
+                WindowInsetsCompat.CONSUMED
             }
+            ViewCompat.requestApplyInsets(this)
         }
     }
 

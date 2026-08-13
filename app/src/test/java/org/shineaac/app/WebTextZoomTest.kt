@@ -17,4 +17,10 @@ class WebTextZoomTest {
         assertEquals(50, webTextZoomPercent(0.2f))
         assertEquals(200, webTextZoomPercent(3f))
     }
+
+    @Test
+    fun distinguishesDefaultAndMaximumAndroidFontSettings() {
+        assertEquals(100, webTextZoomPercent(1f))
+        assertEquals(200, webTextZoomPercent(2f))
+    }
 }
