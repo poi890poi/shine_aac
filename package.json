@@ -15,6 +15,8 @@
     "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",
     "report:zhtw:conversation": "node scripts/report-zhtw-conversation-benchmark.mjs",
     "generate:zhtw:spoken": "node scripts/generate-zhtw-spoken-data.mjs",
+    "generate:zhtw:sensitive": "node scripts/generate-zhtw-sensitive-data.mjs",
+    "check:zhtw:sensitive": "node scripts/generate-zhtw-sensitive-data.mjs --check",
     "report:communication": "node scripts/report-communication-benchmarks.mjs",
     "report:en-us:dictionary": "node scripts/report-en-us-dictionary.mjs",
     "baseline:communication": "node scripts/report-communication-benchmarks.mjs --update-baseline",

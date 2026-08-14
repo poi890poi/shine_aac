@@ -1,5 +1,6 @@
 import { ZhTwChewingDictionaryEntries } from "./data/zh-tw-chewing.generated.js";
 import { ZhTwSpokenEvidenceEntries } from "./data/zh-tw-spoken.generated.js";
+import { ZhTwSensitiveSuggestionEntries } from "./data/zh-tw-sensitive.generated.js";
 import { EnUsFrequencyEntries } from "./data/en-us-frequency.generated.js";
 
 export const ScanStage = Object.freeze({
@@ -498,6 +499,19 @@ const ZhTwValidPrefixSet = zhTwValidPrefixSet(ZhTwFrequencyDictionary);
 const ZhTwSpokenEvidenceByTarget = new Map(
   ZhTwSpokenEvidenceEntries.map((entry) => [`${entry.label}\u0000${entry.firstSymbol}`, entry])
 );
+const ZhTwWeakIntentSoftDemotionLabels = new Set(
+  ZhTwSensitiveSuggestionEntries
+    .filter((entry) => entry.policy === "weak-intent-soft-demotion")
+    .map((entry) => entry.label)
+);
+const ZhTwWeakIntentMaximumKeyLengthByLabel = new Map();
+for (const entry of ZhTwFrequencyDictionary) {
+  if (!ZhTwWeakIntentSoftDemotionLabels.has(entry.label)) continue;
+  ZhTwWeakIntentMaximumKeyLengthByLabel.set(
+    entry.label,
+    Math.max(ZhTwWeakIntentMaximumKeyLengthByLabel.get(entry.label) ?? 0, Array.from(entry.key).length)
+  );
+}
 
 const LegacyZhuyinStaticInputSymbolsV18 = Object.freeze(
   ZhuyinInputSymbols.slice(0, 24)
@@ -1389,7 +1403,7 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
       ...remainingCandidates.filter((candidate) => candidate.zhuyinKey.length !== buffer.length)
     ]
     : remainingCandidates;
-  const orderedCandidates = zhTwConservativeFirstSymbolRerank([
+  const orderedCandidates = zhTwConservativeFirstSymbolRerank(zhTwWeakIntentSoftDemotionRerank([
     // When the buffer can still form a phonetic syllable, completing that input is
     // fundamental. Glyph and phrase candidates are speculative until the user commits one.
     ...firstPagePhoneticNextSymbols,
@@ -1398,12 +1412,22 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
     ...firstPageInitialNextSymbols,
     ...laterCandidates,
     ...overflowInitialNextSymbols
-  ], buffer, columns, staticSymbols.size === ZhuyinInputSymbols.length);
+  ], buffer), buffer, columns, staticSymbols.size === ZhuyinInputSymbols.length);
 
   return distinctBy(
     orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwWeakIntentSoftDemotionRerank(candidates, buffer) {
+  const normal = [];
+  const demoted = [];
+  for (const candidate of candidates) {
+    (zhTwShouldSoftDemoteForWeakIntent(candidate, buffer) ? demoted : normal).push(candidate);
+  }
+  if (demoted.length === 0) return candidates;
+  return [...normal, ...demoted];
 }
 
 function zhTwConservativeFirstSymbolRerank(candidates, buffer, columns, hasCompleteDirectBoard) {
@@ -1457,6 +1481,7 @@ function zhTwConservativeFirstSymbolRerank(candidates, buffer, columns, hasCompl
 }
 
 function zhTwHasConfidentSpokenEvidence(candidate) {
+  if (ZhTwWeakIntentSoftDemotionLabels.has(candidate.label)) return false;
   const evidence = zhTwSpokenEvidence(candidate);
   return evidence &&
     evidence.tokenCount >= MinZhTwSpokenPromotionTokenCount &&
@@ -1718,12 +1743,23 @@ function zhTwContextCompletionTiles(message) {
   const context = trailingHanContext(message);
   if (!context) return [];
 
+  const candidates = (ZhTwPhraseCompletionsByPrefix.get(context) ?? [])
+    .filter((entry) => !ZhTwSuppressedSuggestionLabels.has(entry.label))
+    .map((entry) => zhTwContextCompletionTile(entry, context));
   return distinctBy(
-    (ZhTwPhraseCompletionsByPrefix.get(context) ?? [])
-      .filter((entry) => !ZhTwSuppressedSuggestionLabels.has(entry.label))
-      .map((entry) => zhTwContextCompletionTile(entry, context)),
+    zhTwWeakIntentContextCompletionRerank(candidates),
     (candidate) => `${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwWeakIntentContextCompletionRerank(candidates) {
+  const normal = [];
+  const demoted = [];
+  for (const candidate of candidates) {
+    (ZhTwWeakIntentSoftDemotionLabels.has(candidate.sourceLabel) ? demoted : normal).push(candidate);
+  }
+  if (demoted.length === 0) return candidates;
+  return [...normal, ...demoted];
 }
 
 function zhTwContextCompletionTile(entry, context) {
@@ -1747,12 +1783,29 @@ function zhTwCandidateRank(left, right) {
 }
 
 function zhTwCandidateRankForBuffer(left, right, buffer) {
+  const leftIsDemoted = zhTwShouldSoftDemoteForWeakIntent(left, buffer);
+  const rightIsDemoted = zhTwShouldSoftDemoteForWeakIntent(right, buffer);
+  if (leftIsDemoted !== rightIsDemoted) return leftIsDemoted ? 1 : -1;
   if (buffer.length <= 1) return zhTwCandidateRank(left, right);
 
   const leftIsExactKey = left.zhuyinKey.length === buffer.length;
   const rightIsExactKey = right.zhuyinKey.length === buffer.length;
   if (leftIsExactKey !== rightIsExactKey) return leftIsExactKey ? -1 : 1;
   return zhTwCandidateRank(left, right);
+}
+
+function zhTwShouldSoftDemoteForWeakIntent(candidate, buffer) {
+  if (!ZhTwWeakIntentSoftDemotionLabels.has(candidate.label)) return false;
+  if (candidate.matchType === "repair") return true;
+
+  const keySymbols = Array.from(candidate.zhuyinKey ?? "");
+  const bufferLength = Array.from(buffer).length;
+  const labelLength = Array.from(candidate.label).length;
+  const isIncompleteKey = keySymbols.length > bufferLength;
+  const isInitialSymbolAlias = labelLength > 1 &&
+    keySymbols.length === labelLength &&
+    (ZhTwWeakIntentMaximumKeyLengthByLabel.get(candidate.label) ?? 0) > keySymbols.length;
+  return isIncompleteKey || isInitialSymbolAlias;
 }
 
 function trailingZhuyinBuffer(message) {

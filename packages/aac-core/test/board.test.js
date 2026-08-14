@@ -51,8 +51,15 @@ import {
   ZhTwSpokenEvidenceEntries,
   ZhTwSpokenEvidenceMetadata
 } from "../src/data/zh-tw-spoken.generated.js";
+import {
+  ZhTwSensitiveSuggestionEntries,
+  ZhTwSensitiveSuggestionMetadata
+} from "../src/data/zh-tw-sensitive.generated.js";
 
 const SuppressedZhTwSuggestionLabelsForTest = new Set(["是不是", "要不要"]);
+const WeakIntentSoftDemotionLabelsForTest = new Set(
+  ZhTwSensitiveSuggestionEntries.map((entry) => entry.label)
+);
 const SimplePlusSNonPluralsForTest = new Set([
   "besides", "corps", "does", "economics", "hers", "his", "its", "mathematics", "news", "ours",
   "physics", "politics", "series", "sometimes", "species", "statistics", "theirs", "towards", "yours"
@@ -1217,6 +1224,7 @@ test("zh-TW source-backed analyzer exposes top Chewing candidates for each Zhuyi
     const labels = new Set(suggestionLabelsAcrossPages(config, key));
     const missing = entries
       .filter((entry) => !SuppressedZhTwSuggestionLabelsForTest.has(entry.label))
+      .filter((entry) => !WeakIntentSoftDemotionLabelsForTest.has(entry.label))
       .filter((entry) => !labels.has(entry.label))
       .map((entry) => `${entry.label}#${entry.sourceRank}`);
     if (missing.length > 0) {
@@ -1282,6 +1290,68 @@ test("zh-TW spoken evidence is versioned and internally consistent", () => {
     assert.ok(entry.selectionSavings > 0);
     assert.equal(entry.utility, entry.tokenCount * entry.selectionSavings);
   }
+});
+
+test("zh-TW sensitive suggestion metadata is small, sourced, and versioned", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const weakFirstPageExposures = [];
+  assert.equal(ZhTwSensitiveSuggestionMetadata.evidenceVersion, "2026-08-14.1");
+  assert.equal(ZhTwSensitiveSuggestionMetadata.reviewedCandidateCount, 14);
+  assert.equal(ZhTwSensitiveSuggestionMetadata.softDemotionCount, 10);
+  assert.equal(ZhTwSensitiveSuggestionEntries.length, 10);
+  assert.match(ZhTwSensitiveSuggestionMetadata.evidenceSha256, /^[0-9a-f]{64}$/u);
+  for (const entry of ZhTwSensitiveSuggestionEntries) {
+    assert.equal(entry.policy, "weak-intent-soft-demotion");
+    assert.ok(entry.riskSources.length >= ZhTwSensitiveSuggestionMetadata.minimumIndependentRiskSources);
+
+    const sourceEntries = ZhTwChewingDictionaryEntries.filter((candidate) => candidate.label === entry.label);
+    const maximumKeyLength = Math.max(...sourceEntries.map((candidate) => Array.from(candidate.key).length));
+    const deliberateKeys = sourceEntries
+      .map((candidate) => candidate.key)
+      .filter((key) => Array.from(key).length === maximumKeyLength);
+    const weakestKey = sourceEntries
+      .map((candidate) => candidate.key)
+      .sort((left, right) => Array.from(left).length - Array.from(right).length)[0];
+    if (boardRows(config, weakestKey, false, { suggestionPage: 0 })
+      .slice(0, 4)
+      .flat()
+      .some((candidate) => candidate.label === entry.label)) {
+      weakFirstPageExposures.push(entry.label);
+    }
+    assert.ok(
+      deliberateKeys.some((key) => suggestionLabelsAcrossPages(
+        config,
+        key
+      ).includes(entry.label)),
+      `${entry.label} should remain reachable through deliberate full pronunciation`
+    );
+  }
+  assert.ok(
+    weakFirstPageExposures.length <= Math.ceil(ZhTwSensitiveSuggestionEntries.length / 4),
+    `too many reviewed labels remain first-page weak-intent suggestions: ${weakFirstPageExposures.join(", ")}`
+  );
+});
+
+test("zh-TW soft demotion respects intent and preserves ordinary negative controls", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const weakInitialLabels = new Set(suggestionLabelsAcrossPages(config, "ㄊㄧ"));
+  const deliberateLabels = new Set(suggestionLabelsAcrossPages(config, "ㄊㄨㄥㄧ"));
+  const negativeControlLabels = boardRows(config, "ㄌㄙ", false, { suggestionPage: 0 })
+    .slice(0, 4)
+    .flat()
+    .map((candidate) => candidate.label);
+  const firstContextPage = boardRows(config, "統", false, { suggestionPage: 0 })
+    .slice(0, 4)
+    .flat();
+  const secondContextPage = boardRows(config, "統", false, { suggestionPage: 1 })
+    .slice(0, 4)
+    .flat();
+
+  assert.equal(weakInitialLabels.has("統一"), false);
+  assert.equal(deliberateLabels.has("統一"), true);
+  assert.equal(negativeControlLabels.at(0), "垃圾");
+  assert.equal(firstContextPage.some((candidate) => candidate.sourceLabel === "統一"), false);
+  assert.equal(secondContextPage.some((candidate) => candidate.sourceLabel === "統一"), true);
 });
 
 test("zh-TW golden common glyphs and daily words are source-backed and reachable", () => {

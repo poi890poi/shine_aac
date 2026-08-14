@@ -1,0 +1,153 @@
+{
+  "version": "2026-08-14.1",
+  "policy": {
+    "selectedDisposition": "weak-intent-soft-demotion",
+    "minimumIndependentRiskSources": 2,
+    "intentRule": "Demote only for incomplete phonetic keys, multi-glyph initial-symbol aliases, repairs, and automatic glyph-sequence completions. Preserve source order for complete non-alias phonetic keys.",
+    "reviewRule": "Automated sources discover candidates; a versioned semantic review rejects ordinary, identity, critical-reporting, and materially ambiguous labels before runtime metadata is generated."
+  },
+  "sources": [
+    {
+      "id": "cold-2022",
+      "kind": "annotated-offensive-corpus",
+      "revision": "a0c55a945497ab58e94aef491180e1cf88ffb864",
+      "url": "https://github.com/thu-coai/COLDataset",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "toxicn-2023",
+      "kind": "annotated-toxicity-corpus-and-lexicons",
+      "revision": "91d8f6a449967bd310364544d535d6310e45043b",
+      "url": "https://github.com/DUT-lujunyu/ToxiCN",
+      "license": "CC-BY-NC-ND-4.0"
+    },
+    {
+      "id": "nccu-tm001-tm050",
+      "kind": "taiwan-spoken-conversation-corpus",
+      "revision": "a15e8dc5ad537ec827c52fbe7b78d4b9aab3de7da10729007cf434732e45ead2",
+      "url": "https://spokentaiwanmandarin.nccu.edu.tw/",
+      "license": "source-transcripts-not-redistributed"
+    },
+    {
+      "id": "mac-unification-statement-2019",
+      "kind": "authoritative-framing-analysis",
+      "revision": "2019-01-02",
+      "url": "https://www.mac.gov.tw/News_Content.aspx?n=B383123AEADAEE52&s=813A29D91D15CD97&sms=2B7F1AE4AC63A181",
+      "license": "link-and-derived-classification-only"
+    },
+    {
+      "id": "mac-unification-history",
+      "kind": "authoritative-framing-analysis",
+      "revision": "accessed-2026-08-14",
+      "url": "https://www.mac.gov.tw/MAIRC/cp.aspx?n=036E78FF20D91CFA",
+      "license": "link-and-derived-classification-only"
+    },
+    {
+      "id": "prc-taiwan-white-paper-2022",
+      "kind": "primary-party-state-framing-source",
+      "revision": "2022-08",
+      "url": "https://asean.china-mission.gov.cn/stxwx/202408/t20240812_11470636.htm",
+      "license": "link-and-derived-classification-only"
+    }
+  ],
+  "candidates": [
+    {
+      "label": "婊子",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 25, "coldSafe": 1, "toxicnHarmful": 6, "toxicnSafe": 0, "nccuTokens": 0, "nccuConversations": 0},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Direct gendered abuse with independent corpus support and no occurrence in the standard conversation benchmark."
+    },
+    {
+      "label": "母狗",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 6, "coldSafe": 0, "toxicnHarmful": 13, "toxicnSafe": 0, "nccuTokens": 0, "nccuConversations": 0},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Dehumanizing gendered abuse with independent corpus support and no occurrence in the standard conversation benchmark."
+    },
+    {
+      "label": "廢物",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 18, "coldSafe": 0, "toxicnHarmful": 8, "toxicnSafe": 2, "nccuTokens": 6, "nccuConversations": 2},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Direct demeaning label; retained at normal rank after deliberate full pronunciation because it also occurs in conversation."
+    },
+    {
+      "label": "媽的",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 66, "coldSafe": 32, "toxicnHarmful": 10, "toxicnSafe": 2, "nccuTokens": 15, "nccuConversations": 8},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Profanity supported by a curated lexicon and both annotated corpora; exact deliberate entry remains unchanged."
+    },
+    {
+      "label": "他媽的",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 24, "coldSafe": 9, "toxicnHarmful": 2, "toxicnSafe": 0, "nccuTokens": 7, "nccuConversations": 4},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Profanity supported by a curated lexicon and annotated use; exact deliberate entry remains unchanged."
+    },
+    {
+      "label": "神經病",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 12, "coldSafe": 2, "toxicnHarmful": 2, "toxicnSafe": 3, "nccuTokens": 18, "nccuConversations": 8},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Frequently stigmatizing when offered unsolicited; full deliberate entry remains normal because discussion and self-reporting are legitimate."
+    },
+    {
+      "label": "統一",
+      "riskSources": ["mac-unification-statement-2019", "mac-unification-history", "prc-taiwan-white-paper-2022"],
+      "evidence": {"nccuTokens": 8, "nccuConversations": 4, "nccuStandaloneEverydayUsesAfterContextReview": 0},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Documented annexation framing; raw conversation matches are team names, examination language, a political quotation, or cross-boundary substrings rather than ordinary standalone utility."
+    },
+    {
+      "label": "統戰",
+      "riskSources": ["mac-unification-statement-2019", "mac-unification-history"],
+      "evidence": {"nccuTokens": 0, "nccuConversations": 0},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Documented political manipulation framing with no occurrence in the standard conversation benchmark."
+    },
+    {
+      "label": "祖國",
+      "riskSources": ["mac-unification-history", "prc-taiwan-white-paper-2022"],
+      "evidence": {"nccuTokens": 0, "nccuConversations": 0},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Identity-imposing framing in the documented Taiwan annexation narrative, absent from the standard conversation benchmark."
+    },
+    {
+      "label": "台獨",
+      "riskSources": ["mac-unification-history", "prc-taiwan-white-paper-2022"],
+      "evidence": {"nccuTokens": 3, "nccuConversations": 1},
+      "disposition": "weak-intent-soft-demotion",
+      "rationale": "Delegitimizing political label; exact deliberate entry remains unchanged for legitimate discussion."
+    },
+    {
+      "label": "同志",
+      "riskSources": ["toxicn-2023", "nccu-tm001-tm050"],
+      "evidence": {"nccuTokens": 1, "nccuConversations": 1},
+      "disposition": "no-change",
+      "rationale": "Identity and ordinary lexical use; a coded hostile use in one external source is insufficient."
+    },
+    {
+      "label": "通訊錄",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"nccuTokens": 0, "nccuConversations": 0},
+      "disposition": "no-change",
+      "rationale": "Ordinary contact-list meaning; coded hostile use must not control standalone suggestion policy."
+    },
+    {
+      "label": "聖母",
+      "riskSources": ["toxicn-2023", "cold-2022"],
+      "evidence": {"coldHarmful": 44, "coldSafe": 6, "toxicnHarmful": 23, "toxicnSafe": 0, "nccuTokens": 0, "nccuConversations": 0},
+      "disposition": "no-change",
+      "rationale": "Material religious and descriptive ambiguity prevents a high-confidence policy action."
+    },
+    {
+      "label": "垃圾",
+      "riskSources": ["toxicn-2023", "cold-2022", "nccu-tm001-tm050"],
+      "evidence": {"coldHarmful": 335, "coldSafe": 39, "toxicnHarmful": 55, "toxicnSafe": 3, "nccuTokens": 18, "nccuConversations": 5},
+      "disposition": "no-change",
+      "rationale": "High ordinary household utility and literal meaning outweigh hostile-context association."
+    }
+  ]
+}
