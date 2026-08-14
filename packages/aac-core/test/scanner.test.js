@@ -71,15 +71,60 @@ test("first cell advances to the second cell when available", () => {
   assert.equal(state.cellIndex, 1);
 });
 
-test("cell scanning wraps inside the selected row", () => {
+test("first empty cell pass repeats the selected row visibly", () => {
   const state = advanceScanner(
     createScannerState({ stage: ScanStage.Cells, rowIndex: 1, cellIndex: 3 }),
     rowSizes.length,
     columnCountForRow
   );
-  assert.equal(state.stage, ScanStage.Cells);
+  assert.equal(state.stage, ScanStage.FirstCell);
   assert.equal(state.rowIndex, 1);
   assert.equal(state.cellIndex, 0);
+  assert.equal(state.passIndex, 2);
+});
+
+test("second empty cell pass returns to the same row", () => {
+  const state = advanceScanner(
+    createScannerState({ stage: ScanStage.Cells, rowIndex: 1, cellIndex: 3, passIndex: 2 }),
+    rowSizes.length,
+    columnCountForRow
+  );
+  assert.equal(state.stage, ScanStage.Rows);
+  assert.equal(state.rowIndex, 1);
+  assert.equal(state.passIndex, 1);
+  assert.equal(state.cycleStartRowIndex, 1);
+  assert.equal(state.returningToRows, true);
+});
+
+test("second empty row pass stops scanning", () => {
+  const state = advanceScanner(
+    createScannerState({ rowIndex: 2, cycleStartRowIndex: 0, passIndex: 2 }),
+    rowSizes.length,
+    columnCountForRow
+  );
+  assert.equal(state.stage, ScanStage.Stopped);
+  assert.equal(state.rowIndex, 0);
+});
+
+test("activation while stopped resumes without selecting", () => {
+  const confirmation = confirmScanner(
+    createScannerState({ stage: ScanStage.Stopped, rowIndex: 2, passIndex: 2 }),
+    rowSizes.length,
+    columnCountForRow
+  );
+  assert.equal(confirmation.type, "none");
+  assert.deepEqual(confirmation.nextState, createScannerState());
+});
+
+test("unlimited attempts preserve continuous cell scanning", () => {
+  const state = advanceScanner(
+    createScannerState({ stage: ScanStage.Cells, rowIndex: 1, cellIndex: 3 }),
+    rowSizes.length,
+    columnCountForRow,
+    0
+  );
+  assert.equal(state.stage, ScanStage.FirstCell);
+  assert.equal(state.passIndex, 1);
 });
 
 test("early row activation is not remapped to a previous row", () => {

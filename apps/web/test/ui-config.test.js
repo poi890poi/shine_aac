@@ -45,3 +45,8 @@ test("review pause uses a calm grouped treatment without a progress fill", () =>
   assert.match(styles, /\.row\.review-hold-row \.tile\s*\{[\s\S]*?outline:\s*none;[\s\S]*?background:\s*#eef4f3/);
   assert.match(styles, /\.tile\.review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
 });
+
+test("stopped scanning is visually distinct from active scanning", () => {
+  assert.match(styles, /\.phase\[data-scan-phase="Stopped"\]\s*\{[\s\S]*?border:\s*2px solid/);
+  assert.match(styles, /\.scan-stopped \.board\s*\{[\s\S]*?opacity:/);
+});

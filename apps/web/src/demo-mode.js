@@ -3,6 +3,7 @@ import { InputIntent } from "./input.js";
 
 const demoStorageKey = "shine-aac-demo-mode";
 export const DemoMaximumScanIntervalMs = 600;
+export const DemoEscapeLadderPassLimit = 2;
 
 export function demoTimingConfig(baseConfig = {}) {
   return {
@@ -49,7 +50,8 @@ const wordOutputs = Object.freeze({
 const demoScenarios = Object.freeze({
   water: Object.freeze({
     steps: Object.freeze([
-      pause(5000),
+      escapeLadderDemo(),
+      pause(1800),
       ...sayWords(["I", "NEED", "HELP"], 5000),
       pause(6500),
       ...sayWords(["PAIN"], 5200),
@@ -101,7 +103,8 @@ const demoScenarios = Object.freeze({
   }),
   "zh-tw-home": Object.freeze({
     steps: Object.freeze([
-      pause(1800),
+      escapeLadderDemo(),
+      pause(800),
       ...zhTwPodcastMessage(),
       ...zhTwClearBreak(1600),
       ...zhTwMessage([
@@ -142,6 +145,7 @@ export function createDemoMode({
   let stopped = false;
   let runId = 0;
   let activationCount = 0;
+  let scanPassLimitOverride = null;
 
   function startFromEnvironment() {
     const scenarioId = scenarioIdFromEnvironment();
@@ -155,6 +159,7 @@ export function createDemoMode({
     active = true;
     stopped = false;
     activationCount = 0;
+    scanPassLimitOverride = DemoEscapeLadderPassLimit;
     resetSession();
     document.body.classList.add("demo-active");
     document.addEventListener("pointerdown", stopFromPointer, true);
@@ -166,6 +171,9 @@ export function createDemoMode({
       zhuyinCommits: 0,
       greedySuggestionSelections: 0,
       greedyCharacters: 0,
+      itemEscapeReturns: 0,
+      scanStops: 0,
+      wakeOnlyResumes: 0,
       timing: Object.freeze(demoTimingSnapshot())
     });
     runScenario(scenario, currentRunId).catch((error) => {
@@ -181,6 +189,7 @@ export function createDemoMode({
     stopped = true;
     active = false;
     runId += 1;
+    scanPassLimitOverride = null;
     document.body.classList.remove("demo-active");
     document.removeEventListener("pointerdown", stopFromPointer, true);
     refreshScanTiming?.();
@@ -188,6 +197,10 @@ export function createDemoMode({
 
   function isActive() {
     return active;
+  }
+
+  function scanPassLimit(configuredLimit) {
+    return scanPassLimitOverride ?? configuredLimit;
   }
 
   function stopFromPointer(event) {
@@ -203,6 +216,8 @@ export function createDemoMode({
       assertRunning(currentRunId);
       if (step.type === "pause") {
         await delay(step.ms);
+      } else if (step.type === "escape-ladder") {
+        await demonstrateEscapeLadder(currentRunId);
       } else if (step.type === "zh-tw-text") {
         await composeZhTwText(step, currentRunId);
       } else if (step.type === "spell-with-suggestions") {
@@ -214,6 +229,70 @@ export function createDemoMode({
       }
     }
     if (runId === currentRunId) stop();
+  }
+
+  async function demonstrateEscapeLadder(currentRunId) {
+    const messageBefore = getSession().message;
+    await waitForActivationWindow(
+      () => getSession().scannerState.stage === ScanStage.Rows,
+      currentRunId,
+      undefined,
+      "escape-ladder row"
+    );
+    receiveDemoInput();
+
+    await waitForScannerState(
+      (scanner) => scanner.stage === ScanStage.Rows && scanner.returningToRows,
+      currentRunId,
+      "item passes to return to rows"
+    );
+    recordEscapeLadderStat("itemEscapeReturns");
+
+    await waitForScannerState(
+      (scanner) => scanner.stage === ScanStage.Stopped,
+      currentRunId,
+      "row passes to stop scanning"
+    );
+    recordEscapeLadderStat("scanStops");
+    await delay(2200);
+    assertRunning(currentRunId);
+
+    receiveDemoInput();
+    await waitForScannerState(
+      (scanner) => scanner.stage === ScanStage.Rows && scanner.rowIndex === 0,
+      currentRunId,
+      "wake-only activation"
+    );
+    if (getSession().message !== messageBefore || getSession().lastSelection) {
+      throw new Error("Demo wake activation changed communication content");
+    }
+    recordEscapeLadderStat("wakeOnlyResumes");
+
+    scanPassLimitOverride = 0;
+    refreshScanTiming?.();
+    await delay(900);
+  }
+
+  async function waitForScannerState(predicate, currentRunId, description) {
+    const timeoutMs = Math.max(45000, demoActivationTimeoutMs());
+    const startedAt = performance.now();
+    while (performance.now() - startedAt < timeoutMs) {
+      assertRunning(currentRunId);
+      if (predicate(getSession().scannerState)) return;
+      await delay(10);
+    }
+    const scanner = getSession().scannerState;
+    throw new Error(
+      `Demo mode timed out waiting for ${description}; stage=${scanner.stage}; row=${scanner.rowIndex}; cell=${scanner.cellIndex}; pass=${scanner.passIndex}`
+    );
+  }
+
+  function recordEscapeLadderStat(name) {
+    const previous = globalThis.ShineAacDemoStats ?? {};
+    globalThis.ShineAacDemoStats = Object.freeze({
+      ...previous,
+      [name]: Number(previous[name] ?? 0) + 1
+    });
   }
 
   async function chooseTarget(target, currentRunId) {
@@ -508,7 +587,8 @@ export function createDemoMode({
     startFromEnvironment,
     start,
     stop,
-    isActive
+    isActive,
+    scanPassLimit
   });
 }
 
@@ -661,6 +741,10 @@ function actionTarget(action) {
 
 function pause(ms) {
   return Object.freeze({ type: "pause", ms });
+}
+
+function escapeLadderDemo() {
+  return Object.freeze({ type: "escape-ladder" });
 }
 
 function delay(ms) {

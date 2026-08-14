@@ -5,7 +5,8 @@ export const ScanStage = Object.freeze({
   Rows: "Rows",
   RowSelected: "RowSelected",
   FirstCell: "FirstCell",
-  Cells: "Cells"
+  Cells: "Cells",
+  Stopped: "Stopped"
 });
 
 export const TileAction = Object.freeze({
@@ -32,6 +33,7 @@ export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = DefaultScanIntervalMs;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
+export const DefaultScanPassLimit = 2;
 export const ScanTimingPresets = Object.freeze({
   default: Object.freeze({
     id: "default",
@@ -74,7 +76,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 25;
+export const CurrentConfigVersion = 26;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -710,6 +712,7 @@ export const LanguageProfiles = Object.freeze({
     transitionPauseMs: DefaultTransitionPauseMs,
     firstCellPauseMs: DefaultFirstCellPauseMs,
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
+    scanPassLimit: DefaultScanPassLimit,
     autoSpace: AutoSpaceMode.Word,
     speechLocale: "en-US",
     suggestionDictionary: DefaultSuggestionDictionary,
@@ -724,6 +727,7 @@ export const LanguageProfiles = Object.freeze({
     transitionPauseMs: DefaultTransitionPauseMs,
     firstCellPauseMs: DefaultFirstCellPauseMs,
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
+    scanPassLimit: DefaultScanPassLimit,
     autoSpace: AutoSpaceMode.None,
     speechLocale: "zh-TW",
     suggestionDictionary: ZhTwSuggestionDictionary,
@@ -749,7 +753,8 @@ export function createBoardConfig(overrides = {}) {
     inputLatencyCompensationMs: profile.inputLatencyCompensationMs,
     suggestionDictionary: profile.suggestionDictionary,
     symbols: profile.symbols,
-    ...safeOverrides
+    ...safeOverrides,
+    scanPassLimit: normalizeScanPassLimit(safeOverrides.scanPassLimit ?? profile.scanPassLimit)
   };
 }
 
@@ -2057,32 +2062,86 @@ export function createScannerState(overrides = {}) {
     stage: ScanStage.Rows,
     rowIndex: 0,
     cellIndex: 0,
+    passIndex: 1,
+    cycleStartRowIndex: 0,
+    returningToRows: false,
     ...overrides
   };
 }
 
-export function advanceScanner(state, rowCount, columnCountForRow) {
+export function advanceScanner(state, rowCount, columnCountForRow, scanPassLimit = DefaultScanPassLimit) {
   if (rowCount <= 0) return state;
+  const passLimit = normalizeScanPassLimit(scanPassLimit);
+  const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
   switch (state.stage) {
-    case ScanStage.Rows:
+    case ScanStage.Rows: {
+      const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
+      const cycleStartRowIndex = clampInt(state.cycleStartRowIndex, 0, rowCount - 1);
+      const nextRowIndex = nextSelectableRow(safeRow, rowCount, columnCountForRow);
+      const completedPass = nextRowIndex === cycleStartRowIndex;
+      if (completedPass && passLimit > 0 && passIndex >= passLimit) {
+        return createScannerState({
+          stage: ScanStage.Stopped,
+          rowIndex: cycleStartRowIndex,
+          cycleStartRowIndex
+        });
+      }
       return {
         ...state,
-        rowIndex: nextSelectableRow(state.rowIndex, rowCount, columnCountForRow),
-        cellIndex: 0
+        rowIndex: nextRowIndex,
+        cellIndex: 0,
+        passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
+        cycleStartRowIndex,
+        returningToRows: false
       };
+    }
     case ScanStage.RowSelected:
-      return { ...state, stage: ScanStage.FirstCell, cellIndex: 0 };
+      return { ...state, stage: ScanStage.FirstCell, cellIndex: 0, passIndex: 1, returningToRows: false };
     case ScanStage.FirstCell: {
       const columns = Math.max(1, columnCountForRow(state.rowIndex));
+      if (columns === 1) {
+        return advanceCompletedCellPass(state, passLimit);
+      }
       return { ...state, stage: ScanStage.Cells, cellIndex: columns === 1 ? 0 : 1 };
     }
     case ScanStage.Cells: {
       const columns = Math.max(1, columnCountForRow(state.rowIndex));
-      return { ...state, cellIndex: floorMod(state.cellIndex + 1, columns) };
+      if (state.cellIndex >= columns - 1) {
+        return advanceCompletedCellPass(state, passLimit);
+      }
+      return { ...state, cellIndex: state.cellIndex + 1 };
     }
+    case ScanStage.Stopped:
+      return state;
     default:
       return state;
   }
+}
+
+function advanceCompletedCellPass(state, passLimit) {
+  const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
+  if (passLimit > 0 && passIndex >= passLimit) {
+    const rowIndex = Math.max(0, state.rowIndex);
+    return createScannerState({
+      stage: ScanStage.Rows,
+      rowIndex,
+      cycleStartRowIndex: rowIndex,
+      returningToRows: true
+    });
+  }
+  return {
+    ...state,
+    stage: ScanStage.FirstCell,
+    cellIndex: 0,
+    passIndex: passLimit > 0 ? passIndex + 1 : passIndex,
+    returningToRows: false
+  };
+}
+
+export function normalizeScanPassLimit(value) {
+  const numeric = Number(value);
+  if (numeric === 0) return 0;
+  return clampInt(Number.isFinite(numeric) ? numeric : DefaultScanPassLimit, 1, 3);
 }
 
 export function confirmScanner(state, rowCount, columnCountForRow) {
@@ -2092,14 +2151,18 @@ export function confirmScanner(state, rowCount, columnCountForRow) {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
       return {
         type: "none",
-        nextState: { ...state, stage: ScanStage.RowSelected, rowIndex: safeRow, cellIndex: 0 }
+        nextState: createScannerState({
+          stage: ScanStage.RowSelected,
+          rowIndex: safeRow,
+          cycleStartRowIndex: safeRow
+        })
       };
     }
     case ScanStage.RowSelected: {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
       return {
         type: "none",
-        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cellIndex: 0 })
+        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cycleStartRowIndex: safeRow })
       };
     }
     case ScanStage.FirstCell: {
@@ -2108,7 +2171,7 @@ export function confirmScanner(state, rowCount, columnCountForRow) {
         type: "selected",
         rowIndex: safeRow,
         cellIndex: 0,
-        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cellIndex: 0 })
+        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cycleStartRowIndex: safeRow })
       };
     }
     case ScanStage.Cells: {
@@ -2118,9 +2181,11 @@ export function confirmScanner(state, rowCount, columnCountForRow) {
         type: "selected",
         rowIndex: safeRow,
         cellIndex: clampInt(state.cellIndex, 0, columns - 1),
-        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cellIndex: 0 })
+        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cycleStartRowIndex: safeRow })
       };
     }
+    case ScanStage.Stopped:
+      return { type: "none", nextState: createScannerState() };
     default:
       return { type: "none", nextState: state };
   }
@@ -2241,13 +2306,20 @@ export function visibleBoard(session) {
   return withLockedRow(rows, session.scannerState, session.lockedRow);
 }
 
-export function advanceSession(session) {
+export function advanceSession(session, scanPassLimit = session.config.scanPassLimit) {
   const rows = visibleBoard(session);
-  const nextState = advanceScanner(session.scannerState, rows.length, (row) => selectableCount(rows[row]));
+  const nextState = advanceScanner(
+    session.scannerState,
+    rows.length,
+    (row) => selectableCount(rows[row]),
+    scanPassLimit
+  );
   return {
     ...session,
     scannerState: nextState,
-    lockedRow: nextState.stage === ScanStage.Rows ? null : session.lockedRow,
+    lockedRow: nextState.stage === ScanStage.Rows || nextState.stage === ScanStage.Stopped
+      ? null
+      : session.lockedRow,
     lastSelection: null
   };
 }
@@ -2484,7 +2556,13 @@ function* zhTwConfiguredSuggestionCandidates(dictionary) {
 }
 
 export function withLockedRow(rows, scannerState, lockedRow) {
-  if (!lockedRow || scannerState.stage === ScanStage.Rows || scannerState.rowIndex < 0 || scannerState.rowIndex >= rows.length) {
+  if (
+    !lockedRow ||
+    scannerState.stage === ScanStage.Rows ||
+    scannerState.stage === ScanStage.Stopped ||
+    scannerState.rowIndex < 0 ||
+    scannerState.rowIndex >= rows.length
+  ) {
     return rows;
   }
   if (rows[scannerState.rowIndex] === lockedRow) return rows;
@@ -2493,6 +2571,8 @@ export function withLockedRow(rows, scannerState, lockedRow) {
 
 export function scanDurationForStage(state, config = createBoardConfig()) {
   switch (state.stage) {
+    case ScanStage.Rows:
+      return state.returningToRows ? config.firstCellPauseMs : config.scanIntervalMs;
     case ScanStage.RowSelected:
       return config.transitionPauseMs;
     case ScanStage.FirstCell:

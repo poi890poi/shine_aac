@@ -8,6 +8,7 @@ import {
   applyScanTimingPreset,
   boardRows,
   createBoardConfig,
+  createScannerState,
   createSession,
   compactTextHistorySnapshots,
   loadProfileColumnsForConfig,
@@ -169,6 +170,12 @@ globalThis.ShineAacSpeechVoices = Object.freeze({
   }
 });
 
+function normalizeStoredScanPassLimit(value, fallback = 2) {
+  if (Number(value) === 0) return 0;
+  const numeric = Number(value);
+  return clamp(Number.isFinite(numeric) ? numeric : fallback, 1, 3);
+}
+
 function loadConfig() {
   const defaults = createBoardConfig({ profileId: initialProductProfileId });
   const nativeConfig = loadNativeConfig(defaults);
@@ -206,6 +213,7 @@ function loadConfig() {
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
       ),
+      scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, profileDefaults.scanPassLimit),
       suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
         stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
         storedVersion,
@@ -251,7 +259,8 @@ function loadNativeConfig(defaults) {
       inputLatencyCompensationMs: numberOrDefault(
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
-      )
+      ),
+      scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, defaults.scanPassLimit)
     });
   } catch {
     return null;
@@ -267,6 +276,7 @@ function saveConfig(config) {
     transitionPauseMs: config.transitionPauseMs,
     firstCellPauseMs: config.firstCellPauseMs,
     inputLatencyCompensationMs: config.inputLatencyCompensationMs,
+    scanPassLimit: config.scanPassLimit,
     suggestionDictionary: serializeDictionary(config.suggestionDictionary),
     symbols: serializeSymbols(config.symbols)
   }));
@@ -607,6 +617,8 @@ function resetClock() {
 }
 
 function setSession(nextSession) {
+  const previousStage = session.scannerState.stage;
+  const previousPassIndex = session.scannerState.passIndex;
   session = nextSession;
   reviewHoldActive = false;
   cameraHoldActive = false;
@@ -614,6 +626,7 @@ function setSession(nextSession) {
   render();
   resetClock();
   scheduleScan();
+  announceScanTransition(previousStage, previousPassIndex);
   announceCurrentScanTarget();
 }
 
@@ -674,12 +687,7 @@ function activateSwitch(inputEvent = {}) {
   session = (uiConfig.restartScanFromTop && selection) || shouldHold
     ? {
       ...nextSession,
-      scannerState: {
-        ...nextSession.scannerState,
-        stage: ScanStage.Rows,
-        rowIndex: 0,
-        cellIndex: 0
-      },
+      scannerState: createScannerState(),
       lockedRow: null
     }
     : nextSession;
@@ -736,14 +744,18 @@ function endCameraHold(inputEvent = {}) {
 
 function advanceScan() {
   if (configOpen || cameraHoldActive) return;
-  const nextSession = pendingAdvanceSession ?? advanceSession(session);
+  const nextSession = pendingAdvanceSession ?? advanceEffectiveSession();
   pendingAdvanceSession = null;
   setSession(nextSession);
 }
 
+function advanceEffectiveSession() {
+  return advanceSession(session, demoMode.scanPassLimit(session.config.scanPassLimit));
+}
+
 function scheduleScan() {
   cancelScheduledScan();
-  if (configOpen || cameraHoldActive) return;
+  if (configOpen || cameraHoldActive || session.scannerState.stage === ScanStage.Stopped) return;
   if (reviewHoldActive) {
     setProgressFills(1, 0);
     return;
@@ -756,7 +768,12 @@ function scheduleScan() {
 
 function resumeScanFromProgress(progress) {
   cancelScheduledScan();
-  if (configOpen || reviewHoldActive || cameraHoldActive) return;
+  if (
+    configOpen ||
+    reviewHoldActive ||
+    cameraHoldActive ||
+    session.scannerState.stage === ScanStage.Stopped
+  ) return;
   const duration = scanDurationForStage(session.scannerState, effectiveTimingConfigForScan());
   const clampedProgress = clamp(progress, 0, 0.98);
   const remainingMs = Math.max(1, duration * (1 - clampedProgress));
@@ -769,7 +786,7 @@ function resumeScanFromProgress(progress) {
   timerId = window.setTimeout(advanceScan, remainingMs);
   prepareAdvanceTimerId = window.setTimeout(() => {
     if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
-    pendingAdvanceSession = advanceSession(session);
+    pendingAdvanceSession = advanceEffectiveSession();
   }, 0);
 }
 
@@ -795,7 +812,7 @@ function startScanClock(duration, token) {
   setProgressFills(1, remainingMs);
   prepareAdvanceTimerId = window.setTimeout(() => {
     if (token !== scanScheduleToken || configOpen || reviewHoldActive || cameraHoldActive) return;
-    pendingAdvanceSession = advanceSession(session);
+    pendingAdvanceSession = advanceEffectiveSession();
   }, 0);
 }
 
@@ -967,9 +984,11 @@ function announceCurrentScanTarget() {
   if (configOpen) return;
   const board = visibleBoard(session);
   const scanner = session.scannerState;
-  const key = `${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}`;
+  const key = `${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}:${scanner.passIndex}`;
   if (key === lastScanAnnouncementKey) return;
   lastScanAnnouncementKey = key;
+
+  if (scanner.stage === ScanStage.Stopped) return;
 
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     if (!uiConfig.rowScanVoice) return;
@@ -988,6 +1007,22 @@ function announceCurrentScanTarget() {
   if (!uiConfig.scanVoice) return;
   const tile = board[scanner.rowIndex]?.[scanner.cellIndex];
   if (tile) speakFeedback(labelForSpeech(tile), isZhuyinSpeechTile(tile));
+}
+
+function announceScanTransition(previousStage, previousPassIndex) {
+  if (!uiConfig.rowScanVoice && !uiConfig.scanVoice) return;
+  const scanner = session.scannerState;
+  if (scanner.stage === ScanStage.Stopped && previousStage !== ScanStage.Stopped) {
+    speakFeedback(uiText("Scanning stopped. Press switch to resume.", "掃描已停止。按下開關即可繼續。"));
+    return;
+  }
+  if (scanner.returningToRows) {
+    speakFeedback(uiText("Back to rows", "返回選列"));
+    return;
+  }
+  if (scanner.passIndex > previousPassIndex) {
+    speakFeedback(uiText("Scanning again", "再次掃描"));
+  }
 }
 
 function labelForSpeech(tile) {
@@ -1054,8 +1089,8 @@ function renderFull(board, boardKey) {
   phase.className = "phase";
   phase.setAttribute("role", "status");
   phase.setAttribute("aria-live", "polite");
-  phase.textContent = statusPhaseLabel(scanner.stage);
-  phase.dataset.scanPhase = statusPhaseCode(scanner.stage);
+  phase.textContent = statusPhaseLabel(scanner);
+  phase.dataset.scanPhase = statusPhaseCode(scanner);
   renderedPhaseElement = phase;
 
   const voice = document.createElement("div");
@@ -1167,10 +1202,11 @@ function renderFull(board, boardKey) {
 
 function updateScanPresentation(board) {
   const scanner = session.scannerState;
+  document.body.classList.toggle("scan-stopped", scanner.stage === ScanStage.Stopped);
   const nextProgressTargetKey = progressTargetKeyForScanner(scanner, reviewHoldActive);
   if (renderedPhaseElement) {
-    renderedPhaseElement.textContent = statusPhaseLabel(scanner.stage);
-    renderedPhaseElement.dataset.scanPhase = statusPhaseCode(scanner.stage);
+    renderedPhaseElement.textContent = statusPhaseLabel(scanner);
+    renderedPhaseElement.dataset.scanPhase = statusPhaseCode(scanner);
   }
   if (renderedVoiceElement) {
     renderedVoiceElement.textContent = voiceStatusLabel();
@@ -1222,6 +1258,7 @@ function updateScanPresentation(board) {
 }
 
 function activeRenderedTilesForScanner(scanner) {
+  if (scanner.stage === ScanStage.Stopped) return [];
   const row = renderedTileGrid[scanner.rowIndex] ?? [];
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     return row;
@@ -1231,6 +1268,7 @@ function activeRenderedTilesForScanner(scanner) {
 }
 
 function progressTargetKeyForScanner(scanner, isReviewHold) {
+  if (scanner.stage === ScanStage.Stopped) return "stopped";
   const prefix = isReviewHold ? "review" : "scan";
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     return `${prefix}:${scanner.stage}:${scanner.rowIndex}`;
@@ -1509,33 +1547,43 @@ function appendVisibleMessage(container, value) {
   }
 }
 
-function phaseLabel(stage) {
+function phaseLabel(scanner) {
   const zhTw = session.config.profileId === "zh-TW";
-  switch (stage) {
+  const passLimit = demoMode.scanPassLimit(session.config.scanPassLimit);
+  const passSuffix = passLimit === 0
+    ? (zhTw ? " · 持續" : " · Continuous")
+    : (zhTw
+      ? ` · 第 ${Math.max(1, scanner.passIndex)} / ${passLimit} 次`
+      : ` · Pass ${Math.max(1, scanner.passIndex)} / ${passLimit}`);
+  switch (scanner.stage) {
     case ScanStage.Rows:
-      return zhTw ? "目前：選列" : "Now: select row";
+      if (scanner.returningToRows) {
+        return zhTw ? `返回選列${passSuffix}` : `Back to rows${passSuffix}`;
+      }
+      return zhTw ? `選列中${passSuffix}` : `Scanning rows${passSuffix}`;
     case ScanStage.RowSelected:
       return zhTw ? "再按一次取消" : "Press again to cancel";
     case ScanStage.FirstCell:
-      return zhTw ? "目前：選格" : "Now: select item";
     case ScanStage.Cells:
-      return zhTw ? "目前：選格" : "Now: select item";
+      return zhTw ? `選格中${passSuffix}` : `Scanning items${passSuffix}`;
+    case ScanStage.Stopped:
+      return zhTw ? "掃描已停止 · 按下開關即可繼續" : "Scanning stopped · Press switch to resume";
     default:
       return "";
   }
 }
 
-function statusPhaseLabel(stage) {
+function statusPhaseLabel(scanner) {
   const zhTw = session.config.profileId === "zh-TW";
   if (cameraHoldActive) return zhTw ? "眨眼確認中" : "Blink detected";
   if (reviewHoldActive) return zhTw ? "暫停確認" : "Review pause";
-  return phaseLabel(stage);
+  return phaseLabel(scanner);
 }
 
-function statusPhaseCode(stage) {
+function statusPhaseCode(scanner) {
   if (cameraHoldActive) return "Blink";
   if (reviewHoldActive) return "Review";
-  return phaseCode(stage);
+  return phaseCode(scanner.stage);
 }
 
 function phaseCode(stage) {
@@ -1548,6 +1596,8 @@ function phaseCode(stage) {
       return "First";
     case ScanStage.Cells:
       return "Symbols";
+    case ScanStage.Stopped:
+      return "Stopped";
     default:
       return "";
   }
@@ -1584,12 +1634,7 @@ function closeConfig({ holdFirstRow = true } = {}) {
   if (holdFirstRow) {
     session = {
       ...session,
-      scannerState: {
-        ...session.scannerState,
-        stage: ScanStage.Rows,
-        rowIndex: 0,
-        cellIndex: 0
-      },
+      scannerState: createScannerState(),
       lockedRow: null
     };
   }
@@ -1788,6 +1833,11 @@ function renderConfig() {
       <label class="field">${uiText("Latency compensation ms", "輸入延遲補償（毫秒）")}
         <input name="inputLatencyCompensationMs" type="number" min="0" max="1200" step="25" value="${session.config.inputLatencyCompensationMs}">
       </label>
+      <label class="field">${uiText("Scan attempts before leaving", "離開前掃描次數")}
+        <select name="scanPassLimit">
+          ${scanPassLimitOptionsHtml(session.config.scanPassLimit)}
+        </select>
+      </label>
       <label class="field check-field">
         <input name="rowScanVoice" type="checkbox" ${uiConfig.rowScanVoice ? "checked" : ""}>
         ${uiText("Voice while row scanning", "選列時朗讀")}
@@ -1836,6 +1886,7 @@ function renderConfig() {
     form.elements.transitionPauseMs.value = String(profile.transitionPauseMs);
     form.elements.firstCellPauseMs.value = String(profile.firstCellPauseMs);
     form.elements.inputLatencyCompensationMs.value = String(profile.inputLatencyCompensationMs);
+    form.elements.scanPassLimit.value = String(profile.scanPassLimit);
     form.elements.scanTimingPreset.value = "default";
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
@@ -1915,6 +1966,7 @@ function renderConfig() {
       transitionPauseMs: clamp(Number(data.get("transitionPauseMs")), 0, 4000),
       firstCellPauseMs: clamp(Number(data.get("firstCellPauseMs")), 300, 6000),
       inputLatencyCompensationMs: clamp(Number(data.get("inputLatencyCompensationMs")), 0, 1200),
+      scanPassLimit: normalizeStoredScanPassLimit(data.get("scanPassLimit"), 2),
       suggestionDictionary: profile.id === "zh-TW"
         ? profile.suggestionDictionary
         : parseDictionary(String(data.get("suggestionDictionary") ?? "")),
@@ -2407,6 +2459,20 @@ function scanTimingPresetOptionsHtml(config) {
     presetOptions.push(`<option value="custom" selected>${uiText("Custom", "自訂")}</option>`);
   }
   return presetOptions.join("");
+}
+
+function scanPassLimitOptionsHtml(selectedLimit) {
+  return [
+    [1, uiText("1 attempt", "1 次")],
+    [2, uiText("2 attempts (recommended)", "2 次（建議）")],
+    [3, uiText("3 attempts", "3 次")],
+    [0, uiText("Never leave automatically", "永不自動離開")]
+  ]
+    .map(([value, label]) => {
+      const selected = Number(selectedLimit) === value ? " selected" : "";
+      return `<option value="${value}"${selected}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
 }
 
 function switchInputProfileOptionsHtml(selectedProfile) {

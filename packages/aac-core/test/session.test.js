@@ -121,6 +121,49 @@ test("positive transition pause keeps the row-selected escape state available wh
   assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["THE", "TO", "OF", "AND"]);
 });
 
+test("two missed item passes return to the selected row without changing the message", () => {
+  let session = pressSwitch(createSession(), 1000);
+  const selectedRow = session.scannerState.rowIndex;
+  const itemCount = visibleBoard(session)[selectedRow].filter((candidate) => candidate.action !== "noop").length;
+
+  for (let step = 0; step < itemCount * 2; step += 1) {
+    session = advanceSession(session);
+  }
+
+  assert.equal(session.scannerState.stage, ScanStage.Rows);
+  assert.equal(session.scannerState.rowIndex, selectedRow);
+  assert.equal(session.scannerState.returningToRows, true);
+  assert.equal(session.message, "");
+});
+
+test("two missed board passes stop and the next activation only resumes", () => {
+  let session = createSession();
+  const rowCount = visibleBoard(session).filter((row) => row.some((candidate) => candidate.action !== "noop")).length;
+
+  for (let step = 0; step < rowCount * 2; step += 1) {
+    session = advanceSession(session);
+  }
+
+  assert.equal(session.scannerState.stage, ScanStage.Stopped);
+  session = pressSwitch(session, 1000);
+  assert.equal(session.scannerState.stage, ScanStage.Rows);
+  assert.equal(session.scannerState.rowIndex, 0);
+  assert.equal(session.lastSelection, null);
+  assert.equal(session.message, "");
+});
+
+test("a temporary pass limit can drive a demo without changing saved session configuration", () => {
+  let session = createSession({ config: createBoardConfig({ scanPassLimit: 0 }) });
+  const rowCount = visibleBoard(session).filter((row) => row.some((candidate) => candidate.action !== "noop")).length;
+
+  for (let step = 0; step < rowCount * 2; step += 1) {
+    session = advanceSession(session, 2);
+  }
+
+  assert.equal(session.scannerState.stage, ScanStage.Stopped);
+  assert.equal(session.config.scanPassLimit, 0);
+});
+
 test("undo repairs the previous message state with one selection", () => {
   let session = createSession({ message: "I want", messageHistory: ["", "I", "I "] });
   session = selectSuggestionCell(session, 0);

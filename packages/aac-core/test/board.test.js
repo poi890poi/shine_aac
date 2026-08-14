@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   CurrentConfigVersion,
   DefaultFirstCellPauseMs,
+  DefaultScanPassLimit,
   DefaultScanIntervalMs,
   DefaultSuggestionDictionary,
   DefaultTiles,
@@ -894,6 +895,12 @@ test("zh-TW relies on localized undo without a separate composition-clear comman
   assert.equal(multipleSuggestions.some((candidate) => candidate.label === "重選"), false);
   assert.equal(multipleSuggestions[0].label, "復原");
   assert.equal(speechLabelForTile(multipleSuggestions[0], "zh-TW"), "復原");
+});
+
+test("boards default to two visible scan attempts and preserve explicit limits", () => {
+  assert.equal(createBoardConfig().scanPassLimit, DefaultScanPassLimit);
+  assert.equal(createBoardConfig({ scanPassLimit: 3 }).scanPassLimit, 3);
+  assert.equal(createBoardConfig({ scanPassLimit: 0 }).scanPassLimit, 0);
 });
 
 test("zh-TW undo removes a trailing Zhuyin buffer one selection at a time", () => {

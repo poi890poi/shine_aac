@@ -590,6 +590,7 @@ class MainActivity : ComponentActivity() {
                 .put("transitionPauseMs", prefs.getFloat("transitionPauseMs", DefaultTransitionPauseMs).toDouble())
                 .put("firstCellPauseMs", prefs.getFloat("firstCellPauseMs", DefaultFirstCellPauseMs).toDouble())
                 .put("inputLatencyCompensationMs", prefs.getFloat("inputLatencyCompensationMs", 250f).toDouble())
+                .put("scanPassLimit", prefs.getInt("scanPassLimit", DefaultScanPassLimit))
                 .toString()
         }
 
@@ -748,10 +749,11 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
-        const val CurrentConfigVersion = 24
+        const val CurrentConfigVersion = 26
         const val DefaultScanIntervalMs = 1800f
         const val DefaultTransitionPauseMs = 0f
         const val DefaultFirstCellPauseMs = DefaultScanIntervalMs
+        const val DefaultScanPassLimit = 2
         const val MaxTextHistoryExportChars = 500_000
         const val MaxSessionDraftJsonChars = 100_000
         const val SessionDraftPreferences = "shine_aac_session_draft"

@@ -1,18 +1,18 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-13T14:29:33.359Z
+Generated: 2026-08-13T15:53:11.544Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| packaged-webview-build | PASS | built Android WebView assets with esbuild |
-| server | PASS | served http://127.0.0.1:5193/app/build/generated/assets/shineWeb/www/apps/web/ |
+| server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.19999998807907,"resetTargetToProgressMs":25.400000035762787,"rowDeadlineDriftMs":-15.900000035762787,"nextRowTargetToProgressMs":33.10000002384186,"activationToTargetMs":1.399999976158142,"activationTargetToProgressMs":32.19999998807907,"firstDeadlineDriftMs":-20.299999952316284,"secondTargetToProgressMs":19,"laterDeadlineDriftMs":-15.900000035762787,"thirdTargetToProgressMs":33.30000001192093,"selectionToHoldMs":4,"holdReleaseToTargetMs":0.5,"selectionTargetToProgressMs":32.30000001192093} |
+| visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.80000001192093,"resetTargetToProgressMs":33.39999997615814,"rowDeadlineDriftMs":-31.899999976158142,"nextRowTargetToProgressMs":30.599999964237213,"activationToTargetMs":1.100000023841858,"activationTargetToProgressMs":31.799999952316284,"firstDeadlineDriftMs":-21.899999976158142,"secondTargetToProgressMs":21.600000023841858,"laterDeadlineDriftMs":-18.600000023841858,"thirdTargetToProgressMs":19,"selectionToHoldMs":4.100000023841858,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":32.5} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -31,7 +31,7 @@ Result: PASS
 | text-export-result | PASS | shows the saved filename, opens the exact Android document directly, and reports write failures |
 | speech-voice-settings | PASS | uses a dedicated accessible list with engine, ready/downloadable states, inline preview, immediate selection, and refresh |
 | back-navigation | PASS | system back contract returns App Info and Input Test to Configuration, then Configuration to the board |
-| demo-mode | PASS | activation resets state, uses unsaved 600 ms timing, preserves accessibility settings, and tap exits it |
+| demo-mode | PASS | visibly demonstrates item escape, stopped scanning, and wake-only resume before communication; preserves accessibility settings |
 | pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | tablet-portrait-layout | PASS | fits 13 rows in 1280px viewport without scrolling |
 | tablet-portrait-layout-config-actions | PASS | config action bar remains reachable |

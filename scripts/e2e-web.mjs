@@ -130,7 +130,8 @@ try {
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       uiConfigVersion: 1,
@@ -168,6 +169,8 @@ try {
     process.exitCode = 0;
     return;
   }
+
+  if (!timingOnlyMode) await scenarioVisibleEscapeLadder();
 
   await scenarioStrictScanTiming();
   if (timingOnlyMode) {
@@ -280,7 +283,8 @@ async function scenarioStrictScanTiming() {
       scanIntervalMs: 600,
       transitionPauseMs: 0,
       firstCellPauseMs: 600,
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       uiConfigVersion: 1,
@@ -508,7 +512,8 @@ async function scenarioCumulativeScanTiming() {
       scanIntervalMs: ${intervalMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${intervalMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       uiConfigVersion: 1,
@@ -729,7 +734,8 @@ async function scenarioFirstColumnProgressTiming() {
       scanIntervalMs: 1200,
       transitionPauseMs: 0,
       firstCellPauseMs: 1800,
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -793,7 +799,8 @@ async function scenarioFirstColumnProgressTiming() {
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     location.reload();
   `);
@@ -808,7 +815,8 @@ async function scenarioCameraHoldPausesScan() {
       scanIntervalMs: 1200,
       transitionPauseMs: 0,
       firstCellPauseMs: 1200,
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -865,7 +873,8 @@ async function scenarioCameraHoldPausesScan() {
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -886,7 +895,8 @@ async function scenarioCameraHoldActivationIsImmediate() {
       scanIntervalMs: 1200,
       transitionPauseMs: 0,
       firstCellPauseMs: 1200,
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -929,7 +939,8 @@ async function scenarioCameraHoldActivationIsImmediate() {
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -1146,7 +1157,8 @@ async function scenarioReviewHold() {
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       uiConfigVersion: 1,
@@ -1190,7 +1202,8 @@ async function scenarioReviewHold() {
         scanIntervalMs: ${BrowserSmokeScanMs},
         transitionPauseMs: 0,
         firstCellPauseMs: ${BrowserSmokeScanMs},
-        inputLatencyCompensationMs: 0
+        inputLatencyCompensationMs: 0,
+        scanPassLimit: 0
       }));
     }
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
@@ -1224,7 +1237,8 @@ async function scenarioTabletViewportCompatibility() {
         scanIntervalMs: ${BrowserSmokeScanMs},
         transitionPauseMs: 0,
         firstCellPauseMs: ${BrowserSmokeScanMs},
-        inputLatencyCompensationMs: 0
+        inputLatencyCompensationMs: 0,
+        scanPassLimit: 0
       }));
       localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
         rowScanVoice: false,
@@ -1266,6 +1280,7 @@ async function scenarioLargeTextLabelCompatibility() {
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0,
+      scanPassLimit: 0,
       symbols: [
         "I", "WANT", "WATER", "HELP",
         "YES", "NO", "TALK", "TOILET",
@@ -1346,6 +1361,7 @@ async function scenarioLongEnglishSuggestionSpans() {
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0,
+      scanPassLimit: 0,
       suggestionDictionary: [
         "ACCESSIBILITY=accessibility",
         "ACCESSIBLE=accessible",
@@ -1739,7 +1755,8 @@ async function scenarioDeveloperDemoMode() {
       scanIntervalMs: 1800,
       transitionPauseMs: 0,
       firstCellPauseMs: 2400,
-      inputLatencyCompensationMs: 250
+      inputLatencyCompensationMs: 250,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -1793,17 +1810,29 @@ async function scenarioDeveloperDemoMode() {
   }
   const storedDraft = await evaluate(`localStorage.getItem("shine-aac-session-draft-v1")`);
   if (storedDraft !== null) throw new Error(`Demo activation should clear the saved draft, got ${storedDraft}`);
-  await assertMessage("I need help ", 60000);
+  await assertMessage("I need help ", 90000);
+  const ladderStats = await evaluate(`globalThis.ShineAacDemoStats ?? {}`);
+  if (
+    ladderStats.itemEscapeReturns !== 1 ||
+    ladderStats.scanStops !== 1 ||
+    ladderStats.wakeOnlyResumes !== 1
+  ) {
+    throw new Error(`Demo did not complete the visible escape ladder: ${JSON.stringify(ladderStats)}`);
+  }
   await delay(3000);
   if (!await isDemoActive()) throw new Error("Rich demo should remain active after the first utterance");
   snapshot = await getSnapshot();
   await clickTarget(snapshot.activeRow ?? snapshot.activeCell);
   await waitForDemoInactive();
   const storedConfigAfterDemo = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1"))`);
-  if (storedConfigAfterDemo.scanIntervalMs !== 1800 || storedConfigAfterDemo.firstCellPauseMs !== 2400) {
+  if (
+    storedConfigAfterDemo.scanIntervalMs !== 1800 ||
+    storedConfigAfterDemo.firstCellPauseMs !== 2400 ||
+    storedConfigAfterDemo.scanPassLimit !== 0
+  ) {
     throw new Error(`Stopping Demo should preserve saved accessibility timing: ${JSON.stringify(storedConfigAfterDemo)}`);
   }
-  steps.push(pass("demo-mode", "activation resets state, uses unsaved 600 ms timing, preserves accessibility settings, and tap exits it"));
+  steps.push(pass("demo-mode", "visibly demonstrates item escape, stopped scanning, and wake-only resume before communication; preserves accessibility settings"));
 }
 
 async function scenarioZhTwHomeDemoMode() {
@@ -1815,7 +1844,8 @@ async function scenarioZhTwHomeDemoMode() {
       scanIntervalMs: ${BrowserSmokeScanMs},
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
-      inputLatencyCompensationMs: 0
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
     }));
     localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
       rowScanVoice: false,
@@ -1855,6 +1885,7 @@ async function scenarioZhTwLayoutMigration() {
       transitionPauseMs: 0,
       firstCellPauseMs: ${BrowserSmokeScanMs},
       inputLatencyCompensationMs: 0,
+      scanPassLimit: 0,
       suggestionDictionary: [
         "我要喝水",
         "我要吃飯",
@@ -2433,6 +2464,84 @@ async function findLabel(label, { rowIndex, occurrence = 0 } = {}) {
   const match = matches[index];
   if (!match) throw new Error(`Could not find label ${label}`);
   return match;
+}
+
+async function scenarioVisibleEscapeLadder() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 26,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: 120,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 300,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 2
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
+
+  const stopped = await waitForActive(
+    (snapshot) => snapshot.phase === "Stopped",
+    "bounded row scanning to stop",
+    5000
+  );
+  const stoppedUi = await evaluate(`({
+    label: document.querySelector(".phase")?.textContent ?? "",
+    highlighted: document.querySelectorAll(".tile.is-current").length,
+    stoppedClass: document.body.classList.contains("scan-stopped")
+  })`);
+  if (
+    stopped.message !== "" ||
+    stoppedUi.label !== "Scanning stopped · Press switch to resume" ||
+    stoppedUi.highlighted !== 0 ||
+    !stoppedUi.stoppedClass
+  ) {
+    throw new Error(`Stopped scan state is not explicit and inert: ${JSON.stringify({ stopped, stoppedUi })}`);
+  }
+
+  await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "escape-ladder-e2e" })`);
+  const resumed = await waitForActive(
+    (snapshot) => snapshot.phase === "Rows" && snapshot.activeRow?.rowIndex === 0,
+    "wake activation to resume without selection"
+  );
+  if (resumed.message !== "") throw new Error(`Wake activation selected content: ${JSON.stringify(resumed)}`);
+
+  await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "escape-ladder-e2e" })`);
+  const returned = await waitForActive(
+    (snapshot) => snapshot.phase === "Rows" && snapshot.activeRow?.rowIndex === 0,
+    "two missed item passes to return to the selected row",
+    5000
+  );
+  const returnedLabel = await evaluate(`document.querySelector(".phase")?.textContent ?? ""`);
+  if (!returnedLabel.startsWith("Back to rows · Pass 1 / 2") || returned.message !== "") {
+    throw new Error(`Cell escape did not return visibly and safely: ${JSON.stringify({ returned, returnedLabel })}`);
+  }
+  steps.push(pass("visible-escape-ladder", "two missed item passes return to the same row; two board passes stop; wake activation only resumes"));
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
 }
 
 async function waitForActive(predicate, description, timeoutMs = 8000) {

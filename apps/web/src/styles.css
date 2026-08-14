@@ -117,6 +117,19 @@ textarea {
   white-space: nowrap;
 }
 
+.phase[data-scan-phase="Stopped"] {
+  width: fit-content;
+  padding: 6px 10px;
+  border: 2px solid #6f5d25;
+  border-radius: 8px;
+  background: #fff4ca;
+  color: #493b14;
+}
+
+.scan-stopped .board {
+  opacity: 0.72;
+}
+
 body.demo-active .phase::after {
   content: " Demo";
   margin-left: 8px;
