@@ -13,6 +13,8 @@
     "test:web:unit": "node --test apps/web/test/ui-config.test.js apps/web/test/demo-mode.test.js",
     "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
     "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",
+    "report:zhtw:conversation": "node scripts/report-zhtw-conversation-benchmark.mjs",
+    "generate:zhtw:spoken": "node scripts/generate-zhtw-spoken-data.mjs",
     "report:communication": "node scripts/report-communication-benchmarks.mjs",
     "report:en-us:dictionary": "node scripts/report-en-us-dictionary.mjs",
     "baseline:communication": "node scripts/report-communication-benchmarks.mjs --update-baseline",

@@ -47,6 +47,10 @@ import {
   EnUsFrequencySource
 } from "../src/data/en-us-frequency.generated.js";
 import { ZhTwChewingDictionaryEntries } from "../src/data/zh-tw-chewing.generated.js";
+import {
+  ZhTwSpokenEvidenceEntries,
+  ZhTwSpokenEvidenceMetadata
+} from "../src/data/zh-tw-spoken.generated.js";
 
 const SuppressedZhTwSuggestionLabelsForTest = new Set(["是不是", "要不要"]);
 const SimplePlusSNonPluralsForTest = new Set([
@@ -1223,29 +1227,61 @@ test("zh-TW source-backed analyzer exposes top Chewing candidates for each Zhuyi
   assert.deepEqual(failures, []);
 });
 
-test("zh-TW single-symbol suggestions expose source-ranked prefix candidates early", () => {
+test("zh-TW single-symbol spoken reranking is capped and source candidates remain reachable", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const failures = [];
+  let displacedCount = 0;
 
   for (const symbol of ZhuyinStaticInputSymbols) {
-    const topEntries = topFrequencyEntriesByZhuyinPrefix(symbol, 4);
-    if (topEntries.length < 4) continue;
+    const sourceEntries = sourceOrderedFirstSymbolEntries(symbol).slice(0, 14);
+    if (sourceEntries.length < 14) continue;
 
     const firstPageLabels = new Set(
-      visibleZhTwSuggestionTargets(config, symbol, 0)
+      boardRows(config, symbol, true, { suggestionPage: 0 }).slice(0, 4).flat()
         .filter((candidate) => candidate.action === TileAction.CommitCandidate)
         .map((candidate) => candidate.label)
     );
-    const missing = topEntries
+    const missingEntries = sourceEntries
       .filter((entry) => !firstPageLabels.has(entry.label))
-      .map((entry) => `${entry.label}#${entry.frequencyRank}`);
+    const missing = missingEntries.map((entry) => `${entry.label}#${entry.frequencyRank}`);
+    displacedCount += missingEntries.length;
 
-    if (missing.length > 0) {
-      failures.push(`${symbol}: ${missing.join(", ")}`);
+    const reachableLabels = new Set(suggestionLabelsAcrossPages(config, symbol));
+    const unreachable = sourceEntries
+      .filter((entry) => !reachableLabels.has(entry.label))
+      .map((entry) => `${entry.label}#${entry.frequencyRank}`);
+    const displacedLastChanceGlyphs = missingEntries
+      .filter((entry) => Array.from(entry.output).length === 1 && entry.zhuyinKey === symbol)
+      .map((entry) => entry.label);
+
+    if (missing.length > 2 || unreachable.length > 0 || displacedLastChanceGlyphs.length > 0) {
+      failures.push(
+        `${symbol}: displaced=${missing.join(", ")}; ` +
+        `lastChance=${displacedLastChanceGlyphs.join(", ")}; unreachable=${unreachable.join(", ")}`
+      );
     }
   }
 
   assert.deepEqual(failures, []);
+  assert.ok(displacedCount > 0);
+});
+
+test("zh-TW spoken evidence is versioned and internally consistent", () => {
+  assert.deepEqual(ZhTwSpokenEvidenceMetadata, {
+    corpusVersion: "NCCU-TM001-TM050-2026-03",
+    normalizedSha256: "a15e8dc5ad537ec827c52fbe7b78d4b9aab3de7da10729007cf434732e45ead2",
+    conversations: 50,
+    turns: 25693,
+    hanCharacters: 355203
+  });
+  assert.ok(ZhTwSpokenEvidenceEntries.length > 0);
+  for (const entry of ZhTwSpokenEvidenceEntries) {
+    assert.ok(entry.tokenCount > 0);
+    assert.ok(entry.conversationCount > 0 && entry.conversationCount <= 50);
+    assert.ok(ZhuyinStaticInputSymbols.includes(entry.firstSymbol));
+    assert.ok(entry.selectionSavings > 0);
+    assert.equal(entry.utility, entry.tokenCount * entry.selectionSavings);
+  }
 });
 
 test("zh-TW golden common glyphs and daily words are source-backed and reachable", () => {
@@ -1603,6 +1639,21 @@ function topFrequencyEntriesByZhuyinPrefix(prefix, limit) {
     if (entries.length >= limit) break;
   }
   return entries;
+}
+
+function sourceOrderedFirstSymbolEntries(symbol) {
+  const entries = topFrequencyEntriesByZhuyinPrefix(symbol, ZhTwFrequencyDictionary.length)
+    .map((entry) => ({
+      ...entry,
+      zhuyinKey: entry.keys
+        .filter((key) => key.startsWith(symbol))
+        .sort((left, right) => left.length - right.length)[0]
+    }));
+  return [
+    ...entries.slice(0, 8),
+    ...entries.slice(8).filter((entry) => entry.zhuyinKey.length === 1),
+    ...entries.slice(8).filter((entry) => entry.zhuyinKey.length !== 1)
+  ];
 }
 
 function topChewingEntriesByZhuyinKey(limit) {

@@ -1,4 +1,5 @@
 import { ZhTwChewingDictionaryEntries } from "./data/zh-tw-chewing.generated.js";
+import { ZhTwSpokenEvidenceEntries } from "./data/zh-tw-spoken.generated.js";
 import { EnUsFrequencyEntries } from "./data/en-us-frequency.generated.js";
 
 export const ScanStage = Object.freeze({
@@ -417,6 +418,10 @@ const zhuyinCategoryCloseTile = Object.freeze(tile("注音", "category", TileAct
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
 const MaxZhTwContextChars = 3;
+const MaxZhTwFirstSymbolSpokenPromotions = 2;
+const MinZhTwSpokenPromotionTokenCount = 20;
+const MinZhTwSpokenPromotionConversationCount = 5;
+const MinZhTwSpokenPromotionUtilityRatio = 4;
 const zhuyinEntry = (label, output, key, ...aliases) => Object.freeze({
   label,
   output,
@@ -490,6 +495,9 @@ const ZhTwDictionaryByPrefix = buildZhTwDictionaryByPrefix(ZhTwFrequencyDictiona
 const ZhTwNextSymbolsByPrefix = buildZhTwNextSymbolsByPrefix(ZhTwFrequencyDictionary);
 const ZhTwPhraseCompletionsByPrefix = buildZhTwPhraseCompletionsByPrefix(ZhTwFrequencyDictionary);
 const ZhTwValidPrefixSet = zhTwValidPrefixSet(ZhTwFrequencyDictionary);
+const ZhTwSpokenEvidenceByTarget = new Map(
+  ZhTwSpokenEvidenceEntries.map((entry) => [`${entry.label}\u0000${entry.firstSymbol}`, entry])
+);
 
 const LegacyZhuyinStaticInputSymbolsV18 = Object.freeze(
   ZhuyinInputSymbols.slice(0, 24)
@@ -1381,7 +1389,7 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
       ...remainingCandidates.filter((candidate) => candidate.zhuyinKey.length !== buffer.length)
     ]
     : remainingCandidates;
-  const orderedCandidates = [
+  const orderedCandidates = zhTwConservativeFirstSymbolRerank([
     // When the buffer can still form a phonetic syllable, completing that input is
     // fundamental. Glyph and phrase candidates are speculative until the user commits one.
     ...firstPagePhoneticNextSymbols,
@@ -1390,12 +1398,91 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
     ...firstPageInitialNextSymbols,
     ...laterCandidates,
     ...overflowInitialNextSymbols
-  ];
+  ], buffer, columns, staticSymbols.size === ZhuyinInputSymbols.length);
 
   return distinctBy(
     orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwConservativeFirstSymbolRerank(candidates, buffer, columns, hasCompleteDirectBoard) {
+  if (
+    buffer.length !== 1 ||
+    columns !== DefaultColumns ||
+    !hasCompleteDirectBoard ||
+    candidates.length === 0
+  ) return candidates;
+
+  // Undo and More can each consume a slot. This smaller window remains visible
+  // regardless of page state. Only glyphs with no longer normal spelling path
+  // are protected; other source-ranked glyphs may yield to stronger spoken use.
+  const firstPageCandidateLimit = Math.max(1, columns * ZhTwSuggestionRowCount - 2);
+  const promotionCandidateLimit = firstPageCandidateLimit * MaxZhTwSuggestionPages;
+  const protectedWindow = candidates.slice(0, firstPageCandidateLimit);
+  const result = candidates.slice();
+  const promotions = candidates
+    .slice(firstPageCandidateLimit, promotionCandidateLimit)
+    .filter((candidate) => zhTwHasConfidentSpokenEvidence(candidate))
+    .sort(zhTwSpokenCandidateRank);
+  let promotionCount = 0;
+
+  for (const promotion of promotions) {
+    if (promotionCount >= MaxZhTwFirstSymbolSpokenPromotions) break;
+    const promotionIndex = result.indexOf(promotion);
+    if (promotionIndex < firstPageCandidateLimit) continue;
+    const promotionUtility = zhTwSpokenEvidenceUtility(promotion);
+    const victim = protectedWindow
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) =>
+        candidate.action === TileAction.CommitCandidate &&
+        !zhTwIsLastChanceGlyph(candidate, buffer)
+      )
+      .filter(({ candidate }) => promotionUtility >=
+        Math.max(1, zhTwSpokenEvidenceUtility(candidate)) * MinZhTwSpokenPromotionUtilityRatio)
+      .sort((left, right) =>
+        zhTwSpokenEvidenceUtility(left.candidate) - zhTwSpokenEvidenceUtility(right.candidate) ||
+        right.index - left.index
+      )[0];
+    if (!victim) continue;
+
+    const victimIndex = result.indexOf(victim.candidate);
+    result[victimIndex] = promotion;
+    result[promotionIndex] = victim.candidate;
+    protectedWindow[victim.index] = promotion;
+    promotionCount += 1;
+  }
+
+  return result;
+}
+
+function zhTwHasConfidentSpokenEvidence(candidate) {
+  const evidence = zhTwSpokenEvidence(candidate);
+  return evidence &&
+    evidence.tokenCount >= MinZhTwSpokenPromotionTokenCount &&
+    evidence.conversationCount >= MinZhTwSpokenPromotionConversationCount;
+}
+
+function zhTwSpokenCandidateRank(left, right) {
+  const leftEvidence = zhTwSpokenEvidence(left);
+  const rightEvidence = zhTwSpokenEvidence(right);
+  return rightEvidence.utility - leftEvidence.utility ||
+    rightEvidence.conversationCount - leftEvidence.conversationCount ||
+    zhTwCandidateRank(left, right);
+}
+
+function zhTwSpokenEvidenceUtility(candidate) {
+  return zhTwSpokenEvidence(candidate)?.utility ?? 0;
+}
+
+function zhTwSpokenEvidence(candidate) {
+  const firstSymbol = candidate.zhuyinKey?.at(0);
+  if (!firstSymbol) return undefined;
+  return ZhTwSpokenEvidenceByTarget.get(`${candidate.label}\u0000${firstSymbol}`);
+}
+
+function zhTwIsLastChanceGlyph(candidate, buffer) {
+  return Array.from(candidate.output).length === 1 && candidate.zhuyinKey === buffer;
 }
 
 function zhTwRepairSuggestionTiles(buffer, columns) {
