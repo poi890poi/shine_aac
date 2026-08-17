@@ -473,6 +473,66 @@ test("English board keeps two ranked suggestion rows at every input stage", () =
   );
 });
 
+test("scan mode does not change board layout or suggestions", () => {
+  const scenarios = [
+    {
+      profileId: "en-US",
+      message: "movi",
+      canUndo: true,
+      config: { suggestionColumnSpans: { MOVIE: 2, MOVEMENT: 2 } },
+      inputState: {}
+    },
+    {
+      profileId: "en-US",
+      message: "movie ",
+      canUndo: true,
+      config: {},
+      inputState: {}
+    },
+    {
+      profileId: "zh-TW",
+      message: "我",
+      canUndo: true,
+      config: {},
+      inputState: { suggestionPage: 1 }
+    },
+    {
+      profileId: "zh-TW",
+      message: "我 want",
+      canUndo: true,
+      config: { suggestionColumnSpans: { WANTED: 2, WANTING: 2 } },
+      inputState: { activeCategory: "english" }
+    }
+  ];
+
+  for (const scenario of scenarios) {
+    const configFor = (scanMode) => createBoardConfig({
+      profileId: scenario.profileId,
+      ...scenario.config,
+      scanMode
+    });
+    const rowColumnConfig = configFor(ScanMode.RowColumn);
+    const blockRowColumnConfig = configFor(ScanMode.BlockRowColumn);
+
+    assert.equal(blockRowColumnConfig.columns, rowColumnConfig.columns);
+    assert.deepEqual(
+      boardRows(
+        blockRowColumnConfig,
+        scenario.message,
+        scenario.canUndo,
+        scenario.inputState
+      ),
+      boardRows(
+        rowColumnConfig,
+        scenario.message,
+        scenario.canUndo,
+        scenario.inputState
+      ),
+      `${scenario.profileId} board presentation changed with scan mode`
+    );
+  }
+});
+
 test("English suggestion rows defer wide candidates and fill gaps with the next ranked short candidates", () => {
   const config = createBoardConfig({
     profileId: "en-US",

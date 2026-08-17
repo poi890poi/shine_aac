@@ -2590,13 +2590,18 @@ async function scenarioVisibleEscapeLadder() {
 }
 
 async function scenarioBlockRowColumnMode() {
-  const rowColumnEnglishBoard = await captureEnglishBoardPresentation("row-column");
-  const fourBlockEnglishBoard = await captureEnglishBoardPresentation("block-row-column");
-  assertArrayEqual(
-    fourBlockEnglishBoard,
-    rowColumnEnglishBoard,
-    "English suggestions and layout must be scan-mode independent"
-  );
+  for (const profile of [
+    { profileId: "en-US", columns: 4 },
+    { profileId: "zh-TW", columns: 6 }
+  ]) {
+    const rowColumnBoard = await captureBoardPresentation("row-column", profile);
+    const blockRowColumnBoard = await captureBoardPresentation("block-row-column", profile);
+    assertArrayEqual(
+      blockRowColumnBoard,
+      rowColumnBoard,
+      `${profile.profileId} suggestions and layout must be scan-mode independent`
+    );
+  }
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
@@ -2674,7 +2679,7 @@ async function scenarioBlockRowColumnMode() {
   await evaluate(`globalThis.ShineAacDemoError = ""`);
   steps.push(pass(
     "block-row-column",
-    "reused the exact English suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit"
+    "reused the exact en-US and zh-TW suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit"
   ));
 }
 
@@ -2738,12 +2743,12 @@ async function scenarioSingletonRowAutoActivation() {
   ));
 }
 
-async function captureEnglishBoardPresentation(scanMode) {
+async function captureBoardPresentation(scanMode, { profileId, columns }) {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       configVersion: 27,
-      profileId: "en-US",
-      columns: 4,
+      profileId: ${JSON.stringify(profileId)},
+      columns: ${JSON.stringify(columns)},
       scanMode: ${JSON.stringify(scanMode)},
       scanIntervalMs: 600,
       transitionPauseMs: 0,
@@ -2754,7 +2759,8 @@ async function captureEnglishBoardPresentation(scanMode) {
     localStorage.removeItem("shine-aac-session-draft-v1");
     location.href = ${JSON.stringify(appUrl)};
   `);
-  await waitForUi();
+  await waitForRenderedBoard();
+  await releaseFirstRowHold();
   await delay(250);
   return evaluate(`
     (() => {
