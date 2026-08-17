@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  ScanMode,
   ScanStage,
   advanceSession,
   createBoardConfig,
@@ -119,6 +120,24 @@ test("positive transition pause keeps the row-selected escape state available wh
 
   assert.equal(session.scannerState.stage, ScanStage.RowSelected);
   assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["THE", "TO", "OF", "AND"]);
+});
+
+test("block session requires block, row, and cell activations", () => {
+  let session = createSession({
+    config: createBoardConfig({ scanMode: ScanMode.BlockRowColumn })
+  });
+
+  assert.equal(session.scannerState.stage, ScanStage.Blocks);
+  session = pressSwitch(session, 1000);
+  assert.equal(session.scannerState.stage, ScanStage.Rows);
+  assert.equal(session.scannerState.blockIndex, 0);
+  session = pressSwitch(session, 1000);
+  assert.equal(session.scannerState.stage, ScanStage.FirstCell);
+  session = pressSwitch(session, 1000);
+
+  assert.equal(session.lastSelection.tile.label, "THE");
+  assert.equal(session.message, "the ");
+  assert.equal(session.scannerState.stage, ScanStage.Blocks);
 });
 
 test("two missed item passes return to the selected row without changing the message", () => {

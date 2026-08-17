@@ -9,6 +9,7 @@ import {
 } from "../src/ui-config.js";
 
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+const appSource = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
 
 test("obsolete optional review-hold settings are discarded", () => {
   assert.equal(Object.hasOwn(defaultUiConfig, "holdAfterSuggestionChange"), false);
@@ -55,4 +56,27 @@ test("the message field grows with Android font scaling without wrapping", () =>
 test("stopped scanning reuses the first-row review hold instead of a separate badge", () => {
   assert.doesNotMatch(styles, /\.phase\[data-scan-phase="Stopped"\]/);
   assert.doesNotMatch(styles, /\.scan-stopped \.board/);
+});
+
+test("profile-optimized block scanning is an explicit optional mode with its own highlight", () => {
+  assert.match(appSource, /name="scanMode"/);
+  assert.match(appSource, /ScanMode\.BlockRowColumn/);
+  assert.match(appSource, /scanMode:\s*config\.scanMode/);
+  assert.match(styles, /\.tile\.active-block\s*\{[\s\S]*?border-color:\s*#6750a4/);
+  assert.match(appSource, /selected-block-row/);
+  assert.match(styles, /\.row\.selected-block-row::before\s*\{[\s\S]*?border:\s*2px solid rgba\(103, 80, 164, 0\.72\)/);
+});
+
+test("English suggestion sizing runs at the top level of both scanning modes", () => {
+  assert.match(
+    appSource,
+    /\[ScanStage\.Blocks, ScanStage\.Rows\]\.includes\(session\.scannerState\.stage\)/
+  );
+});
+
+test("pause and stopped phase labels stay compact", () => {
+  assert.match(appSource, /"Block pause"/);
+  assert.match(appSource, /"Row pause"/);
+  assert.match(appSource, /"Stopped · Press switch"/);
+  assert.doesNotMatch(appSource, /Press again to cancel block/);
 });

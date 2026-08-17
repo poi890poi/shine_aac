@@ -13,6 +13,7 @@ import {
   LegacyFirstCellPauseMsV6,
   LegacyFrequencyDefaultTilesV3,
   LegacySuggestionDictionaryV6,
+  ScanMode,
   ScanTimingPresets,
   TileAction,
   ZhuyinInputSymbols,
@@ -629,6 +630,7 @@ test("old built-in zh-TW dictionary migrates to short AAC labels", () => {
 test("default scanning uses one consistent row and cell interval", () => {
   const config = createBoardConfig();
 
+  assert.equal(config.scanMode, ScanMode.RowColumn);
   assert.equal(config.scanIntervalMs, 1800);
   assert.equal(config.transitionPauseMs, 0);
   assert.equal(config.firstCellPauseMs, 1800);
@@ -728,20 +730,18 @@ test("zh-TW static board includes only an English entry point", () => {
   assert.equal(labels.includes("\u7a7a\u683c"), false);
 });
 
-test("zh-TW English entry point opens frequency-ordered spelling rows", () => {
+test("zh-TW English entry point reuses the independent four-column English input", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const opened = applyTile("", [], findActionTile(boardRows(config), "英文", TileAction.OpenCategory), config, {});
   const rows = boardRows(config, opened.message, false, opened);
 
   assert.equal(opened.activeCategory, "english");
   assert.deepEqual(rows[2].map((candidate) => candidate.label), ["\u6ce8\u97f3", "\u6717\u8b80", "\u5fa9\u539f", "\u6e05\u9664"]);
-  assert.deepEqual(rows.slice(3).map((row) => row.map((candidate) => candidate.label)), [
-    ["E", "T", "A", "O", "I", "N"],
-    ["S", "R", "H", "L", "D", "C"],
-    ["U", "M", "F", "P", "G", "W"],
-    ["Y", "B", "V", "K", "X", "J"],
-    ["Q", "Z", "\u7a7a\u683c", "?"]
-  ]);
+  assert.equal(rows.every((row) => row.length <= 4), true);
+  assert.deepEqual(
+    rows.slice(3).flat().filter((candidate) => candidate.action !== TileAction.Noop),
+    DefaultTiles
+  );
 });
 
 test("zh-TW keeps its complete final symbol row while English spelling rows avoid sparse rows", () => {
@@ -759,7 +759,7 @@ test("zh-TW English spelling category stays open while composing", () => {
   result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "P", TileAction.Append), config, result);
   result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "O", TileAction.Append), config, result);
   result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "D", TileAction.Append), config, result);
-  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "\u7a7a\u683c", TileAction.Space), config, result);
+  result = applyTile(result.message, result.messageHistory, findActionTile(boardRows(config, result.message, true, result), "SPC", TileAction.Space), config, result);
 
   assert.equal(result.message, "pod ");
   assert.equal(result.activeCategory, "english");
@@ -906,6 +906,21 @@ test("zh-TW relies on localized undo without a separate composition-clear comman
   assert.equal(multipleSuggestions.some((candidate) => candidate.label === "重選"), false);
   assert.equal(multipleSuggestions[0].label, "復原");
   assert.equal(speechLabelForTile(multipleSuggestions[0], "zh-TW"), "復原");
+});
+
+test("scan mode is opt-in and unknown stored values fall back safely", () => {
+  assert.equal(
+    createBoardConfig({ scanMode: ScanMode.BlockRowColumn }).scanMode,
+    ScanMode.BlockRowColumn
+  );
+  assert.equal(
+    createBoardConfig({ scanMode: "five-block-row-column" }).scanMode,
+    ScanMode.BlockRowColumn
+  );
+  assert.equal(createBoardConfig({ profileId: "en-US", columns: 4 }).scanBlockCount, 4);
+  assert.equal(createBoardConfig({ profileId: "en-US", columns: 6 }).scanBlockCount, 4);
+  assert.equal(createBoardConfig({ profileId: "zh-TW", columns: 6 }).scanBlockCount, 4);
+  assert.equal(createBoardConfig({ scanMode: "future-mode" }).scanMode, ScanMode.RowColumn);
 });
 
 test("boards default to two visible scan attempts and preserve explicit limits", () => {

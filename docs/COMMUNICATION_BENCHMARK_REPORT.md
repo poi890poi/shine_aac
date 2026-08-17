@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-08-13T14:22:21.040Z
+Generated: 2026-08-17T16:14:02.929Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -25,14 +25,14 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Unit | Total | Average | Median | P90 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Estimated scan time | seconds | 4872.60 | 47.31 | 19.80 | 55.80 |
+| Estimated scan time | seconds | 4969.80 | 48.25 | 19.80 | 55.80 |
 | Output selections | selected tiles | 411 | 3.99 | 2.00 | 4.00 |
 | Switch activations | activations | 822 | 7.98 | 4.00 | 8.00 |
-| Scanner advances | row/cell advances | 2707 | 26.28 | 11.00 | 31.00 |
+| Scanner advances | row/cell advances | 2761 | 26.81 | 11.00 | 31.00 |
 | Activations per target concept | activations/concept | 822 / 152 | 5.41 |
 | Selections per target concept | selections/concept | 411 / 152 | 2.70 |
 | Activations per output character | activations/character | 822 / 393 | 2.09 |
-| Estimated time per output character | seconds/character | 4872.60 / 393 | 12.40 |
+| Estimated time per output character | seconds/character | 4969.80 / 393 | 12.65 |
 | Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
 | Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
 | Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
@@ -41,7 +41,7 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 47.31 sec | <= 15 sec | gap |
+| Average benchmark time | 48.25 sec | <= 15 sec | gap |
 | Median urgent phrase time | 5.40 sec across 19 marked tasks | <= 10 sec | meets |
 | Average switch activations | 7.98 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
@@ -65,8 +65,8 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 | --- | ---: | ---: | ---: | ---: |
 | Selections | 198 | 189 | -9 | -4.55% |
 | Switch activations | 396 | 378 | -18 | -4.55% |
-| Scanner advances | 1531 | 1437 | -94 | -6.14% |
-| Estimated scan time sec | 2755.80 | 2586.60 | -169.20 | -6.14% |
+| Scanner advances | 1585 | 1491 | -94 | -5.93% |
+| Estimated scan time sec | 2853 | 2683.80 | -169.20 | -5.93% |
 
 | Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -79,9 +79,9 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 
 ## Paired Baseline Regression
 
-Frozen baseline: Accepted code-47 slower-access baseline (2026-08-11T02:48:20.766Z).
+Frozen baseline: Accepted profile-independent English input baseline (2026-08-17T16:12:22.702Z).
 
-Regression gates: PASS. Measured improvement over baseline: YES.
+Regression gates: PASS. Measured improvement over baseline: NO.
 
 The gates require aggregate motor effort and scan time, P90 effort and time, and every established communication-function group to remain stable or improve. One task may use at most one additional `更多` selection. This prevents a lower raw paging count from hiding slower or less equitable communication paths.
 
@@ -89,8 +89,8 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 | --- | ---: | ---: | ---: | ---: |
 | Selections | 411 | 411 | 0 | 0.00% |
 | Switch activations | 822 | 822 | 0 | 0.00% |
-| Scanner advances | 2731 | 2707 | -24 | -0.88% |
-| Estimated scan time sec | 4915.80 | 4872.60 | -43.20 | -0.88% |
+| Scanner advances | 2761 | 2761 | 0 | 0.00% |
+| Estimated scan time sec | 4969.80 | 4969.80 | 0 | 0.00% |
 | 更多 selections | 56 | 56 | 0 | 0.00% |
 | P90 switch activations | 8 | 8 | 0 | 0.00% |
 | P90 scan time sec | 55.80 | 55.80 | 0 | 0.00% |
@@ -101,7 +101,7 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 | task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=false |
 | reachability | PASS | unreachable=0 |
 | total-switches | PASS | baseline=822, candidate=822 |
-| total-scan-time | PASS | baseline=4915800, candidate=4872600 |
+| total-scan-time | PASS | baseline=4969800, candidate=4969800 |
 | p90-switches | PASS | baseline=8, candidate=8 |
 | p90-scan-time | PASS | baseline=55800, candidate=55800 |
 | bounded-task-paging | PASS | max additional pages=0 |
@@ -141,11 +141,7 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 
 | Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |
 | --- | --- | ---: | ---: | ---: |
-| zhtw-phonetic-home-podcast | improved | 0 | -1.80 | 0 |
-| zhtw-multilingual-home-podcast | improved | 0 | -1.80 | 0 |
-| zhtw-multilingual-audio-repair | improved | 0 | -5.40 | 0 |
-| zhtw-phonetic-home-audio-repair | improved | 0 | -12.60 | 0 |
-| zhtw-phonetic-home-feeling | improved | 0 | -21.60 | 0 |
+| None | unchanged | 0 | 0 | 0 |
 
 ## Read This Correctly
 
@@ -199,14 +195,14 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 4872.60 seconds
-- Average estimated scan time per passing task: 47.31 seconds
+- Total estimated scan time across passing tasks: 4969.80 seconds
+- Average estimated scan time per passing task: 48.25 seconds
 - Total selections across passing tasks: 411
 - Average selections per passing task: 3.99
 - Total switch activations across passing tasks: 822
 - Average switch activations per passing task: 7.98
-- Total scan advances across passing tasks: 2707
-- Average scan advances per passing task: 26.28
+- Total scan advances across passing tasks: 2761
+- Average scan advances per passing task: 26.81
 - Total target concepts across passing tasks: 152
 - Total output characters across passing tasks: 393
 - Activations per target concept: 5.41
@@ -376,8 +372,8 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 19.80 | 3 | 6 | 11 | append:2, more-suggestions:1 | selections<=3 | PASS |
 | zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 28.80 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
 | zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 248.40 | 17 | 34 | 138 | append:13, commit-candidate:4 | selections<=18 | PASS |
-| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽 podcast 新 資料 夾 | 343.80 | 26 | 52 | 191 | append:20, close-category:1, commit-candidate:4, open-category:1 | selections<=30 | PASS |
-| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast 音量 小 | 237.60 | 19 | 38 | 132 | append:15, close-category:1, commit-candidate:2, open-category:1 | selections<=23 | PASS |
+| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽 podcast 新 資料 夾 | 392.40 | 26 | 52 | 218 | append:20, close-category:1, commit-candidate:4, open-category:1 | selections<=30 | PASS |
+| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast 音量 小 | 286.20 | 19 | 38 | 159 | append:15, close-category:1, commit-candidate:2, open-category:1 | selections<=23 | PASS |
 | zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 714.60 | 49 | 98 | 397 | append:37, commit-candidate:12 | selections<=54 | PASS |
 | zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 338.40 | 24 | 48 | 188 | append:19, commit-candidate:5 | selections<=28 | PASS |
 | zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 873.00 | 63 | 126 | 485 | append:50, commit-candidate:13 | selections<=70 | PASS |

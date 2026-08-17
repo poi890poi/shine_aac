@@ -18,6 +18,7 @@
     "generate:zhtw:sensitive": "node scripts/generate-zhtw-sensitive-data.mjs",
     "check:zhtw:sensitive": "node scripts/generate-zhtw-sensitive-data.mjs --check",
     "report:communication": "node scripts/report-communication-benchmarks.mjs",
+    "report:scan-modes": "node scripts/report-scan-modes.mjs",
     "report:en-us:dictionary": "node scripts/report-en-us-dictionary.mjs",
     "baseline:communication": "node scripts/report-communication-benchmarks.mjs --update-baseline",
     "report:efficiency": "npm run report:zhtw:inventory && npm run report:zhtw:phonetic && npm run report:communication",

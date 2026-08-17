@@ -550,15 +550,18 @@ class MainActivity : ComponentActivity() {
         fun getInitialConfigJson(): String {
             val prefs = getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
             if (!prefs.getBoolean("e2eEnabled", false)) return ""
+            val profileId = prefs.getString("profileId", "en-US") ?: "en-US"
+            val profileColumns = if (profileId == "zh-TW") 6 else 4
 
             return JSONObject()
                 .put("configVersion", prefs.getInt("configVersion", CurrentConfigVersion))
-                .put("columns", prefs.getInt("columns", 6))
-                .put("profileId", prefs.getString("profileId", "en-US"))
+                .put("columns", prefs.getInt("columns", profileColumns))
+                .put("profileId", profileId)
                 .put("scanIntervalMs", prefs.getFloat("scanIntervalMs", DefaultScanIntervalMs).toDouble())
                 .put("transitionPauseMs", prefs.getFloat("transitionPauseMs", DefaultTransitionPauseMs).toDouble())
                 .put("firstCellPauseMs", prefs.getFloat("firstCellPauseMs", DefaultFirstCellPauseMs).toDouble())
                 .put("inputLatencyCompensationMs", prefs.getFloat("inputLatencyCompensationMs", 250f).toDouble())
+                .put("scanMode", prefs.getString("scanMode", DefaultScanMode))
                 .put("scanPassLimit", prefs.getInt("scanPassLimit", DefaultScanPassLimit))
                 .toString()
         }
@@ -718,11 +721,12 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
-        const val CurrentConfigVersion = 26
+        const val CurrentConfigVersion = 27
         const val DefaultScanIntervalMs = 1800f
         const val DefaultTransitionPauseMs = 0f
         const val DefaultFirstCellPauseMs = DefaultScanIntervalMs
         const val DefaultScanPassLimit = 2
+        const val DefaultScanMode = "row-column"
         const val MaxTextHistoryExportChars = 500_000
         const val MaxSessionDraftJsonChars = 100_000
         const val SessionDraftPreferences = "shine_aac_session_draft"

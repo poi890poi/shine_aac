@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-13T15:53:11.544Z
+Generated: 2026-08-17T16:23:48.880Z
 
 Result: PASS
 
@@ -12,7 +12,7 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.80000001192093,"resetTargetToProgressMs":33.39999997615814,"rowDeadlineDriftMs":-31.899999976158142,"nextRowTargetToProgressMs":30.599999964237213,"activationToTargetMs":1.100000023841858,"activationTargetToProgressMs":31.799999952316284,"firstDeadlineDriftMs":-21.899999976158142,"secondTargetToProgressMs":21.600000023841858,"laterDeadlineDriftMs":-18.600000023841858,"thirdTargetToProgressMs":19,"selectionToHoldMs":4.100000023841858,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":32.5} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":52.79999999701977,"resetTargetToProgressMs":20.799999997019768,"rowDeadlineDriftMs":-17.5,"nextRowTargetToProgressMs":17.200000002980232,"activationToTargetMs":1.5,"activationTargetToProgressMs":30.5,"firstDeadlineDriftMs":-25.900000005960464,"secondTargetToProgressMs":25.700000002980232,"laterDeadlineDriftMs":-16.799999997019768,"thirdTargetToProgressMs":15.899999991059303,"selectionToHoldMs":3.8999999910593033,"holdReleaseToTargetMs":0.7000000029802322,"selectionTargetToProgressMs":16.700000002980232} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -50,7 +50,7 @@ Result: PASS
 | function-label-default-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
 | function-label-default-larger-display | PASS | 4 function keys share word-key metrics; rendered 18-18px with a 20px normal-board floor |
 | function-label-default-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
-| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 31.5-31.5px with a 20px normal-board floor |
+| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 30.7-30.7px with a 20px normal-board floor |
 | function-label-200pct-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
 | function-label-200pct-larger-display | PASS | 4 function keys share word-key metrics; rendered 21.9-21.9px with a 20px normal-board floor |
 | function-label-200pct-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
@@ -58,6 +58,7 @@ Result: PASS
 | zh-tw-language-switch-review-hold | PASS | 英文 and 注音 switches preserve review hold; the embedded English board reuses English suggestions |
 | zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | zh-tw-demo-mode | PASS | greedily completed a visible candidate after direct first-layer Zhuyin input (1 matched characters) |
+| block-row-column | PASS | reused the exact English suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

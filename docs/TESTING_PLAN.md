@@ -25,6 +25,7 @@ This document defines how SHINE AAC should be tested before release candidates. 
 | Full core tests | Quick core tests plus virtual communication benchmarks | Long deterministic execution; expected to take much longer than a normal edit cycle | `npm run test:core` or `npm test` |
 | Fast zh-TW dictionary inventory | Broad source symbol/glyph/word inventory, estimated reachability, and estimated activation cost | Graph analysis only; no real sleeps and no full virtual utterance scanning | `docs/ZHTW_DICTIONARY_INVENTORY_REPORT.md` |
 | Virtual communication benchmarks | Reachability and efficiency for words, phrases, utterances, and multilingual paths | No real sleeps; count activations and advances, estimate configured scan time | `docs/COMMUNICATION_BENCHMARK_REPORT.md` |
+| Scan-mode comparison | Uniform-visible-target scanner advances, switch activations, and visual recognition-load proxies | Instant deterministic calculation over real profile boards | `npm run report:scan-modes` |
 | Browser E2E | Rendered web UI, scanning loop, localStorage migration, viewport fit, demo/smoke flows | Normal UI event timing, reduced case count | `docs/WEB_E2E_REPORT.md` |
 | APK/build checks | Android package build, asset inclusion, native shell integration, installable artifact | Build-time plus selected device/emulator smoke flows | `docs/APK_REPORT.md` |
 | Human UX verification | Comfort, clarity, timing feel, speech output, and caregiver comprehension | Real device and real user/helper judgment | UX checklist in release notes/report |
@@ -59,12 +60,13 @@ Command split:
 - `npm run test:core` or `npm test`: full core verification, including communication benchmarks.
 - `npm run test:core:benchmarks`: communication benchmark test file only.
 - `npm run report:communication`: regenerate `docs/COMMUNICATION_BENCHMARK_REPORT.md` from benchmark metrics.
+- `npm run report:scan-modes`: compare row/column and profile-optimized block/row/column costs without changing either mode's baseline.
 - `npm run baseline:communication`: deliberately replace the frozen task-level communication baseline after a reviewed improvement has been accepted; normal report generation never moves the baseline.
 - `npm run report:efficiency`: regenerate the zh-TW dictionary inventory, phonetic access, and communication efficiency reports.
 
 Required coverage:
 
-- scanner state transitions, row selection, cell selection, wrapping, skipped empty rows, and latency compensation
+- scanner state transitions, block/row/cell selection, miss unwinding, wrapping, skipped empty rows, and latency compensation
 - message operations including append, space, clear, undo, candidate replacement, and internal/custom backspace compatibility
 - board chunking, row density, static row stability, and action parsing
 - profile-specific spacing, labels, dictionaries, speech metadata, and migration

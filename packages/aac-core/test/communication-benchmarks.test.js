@@ -15,6 +15,7 @@ import {
   optimizeZhTwText
 } from "./communication-benchmark-runner.js";
 import {
+  ScanMode,
   createBoardConfig,
   createSession
 } from "../src/index.js";
@@ -101,6 +102,62 @@ test("benchmark limits enforce every optional bound from the testing plan", () =
     "scanner advances 7 advances exceeds 5",
     "estimated scan time 8 seconds exceeds 6"
   ]);
+});
+
+test("communication benchmark runner can evaluate block mode independently", () => {
+  const fixture = CommunicationBenchmarks.find((benchmark) => benchmark.id === "zhtw-first-page-pain");
+  const result = evaluateBenchmark({
+    ...fixture,
+    scanMode: ScanMode.BlockRowColumn
+  });
+
+  assert.ifError(result.error);
+  assert.equal(result.session.message, "痛");
+  assert.equal(result.metrics.switches, 3);
+});
+
+test("English keeps its independently optimized four-column, four-block configuration", () => {
+  const englishBenchmarks = CommunicationBenchmarks.filter(
+    (benchmark) => (benchmark.profileId ?? "en-US") === "en-US"
+  );
+  const measure = (columns, scanBlockCount) => englishBenchmarks.reduce((totals, benchmark) => {
+    const result = evaluateBenchmark({
+      ...benchmark,
+      columns,
+      scanBlockCount,
+      scanMode: ScanMode.BlockRowColumn
+    });
+    assert.ifError(result.error);
+    totals.advances += result.metrics.advances;
+    totals.switches += result.metrics.switches;
+    totals.estimatedTimeMs += result.metrics.estimatedTimeMs;
+    return totals;
+  }, { advances: 0, switches: 0, estimatedTimeMs: 0 });
+
+  const fourColumnCandidates = [2, 3, 4, 5, 6].map((blockCount) => ({
+    blockCount,
+    ...measure(4, blockCount)
+  }));
+  const fourColumnFourBlock = fourColumnCandidates.find((candidate) => candidate.blockCount === 4);
+  const sixColumnFourBlock = measure(6, 4);
+
+  assert.deepEqual(fourColumnFourBlock, {
+    blockCount: 4,
+    advances: 309,
+    switches: 273,
+    estimatedTimeMs: 556200
+  });
+  assert.equal(
+    fourColumnCandidates.every((candidate) =>
+      fourColumnFourBlock.estimatedTimeMs <= candidate.estimatedTimeMs
+    ),
+    true
+  );
+  assert.deepEqual(sixColumnFourBlock, {
+    advances: 391,
+    switches: 294,
+    estimatedTimeMs: 703800
+  });
 });
 
 test("current communication suite satisfies the frozen paired baseline gates", () => {

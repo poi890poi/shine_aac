@@ -19,6 +19,10 @@ const timingOnlyMode = process.argv.includes("--timing-only");
 const cumulativeTimingMode = process.argv.includes("--cumulative-timing");
 const zhTwLayoutOnlyMode = process.argv.includes("--zh-tw-layout-only");
 const zhTwLanguageSwitchOnlyMode = process.argv.includes("--zh-tw-language-switch-only");
+const blockModeOnly = process.argv.includes("--block-only") ||
+  process.argv.includes("--four-block-only") ||
+  process.argv.includes("--five-block-only");
+const noBrowserSandboxMode = process.argv.includes("--no-browser-sandbox");
 const packagedReferenceMode = Boolean(process.env.SHINE_AAC_APP_PATH);
 const appPath = process.env.SHINE_AAC_APP_PATH ?? (packagedWebViewMode
   ? "/app/build/generated/assets/shineWeb/www/apps/web/"
@@ -70,6 +74,7 @@ try {
     "--disable-background-networking",
     "--no-first-run",
     "--no-default-browser-check",
+    ...(noBrowserSandboxMode ? ["--no-sandbox", "--disable-gpu-sandbox"] : []),
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${profileDir}`,
     "about:blank"
@@ -147,6 +152,14 @@ try {
   await waitForUi();
   steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
+  if (blockModeOnly) {
+    await scenarioBlockRowColumnMode();
+    writeReport(true);
+    console.log("BLOCK E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+
   if (zhTwLayoutOnlyMode) {
     await scenarioZhTwLayoutMigration();
     writeReport(true);
@@ -204,6 +217,7 @@ try {
   await scenarioZhTwLanguageSwitchReviewHold();
   await assertNoViewportOverflow("zh-tw-pixel-4a-5g-layout");
   await scenarioZhTwHomeDemoMode();
+  await scenarioBlockRowColumnMode();
 
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
   const screenshotPath = join(artifactDir, "web-e2e-final.png");
@@ -2213,11 +2227,14 @@ async function assertFirstRowHold(snapshot, context) {
 async function releaseFirstRowHold() {
   const snapshot = await getSnapshot();
   if (!snapshot.reviewHold) return;
-  await clickTarget(snapshot.activeRow);
+  await clickTarget(snapshot.activeBlock ?? snapshot.activeRow);
   await delay(40);
   const released = await getSnapshot();
-  if (released.reviewHold || released.activeRow?.rowIndex !== 0) {
-    throw new Error(`First-row hold did not release into row scanning: ${JSON.stringify(released)}`);
+  const releasedAtFirstTarget = released.activeBlock
+    ? released.activeBlock.rowIndex === 0 && released.phase === "Blocks"
+    : released.activeRow?.rowIndex === 0 && released.phase === "Rows";
+  if (released.reviewHold || !releasedAtFirstTarget) {
+    throw new Error(`Initial hold did not release into scanning: ${JSON.stringify(released)}`);
   }
 }
 
@@ -2349,15 +2366,23 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
   await waitForLabels(["\u3105", "\u3127", "\u3129", "英文"]);
   await selectLabel("英文");
   snapshot = await getSnapshot();
-  for (const expected of ["THE", "TO", "空格", "注音", "朗讀", "復原", "清除"]) {
+  for (const expected of ["THE", "TO", "YES", "HELP", "SPC", "注音", "朗讀", "復原", "清除"]) {
     if (!snapshot.rows.flat().some((tile) => tile.label === expected)) {
       throw new Error(`zh-TW English board missing shared suggestion/control tile ${expected}`);
     }
   }
+  const embeddedEnglishColumnCounts = await evaluate(`
+    [...document.querySelectorAll(".row")].map((row) => row.dataset.visualColumns)
+  `);
+  if (embeddedEnglishColumnCounts.some((columns) => columns !== "4")) {
+    throw new Error(`zh-TW English board inherited non-English columns: ${JSON.stringify(embeddedEnglishColumnCounts)}`);
+  }
   const visibleLabels = snapshot.rows.flat().map((tile) => tile.label).filter(Boolean);
-  const duplicateLabels = [...new Set(visibleLabels.filter((label, index) => visibleLabels.indexOf(label) !== index))];
+  const duplicateLabels = [...new Set(
+    visibleLabels.filter((label, index) => visibleLabels.indexOf(label) !== index && label !== "I")
+  )];
   if (duplicateLabels.length > 0) {
-    throw new Error(`zh-TW English board repeats visible keys: ${duplicateLabels.join(",")}`);
+    throw new Error(`zh-TW English board introduced repeated visible keys: ${duplicateLabels.join(",")}`);
   }
   await selectLabel("P");
   await selectLabel("H");
@@ -2410,6 +2435,9 @@ async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
   await releaseFirstRowHold();
   const initialSnapshot = await getSnapshot();
   const rowTimeoutMs = Math.max(30000, (initialSnapshot.rows.length + 2) * 1500);
+  if (initialSnapshot.activeBlock) {
+    await activateWhenRenderedTargetIsCurrent("active-block", rowIndex, 0, rowTimeoutMs);
+  }
   await activateWhenRenderedTargetIsCurrent("active-row", rowIndex, 0, rowTimeoutMs);
   await activateWhenRenderedTargetIsCurrent(
     "active-cell",
@@ -2502,7 +2530,7 @@ async function scenarioVisibleEscapeLadder() {
   })`);
   if (
     stopped.message !== "" ||
-    stoppedUi.label !== "Scanning stopped · Press switch to resume" ||
+    stoppedUi.label !== "Stopped · Press switch" ||
     stoppedUi.highlighted !== 0 ||
     !stoppedUi.stoppedClass
   ) {
@@ -2542,6 +2570,142 @@ async function scenarioVisibleEscapeLadder() {
     location.reload();
   `);
   await waitForUi();
+}
+
+async function scenarioBlockRowColumnMode() {
+  const rowColumnEnglishBoard = await captureEnglishBoardPresentation("row-column");
+  const fourBlockEnglishBoard = await captureEnglishBoardPresentation("block-row-column");
+  assertArrayEqual(
+    fourBlockEnglishBoard,
+    rowColumnEnglishBoard,
+    "English suggestions and layout must be scan-mode independent"
+  );
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 27,
+      profileId: "zh-TW",
+      columns: 6,
+      scanMode: "block-row-column",
+      scanIntervalMs: 120,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 180,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForRenderedBoard();
+  await releaseFirstRowHold();
+
+  const blockSnapshot = await waitForActive(
+    (snapshot) => snapshot.phase === "Blocks" && snapshot.activeBlock !== null,
+    "four-block highlight"
+  );
+  const activeBlockRows = [...new Set(
+    blockSnapshot.rows.flat().filter((tile) => tile.activeBlock).map((tile) => tile.rowIndex)
+  )];
+  if (activeBlockRows.join(",") !== "0,1,2,3") {
+    throw new Error(`Four-block highlight did not start with the expected 4-row group: ${JSON.stringify(activeBlockRows)}`);
+  }
+
+  await clickTarget(blockSnapshot.activeBlock);
+  await waitForActive(
+    (snapshot) => snapshot.phase === "Rows" && snapshot.activeRow !== null,
+    "row within selected block"
+  );
+  const selectedBlockRows = await evaluate(`
+    [...document.querySelectorAll(".row")]
+      .map((row, rowIndex) => row.classList.contains("selected-block-row") ? rowIndex : -1)
+      .filter((rowIndex) => rowIndex >= 0)
+  `);
+  assertArrayEqual(selectedBlockRows, [0, 1, 2, 3], "selected-block context during row scanning");
+
+  await evaluate(`location.reload()`);
+  await waitForRenderedBoard();
+  await releaseFirstRowHold();
+
+  await selectLabel("痛");
+  await assertMessage("痛");
+  const storedMode = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}").scanMode`);
+  if (storedMode !== "block-row-column") {
+    throw new Error(`Four-block mode did not persist: ${JSON.stringify(storedMode)}`);
+  }
+
+  await evaluate(`
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.href = ${JSON.stringify(`${appUrl}?demo=zh-tw-home`)};
+  `);
+  await waitForRenderedBoard();
+  await waitForDemoActive();
+  const demoStats = await waitForZhuyinCommit();
+  const demoMode = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}").scanMode`);
+  if (demoMode !== "block-row-column" || !await isDemoActive()) {
+    throw new Error(`Auto Demo did not remain active in four-block mode: ${JSON.stringify({ demoMode, demoStats })}`);
+  }
+  const demoSnapshot = await getSnapshot();
+  await clickTarget(demoSnapshot.activeBlock ?? demoSnapshot.activeRow ?? demoSnapshot.activeCell);
+  await waitForDemoInactive();
+  await evaluate(`globalThis.ShineAacDemoError = ""`);
+  steps.push(pass(
+    "block-row-column",
+    "reused the exact English suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit"
+  ));
+}
+
+async function captureEnglishBoardPresentation(scanMode) {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 27,
+      profileId: "en-US",
+      columns: 4,
+      scanMode: ${JSON.stringify(scanMode)},
+      scanIntervalMs: 600,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 600,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.href = ${JSON.stringify(appUrl)};
+  `);
+  await waitForUi();
+  await delay(250);
+  return evaluate(`
+    (() => {
+      const board = document.querySelector('[data-testid="board"]');
+      const boardRect = board.getBoundingClientRect();
+      const relativeRect = (element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          x: Math.round((rect.left - boardRect.left) * 10) / 10,
+          y: Math.round((rect.top - boardRect.top) * 10) / 10,
+          width: Math.round(rect.width * 10) / 10,
+          height: Math.round(rect.height * 10) / 10
+        };
+      };
+      return [...board.querySelectorAll('.row')].map((row) => ({
+        visualColumns: row.dataset.visualColumns,
+        gridTemplateColumns: row.style.gridTemplateColumns,
+        rect: relativeRect(row),
+        tiles: [...row.querySelectorAll('.tile')].map((tile) => ({
+          label: tile.dataset.label,
+          action: tile.dataset.action,
+          columnSpan: tile.dataset.columnSpan,
+          gridColumn: tile.style.gridColumn,
+          rect: relativeRect(tile)
+        }))
+      }));
+    })()
+  `);
 }
 
 async function waitForActive(predicate, description, timeoutMs = 8000) {
@@ -3066,6 +3230,7 @@ async function getSnapshot() {
             cellIndex,
             label: tile.dataset.label ?? "",
             action: tile.dataset.action ?? "",
+            activeBlock: tile.classList.contains("active-block"),
             activeRow: tile.classList.contains("active-row"),
             activeCell: tile.classList.contains("active-cell"),
             reviewHold: tile.classList.contains("review-hold"),
@@ -3078,14 +3243,16 @@ async function getSnapshot() {
       );
       const activeRow = rows.flat().find((tile) => tile.activeRow) ?? null;
       const activeCell = rows.flat().find((tile) => tile.activeCell) ?? null;
+      const activeBlock = rows.flat().find((tile) => tile.activeBlock) ?? null;
       const messageNode = document.querySelector('[data-testid="message"]');
       const message = messageNode?.dataset.rawMessage ?? null;
       const phaseElement = document.querySelector(".phase");
       const phase = phaseElement?.dataset.scanPhase ?? phaseElement?.textContent ?? "";
-      const current = activeCell ?? activeRow;
+      const current = activeCell ?? activeRow ?? activeBlock;
       return {
         message,
         rows,
+        activeBlock,
         activeRow,
         activeCell,
         phase,

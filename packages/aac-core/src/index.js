@@ -4,12 +4,22 @@ import { ZhTwSensitiveSuggestionEntries } from "./data/zh-tw-sensitive.generated
 import { EnUsFrequencyEntries } from "./data/en-us-frequency.generated.js";
 
 export const ScanStage = Object.freeze({
+  Blocks: "Blocks",
+  BlockSelected: "BlockSelected",
   Rows: "Rows",
   RowSelected: "RowSelected",
   FirstCell: "FirstCell",
   Cells: "Cells",
   Stopped: "Stopped"
 });
+
+export const ScanMode = Object.freeze({
+  RowColumn: "row-column",
+  BlockRowColumn: "block-row-column"
+});
+
+const LegacyFiveBlockRowColumnScanMode = "five-block-row-column";
+const LegacyFourBlockRowColumnScanMode = "four-block-row-column";
 
 export const TileAction = Object.freeze({
   Append: "append",
@@ -36,6 +46,9 @@ export const DefaultFirstCellPauseMs = DefaultScanIntervalMs;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
 export const DefaultScanPassLimit = 2;
+export const DefaultScanMode = ScanMode.RowColumn;
+export const FourBlockCount = 4;
+export const DefaultScanBlockCount = FourBlockCount;
 export const ScanTimingPresets = Object.freeze({
   default: Object.freeze({
     id: "default",
@@ -78,7 +91,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 26;
+export const CurrentConfigVersion = 27;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -355,6 +368,12 @@ const DefaultTilesWithBackspaceV21 = Object.freeze([
 export const DefaultTiles = Object.freeze(
   DefaultTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
 );
+export const EnglishInputColumns = DefaultColumns;
+export const EnglishInputTiles = DefaultTiles;
+const RecommendedScanBlockCounts = Object.freeze({
+  "en-US": 4,
+  "zh-TW": 4
+});
 
 export const LegacyFrequencyDefaultTilesV3 = Object.freeze([
   tile("YES", "yes"),
@@ -668,11 +687,7 @@ export const ZhTwPhraseCategories = Object.freeze({
   }),
   [EnglishCategoryId]: Object.freeze({
     label: "英文",
-    tiles: Object.freeze([
-      ...frequencyLetters.map(letterTile),
-      tile("\u7a7a\u683c", " ", TileAction.Space),
-      tile("?")
-    ])
+    tiles: EnglishInputTiles
   })
 });
 
@@ -735,6 +750,7 @@ export const LanguageProfiles = Object.freeze({
     firstCellPauseMs: DefaultFirstCellPauseMs,
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
     scanPassLimit: DefaultScanPassLimit,
+    scanMode: DefaultScanMode,
     autoSpace: AutoSpaceMode.Word,
     speechLocale: "en-US",
     suggestionDictionary: DefaultSuggestionDictionary,
@@ -750,6 +766,7 @@ export const LanguageProfiles = Object.freeze({
     firstCellPauseMs: DefaultFirstCellPauseMs,
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
     scanPassLimit: DefaultScanPassLimit,
+    scanMode: DefaultScanMode,
     autoSpace: AutoSpaceMode.None,
     speechLocale: "zh-TW",
     suggestionDictionary: ZhTwSuggestionDictionary,
@@ -776,6 +793,10 @@ export function createBoardConfig(overrides = {}) {
     suggestionDictionary: profile.suggestionDictionary,
     symbols: profile.symbols,
     ...safeOverrides,
+    scanMode: normalizeScanMode(safeOverrides.scanMode ?? profile.scanMode),
+    scanBlockCount: normalizeScanBlockCount(
+      safeOverrides.scanBlockCount ?? recommendedScanBlockCount(profile.id)
+    ),
     scanPassLimit: normalizeScanPassLimit(safeOverrides.scanPassLimit ?? profile.scanPassLimit)
   };
 }
@@ -1890,6 +1911,7 @@ function categorySuggestionRows(
   const category = ZhTwPhraseCategories[categoryId];
   if (!category) return [];
   if (categoryId === EnglishCategoryId) {
+    const englishColumns = EnglishInputColumns;
     const commandTiles = [
       zhuyinCategoryCloseTile,
       tile("朗讀", "SAY", TileAction.Speak),
@@ -1899,7 +1921,7 @@ function categorySuggestionRows(
     const suggestions = englishSuggestionRows(
       trailingEnglishCategoryText(message),
       DefaultSuggestionDictionary,
-      commandColumns,
+      englishColumns,
       canUndo,
       {
         autoSpace: AutoSpaceMode.Word,
@@ -1911,7 +1933,11 @@ function categorySuggestionRows(
       if (candidate.action === TileAction.Space) return tile("空格", " ", TileAction.Space);
       return candidate;
     }));
-    return [...suggestions, paddedRow(commandTiles, commandColumns), ...chunk(category.tiles, columns)];
+    return [
+      ...suggestions,
+      paddedRow(commandTiles, englishColumns),
+      ...chunk(category.tiles, englishColumns)
+    ];
   }
   const commandTiles = [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
   const commandRow = paddedRow(commandTiles, commandColumns);
@@ -2198,23 +2224,218 @@ function entryMatchesPrefix(entry, prefix) {
 }
 
 export function createScannerState(overrides = {}) {
+  const { scanMode = DefaultScanMode, ...stateOverrides } = overrides;
+  const normalizedMode = normalizeScanMode(scanMode);
   return {
-    stage: ScanStage.Rows,
+    stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
+    blockIndex: 0,
     rowIndex: 0,
     cellIndex: 0,
     passIndex: 1,
+    cycleStartBlockIndex: 0,
     cycleStartRowIndex: 0,
+    returningToBlocks: false,
     returningToRows: false,
-    ...overrides
+    ...stateOverrides
   };
 }
 
-export function advanceScanner(state, rowCount, columnCountForRow, scanPassLimit = DefaultScanPassLimit) {
+export function scanRowBlocks(
+  rowCount,
+  columnCountForRow,
+  requestedBlockCount = FourBlockCount
+) {
+  const selectableRows = selectableRowIndices(rowCount, columnCountForRow);
+  if (selectableRows.length === 0) return [];
+
+  const blockCount = Math.min(
+    selectableRows.length,
+    clampInt(requestedBlockCount, 1, selectableRows.length)
+  );
+  const baseSize = Math.floor(selectableRows.length / blockCount);
+  const widerBlockCount = selectableRows.length % blockCount;
+  const blocks = [];
+  let offset = 0;
+  for (let blockIndex = 0; blockIndex < blockCount; blockIndex += 1) {
+    const size = baseSize + (blockIndex < widerBlockCount ? 1 : 0);
+    blocks.push(selectableRows.slice(offset, offset + size));
+    offset += size;
+  }
+  return blocks;
+}
+
+export function scanRecognitionLoad(
+  rowCount,
+  columnCountForRow,
+  scanMode = DefaultScanMode,
+  scanBlockCount = DefaultScanBlockCount
+) {
+  const selectableRows = selectableRowIndices(rowCount, columnCountForRow);
+  const normalizedMode = normalizeScanMode(scanMode);
+  if (normalizedMode === ScanMode.RowColumn) {
+    return Object.freeze({
+      mode: normalizedMode,
+      decisionLevels: 2,
+      topLevelChoices: selectableRows.length,
+      maximumRowsHighlighted: selectableRows.length > 0 ? 1 : 0,
+      maximumItemsHighlighted: selectableRows.reduce(
+        (maximum, rowIndex) => Math.max(maximum, columnCountForRow(rowIndex)),
+        0
+      )
+    });
+  }
+
+  const blocks = scanRowBlocks(rowCount, columnCountForRow, scanBlockCount);
+  return Object.freeze({
+    mode: normalizedMode,
+    decisionLevels: 3,
+    topLevelChoices: blocks.length,
+    maximumRowsHighlighted: blocks.reduce((maximum, block) => Math.max(maximum, block.length), 0),
+    maximumItemsHighlighted: blocks.reduce(
+      (maximum, block) => Math.max(
+        maximum,
+        block.reduce((count, rowIndex) => count + Math.max(0, columnCountForRow(rowIndex)), 0)
+      ),
+      0
+    )
+  });
+}
+
+export function scanAccessCost(
+  rowCount,
+  columnCountForRow,
+  targetRowIndex,
+  targetCellIndex,
+  scanMode = DefaultScanMode,
+  scanBlockCount = DefaultScanBlockCount
+) {
+  const selectableRows = selectableRowIndices(rowCount, columnCountForRow);
+  const rowPosition = selectableRows.indexOf(targetRowIndex);
+  const cellCount = rowPosition >= 0 ? Math.max(0, columnCountForRow(targetRowIndex)) : 0;
+  if (rowPosition < 0 || targetCellIndex < 0 || targetCellIndex >= cellCount) return null;
+
+  const normalizedMode = normalizeScanMode(scanMode);
+  if (normalizedMode === ScanMode.RowColumn) {
+    return Object.freeze({
+      mode: normalizedMode,
+      switchActivations: 2,
+      scannerAdvances: rowPosition + targetCellIndex,
+      blockAdvances: 0,
+      rowAdvances: rowPosition,
+      cellAdvances: targetCellIndex
+    });
+  }
+
+  const blocks = scanRowBlocks(rowCount, columnCountForRow, scanBlockCount);
+  const blockIndex = blocks.findIndex((block) => block.includes(targetRowIndex));
+  const rowIndexWithinBlock = blocks[blockIndex].indexOf(targetRowIndex);
+  return Object.freeze({
+    mode: normalizedMode,
+    switchActivations: 3,
+    scannerAdvances: blockIndex + rowIndexWithinBlock + targetCellIndex,
+    blockAdvances: blockIndex,
+    rowAdvances: rowIndexWithinBlock,
+    cellAdvances: targetCellIndex
+  });
+}
+
+function selectableRowIndices(rowCount, columnCountForRow) {
+  const selectableRows = [];
+  for (let rowIndex = 0; rowIndex < Math.max(0, rowCount); rowIndex += 1) {
+    if (columnCountForRow(rowIndex) > 0) selectableRows.push(rowIndex);
+  }
+  return selectableRows;
+}
+
+export function advanceScanner(
+  state,
+  rowCount,
+  columnCountForRow,
+  scanPassLimit = DefaultScanPassLimit,
+  scanMode = DefaultScanMode,
+  scanBlockCount = DefaultScanBlockCount
+) {
   if (rowCount <= 0) return state;
   const passLimit = normalizeScanPassLimit(scanPassLimit);
+  const normalizedMode = normalizeScanMode(scanMode);
+  const blocks = normalizedMode === ScanMode.BlockRowColumn
+    ? scanRowBlocks(rowCount, columnCountForRow, scanBlockCount)
+    : [];
   const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
   switch (state.stage) {
+    case ScanStage.Blocks: {
+      if (blocks.length === 0) return state;
+      const safeBlock = clampInt(state.blockIndex, 0, blocks.length - 1);
+      const cycleStartBlockIndex = clampInt(state.cycleStartBlockIndex, 0, blocks.length - 1);
+      const nextBlockIndex = floorMod(safeBlock + 1, blocks.length);
+      const completedPass = nextBlockIndex === cycleStartBlockIndex;
+      if (completedPass && passLimit > 0 && passIndex >= passLimit) {
+        return createScannerState({
+          scanMode: normalizedMode,
+          stage: ScanStage.Stopped,
+          blockIndex: cycleStartBlockIndex,
+          rowIndex: blocks[cycleStartBlockIndex][0],
+          cycleStartBlockIndex
+        });
+      }
+      return {
+        ...state,
+        blockIndex: nextBlockIndex,
+        rowIndex: blocks[nextBlockIndex][0],
+        cellIndex: 0,
+        passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
+        cycleStartBlockIndex,
+        returningToBlocks: false,
+        returningToRows: false
+      };
+    }
+    case ScanStage.BlockSelected: {
+      if (blocks.length === 0) return state;
+      const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
+      const rowIndex = blocks[blockIndex][0];
+      return {
+        ...state,
+        stage: ScanStage.Rows,
+        blockIndex,
+        rowIndex,
+        cellIndex: 0,
+        passIndex: 1,
+        cycleStartRowIndex: rowIndex,
+        returningToBlocks: false,
+        returningToRows: false
+      };
+    }
     case ScanStage.Rows: {
+      if (normalizedMode === ScanMode.BlockRowColumn && blocks.length > 0) {
+        const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
+        const block = blocks[blockIndex];
+        const safeRowPosition = Math.max(0, block.indexOf(state.rowIndex));
+        const cycleStartRowIndex = block.includes(state.cycleStartRowIndex)
+          ? state.cycleStartRowIndex
+          : block[0];
+        const nextRowIndex = block[floorMod(safeRowPosition + 1, block.length)];
+        const completedPass = nextRowIndex === cycleStartRowIndex;
+        if (completedPass && passLimit > 0 && passIndex >= passLimit) {
+          return createScannerState({
+            scanMode: normalizedMode,
+            stage: ScanStage.Blocks,
+            blockIndex,
+            rowIndex: block[0],
+            cycleStartBlockIndex: blockIndex,
+            returningToBlocks: true
+          });
+        }
+        return {
+          ...state,
+          blockIndex,
+          rowIndex: nextRowIndex,
+          cellIndex: 0,
+          passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
+          cycleStartRowIndex,
+          returningToBlocks: false,
+          returningToRows: false
+        };
+      }
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
       const cycleStartRowIndex = clampInt(state.cycleStartRowIndex, 0, rowCount - 1);
       const nextRowIndex = nextSelectableRow(safeRow, rowCount, columnCountForRow);
@@ -2236,18 +2457,25 @@ export function advanceScanner(state, rowCount, columnCountForRow, scanPassLimit
       };
     }
     case ScanStage.RowSelected:
-      return { ...state, stage: ScanStage.FirstCell, cellIndex: 0, passIndex: 1, returningToRows: false };
+      return {
+        ...state,
+        stage: ScanStage.FirstCell,
+        cellIndex: 0,
+        passIndex: 1,
+        returningToBlocks: false,
+        returningToRows: false
+      };
     case ScanStage.FirstCell: {
       const columns = Math.max(1, columnCountForRow(state.rowIndex));
       if (columns === 1) {
-        return advanceCompletedCellPass(state, passLimit);
+        return advanceCompletedCellPass(state, passLimit, normalizedMode);
       }
       return { ...state, stage: ScanStage.Cells, cellIndex: columns === 1 ? 0 : 1 };
     }
     case ScanStage.Cells: {
       const columns = Math.max(1, columnCountForRow(state.rowIndex));
       if (state.cellIndex >= columns - 1) {
-        return advanceCompletedCellPass(state, passLimit);
+        return advanceCompletedCellPass(state, passLimit, normalizedMode);
       }
       return { ...state, cellIndex: state.cellIndex + 1 };
     }
@@ -2258,13 +2486,16 @@ export function advanceScanner(state, rowCount, columnCountForRow, scanPassLimit
   }
 }
 
-function advanceCompletedCellPass(state, passLimit) {
+function advanceCompletedCellPass(state, passLimit, scanMode) {
   const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
   if (passLimit > 0 && passIndex >= passLimit) {
     const rowIndex = Math.max(0, state.rowIndex);
     return createScannerState({
+      scanMode,
       stage: ScanStage.Rows,
+      blockIndex: state.blockIndex,
       rowIndex,
+      cycleStartBlockIndex: state.cycleStartBlockIndex,
       cycleStartRowIndex: rowIndex,
       returningToRows: true
     });
@@ -2284,16 +2515,74 @@ export function normalizeScanPassLimit(value) {
   return clampInt(Number.isFinite(numeric) ? numeric : DefaultScanPassLimit, 1, 3);
 }
 
-export function confirmScanner(state, rowCount, columnCountForRow) {
+export function normalizeScanMode(value) {
+  return value === ScanMode.BlockRowColumn ||
+    value === LegacyFourBlockRowColumnScanMode ||
+    value === LegacyFiveBlockRowColumnScanMode
+    ? ScanMode.BlockRowColumn
+    : ScanMode.RowColumn;
+}
+
+export function normalizeScanBlockCount(value) {
+  return clampInt(Number(value) || DefaultScanBlockCount, 2, 8);
+}
+
+export function recommendedScanBlockCount(profileId) {
+  return RecommendedScanBlockCounts[profileId] ?? DefaultScanBlockCount;
+}
+
+export function confirmScanner(
+  state,
+  rowCount,
+  columnCountForRow,
+  scanMode = DefaultScanMode,
+  scanBlockCount = DefaultScanBlockCount
+) {
   if (rowCount <= 0) return { type: "none", nextState: state };
+  const normalizedMode = normalizeScanMode(scanMode);
+  const blocks = normalizedMode === ScanMode.BlockRowColumn
+    ? scanRowBlocks(rowCount, columnCountForRow, scanBlockCount)
+    : [];
   switch (state.stage) {
+    case ScanStage.Blocks: {
+      if (blocks.length === 0) return { type: "none", nextState: state };
+      const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
+      return {
+        type: "none",
+        nextState: createScannerState({
+          scanMode: normalizedMode,
+          stage: ScanStage.BlockSelected,
+          blockIndex,
+          rowIndex: blocks[blockIndex][0],
+          cycleStartBlockIndex: blockIndex
+        })
+      };
+    }
+    case ScanStage.BlockSelected: {
+      const blockIndex = blocks.length > 0
+        ? clampInt(state.blockIndex, 0, blocks.length - 1)
+        : 0;
+      return {
+        type: "none",
+        nextState: createScannerState({
+          scanMode: normalizedMode,
+          stage: ScanStage.Blocks,
+          blockIndex,
+          rowIndex: blocks[blockIndex]?.[0] ?? 0,
+          cycleStartBlockIndex: blockIndex
+        })
+      };
+    }
     case ScanStage.Rows: {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
       return {
         type: "none",
         nextState: createScannerState({
+          scanMode: normalizedMode,
           stage: ScanStage.RowSelected,
+          blockIndex: state.blockIndex,
           rowIndex: safeRow,
+          cycleStartBlockIndex: state.cycleStartBlockIndex,
           cycleStartRowIndex: safeRow
         })
       };
@@ -2302,7 +2591,14 @@ export function confirmScanner(state, rowCount, columnCountForRow) {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
       return {
         type: "none",
-        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cycleStartRowIndex: safeRow })
+        nextState: createScannerState({
+          scanMode: normalizedMode,
+          stage: ScanStage.Rows,
+          blockIndex: state.blockIndex,
+          rowIndex: safeRow,
+          cycleStartBlockIndex: state.cycleStartBlockIndex,
+          cycleStartRowIndex: safeRow
+        })
       };
     }
     case ScanStage.FirstCell: {
@@ -2311,7 +2607,14 @@ export function confirmScanner(state, rowCount, columnCountForRow) {
         type: "selected",
         rowIndex: safeRow,
         cellIndex: 0,
-        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cycleStartRowIndex: safeRow })
+        nextState: createScannerState({
+          scanMode: normalizedMode,
+          stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
+          blockIndex: state.blockIndex,
+          rowIndex: safeRow,
+          cycleStartBlockIndex: state.blockIndex,
+          cycleStartRowIndex: safeRow
+        })
       };
     }
     case ScanStage.Cells: {
@@ -2321,21 +2624,36 @@ export function confirmScanner(state, rowCount, columnCountForRow) {
         type: "selected",
         rowIndex: safeRow,
         cellIndex: clampInt(state.cellIndex, 0, columns - 1),
-        nextState: createScannerState({ stage: ScanStage.Rows, rowIndex: safeRow, cycleStartRowIndex: safeRow })
+        nextState: createScannerState({
+          scanMode: normalizedMode,
+          stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
+          blockIndex: state.blockIndex,
+          rowIndex: safeRow,
+          cycleStartBlockIndex: state.blockIndex,
+          cycleStartRowIndex: safeRow
+        })
       };
     }
     case ScanStage.Stopped:
-      return { type: "none", nextState: createScannerState() };
+      return { type: "none", nextState: createScannerState({ scanMode: normalizedMode }) };
     default:
       return { type: "none", nextState: state };
   }
 }
 
-export function confirmWithLatencyCompensation(state, rowCount, columnCountForRow, elapsedInHighlightMs, compensationWindowMs) {
+export function confirmWithLatencyCompensation(
+  state,
+  rowCount,
+  columnCountForRow,
+  elapsedInHighlightMs,
+  compensationWindowMs,
+  scanMode = DefaultScanMode,
+  scanBlockCount = DefaultScanBlockCount
+) {
   const compensatedState = elapsedInHighlightMs >= 0 && elapsedInHighlightMs < compensationWindowMs
     ? previousHighlight(state, rowCount, columnCountForRow)
     : state;
-  return confirmScanner(compensatedState, rowCount, columnCountForRow);
+  return confirmScanner(compensatedState, rowCount, columnCountForRow, scanMode, scanBlockCount);
 }
 
 export function updateMessage(current, selectedTile, options = {}) {
@@ -2391,8 +2709,9 @@ function trailingEnglishTokenStart(text) {
 }
 
 export function createSession(overrides = {}) {
-  return {
-    config: createBoardConfig(),
+  const config = createBoardConfig(overrides.config);
+  const session = {
+    config,
     message: "",
     messageHistory: [],
     inputMode: "board",
@@ -2402,10 +2721,15 @@ export function createSession(overrides = {}) {
     zhuyinGroup: null,
     suggestionPage: 0,
     suggestionPageHistory: [],
-    scannerState: createScannerState(),
+    scannerState: createScannerState({ scanMode: config.scanMode }),
     lockedRow: null,
     lastSelection: null,
     ...overrides
+  };
+  return {
+    ...session,
+    config,
+    scannerState: overrides.scannerState ?? createScannerState({ scanMode: config.scanMode })
   };
 }
 
@@ -2452,14 +2776,16 @@ export function advanceSession(session, scanPassLimit = session.config.scanPassL
     session.scannerState,
     rows.length,
     (row) => selectableCount(rows[row]),
-    scanPassLimit
+    scanPassLimit,
+    session.config.scanMode,
+    session.config.scanBlockCount
   );
   return {
     ...session,
     scannerState: nextState,
-    lockedRow: nextState.stage === ScanStage.Rows || nextState.stage === ScanStage.Stopped
-      ? null
-      : session.lockedRow,
+    lockedRow: [ScanStage.RowSelected, ScanStage.FirstCell, ScanStage.Cells].includes(nextState.stage)
+      ? session.lockedRow
+      : null,
     lastSelection: null
   };
 }
@@ -2471,16 +2797,30 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     rows.length,
     (row) => selectableCount(rows[row]),
     elapsedInHighlightMs,
-    session.config.inputLatencyCompensationMs
+    session.config.inputLatencyCompensationMs,
+    session.config.scanMode,
+    session.config.scanBlockCount
   );
 
   if (confirmation.type === "none") {
+    const isLockingBlock =
+      session.scannerState.stage === ScanStage.Blocks &&
+      confirmation.nextState.stage === ScanStage.BlockSelected;
     const isLockingRow =
       session.scannerState.stage === ScanStage.Rows &&
       confirmation.nextState.stage === ScanStage.RowSelected;
-    if (isLockingRow && session.config.transitionPauseMs <= 0) {
-      const lockedRow = rows[confirmation.nextState.rowIndex];
-      const nextState = advanceScanner(confirmation.nextState, rows.length, (row) => selectableCount(row === confirmation.nextState.rowIndex ? lockedRow : rows[row]));
+    if ((isLockingBlock || isLockingRow) && session.config.transitionPauseMs <= 0) {
+      const lockedRow = isLockingRow ? rows[confirmation.nextState.rowIndex] : null;
+      const nextState = advanceScanner(
+        confirmation.nextState,
+        rows.length,
+        (row) => selectableCount(
+          isLockingRow && row === confirmation.nextState.rowIndex ? lockedRow : rows[row]
+        ),
+        session.config.scanPassLimit,
+        session.config.scanMode,
+        session.config.scanBlockCount
+      );
       return {
         ...session,
         scannerState: nextState,
@@ -2491,11 +2831,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     return {
       ...session,
       scannerState: confirmation.nextState,
-      lockedRow: confirmation.nextState.stage === ScanStage.Rows
-        ? null
-        : isLockingRow
-          ? rows[confirmation.nextState.rowIndex]
-          : session.lockedRow,
+      lockedRow: isLockingRow ? rows[confirmation.nextState.rowIndex] : null,
       lastSelection: null
     };
   }
@@ -2698,6 +3034,8 @@ function* zhTwConfiguredSuggestionCandidates(dictionary) {
 export function withLockedRow(rows, scannerState, lockedRow) {
   if (
     !lockedRow ||
+    scannerState.stage === ScanStage.Blocks ||
+    scannerState.stage === ScanStage.BlockSelected ||
     scannerState.stage === ScanStage.Rows ||
     scannerState.stage === ScanStage.Stopped ||
     scannerState.rowIndex < 0 ||
@@ -2711,6 +3049,10 @@ export function withLockedRow(rows, scannerState, lockedRow) {
 
 export function scanDurationForStage(state, config = createBoardConfig()) {
   switch (state.stage) {
+    case ScanStage.Blocks:
+      return state.returningToBlocks ? config.firstCellPauseMs : config.scanIntervalMs;
+    case ScanStage.BlockSelected:
+      return config.transitionPauseMs;
     case ScanStage.Rows:
       return state.returningToRows ? config.firstCellPauseMs : config.scanIntervalMs;
     case ScanStage.RowSelected:

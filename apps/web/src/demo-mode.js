@@ -1,4 +1,14 @@
-import { ScanStage, TileAction, ZhTwFrequencyDictionary, ZhuyinInputSymbols, scanDurationForStage, visibleBoard } from "../../../packages/aac-core/src/index.js";
+import {
+  ScanMode,
+  ScanStage,
+  TileAction,
+  ZhTwFrequencyDictionary,
+  ZhuyinInputSymbols,
+  scanDurationForStage,
+  scanRowBlocks,
+  selectableCount,
+  visibleBoard
+} from "../../../packages/aac-core/src/index.js";
 import { InputIntent } from "./input.js";
 
 const demoStorageKey = "shine-aac-demo-mode";
@@ -233,6 +243,15 @@ export function createDemoMode({
 
   async function demonstrateEscapeLadder(currentRunId) {
     const messageBefore = getSession().message;
+    if (getSession().config.scanMode === ScanMode.BlockRowColumn) {
+      await waitForActivationWindow(
+        () => getSession().scannerState.stage === ScanStage.Blocks,
+        currentRunId,
+        undefined,
+        "escape-ladder block"
+      );
+      receiveDemoInput();
+    }
     await waitForActivationWindow(
       () => getSession().scannerState.stage === ScanStage.Rows,
       currentRunId,
@@ -259,7 +278,9 @@ export function createDemoMode({
 
     receiveDemoInput();
     await waitForScannerState(
-      (scanner) => scanner.stage === ScanStage.Rows && scanner.rowIndex === 0,
+      (scanner) => getSession().config.scanMode === ScanMode.BlockRowColumn
+        ? scanner.stage === ScanStage.Blocks && scanner.blockIndex === 0
+        : scanner.stage === ScanStage.Rows && scanner.rowIndex === 0,
       currentRunId,
       "wake-only activation"
     );
@@ -296,6 +317,11 @@ export function createDemoMode({
   }
 
   async function chooseTarget(target, currentRunId) {
+    if (getSession().config.scanMode === ScanMode.BlockRowColumn) {
+      await waitForActivationWindow(() => blockReadyFor(target), currentRunId, undefined, `block ${target.label}/${target.action ?? ""}`);
+      receiveDemoInput();
+      await delay(120);
+    }
     await waitForActivationWindow(() => rowReadyFor(target), currentRunId, undefined, `row ${target.label}/${target.action ?? ""}`);
     receiveDemoInput();
     await delay(120);
@@ -501,6 +527,21 @@ export function createDemoMode({
     return row.some((candidate) => tileMatchesTarget(candidate, target));
   }
 
+  function blockReadyFor(target) {
+    const session = getSession();
+    const scanner = session.scannerState;
+    if (scanner.stage !== ScanStage.Blocks) return false;
+    const rows = visibleBoard(session);
+    const blocks = scanRowBlocks(
+      rows.length,
+      (row) => selectableCount(rows[row]),
+      session.config.scanBlockCount
+    );
+    return (blocks[scanner.blockIndex] ?? []).some((rowIndex) =>
+      (rows[rowIndex] ?? []).some((candidate) => tileMatchesTarget(candidate, target))
+    );
+  }
+
   function cellReadyFor(target) {
     const session = getSession();
     const scanner = session.scannerState;
@@ -532,12 +573,15 @@ export function createDemoMode({
     const session = getSession();
     const board = visibleBoard(session);
     const timingConfig = getTimingConfig?.() ?? session.config;
+    const blockCycleMs = session.config.scanMode === ScanMode.BlockRowColumn
+      ? Math.min(5, board.length) * Math.max(1, timingConfig.scanIntervalMs)
+      : 0;
     const rowCycleMs = Math.max(1, board.length) * Math.max(1, timingConfig.scanIntervalMs);
     const longestRow = Math.max(1, ...board.map((row) => row.length));
     const cellCycleMs = Math.max(1, timingConfig.firstCellPauseMs) +
       Math.max(0, longestRow - 1) * Math.max(1, timingConfig.scanIntervalMs) +
       Math.max(0, timingConfig.transitionPauseMs);
-    return Math.max(45000, (rowCycleMs + cellCycleMs) * 2 + 5000);
+    return Math.max(45000, (blockCycleMs + rowCycleMs + cellCycleMs) * 2 + 5000);
   }
 
   function demoTimingSnapshot() {
@@ -557,7 +601,7 @@ export function createDemoMode({
 
   function highlightSignature() {
     const scanner = getSession().scannerState;
-    return `${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}`;
+    return `${scanner.stage}:${scanner.blockIndex}:${scanner.rowIndex}:${scanner.cellIndex}`;
   }
 
   function highlightProgress() {

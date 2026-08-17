@@ -1,4 +1,5 @@
 import {
+  ScanMode,
   ScanStage,
   TileAction,
   advanceSession,
@@ -6,6 +7,8 @@ import {
   createScannerState,
   createSession,
   pressSwitch,
+  scanRowBlocks,
+  selectableCount,
   visibleBoard,
   ZhTwFrequencyDictionary
 } from "../src/index.js";
@@ -47,6 +50,21 @@ function candidateMatchesToken(candidate, token) {
 
 function scanCost(session, rowIndex, cellIndex) {
   const rows = visibleBoard(session);
+  if (session.config.scanMode === ScanMode.BlockRowColumn) {
+    const blocks = scanRowBlocks(
+      rows.length,
+      (row) => selectableCount(rows[row]),
+      session.config.scanBlockCount
+    );
+    const targetBlockIndex = blocks.findIndex((block) => block.includes(rowIndex));
+    const blockCursor = session.scannerState.stage === ScanStage.Blocks
+      ? session.scannerState.blockIndex
+      : 0;
+    const blockAdvances = (targetBlockIndex - blockCursor + blocks.length) % blocks.length;
+    const rowAdvances = Math.max(0, blocks[targetBlockIndex]?.indexOf(rowIndex) ?? 0);
+    const cellAdvances = cellIndex === 0 ? 0 : cellIndex;
+    return blockAdvances + rowAdvances + cellAdvances + 3;
+  }
   const rowCursor = session.scannerState.stage === ScanStage.Rows ? session.scannerState.rowIndex : 0;
   const rowAdvances = (rowIndex - rowCursor + rows.length) % rows.length;
   const cellAdvances = cellIndex === 0 ? 0 : cellIndex;
@@ -55,10 +73,12 @@ function scanCost(session, rowIndex, cellIndex) {
 
 function scanAdvanceMs(session) {
   switch (session.scannerState.stage) {
+    case ScanStage.BlockSelected:
     case ScanStage.RowSelected:
       return session.config.transitionPauseMs;
     case ScanStage.FirstCell:
       return session.config.firstCellPauseMs;
+    case ScanStage.Blocks:
     case ScanStage.Rows:
     case ScanStage.Cells:
     default:
@@ -76,12 +96,49 @@ function bestPositionForToken(session, token) {
 }
 
 function selectPosition(session, position) {
-  let next = session.scannerState.stage === ScanStage.Rows
+  const blockMode = session.config.scanMode === ScanMode.BlockRowColumn;
+  const topLevelStage = blockMode ? ScanStage.Blocks : ScanStage.Rows;
+  let next = session.scannerState.stage === topLevelStage
     ? session
-    : { ...session, scannerState: createScannerState({ rowIndex: 0 }), lockedRow: null };
+    : {
+      ...session,
+      scannerState: createScannerState({ scanMode: session.config.scanMode, rowIndex: 0 }),
+      lockedRow: null
+    };
   const metrics = { ...blankMetrics(), selections: 1 };
 
-  for (let step = 0; step <= visibleBoard(next).length; step += 1) {
+  if (blockMode) {
+    const rows = visibleBoard(next);
+    const blocks = scanRowBlocks(
+      rows.length,
+      (row) => selectableCount(rows[row]),
+      next.config.scanBlockCount
+    );
+    const targetBlockIndex = blocks.findIndex((block) => block.includes(position.rowIndex));
+    for (let step = 0; step <= blocks.length; step += 1) {
+      if (next.scannerState.stage === ScanStage.Blocks && next.scannerState.blockIndex === targetBlockIndex) break;
+      metrics.estimatedTimeMs += scanAdvanceMs(next);
+      next = advanceSession(next);
+      metrics.advances += 1;
+    }
+    next = pressSwitch(next, 1000);
+    metrics.switches += 1;
+    if (next.scannerState.stage === ScanStage.BlockSelected) {
+      metrics.estimatedTimeMs += scanAdvanceMs(next);
+      next = advanceSession(next);
+      metrics.advances += 1;
+    }
+  }
+
+  const rowSearchLimit = blockMode
+    ? scanRowBlocks(
+      visibleBoard(next).length,
+      (row) => selectableCount(visibleBoard(next)[row]),
+      next.config.scanBlockCount
+    )
+      .find((block) => block.includes(position.rowIndex))?.length ?? 0
+    : visibleBoard(next).length;
+  for (let step = 0; step <= rowSearchLimit; step += 1) {
     if (next.scannerState.stage === ScanStage.Rows && next.scannerState.rowIndex === position.rowIndex) break;
     metrics.estimatedTimeMs += scanAdvanceMs(next);
     next = advanceSession(next);
@@ -117,7 +174,7 @@ function selectPosition(session, position) {
   return {
     session: {
       ...next,
-      scannerState: createScannerState({ rowIndex: 0 }),
+      scannerState: createScannerState({ scanMode: next.config.scanMode, rowIndex: 0 }),
       lockedRow: null
     },
     metrics
@@ -410,7 +467,12 @@ function isZhTwLatinCharacter(character) {
 
 export function evaluateBenchmark(benchmark) {
   const startSession = createSession({
-    config: createBoardConfig({ profileId: benchmark.profileId ?? "en-US" })
+    config: createBoardConfig({
+      profileId: benchmark.profileId ?? "en-US",
+      ...(Number.isFinite(benchmark.columns) ? { columns: benchmark.columns } : {}),
+      ...(Number.isFinite(benchmark.scanBlockCount) ? { scanBlockCount: benchmark.scanBlockCount } : {}),
+      scanMode: benchmark.scanMode
+    })
   });
   const setup = composeSequence(startSession, benchmark.setupTokenSequence ?? []);
   const results = benchmark.acceptableTokenSequences.map((sequence) => {

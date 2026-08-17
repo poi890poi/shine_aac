@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "label": "Accepted code-47 slower-access baseline",
-  "generatedAt": "2026-08-11T02:48:20.766Z",
+  "label": "Accepted profile-independent English input baseline",
+  "generatedAt": "2026-08-17T16:12:22.702Z",
   "tasks": [
     {
       "id": "project-core-word-all",
@@ -2187,8 +2187,8 @@
       "metrics": {
         "selections": 17,
         "switches": 34,
-        "advances": 139,
-        "estimatedTimeMs": 250200,
+        "advances": 138,
+        "estimatedTimeMs": 248400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 13,
@@ -2215,8 +2215,8 @@
       "metrics": {
         "selections": 26,
         "switches": 52,
-        "advances": 192,
-        "estimatedTimeMs": 345600,
+        "advances": 218,
+        "estimatedTimeMs": 392400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 20,
@@ -2243,8 +2243,8 @@
       "metrics": {
         "selections": 19,
         "switches": 38,
-        "advances": 135,
-        "estimatedTimeMs": 243000,
+        "advances": 159,
+        "estimatedTimeMs": 286200,
         "moreSuggestions": 0,
         "tileActions": {
           "open-category": 1,
@@ -2308,8 +2308,8 @@
       "metrics": {
         "selections": 24,
         "switches": 48,
-        "advances": 195,
-        "estimatedTimeMs": 351000,
+        "advances": 188,
+        "estimatedTimeMs": 338400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 19,
@@ -2345,8 +2345,8 @@
       "metrics": {
         "selections": 63,
         "switches": 126,
-        "advances": 497,
-        "estimatedTimeMs": 894600,
+        "advances": 485,
+        "estimatedTimeMs": 873000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 50,

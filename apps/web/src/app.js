@@ -1,6 +1,7 @@
 import {
   CurrentConfigVersion,
   LanguageProfiles,
+  ScanMode,
   ScanStage,
   ScanTimingPresets,
   TileAction,
@@ -21,7 +22,9 @@ import {
   parseSymbols,
   pressSwitch,
   scanDurationForStage,
+  scanRowBlocks,
   scanTimingPresetIdForConfig,
+  selectableCount,
   serializeDictionary,
   serializeSymbols,
   speechLabelForTile,
@@ -213,6 +216,7 @@ function loadConfig() {
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
       ),
+      scanMode: stored.scanMode ?? profileDefaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, profileDefaults.scanPassLimit),
       suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
         stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
@@ -260,6 +264,7 @@ function loadNativeConfig(defaults) {
         stored.inputLatencyCompensationMs,
         defaults.inputLatencyCompensationMs
       ),
+      scanMode: stored.scanMode ?? defaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, defaults.scanPassLimit)
     });
   } catch {
@@ -276,6 +281,7 @@ function saveConfig(config) {
     transitionPauseMs: config.transitionPauseMs,
     firstCellPauseMs: config.firstCellPauseMs,
     inputLatencyCompensationMs: config.inputLatencyCompensationMs,
+    scanMode: config.scanMode,
     scanPassLimit: config.scanPassLimit,
     suggestionDictionary: serializeDictionary(config.suggestionDictionary),
     symbols: serializeSymbols(config.symbols)
@@ -687,7 +693,7 @@ function activateSwitch(inputEvent = {}) {
   session = (uiConfig.restartScanFromTop && selection) || shouldHold
     ? {
       ...nextSession,
-      scannerState: createScannerState(),
+      scannerState: createScannerState({ scanMode: session.config.scanMode }),
       lockedRow: null
     }
     : nextSession;
@@ -984,11 +990,26 @@ function announceCurrentScanTarget() {
   if (configOpen) return;
   const board = visibleBoard(session);
   const scanner = session.scannerState;
-  const key = `${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}:${scanner.passIndex}`;
+  const key = `${scanner.stage}:${scanner.blockIndex}:${scanner.rowIndex}:${scanner.cellIndex}:${scanner.passIndex}`;
   if (key === lastScanAnnouncementKey) return;
   lastScanAnnouncementKey = key;
 
   if (scanner.stage === ScanStage.Stopped) return;
+
+  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
+    if (!uiConfig.rowScanVoice) return;
+    const blocks = scanRowBlocks(
+      board.length,
+      (row) => selectableCount(board[row]),
+      session.config.scanBlockCount
+    );
+    const blockNumber = Math.min(blocks.length, Math.max(1, scanner.blockIndex + 1));
+    speakFeedback(uiText(
+      `Block ${blockNumber} of ${blocks.length}`,
+      `第 ${blockNumber} 區，共 ${blocks.length} 區`
+    ));
+    return;
+  }
 
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     if (!uiConfig.rowScanVoice) return;
@@ -1018,6 +1039,10 @@ function announceScanTransition(previousStage, previousPassIndex) {
   }
   if (scanner.returningToRows) {
     speakFeedback(uiText("Back to rows", "返回選列"));
+    return;
+  }
+  if (scanner.returningToBlocks) {
+    speakFeedback(uiText("Back to blocks", "返回選區"));
     return;
   }
   if (scanner.passIndex > previousPassIndex) {
@@ -1202,6 +1227,8 @@ function renderFull(board, boardKey) {
 
 function updateScanPresentation(board) {
   const scanner = session.scannerState;
+  const blockRows = activeBlockRows(scanner, board);
+  const selectedBlockRows = selectedBlockContextRows(scanner, board);
   document.body.classList.toggle("scan-stopped", scanner.stage === ScanStage.Stopped);
   const nextProgressTargetKey = progressTargetKeyForScanner(scanner, reviewHoldActive);
   if (renderedPhaseElement) {
@@ -1220,17 +1247,25 @@ function updateScanPresentation(board) {
   const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles])];
 
   for (const [rowIndex, rowElement] of renderedRows.entries()) {
-    const stoppedFirstRow = scanner.stage === ScanStage.Stopped && rowIndex === 0;
+    const stoppedRows = scanner.stage === ScanStage.Stopped && session.config.scanMode === ScanMode.BlockRowColumn
+      ? scanRowBlocks(board.length, (row) => selectableCount(board[row]), session.config.scanBlockCount)[0] ?? [0]
+      : [0];
+    const stoppedFirstTarget = scanner.stage === ScanStage.Stopped && stoppedRows.includes(rowIndex);
+    const reviewBlock = reviewHoldActive && blockRows.includes(rowIndex);
     rowElement.classList.toggle(
       "review-hold-row",
-      stoppedFirstRow || (
+      stoppedFirstTarget || reviewBlock || (
         reviewHoldActive && scanner.stage === ScanStage.Rows && scanner.rowIndex === rowIndex
       )
     );
+    rowElement.classList.toggle("selected-block-row", selectedBlockRows.includes(rowIndex));
   }
 
   for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
+    const activeBlock =
+      (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) &&
+      blockRows.includes(rendered.rowIndex);
     const activeRow =
       (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) &&
       scanner.rowIndex === rendered.rowIndex;
@@ -1238,9 +1273,9 @@ function updateScanPresentation(board) {
       (scanner.stage === ScanStage.FirstCell || scanner.stage === ScanStage.Cells) &&
       scanner.rowIndex === rendered.rowIndex &&
       scanner.cellIndex === rendered.cellIndex;
-    const reviewHold = reviewHoldActive && (activeRow || activeCell);
-    const cameraHold = cameraHoldActive && (activeRow || activeCell);
-    const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold, cameraHold);
+    const reviewHold = reviewHoldActive && (activeBlock || activeRow || activeCell);
+    const cameraHold = cameraHoldActive && (activeBlock || activeRow || activeCell);
+    const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold, cameraHold, activeBlock);
     if (rendered.element.className !== nextClassName) {
       rendered.element.className = nextClassName;
     }
@@ -1262,6 +1297,10 @@ function updateScanPresentation(board) {
 
 function activeRenderedTilesForScanner(scanner) {
   if (scanner.stage === ScanStage.Stopped) return [];
+  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
+    const board = visibleBoard(session);
+    return activeBlockRows(scanner, board).flatMap((rowIndex) => renderedTileGrid[rowIndex] ?? []);
+  }
   const row = renderedTileGrid[scanner.rowIndex] ?? [];
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     return row;
@@ -1273,10 +1312,34 @@ function activeRenderedTilesForScanner(scanner) {
 function progressTargetKeyForScanner(scanner, isReviewHold) {
   if (scanner.stage === ScanStage.Stopped) return "stopped";
   const prefix = isReviewHold ? "review" : "scan";
+  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
+    return `${prefix}:${scanner.stage}:${scanner.blockIndex}`;
+  }
   if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
     return `${prefix}:${scanner.stage}:${scanner.rowIndex}`;
   }
   return `${prefix}:${scanner.stage}:${scanner.rowIndex}:${scanner.cellIndex}`;
+}
+
+function activeBlockRows(scanner, board) {
+  if (scanner.stage !== ScanStage.Blocks && scanner.stage !== ScanStage.BlockSelected) return [];
+  const blocks = scanRowBlocks(
+    board.length,
+    (row) => selectableCount(board[row]),
+    session.config.scanBlockCount
+  );
+  return blocks[scanner.blockIndex] ?? [];
+}
+
+function selectedBlockContextRows(scanner, board) {
+  const isRowScanning = scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected;
+  if (session.config.scanMode !== ScanMode.BlockRowColumn || !isRowScanning) return [];
+  const blocks = scanRowBlocks(
+    board.length,
+    (row) => selectableCount(board[row]),
+    session.config.scanBlockCount
+  );
+  return blocks[scanner.blockIndex] ?? [];
 }
 
 function resetProgressFills(progressFills) {
@@ -1333,6 +1396,8 @@ function emitRenderState(board) {
     globalThis.ShineAacAndroid.onRender(JSON.stringify({
       message: session.message,
       stage: session.scannerState.stage,
+      scanMode: session.config.scanMode,
+      blockIndex: session.scannerState.blockIndex,
       rowIndex: session.scannerState.rowIndex,
       cellIndex: session.scannerState.cellIndex,
       rows: board.map((row) => row.map((candidate) => candidate.label))
@@ -1342,7 +1407,7 @@ function emitRenderState(board) {
   }
 }
 
-function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraHold = false) {
+function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraHold = false, activeBlock = false) {
   const classes = ["tile"];
   classes.push(`action-${candidate.action}`);
   if (candidate.action !== TileAction.Append) classes.push("command");
@@ -1350,6 +1415,7 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   if (candidate.action === TileAction.Noop) classes.push("noop");
   if (session.config.suggestionWrapLabels?.[candidate.label]) classes.push("wrapped-word");
   if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
+  if (activeBlock) classes.push("active-block", "is-current");
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");
   if (reviewHold) classes.push("review-hold");
@@ -1369,11 +1435,10 @@ function isDynamicEnglishSuggestionRow(rowIndex) {
 }
 
 function visualColumnCountForRow(row, rowIndex) {
-  if (isDynamicEnglishSuggestionRow(rowIndex)) {
-    return session.config.profileId === "zh-TW"
-      ? Math.min(session.config.columns, 4)
-      : session.config.columns;
-  }
+  const isEmbeddedEnglishInput = session.config.profileId === "zh-TW" &&
+    session.activeCategory === "english";
+  if (isEmbeddedEnglishInput) return LanguageProfiles["en-US"].columns;
+  if (isDynamicEnglishSuggestionRow(rowIndex)) return session.config.columns;
   if (session.config.profileId !== "zh-TW") return session.config.columns;
   return Math.max(1, row.length);
 }
@@ -1426,7 +1491,7 @@ function updateDynamicSuggestionSpans() {
   const rowElements = [...(observedBoardElement?.querySelectorAll(".dynamic-suggestion-row") ?? [])];
   const rowElement = rowElements[0];
   if (!rowElement) return false;
-  if (session.scannerState.stage !== ScanStage.Rows) return null;
+  if (![ScanStage.Blocks, ScanStage.Rows].includes(session.scannerState.stage)) return null;
 
   const columns = Math.max(1, Number.parseInt(rowElement.dataset.visualColumns ?? "", 10) || 1);
   const rowStyle = getComputedStyle(rowElement);
@@ -1559,18 +1624,25 @@ function phaseLabel(scanner) {
       ? ` · 第 ${Math.max(1, scanner.passIndex)} / ${passLimit} 次`
       : ` · Pass ${Math.max(1, scanner.passIndex)} / ${passLimit}`);
   switch (scanner.stage) {
+    case ScanStage.Blocks:
+      if (scanner.returningToBlocks) {
+        return zhTw ? `返回選區${passSuffix}` : `Back to blocks${passSuffix}`;
+      }
+      return zhTw ? `選區中${passSuffix}` : `Scanning blocks${passSuffix}`;
+    case ScanStage.BlockSelected:
+      return zhTw ? "選區暫停" : "Block pause";
     case ScanStage.Rows:
       if (scanner.returningToRows) {
         return zhTw ? `返回選列${passSuffix}` : `Back to rows${passSuffix}`;
       }
       return zhTw ? `選列中${passSuffix}` : `Scanning rows${passSuffix}`;
     case ScanStage.RowSelected:
-      return zhTw ? "再按一次取消" : "Press again to cancel";
+      return zhTw ? "選列暫停" : "Row pause";
     case ScanStage.FirstCell:
     case ScanStage.Cells:
       return zhTw ? `選格中${passSuffix}` : `Scanning items${passSuffix}`;
     case ScanStage.Stopped:
-      return zhTw ? "掃描已停止 · 按下開關即可繼續" : "Scanning stopped · Press switch to resume";
+      return zhTw ? "已停止 · 按開關" : "Stopped · Press switch";
     default:
       return "";
   }
@@ -1591,6 +1663,10 @@ function statusPhaseCode(scanner) {
 
 function phaseCode(stage) {
   switch (stage) {
+    case ScanStage.Blocks:
+      return "Blocks";
+    case ScanStage.BlockSelected:
+      return "BlockCancel";
     case ScanStage.Rows:
       return "Rows";
     case ScanStage.RowSelected:
@@ -1637,7 +1713,7 @@ function closeConfig({ holdFirstRow = true } = {}) {
   if (holdFirstRow) {
     session = {
       ...session,
-      scannerState: createScannerState(),
+      scannerState: createScannerState({ scanMode: session.config.scanMode }),
       lockedRow: null
     };
   }
@@ -1819,6 +1895,11 @@ function renderConfig() {
       <label class="field">${uiText("Maximum symbol columns", "每列最多格數")}
         <input name="columns" type="number" min="2" max="8" step="1" value="${session.config.columns}">
       </label>
+      <label class="field">${uiText("Scanning method", "掃描方式")}
+        <select name="scanMode">
+          ${scanModeOptionsHtml(session.config.scanMode)}
+        </select>
+      </label>
       <label class="field">${uiText("Scan preset", "掃描速度預設")}
         <select name="scanTimingPreset">
           ${scanTimingPresetOptionsHtml(session.config)}
@@ -1889,6 +1970,7 @@ function renderConfig() {
     form.elements.transitionPauseMs.value = String(profile.transitionPauseMs);
     form.elements.firstCellPauseMs.value = String(profile.firstCellPauseMs);
     form.elements.inputLatencyCompensationMs.value = String(profile.inputLatencyCompensationMs);
+    form.elements.scanMode.value = profile.scanMode;
     form.elements.scanPassLimit.value = String(profile.scanPassLimit);
     form.elements.scanTimingPreset.value = "default";
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
@@ -1969,6 +2051,7 @@ function renderConfig() {
       transitionPauseMs: clamp(Number(data.get("transitionPauseMs")), 0, 4000),
       firstCellPauseMs: clamp(Number(data.get("firstCellPauseMs")), 300, 6000),
       inputLatencyCompensationMs: clamp(Number(data.get("inputLatencyCompensationMs")), 0, 1200),
+      scanMode: String(data.get("scanMode") ?? ScanMode.RowColumn),
       scanPassLimit: normalizeStoredScanPassLimit(data.get("scanPassLimit"), 2),
       suggestionDictionary: profile.id === "zh-TW"
         ? profile.suggestionDictionary
@@ -2474,6 +2557,18 @@ function scanPassLimitOptionsHtml(selectedLimit) {
     .map(([value, label]) => {
       const selected = Number(selectedLimit) === value ? " selected" : "";
       return `<option value="${value}"${selected}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
+}
+
+function scanModeOptionsHtml(selectedMode) {
+  return [
+    [ScanMode.RowColumn, uiText("Rows, then columns", "先列後格")],
+    [ScanMode.BlockRowColumn, uiText("Blocks, then rows and columns", "區塊、列、格")]
+  ]
+    .map(([value, label]) => {
+      const selected = value === selectedMode ? " selected" : "";
+      return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(label)}</option>`;
     })
     .join("");
 }
