@@ -325,6 +325,7 @@ export function createDemoMode({
     await waitForActivationWindow(() => rowReadyFor(target), currentRunId, undefined, `row ${target.label}/${target.action ?? ""}`);
     receiveDemoInput();
     await delay(120);
+    if (tileMatchesTarget(getSession().lastSelection?.tile, target)) return;
     await waitForActivationWindow(() => cellReadyFor(target), currentRunId, undefined, `cell ${target.label}/${target.action ?? ""}`);
     receiveDemoInput();
   }

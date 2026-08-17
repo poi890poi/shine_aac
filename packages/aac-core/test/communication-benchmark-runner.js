@@ -50,6 +50,7 @@ function candidateMatchesToken(candidate, token) {
 
 function scanCost(session, rowIndex, cellIndex) {
   const rows = visibleBoard(session);
+  const singletonRow = selectableCount(rows[rowIndex]) === 1;
   if (session.config.scanMode === ScanMode.BlockRowColumn) {
     const blocks = scanRowBlocks(
       rows.length,
@@ -63,12 +64,12 @@ function scanCost(session, rowIndex, cellIndex) {
     const blockAdvances = (targetBlockIndex - blockCursor + blocks.length) % blocks.length;
     const rowAdvances = Math.max(0, blocks[targetBlockIndex]?.indexOf(rowIndex) ?? 0);
     const cellAdvances = cellIndex === 0 ? 0 : cellIndex;
-    return blockAdvances + rowAdvances + cellAdvances + 3;
+    return blockAdvances + rowAdvances + cellAdvances + (singletonRow ? 2 : 3);
   }
   const rowCursor = session.scannerState.stage === ScanStage.Rows ? session.scannerState.rowIndex : 0;
   const rowAdvances = (rowIndex - rowCursor + rows.length) % rows.length;
   const cellAdvances = cellIndex === 0 ? 0 : cellIndex;
-  return rowAdvances + cellAdvances + 2;
+  return rowAdvances + cellAdvances + (singletonRow ? 1 : 2);
 }
 
 function scanAdvanceMs(session) {
@@ -147,6 +148,7 @@ function selectPosition(session, position) {
 
   next = pressSwitch(next, 1000);
   metrics.switches += 1;
+  if (next.lastSelection) return completedSelection(next, metrics);
   if (next.scannerState.stage === ScanStage.RowSelected) {
     metrics.estimatedTimeMs += scanAdvanceMs(next);
     next = advanceSession(next);
@@ -167,6 +169,10 @@ function selectPosition(session, position) {
 
   next = pressSwitch(next, 1000);
   metrics.switches += 1;
+  return completedSelection(next, metrics);
+}
+
+function completedSelection(next, metrics) {
   const selectedAction = next.lastSelection?.tile?.action;
   if (selectedAction) {
     metrics.tileActions[selectedAction] = (metrics.tileActions[selectedAction] ?? 0) + 1;

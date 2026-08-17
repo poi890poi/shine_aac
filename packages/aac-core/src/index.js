@@ -2316,9 +2316,10 @@ export function scanAccessCost(
 
   const normalizedMode = normalizeScanMode(scanMode);
   if (normalizedMode === ScanMode.RowColumn) {
+    const singletonRow = cellCount === 1;
     return Object.freeze({
       mode: normalizedMode,
-      switchActivations: 2,
+      switchActivations: singletonRow ? 1 : 2,
       scannerAdvances: rowPosition + targetCellIndex,
       blockAdvances: 0,
       rowAdvances: rowPosition,
@@ -2329,9 +2330,10 @@ export function scanAccessCost(
   const blocks = scanRowBlocks(rowCount, columnCountForRow, scanBlockCount);
   const blockIndex = blocks.findIndex((block) => block.includes(targetRowIndex));
   const rowIndexWithinBlock = blocks[blockIndex].indexOf(targetRowIndex);
+  const singletonRow = cellCount === 1;
   return Object.freeze({
     mode: normalizedMode,
-    switchActivations: 3,
+    switchActivations: singletonRow ? 2 : 3,
     scannerAdvances: blockIndex + rowIndexWithinBlock + targetCellIndex,
     blockAdvances: blockIndex,
     rowAdvances: rowIndexWithinBlock,
@@ -2575,6 +2577,21 @@ export function confirmScanner(
     }
     case ScanStage.Rows: {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
+      if (Math.max(0, columnCountForRow(safeRow)) === 1) {
+        return {
+          type: "selected",
+          rowIndex: safeRow,
+          cellIndex: 0,
+          nextState: createScannerState({
+            scanMode: normalizedMode,
+            stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
+            blockIndex: state.blockIndex,
+            rowIndex: safeRow,
+            cycleStartBlockIndex: state.blockIndex,
+            cycleStartRowIndex: safeRow
+          })
+        };
+      }
       return {
         type: "none",
         nextState: createScannerState({

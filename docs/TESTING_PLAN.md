@@ -66,7 +66,7 @@ Command split:
 
 Required coverage:
 
-- scanner state transitions, block/row/cell selection, miss unwinding, wrapping, skipped empty rows, and latency compensation
+- scanner state transitions, block/row/cell selection, singleton-row autoactivation, miss unwinding, wrapping, skipped empty rows, and latency compensation
 - message operations including append, space, clear, undo, candidate replacement, and internal/custom backspace compatibility
 - board chunking, row density, static row stability, and action parsing
 - profile-specific spacing, labels, dictionaries, speech metadata, and migration

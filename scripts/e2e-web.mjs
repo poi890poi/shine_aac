@@ -153,6 +153,7 @@ try {
   steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
   if (blockModeOnly) {
+    await scenarioSingletonRowAutoActivation();
     await scenarioBlockRowColumnMode();
     writeReport(true);
     console.log("BLOCK E2E PASS");
@@ -217,6 +218,7 @@ try {
   await scenarioZhTwLanguageSwitchReviewHold();
   await assertNoViewportOverflow("zh-tw-pixel-4a-5g-layout");
   await scenarioZhTwHomeDemoMode();
+  await scenarioSingletonRowAutoActivation();
   await scenarioBlockRowColumnMode();
 
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
@@ -2439,6 +2441,8 @@ async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
     await activateWhenRenderedTargetIsCurrent("active-block", rowIndex, 0, rowTimeoutMs);
   }
   await activateWhenRenderedTargetIsCurrent("active-row", rowIndex, 0, rowTimeoutMs);
+  const afterRowActivation = await getSnapshot();
+  if ((afterRowActivation.rows[rowIndex] ?? []).filter((tile) => tile.action !== "noop").length === 1) return;
   await activateWhenRenderedTargetIsCurrent(
     "active-cell",
     rowIndex,
@@ -2658,6 +2662,44 @@ async function scenarioBlockRowColumnMode() {
   steps.push(pass(
     "block-row-column",
     "reused the exact English suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit"
+  ));
+}
+
+async function scenarioSingletonRowAutoActivation() {
+  for (const scanMode of ["row-column", "block-row-column"]) {
+    await evaluate(`
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+        configVersion: 27,
+        profileId: "en-US",
+        columns: 4,
+        scanMode: ${JSON.stringify(scanMode)},
+        scanIntervalMs: 120,
+        transitionPauseMs: 850,
+        firstCellPauseMs: 180,
+        inputLatencyCompensationMs: 0,
+        scanPassLimit: 0,
+        symbols: "ONLY=only"
+      }));
+      localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+        uiConfigVersion: 1,
+        rowScanVoice: false,
+        scanVoice: false,
+        activationVoice: false,
+        restartScanFromTop: true
+      }));
+      localStorage.removeItem("shine-aac-session-draft-v1");
+      location.href = ${JSON.stringify(appUrl)} + "?singleton=" + ${JSON.stringify(scanMode)};
+    `);
+    await waitForLabels(["ONLY"]);
+    await releaseFirstRowHold();
+    await selectLabel("ONLY");
+    await assertMessage("only ");
+    await selectLabel("UNDO");
+    await assertMessage("");
+  }
+  steps.push(pass(
+    "singleton-row-auto-activation",
+    "row/column and block/row/column both select a one-item row without a redundant cell activation"
   ));
 }
 

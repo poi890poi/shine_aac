@@ -5,8 +5,10 @@ import {
   ScanStage,
   advanceSession,
   createBoardConfig,
+  createScannerState,
   createSession,
   pressSwitch,
+  tile,
   visibleBoard
 } from "../src/index.js";
 
@@ -63,7 +65,7 @@ test("scan-only transitions reuse the prepared logical board", () => {
     action: "append"
   };
   let session = createSession({
-    config: createBoardConfig({ suggestionDictionary: [trackedSuggestion] })
+    config: createBoardConfig({ suggestionDictionary: [trackedSuggestion, tile("BETA", "beta")] })
   });
 
   visibleBoard(session);
@@ -121,6 +123,37 @@ test("positive transition pause keeps the row-selected escape state available wh
   assert.equal(session.scannerState.stage, ScanStage.RowSelected);
   assert.deepEqual(session.lockedRow.map((candidate) => candidate.label), ["THE", "TO", "OF", "AND"]);
 });
+
+for (const scanMode of [ScanMode.RowColumn, ScanMode.BlockRowColumn]) {
+  test(`${scanMode} automatically activates a row with one selectable item`, () => {
+    const config = createBoardConfig({
+      scanMode,
+      symbols: [tile("ONLY", "only")],
+      transitionPauseMs: 850
+    });
+    const symbolRowIndex = 2;
+    const blockIndex = scanMode === ScanMode.BlockRowColumn ? 2 : 0;
+    const session = createSession({
+      config,
+      scannerState: createScannerState({
+        scanMode,
+        stage: ScanStage.Rows,
+        blockIndex,
+        rowIndex: symbolRowIndex
+      })
+    });
+
+    const selected = pressSwitch(session, 1000);
+
+    assert.equal(selected.message, "only ");
+    assert.equal(selected.lastSelection.tile.label, "ONLY");
+    assert.equal(
+      selected.scannerState.stage,
+      scanMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows
+    );
+    assert.equal(selected.lockedRow, null);
+  });
+}
 
 test("block session requires block, row, and cell activations", () => {
   let session = createSession({

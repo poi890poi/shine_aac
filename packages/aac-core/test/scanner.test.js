@@ -87,6 +87,40 @@ test("first empty cell pass repeats the selected row visibly", () => {
   assert.equal(state.passIndex, 2);
 });
 
+test("confirming a singleton row selects its only item without a cell phase", () => {
+  const sizes = [4, 1, 3];
+  const confirmation = confirmScanner(
+    createScannerState({ rowIndex: 1 }),
+    sizes.length,
+    (row) => sizes[row]
+  );
+
+  assert.equal(confirmation.type, "selected");
+  assert.equal(confirmation.rowIndex, 1);
+  assert.equal(confirmation.cellIndex, 0);
+  assert.equal(confirmation.nextState.stage, ScanStage.Rows);
+});
+
+test("block mode singleton rows return directly to block scanning", () => {
+  const sizes = [4, 1, 3];
+  const confirmation = confirmScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Rows,
+      blockIndex: 1,
+      rowIndex: 1
+    }),
+    sizes.length,
+    (row) => sizes[row],
+    ScanMode.BlockRowColumn
+  );
+
+  assert.equal(confirmation.type, "selected");
+  assert.equal(confirmation.rowIndex, 1);
+  assert.equal(confirmation.cellIndex, 0);
+  assert.equal(confirmation.nextState.stage, ScanStage.Blocks);
+});
+
 test("second empty cell pass returns to the same row", () => {
   const state = advanceScanner(
     createScannerState({ stage: ScanStage.Cells, rowIndex: 1, cellIndex: 3, passIndex: 2 }),
@@ -308,4 +342,12 @@ test("block-mode access-cost benchmark reduces average row search advances", () 
   assert.equal(averageAdvances(ScanMode.BlockRowColumn), 37 / 14);
   assert.ok(averageAdvances(ScanMode.BlockRowColumn) < averageAdvances(ScanMode.RowColumn));
   assert.equal(scanAccessCost(14, count, 13, 3, ScanMode.BlockRowColumn).switchActivations, 3);
+});
+
+test("access-cost metrics omit the redundant cell activation for singleton rows", () => {
+  const sizes = [4, 1, 3];
+  const count = (row) => sizes[row];
+
+  assert.equal(scanAccessCost(3, count, 1, 0, ScanMode.RowColumn).switchActivations, 1);
+  assert.equal(scanAccessCost(3, count, 1, 0, ScanMode.BlockRowColumn).switchActivations, 2);
 });
