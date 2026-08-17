@@ -91,7 +91,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 27;
+export const CurrentConfigVersion = 28;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -365,8 +365,13 @@ const DefaultTilesWithBackspaceV21 = Object.freeze([
   tile("SPC", " ", TileAction.Space),
   ...frequencyLetters.map(letterTile)
 ]);
-export const DefaultTiles = Object.freeze(
+const LegacyDefaultTilesV27 = Object.freeze(
   DefaultTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
+);
+export const DefaultTiles = Object.freeze(
+  LegacyDefaultTilesV27.filter((candidate) =>
+    !(candidate.label === "I" && candidate.output === "i" && candidate.action === TileAction.Append)
+  )
 );
 export const EnglishInputColumns = DefaultColumns;
 export const EnglishInputTiles = DefaultTiles;
@@ -419,9 +424,6 @@ export const LegacyAlphabetDefaultTiles = Object.freeze([
   tile("CLR", "CLR", TileAction.Clear)
 ]);
 
-export const SuggestionFallbackLetters = Object.freeze(
-  ["E", "T", "A", "O", "I", "N", "S", "R"].map(letterTile)
-);
 export const SpaceSuggestionTile = Object.freeze(tile("SPC", " ", TileAction.Space));
 export const UndoSuggestionTile = Object.freeze(tile("UNDO", "UNDO", TileAction.Undo));
 export const MoreSuggestionsTile = Object.freeze(tile("MORE", "MORE", TileAction.MoreSuggestions));
@@ -864,7 +866,7 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
     ...normalized,
     excludeTiles: normalized.symbols
   });
-  return [...suggestions, ...chunk(normalized.symbols, safeColumns)];
+  return [...suggestions, ...balancedChunk(normalized.symbols, safeColumns)];
 }
 
 function zhTwSuggestionColumnCount(symbolColumns) {
@@ -1033,7 +1035,8 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
     (
       sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) ||
       sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3) ||
-      sameTiles(parsedSymbols, DefaultTilesWithBackspaceV21)
+      sameTiles(parsedSymbols, DefaultTilesWithBackspaceV21) ||
+      sameTiles(parsedSymbols, LegacyDefaultTilesV27)
     )
   ) {
     return DefaultTiles;
@@ -1176,7 +1179,7 @@ const EnglishPrefixCandidateCache = new WeakMap();
 export function suggestTiles(message, dictionary, maxSuggestions, options = {}) {
   const safeMax = Math.max(1, Math.trunc(maxSuggestions));
   return nonredundantTiles(
-    rankedSuggestionCandidates(message, dictionary, options),
+    usefulEnglishSuggestionCandidates(rankedSuggestionCandidates(message, dictionary, options)),
     options.excludeTiles,
     safeMax
   );
@@ -1257,8 +1260,7 @@ function englishSuggestionRows(message, dictionary, columns, canUndo = false, op
   const suggestions = nonredundantTiles(
     concatenateTileCandidates(
       commandSuggestions,
-      rankedSuggestionCandidates(message, dictionary, options),
-      options.autoSpace === AutoSpaceMode.None ? [] : SuggestionFallbackLetters
+      usefulEnglishSuggestionCandidates(rankedSuggestionCandidates(message, dictionary, options))
     ),
     options.excludeTiles,
     candidatePoolSize
@@ -1936,7 +1938,7 @@ function categorySuggestionRows(
     return [
       ...suggestions,
       paddedRow(commandTiles, englishColumns),
-      ...chunk(category.tiles, englishColumns)
+      ...balancedChunk(category.tiles, englishColumns)
     ];
   }
   const commandTiles = [categoryCloseTile, tile(category.label, category.label, TileAction.Noop)];
@@ -2726,6 +2728,11 @@ export function appendToken(current, selectedTile, options = {}) {
   const token = selectedTile.output;
   if (options.autoSpace === AutoSpaceMode.None) return current + token;
 
+  const isSharedPronounAndLetter = token === "I" && selectedTile.label === "I";
+  if (isSharedPronounAndLetter && /[A-Za-z']$/u.test(current)) {
+    return current + "i";
+  }
+
   const isSpellingLetter = token.length === 1 &&
     selectedTile.label.length === 1 &&
     selectedTile.output === selectedTile.label.toLowerCase() &&
@@ -3228,6 +3235,15 @@ function* concatenateTileCandidates(...groups) {
 function* candidatesWithOutput(items) {
   for (const candidate of items) {
     if (candidate.output.trim().length > 0) yield candidate;
+  }
+}
+
+function* usefulEnglishSuggestionCandidates(items) {
+  for (const candidate of items) {
+    const labelLength = Array.from(String(candidate.label ?? "").trim()).length;
+    const outputLength = Array.from(String(candidate.output ?? "").trim()).length;
+    if (labelLength <= 1 || outputLength <= 1) continue;
+    yield candidate;
   }
 }
 

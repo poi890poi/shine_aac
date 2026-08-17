@@ -721,7 +721,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val CameraCalibrationProfileExtra = "org.shineaac.inputs.PROFILE_ID"
-        const val CurrentConfigVersion = 27
+        const val CurrentConfigVersion = 28
         const val DefaultScanIntervalMs = 1800f
         const val DefaultTransitionPauseMs = 0f
         const val DefaultFirstCellPauseMs = DefaultScanIntervalMs

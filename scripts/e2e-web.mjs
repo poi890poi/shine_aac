@@ -974,15 +974,29 @@ async function scenarioClearAndMovie() {
   await assertMessage("");
   steps.push(pass("clear", "selected CLR from the visible board"));
 
+  let snapshot = await getSnapshot();
+  const visibleICount = snapshot.rows.flat().filter((tile) => tile.label === "I").length;
+  if (visibleICount !== 1) {
+    throw new Error(`English board should expose exactly one I key, got ${visibleICount}`);
+  }
+
   for (const label of ["M", "O", "V", "I"]) {
     await selectLabel(label, { occurrence: "last" });
   }
   await assertMessage("movi");
   await assertSuggestionLabels(["UNDO", "MOVIE", "MOVING"]);
+  snapshot = await getSnapshot();
+  const oneCharacterSuggestions = snapshot.rows.slice(0, 2).flat().filter((tile) =>
+    tile.action === "append" && Array.from(tile.label.trim()).length <= 1
+  );
+  if (oneCharacterSuggestions.length > 0) {
+    throw new Error(`English suggestion rows exposed one-character items: ${JSON.stringify(oneCharacterSuggestions)}`);
+  }
   const spellingSuggestionRows = await evaluate(`document.querySelectorAll(".dynamic-suggestion-row").length`);
   if (spellingSuggestionRows !== 2) {
     throw new Error(`English spelling should keep two ranked suggestion rows, got ${spellingSuggestionRows}`);
   }
+  steps.push(pass("english-nonredundancy", "exposed one context-aware I key and no one-character English suggestions"));
   await selectLabel("MOVIE", { rowIndex: 0 });
   await assertMessage("movie ");
   const boundarySuggestionRows = await evaluate(`document.querySelectorAll(".dynamic-suggestion-row").length`);
@@ -2381,7 +2395,7 @@ async function scenarioZhTwLanguageSwitchReviewHold() {
   }
   const visibleLabels = snapshot.rows.flat().map((tile) => tile.label).filter(Boolean);
   const duplicateLabels = [...new Set(
-    visibleLabels.filter((label, index) => visibleLabels.indexOf(label) !== index && label !== "I")
+    visibleLabels.filter((label, index) => visibleLabels.indexOf(label) !== index)
   )];
   if (duplicateLabels.length > 0) {
     throw new Error(`zh-TW English board introduced repeated visible keys: ${duplicateLabels.join(",")}`);
@@ -2605,7 +2619,7 @@ async function scenarioBlockRowColumnMode() {
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 27,
+      configVersion: 28,
       profileId: "zh-TW",
       columns: 6,
       scanMode: "block-row-column",
@@ -2687,7 +2701,7 @@ async function scenarioSingletonRowAutoActivation() {
   for (const scanMode of ["row-column", "block-row-column"]) {
     await evaluate(`
       localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-        configVersion: 27,
+        configVersion: 28,
         profileId: "en-US",
         columns: 4,
         scanMode: ${JSON.stringify(scanMode)},
@@ -2717,7 +2731,7 @@ async function scenarioSingletonRowAutoActivation() {
   }
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 27,
+      configVersion: 28,
       profileId: "en-US",
       columns: 4,
       scanMode: "block-row-column",
@@ -2746,7 +2760,7 @@ async function scenarioSingletonRowAutoActivation() {
 async function captureBoardPresentation(scanMode, { profileId, columns }) {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 27,
+      configVersion: 28,
       profileId: ${JSON.stringify(profileId)},
       columns: ${JSON.stringify(columns)},
       scanMode: ${JSON.stringify(scanMode)},

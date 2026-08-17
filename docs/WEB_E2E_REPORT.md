@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-17T17:10:43.493Z
+Generated: 2026-08-17T17:23:30.714Z
 
 Result: PASS
 
@@ -12,7 +12,7 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.70000000298023,"resetTargetToProgressMs":31.19999998807907,"rowDeadlineDriftMs":-21.599999994039536,"nextRowTargetToProgressMs":21.700000002980232,"activationToTargetMs":1.5,"activationTargetToProgressMs":20.5,"firstDeadlineDriftMs":-18.899999991059303,"secondTargetToProgressMs":18.599999994039536,"laterDeadlineDriftMs":-16.200000002980232,"thirdTargetToProgressMs":32.20000000298023,"selectionToHoldMs":3.7000000029802322,"holdReleaseToTargetMs":0.5999999940395355,"selectionTargetToProgressMs":34.6000000089407} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":51.20000000298023,"resetTargetToProgressMs":21,"rowDeadlineDriftMs":-15.200000002980232,"nextRowTargetToProgressMs":32.400000005960464,"activationToTargetMs":1.3999999910593033,"activationTargetToProgressMs":25.700000002980232,"firstDeadlineDriftMs":-19.5,"secondTargetToProgressMs":19.700000002980232,"laterDeadlineDriftMs":-17.299999997019768,"thirdTargetToProgressMs":33.19999998807907,"selectionToHoldMs":3.699999988079071,"holdReleaseToTargetMs":0.5999999940395355,"selectionTargetToProgressMs":32.79999999701977} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -21,6 +21,7 @@ Result: PASS
 | text-history | PASS | updated one live history line through composition, undo, and correction |
 | session-draft | PASS | restored current composed message after reload |
 | clear | PASS | selected CLR from the visible board |
+| english-nonredundancy | PASS | exposed one context-aware I key and no one-character English suggestions |
 | completion | PASS | typed movi and completed to movie with automatic trailing space |
 | undo-completion | PASS | selected UNDO and restored the spelling before whole-word completion |
 | text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |

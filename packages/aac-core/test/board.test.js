@@ -128,14 +128,15 @@ test("default tiles include the full alphabet", () => {
   for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
     assert.equal(labels.has(letter), true, `missing ${letter}`);
   }
+  assert.equal(DefaultTiles.filter((candidate) => candidate.label === "I").length, 1);
 });
 
-test("default spelling letters start with common English frequency order", () => {
+test("default spelling letters start with common English frequency order without duplicating I", () => {
   const spellingStart = DefaultTiles.findIndex((candidate) => candidate.action === TileAction.Space) + 1;
   const letters = DefaultTiles.slice(spellingStart)
     .filter((candidate) => candidate.action === TileAction.Append && /^[A-Z]$/.test(candidate.label))
     .map((candidate) => candidate.label);
-  assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "I", "N", "S", "R"]);
+  assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "N", "S", "R", "H"]);
 });
 
 test("legacy default layouts migrate to current frequency order", () => {
@@ -145,12 +146,25 @@ test("legacy default layouts migrate to current frequency order", () => {
     const letters = symbols.slice(spellingStart)
       .filter((candidate) => candidate.action === TileAction.Append && /^[A-Z]$/.test(candidate.label))
       .map((candidate) => candidate.label);
-    assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "I", "N", "S", "R"]);
+    assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "N", "S", "R", "H"]);
   }
+});
+
+test("version 27 default English layout migrates away from its duplicate I key", () => {
+  const legacyDefault = [...DefaultTiles];
+  const nIndex = legacyDefault.findIndex((candidate) => candidate.label === "N" && candidate.output === "n");
+  legacyDefault.splice(nIndex, 0, tile("I", "i"));
+
+  const migrated = loadProfileSymbolsForConfig(serializeSymbols(legacyDefault), 27, "en-US");
+
+  assert.deepEqual(migrated, DefaultTiles);
+  assert.equal(migrated.filter((candidate) => candidate.label === "I").length, 1);
 });
 
 test("built-in layouts migrate away from visible backspace while custom backspace remains supported", () => {
   const englishV21 = [...DefaultTiles];
+  const nIndex = englishV21.findIndex((candidate) => candidate.label === "N" && candidate.output === "n");
+  englishV21.splice(nIndex, 0, tile("I", "i"));
   englishV21.splice(
     englishV21.findIndex((candidate) => candidate.action === TileAction.Clear),
     0,
@@ -258,7 +272,7 @@ test("parser preserves category and Zhuyin group actions for editable layouts", 
   ].join("\n"));
 });
 
-test("board chunks symbols by column count after the two fixed suggestion rows", () => {
+test("board balances symbols within the column limit after the two fixed suggestion rows", () => {
   const rows = boardRows(
     createBoardConfig({
       columns: 3,
@@ -266,7 +280,7 @@ test("board chunks symbols by column count after the two fixed suggestion rows",
       symbols: [tile("A"), tile("B"), tile("C"), tile("D")]
     })
   );
-  assert.deepEqual(rows.slice(2).map((row) => row.map((candidate) => candidate.label)), [["A", "B", "C"], ["D"]]);
+  assert.deepEqual(rows.slice(2).map((row) => row.map((candidate) => candidate.label)), [["A", "B"], ["C", "D"]]);
 });
 
 test("suggestions complete current partial words", () => {
@@ -275,7 +289,7 @@ test("suggestions complete current partial words", () => {
 });
 
 test("suggestion row stops reading candidates after its visible results are filled", () => {
-  const dictionary = [tile("A"), tile("B"), tile("C"), tile("D")];
+  const dictionary = [tile("ALPHA"), tile("BETA"), tile("GAMMA"), tile("DELTA")];
   Object.defineProperty(dictionary, 4, {
     configurable: true,
     get() {
@@ -286,7 +300,7 @@ test("suggestion row stops reading candidates after its visible results are fill
 
   assert.deepEqual(
     suggestionRow("", dictionary, 4).map((candidate) => candidate.label),
-    ["A", "B", "C", "D"]
+    ["ALPHA", "BETA", "GAMMA", "DELTA"]
   );
 });
 
@@ -350,9 +364,28 @@ test("word boundaries use the same AOSP unigram order without handcrafted transi
   }
 });
 
-test("suggestion row keeps stable width with space and fallback letters", () => {
+test("suggestion row keeps stable width with useful completions", () => {
   const row = suggestionRow("want", DefaultSuggestionDictionary, 4);
   assert.deepEqual(row.map((candidate) => candidate.label), ["SPC", "WANTED", "WANTING", "WANTON"]);
+});
+
+test("English suggestions omit every one-character candidate", () => {
+  const dictionary = [
+    tile("I", "I"),
+    tile("A", "a"),
+    tile("X", "xylophone"),
+    tile("LONG", "l"),
+    tile("USEFUL", "useful")
+  ];
+
+  assert.deepEqual(
+    suggestTiles("", dictionary, 4).map((candidate) => candidate.label),
+    ["USEFUL"]
+  );
+  assert.deepEqual(
+    suggestionRow("", dictionary, 4).map((candidate) => candidate.label),
+    ["USEFUL", "", "", ""]
+  );
 });
 
 test("long word suggestions span columns and reduce the row without becoming extra scan cells", () => {
@@ -412,7 +445,7 @@ test("suggestion row excludes same-action labels and semantic duplicates from th
     excludeTiles: staticTiles
   });
 
-  assert.deepEqual(row.map((candidate) => candidate.label), ["FRESH", "OTHER", "NEXT", "A"]);
+  assert.deepEqual(row.map((candidate) => candidate.label), ["FRESH", "OTHER", "NEXT", ""]);
 });
 
 test("board recommendations never repeat a key already present on a custom static board", () => {
@@ -435,7 +468,7 @@ test("board recommendations never repeat a key already present on a custom stati
   const recommendations = boardRows(config, "", false).at(0)
     .filter((candidate) => candidate.action !== TileAction.Noop);
 
-  assert.deepEqual(recommendations.map((candidate) => candidate.label), ["DRINK", "NEW", "T", "A"]);
+  assert.deepEqual(recommendations.map((candidate) => candidate.label), ["DRINK", "NEW"]);
 });
 
 test("exact current word is not suggested again", () => {
@@ -540,18 +573,18 @@ test("English suggestion rows defer wide candidates and fill gaps with the next 
     suggestionDictionary: [
       tile("LONGFIRST", "longfirst"),
       tile("WIDENEXT", "widenext"),
-      tile("A", "alpha"),
-      tile("B", "bravo"),
-      tile("C", "charlie")
+      tile("ALPHA", "alpha"),
+      tile("BRAVO", "bravo"),
+      tile("CHARLIE", "charlie")
     ],
     suggestionColumnSpans: { LONGFIRST: 3, WIDENEXT: 2 },
     symbols: []
   });
   const rows = boardRows(config);
 
-  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["LONGFIRST", "A"]);
+  assert.deepEqual(rows[0].map((candidate) => candidate.label), ["LONGFIRST", "ALPHA"]);
   assert.deepEqual(rows[0].map((candidate) => candidate.columnSpan), [3, 1]);
-  assert.deepEqual(rows[1].map((candidate) => candidate.label), ["WIDENEXT", "B", "C"]);
+  assert.deepEqual(rows[1].map((candidate) => candidate.label), ["WIDENEXT", "BRAVO", "CHARLIE"]);
   assert.deepEqual(rows[1].map((candidate) => candidate.columnSpan), [2, 1, 1]);
 });
 
@@ -736,6 +769,16 @@ test("English profile remains the default and auto-spaces words", () => {
   assert.equal(config.profileId, "en-US");
   assert.equal(updateMessage("", tile("YES", "yes"), config), "yes ");
   assert.equal(updateMessage("yes ", tile("WATER", "water"), config), "yes water ");
+});
+
+test("the single I key is a pronoun at a boundary and a spelling letter inside a word", () => {
+  const config = createBoardConfig({ profileId: "en-US" });
+  const iTile = DefaultTiles.find((candidate) => candidate.label === "I");
+
+  assert.equal(updateMessage("", iTile, config), "I ");
+  assert.equal(updateMessage("you ", iTile, config), "you I ");
+  assert.equal(updateMessage("mov", iTile, config), "movi");
+  assert.equal(updateMessage("聽", iTile, { ...config, embeddedEnglish: true }), "聽I ");
 });
 
 test("zh-TW profile uses an independent direct Zhuyin board", () => {
