@@ -1220,9 +1220,12 @@ function updateScanPresentation(board) {
   const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles])];
 
   for (const [rowIndex, rowElement] of renderedRows.entries()) {
+    const stoppedFirstRow = scanner.stage === ScanStage.Stopped && rowIndex === 0;
     rowElement.classList.toggle(
       "review-hold-row",
-      reviewHoldActive && scanner.stage === ScanStage.Rows && scanner.rowIndex === rowIndex
+      stoppedFirstRow || (
+        reviewHoldActive && scanner.stage === ScanStage.Rows && scanner.rowIndex === rowIndex
+      )
     );
   }
 
@@ -2135,7 +2138,7 @@ function reliableCalibrationHtml() {
         <div class="calibration-step current">
           <span>1</span>
           <strong>${uiText("Press input", "操作輸入")}</strong>
-          <small>${uiText("Use touch, a key, volume button, or external switch.", "可使用觸控、鍵盤、音量鍵或外接開關。")}</small>
+          <small>${uiText("Use touch, the shutter key, or an external switch.", "可使用觸控、快門鍵或外接開關。")}</small>
         </div>
         <div class="calibration-step">
           <span>2</span>

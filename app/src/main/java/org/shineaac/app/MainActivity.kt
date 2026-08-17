@@ -249,7 +249,8 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (!isHardwareActivationKey(event.keyCode)) {
+        val source = hardwareActivationSource(event.keyCode)
+        if (source == null) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -261,7 +262,7 @@ class MainActivity : ComponentActivity() {
             sendInputEvent(
                 InputEvent(
                     intent = "activate",
-                    source = sourceForKey(event.keyCode),
+                    source = source,
                     detail = "keyCode=${event.keyCode}"
                 ),
                 event.keyCode
@@ -285,38 +286,6 @@ class MainActivity : ComponentActivity() {
         }
         ttsExecutor.shutdown()
         super.onDestroy()
-    }
-
-    private fun isHardwareActivationKey(keyCode: Int): Boolean {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP,
-            KeyEvent.KEYCODE_VOLUME_DOWN,
-            KeyEvent.KEYCODE_CAMERA,
-            KeyEvent.KEYCODE_HEADSETHOOK,
-            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-            KeyEvent.KEYCODE_MEDIA_PLAY,
-            KeyEvent.KEYCODE_MEDIA_PAUSE,
-            KeyEvent.KEYCODE_BUTTON_A,
-            KeyEvent.KEYCODE_BUTTON_SELECT,
-            KeyEvent.KEYCODE_BUTTON_START -> true
-            else -> false
-        }
-    }
-
-    private fun sourceForKey(keyCode: Int): String {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> "android-volume-up"
-            KeyEvent.KEYCODE_VOLUME_DOWN -> "android-volume-down"
-            KeyEvent.KEYCODE_CAMERA -> "android-hardware-camera"
-            KeyEvent.KEYCODE_HEADSETHOOK -> "android-media-headset"
-            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> "android-media-play-pause"
-            KeyEvent.KEYCODE_MEDIA_PLAY -> "android-media-play"
-            KeyEvent.KEYCODE_MEDIA_PAUSE -> "android-media-pause"
-            KeyEvent.KEYCODE_BUTTON_A -> "android-hardware-button-a"
-            KeyEvent.KEYCODE_BUTTON_SELECT -> "android-hardware-button-select"
-            KeyEvent.KEYCODE_BUTTON_START -> "android-hardware-button-start"
-            else -> "android-hardware-key"
-        }
     }
 
     private fun sendInputEvent(event: InputEvent, keyCode: Int? = null) {
@@ -807,3 +776,15 @@ class MainActivity : ComponentActivity() {
 
 internal fun webTextZoomPercent(fontScale: Float): Int =
     (fontScale * 100f).roundToInt().coerceIn(50, 200)
+
+internal fun hardwareActivationSource(keyCode: Int): String? = when (keyCode) {
+    KeyEvent.KEYCODE_CAMERA -> "android-hardware-camera"
+    KeyEvent.KEYCODE_HEADSETHOOK -> "android-media-headset"
+    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> "android-media-play-pause"
+    KeyEvent.KEYCODE_MEDIA_PLAY -> "android-media-play"
+    KeyEvent.KEYCODE_MEDIA_PAUSE -> "android-media-pause"
+    KeyEvent.KEYCODE_BUTTON_A -> "android-hardware-button-a"
+    KeyEvent.KEYCODE_BUTTON_SELECT -> "android-hardware-button-select"
+    KeyEvent.KEYCODE_BUTTON_START -> "android-hardware-button-start"
+    else -> null
+}

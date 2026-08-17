@@ -6,17 +6,20 @@ This packet is the review checklist for the current Google Play closed-testing s
 
 - Track: Closed testing
 - Package id: `org.shineaac.app`
-- Current source version: `0.2.45`
-- Current source version code: `48`
+- Current source version: `0.3.0`
+- Current source version code: `49`
 - Compile and target SDK: `36`
-- Source tag: `v0.2.45`
-- Signed AAB in release ZIP: `binaries/shine-aac-v0.2.45-code48-release.aab`
-- Signed AAB SHA-256: `2da121b0663ad9d2385f248b45a1381703b09829a365073337866b25765d86b9`
+- Source commit: `111576a8d51fba2f2f0d8baf1089f02ef897688e`
+- Source tag: `v0.3.0` (not created)
+- Signed AAB in release ZIP: `binaries/shine-aac-v0.3.0-code49-release.aab`
+- Signed AAB SHA-256: `6a65a3927935648bd24d79d5f2795d7aa35593105beb727d75e09a678b50d95b`
 - AAB checksum file: `binaries/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
-Do not upload an APK or any superseded bundle to Google Play. After confirming that code 48 is unused, upload the tagged, versioned signed code-48 AAB above.
+Do not upload an APK or any superseded bundle to Google Play. After confirming
+that code 49 is unused and creating the final source tag, upload the versioned
+signed code-49 AAB above.
 
 ## Store Listing
 
@@ -30,7 +33,20 @@ The listing should keep the early-development warning and avoid medical-device o
 
 ## Release Notes
 
-Use this for 0.2.45 closed testing:
+Use this for 0.3.0 closed testing:
+
+```text
+早期測試版本，主要給台灣繁體中文使用者與協助者試用。
+
+- 列與項目預設各掃描兩輪，錯過目標時不會立刻離開；也可在設定選一至三輪或持續掃描
+- 錯過兩輪項目會回到同一列；錯過兩輪所有列會停止掃描，再按一次只會喚醒、不會誤選
+- 掃描狀態會顯示目前輪次，停止時會清楚變暗並提示按下開關繼續
+- 注音第一個符號的候選排序採用保守的台灣口語語料訊號，每次最多提升兩個高實用候選
+- 在意圖不明確時，少數經人工審查的敏感詞會柔性降序；完整注音輸入仍保留原本排序與詞彙
+- 這仍不是唯一或緊急溝通方式；請在實際裝置確認掃描速度、語音、相機與疲勞感
+```
+
+Previous 0.2.45 notes retained for reference:
 
 ```text
 早期測試版本，主要給台灣繁體中文使用者與協助者試用。
@@ -216,7 +232,7 @@ SayToMe AAC / 我想說 is an early development communication support tool. It i
 
 ## Verification To Refresh Before Upload
 
-- Confirm in Play Console that version code 48 has not already been used.
+- Confirm in Play Console that version code 49 has not already been used.
 - Rerun the full pre-release verification gate.
 - Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 - Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.

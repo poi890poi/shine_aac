@@ -46,7 +46,13 @@ test("review pause uses a calm grouped treatment without a progress fill", () =>
   assert.match(styles, /\.tile\.review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
 });
 
-test("stopped scanning is visually distinct from active scanning", () => {
-  assert.match(styles, /\.phase\[data-scan-phase="Stopped"\]\s*\{[\s\S]*?border:\s*2px solid/);
-  assert.match(styles, /\.scan-stopped \.board\s*\{[\s\S]*?opacity:/);
+test("the message field grows with Android font scaling without wrapping", () => {
+  assert.match(styles, /\.message\s*\{[\s\S]*?min-height:\s*calc\(1\.35em \+ 24px\)/);
+  assert.match(styles, /\.message\s*\{[\s\S]*?line-height:\s*1\.35/);
+  assert.match(styles, /\.message\s*\{[\s\S]*?white-space:\s*nowrap/);
+});
+
+test("stopped scanning reuses the first-row review hold instead of a separate badge", () => {
+  assert.doesNotMatch(styles, /\.phase\[data-scan-phase="Stopped"\]/);
+  assert.doesNotMatch(styles, /\.scan-stopped \.board/);
 });
