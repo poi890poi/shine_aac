@@ -2330,10 +2330,11 @@ export function scanAccessCost(
   const blocks = scanRowBlocks(rowCount, columnCountForRow, scanBlockCount);
   const blockIndex = blocks.findIndex((block) => block.includes(targetRowIndex));
   const rowIndexWithinBlock = blocks[blockIndex].indexOf(targetRowIndex);
+  const singletonBlock = blocks[blockIndex].length === 1;
   const singletonRow = cellCount === 1;
   return Object.freeze({
     mode: normalizedMode,
-    switchActivations: singletonRow ? 2 : 3,
+    switchActivations: 1 + (singletonBlock ? 0 : 1) + (singletonRow ? 0 : 1),
     scannerAdvances: blockIndex + rowIndexWithinBlock + targetCellIndex,
     blockAdvances: blockIndex,
     rowAdvances: rowIndexWithinBlock,
@@ -2549,13 +2550,43 @@ export function confirmScanner(
     case ScanStage.Blocks: {
       if (blocks.length === 0) return { type: "none", nextState: state };
       const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
+      const block = blocks[blockIndex];
+      const rowIndex = block[0];
+      if (block.length === 1 && Math.max(0, columnCountForRow(rowIndex)) === 1) {
+        return {
+          type: "selected",
+          rowIndex,
+          cellIndex: 0,
+          nextState: createScannerState({
+            scanMode: normalizedMode,
+            stage: ScanStage.Blocks,
+            blockIndex,
+            rowIndex,
+            cycleStartBlockIndex: blockIndex,
+            cycleStartRowIndex: rowIndex
+          })
+        };
+      }
+      if (block.length === 1) {
+        return {
+          type: "none",
+          nextState: createScannerState({
+            scanMode: normalizedMode,
+            stage: ScanStage.RowSelected,
+            blockIndex,
+            rowIndex,
+            cycleStartBlockIndex: blockIndex,
+            cycleStartRowIndex: rowIndex
+          })
+        };
+      }
       return {
         type: "none",
         nextState: createScannerState({
           scanMode: normalizedMode,
           stage: ScanStage.BlockSelected,
           blockIndex,
-          rowIndex: blocks[blockIndex][0],
+          rowIndex,
           cycleStartBlockIndex: blockIndex
         })
       };
@@ -2824,7 +2855,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
       session.scannerState.stage === ScanStage.Blocks &&
       confirmation.nextState.stage === ScanStage.BlockSelected;
     const isLockingRow =
-      session.scannerState.stage === ScanStage.Rows &&
+      [ScanStage.Blocks, ScanStage.Rows].includes(session.scannerState.stage) &&
       confirmation.nextState.stage === ScanStage.RowSelected;
     if ((isLockingBlock || isLockingRow) && session.config.transitionPauseMs <= 0) {
       const lockedRow = isLockingRow ? rows[confirmation.nextState.rowIndex] : null;

@@ -2437,10 +2437,18 @@ async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
   await releaseFirstRowHold();
   const initialSnapshot = await getSnapshot();
   const rowTimeoutMs = Math.max(30000, (initialSnapshot.rows.length + 2) * 1500);
+  let rowWasAutomaticallyActivated = false;
   if (initialSnapshot.activeBlock) {
-    await activateWhenRenderedTargetIsCurrent("active-block", rowIndex, 0, rowTimeoutMs);
+    const blockActivation = await activateWhenRenderedTargetIsCurrent("active-block", rowIndex, 0, rowTimeoutMs);
+    rowWasAutomaticallyActivated = blockActivation.activeBlockRowCount === 1;
+    if (
+      rowWasAutomaticallyActivated &&
+      (initialSnapshot.rows[rowIndex] ?? []).filter((tile) => tile.action !== "noop").length === 1
+    ) return;
   }
-  await activateWhenRenderedTargetIsCurrent("active-row", rowIndex, 0, rowTimeoutMs);
+  if (!rowWasAutomaticallyActivated) {
+    await activateWhenRenderedTargetIsCurrent("active-row", rowIndex, 0, rowTimeoutMs);
+  }
   const afterRowActivation = await getSnapshot();
   if ((afterRowActivation.rows[rowIndex] ?? []).filter((tile) => tile.action !== "noop").length === 1) return;
   await activateWhenRenderedTargetIsCurrent(
@@ -2453,7 +2461,7 @@ async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
 }
 
 async function activateWhenRenderedTargetIsCurrent(className, rowIndex, cellIndex, timeoutMs, stableMs = 0) {
-  await evaluate(`
+  const activation = await evaluate(`
     new Promise((resolve, reject) => {
       const deadline = performance.now() + ${timeoutMs};
       let activeSince = 0;
@@ -2464,8 +2472,12 @@ async function activateWhenRenderedTargetIsCurrent(className, rowIndex, cellInde
         if (active) {
           if (!activeSince) activeSince = performance.now();
           if (performance.now() - activeSince >= ${stableMs}) {
+            const activeBlockRowCount = new Set(
+              [...document.querySelectorAll(".tile.active-block")]
+                .map((candidate) => [...document.querySelectorAll(".row")].indexOf(candidate.closest(".row")))
+            ).size;
             globalThis.ShineAacInput.receive({ intent: "activate", source: "e2e-scanner" });
-            resolve();
+            resolve({ activeBlockRowCount });
             return;
           }
         } else {
@@ -2481,6 +2493,7 @@ async function activateWhenRenderedTargetIsCurrent(className, rowIndex, cellInde
     })
   `);
   await delay(10);
+  return activation;
 }
 
 async function findLabel(label, { rowIndex, occurrence = 0 } = {}) {
@@ -2697,9 +2710,31 @@ async function scenarioSingletonRowAutoActivation() {
     await selectLabel("UNDO");
     await assertMessage("");
   }
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 27,
+      profileId: "en-US",
+      columns: 4,
+      scanMode: "block-row-column",
+      scanIntervalMs: 120,
+      transitionPauseMs: 850,
+      firstCellPauseMs: 180,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0,
+      symbols: "ALPHA=alpha\\nBETA=beta"
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.href = ${JSON.stringify(appUrl)} + "?singleton=one-row-block";
+  `);
+  await waitForLabels(["ALPHA", "BETA"]);
+  await releaseFirstRowHold();
+  await selectLabel("BETA");
+  await assertMessage("beta ");
+  await selectLabel("UNDO");
+  await assertMessage("");
   steps.push(pass(
     "singleton-row-auto-activation",
-    "row/column and block/row/column both select a one-item row without a redundant cell activation"
+    "both modes skip redundant singleton item activation; block mode also skips redundant activation for a one-row block"
   ));
 }
 

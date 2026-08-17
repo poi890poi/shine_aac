@@ -121,6 +121,44 @@ test("block mode singleton rows return directly to block scanning", () => {
   assert.equal(confirmation.nextState.stage, ScanStage.Blocks);
 });
 
+test("confirming a one-row block automatically activates its row", () => {
+  const sizes = [4, 3, 2];
+  const confirmation = confirmScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 1
+    }),
+    sizes.length,
+    (row) => sizes[row],
+    ScanMode.BlockRowColumn
+  );
+
+  assert.equal(confirmation.type, "none");
+  assert.equal(confirmation.nextState.stage, ScanStage.RowSelected);
+  assert.equal(confirmation.nextState.blockIndex, 1);
+  assert.equal(confirmation.nextState.rowIndex, 1);
+});
+
+test("one-row, one-item blocks cascade directly to item selection", () => {
+  const sizes = [4, 1, 2];
+  const confirmation = confirmScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 1
+    }),
+    sizes.length,
+    (row) => sizes[row],
+    ScanMode.BlockRowColumn
+  );
+
+  assert.equal(confirmation.type, "selected");
+  assert.equal(confirmation.rowIndex, 1);
+  assert.equal(confirmation.cellIndex, 0);
+  assert.equal(confirmation.nextState.stage, ScanStage.Blocks);
+});
+
 test("second empty cell pass returns to the same row", () => {
   const state = advanceScanner(
     createScannerState({ stage: ScanStage.Cells, rowIndex: 1, cellIndex: 3, passIndex: 2 }),
@@ -349,5 +387,6 @@ test("access-cost metrics omit the redundant cell activation for singleton rows"
   const count = (row) => sizes[row];
 
   assert.equal(scanAccessCost(3, count, 1, 0, ScanMode.RowColumn).switchActivations, 1);
-  assert.equal(scanAccessCost(3, count, 1, 0, ScanMode.BlockRowColumn).switchActivations, 2);
+  assert.equal(scanAccessCost(3, count, 1, 0, ScanMode.BlockRowColumn).switchActivations, 1);
+  assert.equal(scanAccessCost(3, count, 2, 0, ScanMode.BlockRowColumn).switchActivations, 2);
 });

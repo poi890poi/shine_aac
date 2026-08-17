@@ -321,6 +321,12 @@ export function createDemoMode({
       await waitForActivationWindow(() => blockReadyFor(target), currentRunId, undefined, `block ${target.label}/${target.action ?? ""}`);
       receiveDemoInput();
       await delay(120);
+      if (tileMatchesTarget(getSession().lastSelection?.tile, target)) return;
+      if (rowWasAutomaticallyActivatedFor(target)) {
+        await waitForActivationWindow(() => cellReadyFor(target), currentRunId, undefined, `cell ${target.label}/${target.action ?? ""}`);
+        receiveDemoInput();
+        return;
+      }
     }
     await waitForActivationWindow(() => rowReadyFor(target), currentRunId, undefined, `row ${target.label}/${target.action ?? ""}`);
     receiveDemoInput();
@@ -525,6 +531,15 @@ export function createDemoMode({
     const scanner = session.scannerState;
     if (scanner.stage !== ScanStage.Rows) return false;
     const row = visibleBoard(session)[scanner.rowIndex] ?? [];
+    return row.some((candidate) => tileMatchesTarget(candidate, target));
+  }
+
+  function rowWasAutomaticallyActivatedFor(target) {
+    const session = getSession();
+    if (![ScanStage.RowSelected, ScanStage.FirstCell, ScanStage.Cells].includes(session.scannerState.stage)) {
+      return false;
+    }
+    const row = visibleBoard(session)[session.scannerState.rowIndex] ?? [];
     return row.some((candidate) => tileMatchesTarget(candidate, target));
   }
 

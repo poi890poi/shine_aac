@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-17T16:39:26.944Z
+Generated: 2026-08-17T16:49:34.055Z
 
 Result: PASS
 
@@ -12,7 +12,7 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.79999999701977,"resetTargetToProgressMs":32.8999999910593,"rowDeadlineDriftMs":-32.29999999701977,"nextRowTargetToProgressMs":33.29999999701977,"activationToTargetMs":1.4000000059604645,"activationTargetToProgressMs":25.899999991059303,"firstDeadlineDriftMs":-23.29999999105894,"secondTargetToProgressMs":23.700000002980232,"laterDeadlineDriftMs":-18.100000008940697,"thirdTargetToProgressMs":17.600000008940697,"selectionToHoldMs":3.7999999970197678,"holdReleaseToTargetMs":0.800000011920929,"selectionTargetToProgressMs":16.69999998807907} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":54.79999999701977,"resetTargetToProgressMs":25.200000002980232,"rowDeadlineDriftMs":-20.400000005960464,"nextRowTargetToProgressMs":20.200000002980232,"activationToTargetMs":1.0999999940395355,"activationTargetToProgressMs":32.29999999701977,"firstDeadlineDriftMs":-31.899999991059303,"secondTargetToProgressMs":31.299999997019768,"laterDeadlineDriftMs":-25.400000005960464,"thirdTargetToProgressMs":26.5,"selectionToHoldMs":3.699999988079071,"holdReleaseToTargetMs":1,"selectionTargetToProgressMs":26.900000005960464} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -58,7 +58,7 @@ Result: PASS
 | zh-tw-language-switch-review-hold | PASS | 英文 and 注音 switches preserve review hold; the embedded English board reuses English suggestions |
 | zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | zh-tw-demo-mode | PASS | greedily completed a visible candidate after direct first-layer Zhuyin input (1 matched characters) |
-| singleton-row-auto-activation | PASS | row/column and block/row/column both select a one-item row without a redundant cell activation |
+| singleton-row-auto-activation | PASS | both modes skip redundant singleton item activation; block mode also skips redundant activation for a one-row block |
 | block-row-column | PASS | reused the exact English suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 

@@ -155,6 +155,54 @@ for (const scanMode of [ScanMode.RowColumn, ScanMode.BlockRowColumn]) {
   });
 }
 
+test("block mode automatically activates the only row in a block", () => {
+  const config = createBoardConfig({
+    scanMode: ScanMode.BlockRowColumn,
+    symbols: [tile("ALPHA", "alpha"), tile("BETA", "beta")],
+    transitionPauseMs: 850
+  });
+  const session = createSession({
+    config,
+    scannerState: createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 2,
+      rowIndex: 2
+    })
+  });
+
+  const activated = pressSwitch(session, 1000);
+
+  assert.equal(activated.message, "");
+  assert.equal(activated.lastSelection, null);
+  assert.equal(activated.scannerState.stage, ScanStage.RowSelected);
+  assert.deepEqual(activated.lockedRow.map((candidate) => candidate.label), ["ALPHA", "BETA"]);
+});
+
+test("block mode cascades one-row, one-item blocks to immediate item selection", () => {
+  const config = createBoardConfig({
+    scanMode: ScanMode.BlockRowColumn,
+    symbols: [tile("ONLY", "only")],
+    transitionPauseMs: 850
+  });
+  const session = createSession({
+    config,
+    scannerState: createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 2,
+      rowIndex: 2
+    })
+  });
+
+  const selected = pressSwitch(session, 1000);
+
+  assert.equal(selected.message, "only ");
+  assert.equal(selected.lastSelection.tile.label, "ONLY");
+  assert.equal(selected.scannerState.stage, ScanStage.Blocks);
+  assert.equal(selected.lockedRow, null);
+});
+
 test("block session requires block, row, and cell activations", () => {
   let session = createSession({
     config: createBoardConfig({ scanMode: ScanMode.BlockRowColumn })

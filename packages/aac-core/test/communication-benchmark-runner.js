@@ -58,13 +58,16 @@ function scanCost(session, rowIndex, cellIndex) {
       session.config.scanBlockCount
     );
     const targetBlockIndex = blocks.findIndex((block) => block.includes(rowIndex));
+    const singletonBlock = blocks[targetBlockIndex]?.length === 1;
     const blockCursor = session.scannerState.stage === ScanStage.Blocks
       ? session.scannerState.blockIndex
       : 0;
     const blockAdvances = (targetBlockIndex - blockCursor + blocks.length) % blocks.length;
     const rowAdvances = Math.max(0, blocks[targetBlockIndex]?.indexOf(rowIndex) ?? 0);
     const cellAdvances = cellIndex === 0 ? 0 : cellIndex;
-    return blockAdvances + rowAdvances + cellAdvances + (singletonRow ? 2 : 3);
+    return blockAdvances + rowAdvances + cellAdvances + 1 +
+      (singletonBlock ? 0 : 1) +
+      (singletonRow ? 0 : 1);
   }
   const rowCursor = session.scannerState.stage === ScanStage.Rows ? session.scannerState.rowIndex : 0;
   const rowAdvances = (rowIndex - rowCursor + rows.length) % rows.length;
@@ -107,6 +110,7 @@ function selectPosition(session, position) {
       lockedRow: null
     };
   const metrics = { ...blankMetrics(), selections: 1 };
+  let rowWasAutomaticallyActivated = false;
 
   if (blockMode) {
     const rows = visibleBoard(next);
@@ -124,6 +128,18 @@ function selectPosition(session, position) {
     }
     next = pressSwitch(next, 1000);
     metrics.switches += 1;
+    if (next.lastSelection) return completedSelection(next, metrics);
+    if (next.scannerState.stage === ScanStage.RowSelected) {
+      metrics.estimatedTimeMs += scanAdvanceMs(next);
+      next = advanceSession(next);
+      metrics.advances += 1;
+      rowWasAutomaticallyActivated = true;
+    } else if (
+      [ScanStage.FirstCell, ScanStage.Cells].includes(next.scannerState.stage) &&
+      next.scannerState.rowIndex === position.rowIndex
+    ) {
+      rowWasAutomaticallyActivated = true;
+    }
     if (next.scannerState.stage === ScanStage.BlockSelected) {
       metrics.estimatedTimeMs += scanAdvanceMs(next);
       next = advanceSession(next);
@@ -131,28 +147,30 @@ function selectPosition(session, position) {
     }
   }
 
-  const rowSearchLimit = blockMode
-    ? scanRowBlocks(
-      visibleBoard(next).length,
-      (row) => selectableCount(visibleBoard(next)[row]),
-      next.config.scanBlockCount
-    )
-      .find((block) => block.includes(position.rowIndex))?.length ?? 0
-    : visibleBoard(next).length;
-  for (let step = 0; step <= rowSearchLimit; step += 1) {
-    if (next.scannerState.stage === ScanStage.Rows && next.scannerState.rowIndex === position.rowIndex) break;
-    metrics.estimatedTimeMs += scanAdvanceMs(next);
-    next = advanceSession(next);
-    metrics.advances += 1;
-  }
+  if (!rowWasAutomaticallyActivated) {
+    const rowSearchLimit = blockMode
+      ? scanRowBlocks(
+        visibleBoard(next).length,
+        (row) => selectableCount(visibleBoard(next)[row]),
+        next.config.scanBlockCount
+      )
+        .find((block) => block.includes(position.rowIndex))?.length ?? 0
+      : visibleBoard(next).length;
+    for (let step = 0; step <= rowSearchLimit; step += 1) {
+      if (next.scannerState.stage === ScanStage.Rows && next.scannerState.rowIndex === position.rowIndex) break;
+      metrics.estimatedTimeMs += scanAdvanceMs(next);
+      next = advanceSession(next);
+      metrics.advances += 1;
+    }
 
-  next = pressSwitch(next, 1000);
-  metrics.switches += 1;
-  if (next.lastSelection) return completedSelection(next, metrics);
-  if (next.scannerState.stage === ScanStage.RowSelected) {
-    metrics.estimatedTimeMs += scanAdvanceMs(next);
-    next = advanceSession(next);
-    metrics.advances += 1;
+    next = pressSwitch(next, 1000);
+    metrics.switches += 1;
+    if (next.lastSelection) return completedSelection(next, metrics);
+    if (next.scannerState.stage === ScanStage.RowSelected) {
+      metrics.estimatedTimeMs += scanAdvanceMs(next);
+      next = advanceSession(next);
+      metrics.advances += 1;
+    }
   }
 
   if (position.cellIndex > 0) {
