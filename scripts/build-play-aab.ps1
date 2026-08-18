@@ -38,6 +38,22 @@ function Read-VersionProperties {
     return $properties
 }
 
+function Get-Sha256Hex {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 if (-not (Test-Path -LiteralPath $KeystoreProperties)) {
     throw "Keystore properties file was not found: $KeystoreProperties"
 }
@@ -92,11 +108,11 @@ $apkArtifactName = "shine-aac-v$versionName-code$versionCode-release.apk"
 $apkArtifactPath = Join-Path $releaseDir $apkArtifactName
 Copy-Item -LiteralPath $apkPath -Destination $apkArtifactPath -Force
 
-$hash = Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256
-$hashLine = "$($hash.Hash.ToLowerInvariant())  $artifactName"
+$hash = Get-Sha256Hex -Path $artifactPath
+$hashLine = "$hash  $artifactName"
 Set-Content -LiteralPath (Join-Path $releaseDir "PLAY_AAB_SHA256SUMS.txt") -Value $hashLine -Encoding ASCII
-$apkHash = Get-FileHash -LiteralPath $apkArtifactPath -Algorithm SHA256
-$apkHashLine = "$($apkHash.Hash.ToLowerInvariant())  $apkArtifactName"
+$apkHash = Get-Sha256Hex -Path $apkArtifactPath
+$apkHashLine = "$apkHash  $apkArtifactName"
 Set-Content -LiteralPath (Join-Path $releaseDir "RELEASE_APK_SHA256SUMS.txt") -Value $apkHashLine -Encoding ASCII
 
 $releaseNotesSource = Join-Path $repoRoot "docs\releases\v$versionName.md"
@@ -106,6 +122,6 @@ if (Test-Path -LiteralPath $releaseNotesSource) {
 
 Write-Step "Signed release artifacts created"
 Write-Host $apkArtifactPath
-Write-Host "SHA-256: $($apkHash.Hash.ToLowerInvariant())"
+Write-Host "SHA-256: $apkHash"
 Write-Host $artifactPath
-Write-Host "SHA-256: $($hash.Hash.ToLowerInvariant())"
+Write-Host "SHA-256: $hash"

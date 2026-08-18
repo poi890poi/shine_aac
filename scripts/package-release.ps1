@@ -28,6 +28,22 @@ function Read-VersionProperties {
     return $properties
 }
 
+function Get-Sha256Hex {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 $version = Read-VersionProperties
 $versionName = $version["versionName"]
 $versionCode = $version["versionCode"]
@@ -70,8 +86,8 @@ $artifactName = "shine-aac-v$versionName-code$versionCode-debug.apk"
 $artifactPath = Join-Path $releaseDir $artifactName
 Copy-Item -LiteralPath $apkPath -Destination $artifactPath -Force
 
-$hash = Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256
-$hashLine = "$($hash.Hash.ToLowerInvariant())  $artifactName"
+$hash = Get-Sha256Hex -Path $artifactPath
+$hashLine = "$hash  $artifactName"
 Set-Content -LiteralPath (Join-Path $releaseDir "SHA256SUMS.txt") -Value $hashLine -Encoding ASCII
 
 $notesPath = Join-Path $releaseDir "RELEASE_NOTES.md"
@@ -87,7 +103,7 @@ Android version code: $versionCode
 ## Build
 
 - Debug APK: ``$artifactName``
-- SHA-256: ``$($hash.Hash.ToLowerInvariant())``
+- SHA-256: ``$hash``
 
 ## Verification
 
@@ -102,4 +118,4 @@ Android version code: $versionCode
 Write-Host "Release artifact:"
 Write-Host $artifactPath
 Write-Host "SHA-256:"
-Write-Host $hash.Hash.ToLowerInvariant()
+Write-Host $hash

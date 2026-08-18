@@ -1,18 +1,19 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-18T00:36:56.982Z
+Generated: 2026-08-18T03:39:35.363Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5173/apps/web/ |
+| packaged-webview-build | PASS | built Android WebView assets with esbuild |
+| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":53.29999999701977,"resetTargetToProgressMs":17.700000002980232,"rowDeadlineDriftMs":-17.099999994039536,"nextRowTargetToProgressMs":32.29999999701977,"activationToTargetMs":1.199999988079071,"activationTargetToProgressMs":32.80000001192093,"firstDeadlineDriftMs":-32.5,"secondTargetToProgressMs":33.19999998807907,"laterDeadlineDriftMs":-32.5,"thirdTargetToProgressMs":30.100000008940697,"selectionToHoldMs":3.800000011920929,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":32.70000000298023} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":53.20000001788139,"resetTargetToProgressMs":22.69999998807907,"rowDeadlineDriftMs":-17.30000001192093,"nextRowTargetToProgressMs":34.20000001788139,"activationToTargetMs":1,"activationTargetToProgressMs":26.30000001192093,"firstDeadlineDriftMs":-20.600000023841858,"secondTargetToProgressMs":21.80000001192093,"laterDeadlineDriftMs":-16.5,"thirdTargetToProgressMs":31.80000001192093,"selectionToHoldMs":3.7000000178813934,"holdReleaseToTargetMs":0.6000000238418579,"selectionTargetToProgressMs":32.79999998211861} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |

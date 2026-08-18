@@ -8,7 +8,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說 SayToMe AAC`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current source candidate: `v0.2.44` pending tag, Android version code `47`, target SDK `36`
+- Current source release: `v0.3.1`, Android version code `50`, target SDK `36`
 - Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing

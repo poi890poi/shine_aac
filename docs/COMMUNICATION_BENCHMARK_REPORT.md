@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-08-18T00:27:54.542Z
+Generated: 2026-08-18T03:29:54.868Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 

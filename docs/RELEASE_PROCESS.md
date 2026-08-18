@@ -7,8 +7,8 @@ SHINE AAC uses one release version for source, APK metadata, tags, and release f
 Edit `version.properties`:
 
 ```properties
-versionName=0.2.35
-versionCode=38
+versionName=0.3.1
+versionCode=50
 ```
 
 - `versionName`: public SemVer version.
@@ -45,9 +45,9 @@ Build and package a versioned debug APK:
 This creates ignored local artifacts:
 
 ```text
-.artifacts\releases\v0.2.35\shine-aac-v0.2.35-code38-debug.apk
-.artifacts\releases\v0.2.35\SHA256SUMS.txt
-.artifacts\releases\v0.2.35\RELEASE_NOTES.md
+.artifacts\releases\v0.3.1\shine-aac-v0.3.1-code50-debug.apk
+.artifacts\releases\v0.3.1\SHA256SUMS.txt
+.artifacts\releases\v0.3.1\RELEASE_NOTES.md
 ```
 
 When `docs\releases\vX.Y.Z.md` exists, packaging copies it into the artifact directory and tagged-release CI can use it as the GitHub Release notes. Otherwise the package script creates a minimal fallback note.
@@ -69,11 +69,11 @@ Generate an upload keystore outside Git, then build and package both signed arti
 The versioned artifacts and checksums are created at:
 
 ```text
-.artifacts\releases\v0.2.44\shine-aac-v0.2.44-code47-release.apk
-.artifacts\releases\v0.2.44\RELEASE_APK_SHA256SUMS.txt
-.artifacts\releases\v0.2.44\shine-aac-v0.2.44-code47-release.aab
-.artifacts\releases\v0.2.44\PLAY_AAB_SHA256SUMS.txt
-.artifacts\releases\v0.2.44\RELEASE_NOTES.md
+.artifacts\releases\v0.3.1\shine-aac-v0.3.1-code50-release.apk
+.artifacts\releases\v0.3.1\RELEASE_APK_SHA256SUMS.txt
+.artifacts\releases\v0.3.1\shine-aac-v0.3.1-code50-release.aab
+.artifacts\releases\v0.3.1\PLAY_AAB_SHA256SUMS.txt
+.artifacts\releases\v0.3.1\RELEASE_NOTES.md
 ```
 
 The APK and AAB under `app\build\outputs` are overwriteable intermediate outputs. Use the versioned APK for direct installation, and upload the versioned AAB from `.artifacts` to the Google Play Internal testing track. Confirm its version code has not already been used in Play Console.
@@ -89,10 +89,14 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
 5. Run `.\package-release.bat -SdkDir E:\Android\Sdk` and use the debug APK for the direct-install runtime smoke.
 6. Run `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 7. Verify the versioned signed APK and AAB, both checksum files, version name, version code, and signing identity.
-8. Create and push tag `vX.Y.Z` on the exact application source commit.
+8. Create and push an annotated tag `vX.Y.Z` on the exact application source commit.
 9. Upload the versioned `.aab` to Play Console Internal testing and configure testers. Do not upload the debug APK.
 
 ```powershell
-git tag v0.2.35
-git push origin v0.2.35
+git tag -a v0.3.1 -m "SHINE AAC v0.3.1"
+git push origin v0.3.1
 ```
+
+The tagged GitHub workflow publishes the versioned debug APK, its checksum,
+and a ZIP containing the APK, checksum, and release notes. Verify the release
+page and direct asset URLs after the workflow completes.

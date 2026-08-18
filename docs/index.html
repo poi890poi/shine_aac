@@ -457,7 +457,7 @@
       <img class="app-icon" src="./assets/saytome-aac-icon.png" alt="我想說 SayToMe AAC 應用程式圖示" width="512" height="512">
       <div>
         <h1>我想說 SayToMe AAC</h1>
-        <p class="subtitle">簡明操作說明｜繁體中文（台灣）｜適用 0.2.44（47）</p>
+        <p class="subtitle">簡明操作說明｜繁體中文（台灣）｜適用 0.3.1（50）</p>
       </div>
     </div>
     <nav class="quick-nav" aria-label="本頁段落">
@@ -468,6 +468,7 @@
         <a href="#settings">必要設定</a>
         <a href="#export-text">文字匯出</a>
         <a href="#help">問題排除</a>
+        <a href="./releases/v0.3.1.html">0.3.1 更新內容</a>
       </div>
     </nav>
   </header>
@@ -477,7 +478,7 @@
       <div class="section-inner intro-grid">
         <div>
           <h2>快速開始</h2>
-          <p>使用者可用一個能穩定操作的外接按鈕控制掃描。常見的低成本選擇是藍牙自拍快門或藍牙遙控按鈕；第一次使用前，請由協助者完成 Android 藍牙配對與輸入測試。</p>
+          <p>使用者可用一個能穩定操作的外接按鈕控制掃描。常見的低成本選擇是藍牙自拍快門或藍牙遙控按鈕；第一次使用前，請由協助者完成 Android 藍牙配對與輸入測試。0.3.1 可選擇原本的「列、格」或新的「區塊、列、格」掃描方式。</p>
         </div>
         <ol class="start-list">
           <li><strong>準備按鈕：</strong>協助者先確認每按一次，App 只啟動一次。</li>
@@ -491,7 +492,7 @@
     <section class="guide-section alt" id="switch">
       <div class="section-inner">
         <h2>單一開關掃描</h2>
-        <p class="section-lead">主要操作方式是外接按鈕，例如藍牙自拍快門、藍牙遙控按鈕或相容的輔具開關介面。尚未接上按鈕時，協助者也可觸碰溝通畫面任意位置來練習。操作分成「選整列」和「選列內格子」兩步。</p>
+        <p class="section-lead">主要操作方式是外接按鈕，例如藍牙自拍快門、藍牙遙控按鈕或相容的輔具開關介面。尚未接上按鈕時，協助者也可觸碰溝通畫面任意位置來練習。預設操作分成「選整列」和「選列內格子」兩步；協助者也可在設定改用「區塊、列、格」三層掃描。</p>
         <div class="instruction-grid reverse">
           <figure>
             <div class="image-pair">
@@ -521,6 +522,15 @@
               <li>按一次外接按鈕；使用相機輸入時，完成一次有效長眨眼。</li>
               <li>掃描會改成在該列內逐格移動。</li>
               <li>框移到目標格子時，再啟動一次。</li>
+            </ol>
+
+            <h3>區塊、列、格掃描</h3>
+            <p>這是 0.3.1 新增的選用模式，適合覺得逐列等待太久的使用者。它只改變掃描路徑，不會改變注音、英文、候選字詞或格子位置。</p>
+            <ol>
+              <li>紫色框會依序框住數列形成的區塊；目標位於該區塊時啟動一次。</li>
+              <li>選定區塊後，青綠色框只掃描區塊內的列；移到目標列時再啟動一次。紫色外框會保留，方便辨認目前範圍。</li>
+              <li>最後在該列內選擇目標格子。</li>
+              <li>如果區塊只有一個可選列，或列內只有一個可選格，App 會自動進入下一層或直接啟動，不要求多按一次。</li>
             </ol>
 
             <div class="callout">
@@ -585,6 +595,7 @@
             <div>
               <h3>調整開關掃描</h3>
               <ol>
+                <li>用<strong>掃描方式</strong>選擇「列、格」或「區塊、列、格」。兩種方式使用完全相同的溝通版面與候選字詞。</li>
                 <li>先用<strong>掃描速度預設</strong>選擇預設速度。</li>
                 <li>需要微調時，再改<strong>掃描間隔（毫秒）</strong>；數字越大，掃描越慢。</li>
                 <li>選擇<strong>輸入測試</strong>，確認按鈕或感應輸入穩定。</li>
@@ -710,6 +721,7 @@
       <p>
         <a href="./privacy-policy/">隱私權政策</a> ·
         <a href="./support/">支援與回饋</a> ·
+        <a href="./releases/v0.3.1.html">0.3.1 更新內容</a> ·
         <a href="https://github.com/poi890poi/shine_aac">GitHub 專案</a>
       </p>
     </div>

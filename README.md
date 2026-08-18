@@ -28,6 +28,7 @@ Useful docs:
 - [Architecture](docs/ARCHITECTURE.md)
 - [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
 - [Release Process](docs/RELEASE_PROCESS.md)
+- [v0.3.1 Release Notes](docs/releases/v0.3.1.md)
 - [AAC Core](packages/aac-core/README.md)
 - [Testing Report](docs/TESTING_REPORT.md)
 - [Text And Display Scaling Policy](docs/TEXT_SCALING_POLICY.md)
@@ -61,15 +62,15 @@ Run browser E2E against the Windows/browser app:
 # Current Android App
 The Android app is now a thin Kotlin WebView shell that packages the shared Windows/browser app and `packages/aac-core` logic. It provides:
 
-- Row/column switch scanning with a large switch input.
-- Single-action switch selection: tap anywhere to select the highlighted row, then tap anywhere again to select the highlighted symbol.
+- Row/column switch scanning plus an optional block/row/column mode, both using the same board and suggestions.
+- Single-action switch selection: tap anywhere to select the highlighted block when enabled, row, and then symbol.
 - An optional row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts. The MVP default is `0 ms`, which skips this state entirely because the current transition/escape interaction was hurting basic use.
 - A configurable first-symbol hold. By default it matches the normal scan speed; a named support preset remains available for users who need longer on column 1.
 - An optional review hold after suggestion changes. It is off by default so selecting a word immediately resumes scanning; helpers can opt in when a user needs an explicit review pause.
 - Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
 - A blinking message cursor so trailing spaces are visible.
-- A dynamic suggestion row for undo, space, predicted words, completions, simple action/noun phrases, and high-frequency fallback letters.
+- Two dynamic English suggestion rows for undo, space, and neutral frequency-ranked word predictions or completions; one-character predictions are excluded.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
 - Voice feedback for row scanning, symbol scanning, and activated targets, configurable by a helper. Row-scan voice is off by default; symbol and activation voice remain on.
@@ -79,14 +80,16 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
 
 ## Switch Scanning Design
-This app targets automatic row-column scanning for users who may have only one reliable action, such as a touch, switch, blink, or other binary signal. The communication surface intentionally avoids direct cell tapping: the same single action is used everywhere on the main board.
+This app targets automatic scanning for users who may have only one reliable action, such as a touch, switch, blink, or other binary signal. The communication surface intentionally avoids direct cell tapping: the same single action is used everywhere on the main board. Row/column scanning remains available, while block/row/column scanning can reduce long row searches without changing the communication layout.
 
-The scan state machine has four stages:
+Row/column mode uses these stages:
 
 1. `Rows`: rows are highlighted in sequence.
 2. `RowSelected`: when enabled, the selected row stays locked for a configurable transition pause. A switch activation during this transient state cancels the locked row and returns to row scanning.
 3. `FirstCell`: the first symbol in the locked row is highlighted with its own configurable hold.
 4. `Cells`: the remaining symbols in the locked row are highlighted in sequence.
+
+Block/row/column mode begins with `Blocks`, then scans only the rows inside the selected block before using the same cell stages. The selected block retains a purple outline during row scanning. A single-row block and a single-item row advance automatically, so an extra switch activation is not required. Scan mode is deliberately independent from language, board columns, symbol placement, and suggestions.
 
 The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. However, this extra state was confusing in current MVP testing, so the built-in default transition pause is `0 ms`. When the value is `0`, the code skips `RowSelected` completely and goes straight to `FirstCell`. Helpers can enable the pause later by setting a positive transition time.
 
@@ -126,27 +129,22 @@ This is intended to reduce average scan time. In row-column scanning, symbols ea
 The board also places high-value whole words and actions before spelling symbols because whole-word selection can save many switch activations. The default vocabulary is only a starter set; caregivers should customize it to the individual user, context, language, and communication partners.
 
 ## Word Suggestions
-The first scan row is reserved for suggestions. It is always present so the rest of the board keeps a stable spatial layout. It is still selected with the same single-switch row/column flow; it is not a direct-touch row.
+The first two English scan rows are reserved for suggestions. They remain present so the rest of the board keeps a stable spatial layout. They use the same single-switch scanning flow as every other row and are not direct-touch controls.
 
-The suggestion row stays in a fixed position at the top. It can be selected like any other row, and the selected row content is locked during column scanning so a dynamic suggestion update cannot swap the tile being selected.
+Suggestion rows stay in fixed positions at the top. A selected row is locked during cell scanning so a dynamic update cannot swap the tile being selected.
 
 Suggestions are intentionally simple and AAC-focused:
 
-- The row shows up to four targets on the default four-column board.
+- Each row shows up to four targets on the default four-column English board.
 - `UNDO` appears first when a previous message state exists.
 - `SPC` appears when the message has text and does not already end in a space.
 - If the user is typing a partial word, suggestions complete that word. For example, `wa` can produce `WANT`, `WATER`, and `WATCH`; `movi` can produce `MOVIE`.
 - If the partial word already exactly matches a dictionary item, that same word is not suggested again.
-- If the message ends at a word boundary, suggestions favor simple grammar patterns rather than complete sentence prediction.
-- After `I` or `YOU`, action words such as `WANT`, `NEED`, `HELP`, `GO`, `STOP`, `WATCH`, `LOOK`, `MOVE`, and `TURN` rank higher.
-- After `WANT` or `NEED`, common nouns/needs such as `DRINK`, `WATER`, `FOOD`, `TOILET`, `PAIN`, `HOT`, `COLD`, `TIRED`, `SLEEP`, `MORE`, `MEDICINE`, `BATHROOM`, and `DONE` rank higher.
-- If there are not enough word candidates, the row fills with useful targets such as `SPC` and high-frequency spelling letters instead of leaving dead empty cells or forcing the user to scan down to the static alphabet.
+- At a word boundary, suggestions use the same neutral AOSP frequency ranking rather than handcrafted sentence patterns.
+- One-character candidates are excluded because the complete fixed alphabet is already available below the suggestions.
+- The single fixed `I` remains at its frequency-ordered alphabet position. It enters `I ` at a word boundary and lowercase `i` while spelling inside a word.
 
-The built-in suggestion dictionary is no longer a handful of patched words. It is assembled from ranked source lists:
-
-- AAC core vocabulary for flexible everyday messages.
-- Common English service words inspired by frequency-list resources such as the General Service List and Oxford English Corpus summaries.
-- Starter fringe vocabulary for common needs, people, places, routines, and device words.
+The built-in English suggestion dictionary is a filtered, neutral frequency-ranked slice of the Android Open Source Project LatinIME en-US dictionary. It is not manually tuned around demo phrases or individual complaints.
 
 Helpers can still replace or extend this dictionary in configuration. The backend is intentionally simple and offline, but the code keeps it isolated so a maintained package, downloaded language model, or online predictor could replace it later.
 
@@ -156,6 +154,7 @@ The board no longer includes a single `?` row. A one-column row can be useful fo
 
 Configuration is accessed with the `Config` button in the top panel. It is intended for a fully functional user, caregiver, clinician, or developer. The main switch-scanning loop pauses while configuration is open. Configuration currently supports:
 
+- scanning mode: rows/columns or blocks/rows/columns
 - number of columns
 - switch scan speed
 - row-to-symbol transition pause

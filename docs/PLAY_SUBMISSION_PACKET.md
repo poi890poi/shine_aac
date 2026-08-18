@@ -6,20 +6,19 @@ This packet is the review checklist for the current Google Play closed-testing s
 
 - Track: Closed testing
 - Package id: `org.shineaac.app`
-- Current source version: `0.3.0`
-- Current source version code: `49`
+- Current source version: `0.3.1`
+- Current source version code: `50`
 - Compile and target SDK: `36`
-- Source commit: `111576a8d51fba2f2f0d8baf1089f02ef897688e`
-- Source tag: `v0.3.0` (not created)
-- Signed AAB in release ZIP: `binaries/shine-aac-v0.3.0-code49-release.aab`
-- Signed AAB SHA-256: `6a65a3927935648bd24d79d5f2795d7aa35593105beb727d75e09a678b50d95b`
+- Source tag: `v0.3.1`
+- Signed AAB in release ZIP: `binaries/shine-aac-v0.3.1-code50-release.aab`
+- Signed AAB SHA-256: `7bd840836c51a86d4327666b7a6a66f2da7055ede592e324d130832c358538dd`
 - AAB checksum file: `binaries/PLAY_AAB_SHA256SUMS.txt`
 - Upload keystore location: `E:\Android\keys\saytome-upload.jks`
 - Keystore properties location: `E:\Android\keys\saytome-upload.properties`
 
 Do not upload an APK or any superseded bundle to Google Play. After confirming
-that code 49 is unused and creating the final source tag, upload the versioned
-signed code-49 AAB above.
+that code 50 is unused and creating the final source tag, upload the versioned
+signed code-50 AAB above.
 
 ## Store Listing
 
@@ -33,7 +32,19 @@ The listing should keep the early-development warning and avoid medical-device o
 
 ## Release Notes
 
-Use this for 0.3.0 closed testing:
+Use this for 0.3.1 closed testing:
+
+```text
+早期測試版本，主要給台灣繁體中文使用者與協助者試用。
+
+- 可選擇原本的「列、格」或新的「區塊、列、格」單一開關掃描；兩種模式使用相同版面與候選字詞
+- 區塊模式會保留紫色範圍提示，再於區塊內選列與格；只有一列或一格時會自動進入下一步
+- 英文維持獨立的四欄版面；固定字母 I 回到 ETAO／INSR 的高頻字母位置，不再與單字候選重複
+- 暫停與停止狀態文字縮短，避免在手機上被裁切；自動示範支援兩種掃描模式
+- 這仍不是唯一或緊急溝通方式；請在實際裝置比較兩種掃描方式的速度、辨識負擔與疲勞感
+```
+
+Previous 0.3.0 notes retained for reference:
 
 ```text
 早期測試版本，主要給台灣繁體中文使用者與協助者試用。
@@ -232,7 +243,7 @@ SayToMe AAC / 我想說 is an early development communication support tool. It i
 
 ## Verification To Refresh Before Upload
 
-- Confirm in Play Console that version code 49 has not already been used.
+- Confirm in Play Console that version code 50 has not already been used.
 - Rerun the full pre-release verification gate.
 - Rebuild the signed Play AAB with `.\build-play-aab.bat -SdkDir E:\Android\Sdk -KeystoreProperties E:\Android\keys\saytome-upload.properties`.
 - Record final version, Git commit, Git tag, AAB SHA-256, and release notes before upload.
