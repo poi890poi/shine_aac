@@ -12,6 +12,7 @@ This document defines how SHINE AAC should be tested before release candidates. 
 - Use existing source data where possible. `zh-TW` dictionary quality should be judged against source-backed Traditional Chinese/Zhuyin data, not generated filler or hand-picked rescue phrases.
 - Measure reachability and efficiency without real-time waits. Virtual core benchmarks should scan the same visible rows and suggestions, but they should count selections, activations, advances, and estimated configured time instead of sleeping.
 - Use real-time scanning only where it matters. Browser and APK E2E should verify that the UI, timing loop, persistence, input adapters, and WebView shell behave correctly, using a small set of representative flows.
+- Follow `docs/SCAN_PERFORMANCE_GUARDRAILS.md` for suggestion, board, rendering, or timer changes. Scan timing acceptance requires physical Android measurements plus deterministic work-count tests; emulator timing alone is insufficient.
 - Keep language profiles isolated. English, `zh-TW`, and future symbol profiles must not mutate each other's layout, spacing, dictionary, or migration behavior.
 - Treat failures as design information. A failing benchmark should usually trigger a general data, ranking, or access-rule improvement, not a special-case exception.
 - Report gaps honestly. A high glyph reachability score does not mean real daily conversation coverage is complete.
@@ -20,9 +21,11 @@ This document defines how SHINE AAC should be tested before release candidates. 
 
 | Layer | Purpose | Speed Model | Main Evidence |
 | --- | --- | --- | --- |
-| Core unit tests | Pure scanner, board, message, profile, migration, and suggestion behavior | Instant deterministic execution | `npm test` |
+| Quick core tests | Pure scanner, board, message, profile, migration, and suggestion behavior outside the long benchmark suite | Fast deterministic execution for day-to-day development | `npm run test:quick` |
+| Full core tests | Quick core tests plus virtual communication benchmarks | Long deterministic execution; expected to take much longer than a normal edit cycle | `npm run test:core` or `npm test` |
 | Fast zh-TW dictionary inventory | Broad source symbol/glyph/word inventory, estimated reachability, and estimated activation cost | Graph analysis only; no real sleeps and no full virtual utterance scanning | `docs/ZHTW_DICTIONARY_INVENTORY_REPORT.md` |
 | Virtual communication benchmarks | Reachability and efficiency for words, phrases, utterances, and multilingual paths | No real sleeps; count activations and advances, estimate configured scan time | `docs/COMMUNICATION_BENCHMARK_REPORT.md` |
+| Scan-mode comparison | Uniform-visible-target scanner advances, switch activations, and visual recognition-load proxies | Instant deterministic calculation over real profile boards | `npm run report:scan-modes` |
 | Browser E2E | Rendered web UI, scanning loop, localStorage migration, viewport fit, demo/smoke flows | Normal UI event timing, reduced case count | `docs/WEB_E2E_REPORT.md` |
 | APK/build checks | Android package build, asset inclusion, native shell integration, installable artifact | Build-time plus selected device/emulator smoke flows | `docs/APK_REPORT.md` |
 | Human UX verification | Comfort, clarity, timing feel, speech output, and caregiver comprehension | Real device and real user/helper judgment | UX checklist in release notes/report |
@@ -43,18 +46,28 @@ Not every change needs the full test pyramid. Tests should match the modified su
 | `zh-TW` dictionary/ranking/data | generated Chewing data, phonetic access rules, benchmark fixtures | targeted source/data analyzer and affected core tests | full `npm run test:core` before handing APK to Taiwan testers | full publish regression |
 | Cross-cutting release change | versioning, packaging, native plus web, profile defaults | affected targeted tests plus `.\package-release.bat -SdkDir <sdk>` | full handoff verification with SHA-256 and URL | full release gate |
 
-Default rule: run the smallest test set that can fail because of the change. Full regression is required for major changes, publish candidates, before public/closed testing submissions, and when a narrow test reveals unexplained behavior.
+Default rule: run the smallest test set that can fail because of the change. Use `npm run test:quick` for ordinary core/web development confidence when communication benchmarks are not the changed surface. Full regression is required for major changes, publish candidates, before public/closed testing submissions, and when a narrow test reveals unexplained behavior.
 
-When a command is expected to be long, give it a long timeout rather than reporting a harness timeout as a test failure. If a long-running command appears stalled, inspect process/log state and report it as an infrastructure issue separately from product quality.
+When a command is expected to be long, give it a long timeout rather than reporting a harness timeout as a test failure. `npm test`, `npm run test:core`, and `npm run test:core:benchmarks` include the communication benchmark suite and are allowed to run for a long time. If a long-running command appears stalled, inspect process/log state and report it as an infrastructure issue separately from product quality.
 
 ## Core Unit Methods
 
 Core tests must run without Android SDK, browser APIs, WebView, network, audio devices, or platform storage. They should test pure functions and session transitions.
 
+Command split:
+
+- `npm run test:quick`: day-to-day deterministic core verification, excluding the intentionally long communication benchmark file.
+- `npm run test:core` or `npm test`: full core verification, including communication benchmarks.
+- `npm run test:core:benchmarks`: communication benchmark test file only.
+- `npm run report:communication`: regenerate `docs/COMMUNICATION_BENCHMARK_REPORT.md` from benchmark metrics.
+- `npm run report:scan-modes`: compare row/column and profile-optimized block/row/column costs without changing either mode's baseline.
+- `npm run baseline:communication`: deliberately replace the frozen task-level communication baseline after a reviewed improvement has been accepted; normal report generation never moves the baseline.
+- `npm run report:efficiency`: regenerate the zh-TW dictionary inventory, phonetic access, and communication efficiency reports.
+
 Required coverage:
 
-- scanner state transitions, row selection, cell selection, wrapping, skipped empty rows, and latency compensation
-- message operations including append, space, delete, clear, undo, and candidate replacement
+- scanner state transitions, block/row/cell selection, one-row block and one-item row autoactivation, miss unwinding, wrapping, skipped empty rows, and latency compensation
+- message operations including append, space, clear, undo, candidate replacement, and internal/custom backspace compatibility
 - board chunking, row density, static row stability, and action parsing
 - profile-specific spacing, labels, dictionaries, speech metadata, and migration
 - `zh-TW` suggestion quality, including exact phonetic matches, valid continuations, source-backed candidates, bounded pages, and no unrelated filler
@@ -67,6 +80,10 @@ Core tests may call helpers that simulate visible tile selection. They must not 
 Virtual benchmarks are the primary place to measure whether communication is possible and efficient.
 
 For broad `zh-TW` dictionary quality, run the fast inventory report first. It should report total available Zhuyin symbols, source glyphs, source word/phrase labels, phonetic-path reachability, direct candidate reachability, composability from glyphs, and estimated activations. This report is allowed to estimate all dictionary labels quickly because it uses the access graph rather than full row/column scan simulation.
+
+Any systemic input-efficiency change must regenerate the dictionary inventory, phonetic coverage, and communication benchmark reports. The review should compare the current run against the previous-version baseline sections and confirm that improvements are broad: dictionary coverage must not regress, high-rank glyph/phrase reachability must remain stable or improve, and efficiency gains must not come from hand-crafted shortcuts or overfitting a small demo path.
+
+The communication report compares every matched task against the frozen snapshot in `packages/aac-core/test/communication-benchmark-baseline.json`. Acceptance gates require total and P90 switch effort and estimated scan time to remain stable or improve, require every established communication-function group to remain stable or improve in aggregate, and allow no task to gain more than one additional `更多` selection. A lower raw `更多` count is not an improvement when these gates fail. Normal report generation rejects added or removed task ids; the explicit baseline-update command may accept a reviewed task-set change without treating newly added coverage as a performance regression. Update the frozen snapshot only after reviewing the paired task deltas and accepting the candidate; never update it merely to make a regression pass.
 
 The runner should:
 
@@ -99,10 +116,25 @@ Required coverage:
 - app launches from a clean browser profile
 - board, message text, suggestions, config controls, and tabs render
 - one-switch row/column scanning can enter a short message
-- undo, delete, clear, and suggestion completion work in the rendered UI
+- undo, clear, and suggestion completion work in the rendered UI; built-in boards do not expose a redundant backspace key
+- text history updates one live line while the current text area is edited, closes that line only on an explicit text-area reset, and compacts legacy per-input snapshots into final text-area session lines during migration
+- text export contains one plain-text line per text-area session; Android opens a user-chosen file destination, then confirms the actual filename and offers a direct `開啟文字檔` action instead of requiring folder navigation
 - profile migration from stale stored data is visible after reload
 - `zh-TW` labels fit inside cells at phone viewport sizes
+- `zh-TW` keeps the conventional 37-symbol sequence in stable `6, 5, 5, 5, 6, 5, 5` rows with no sparse `ㄥ ㄦ` row
+- unused recommendation slots reserve layout space without rendering button-shaped empty targets or entering the scan order
+- every recommendation row is checked against the complete static board before it is limited: no candidate may repeat a static key with the same action and label or the same action and output; later useful candidates must backfill removed duplicates
+- every board function key shares word-key spacing and typography exactly; only background, border colour, inset-shadow colour, and its programmatic function-key name distinguish it
+- `復原` after a mistaken candidate selection restores the same suggestion page, not page zero
+- the packaged default uses one consistent 1800 ms interval for row scanning and the first and later cells; migration removes the former 2300 ms default first-cell exception while preserving other customized timing
+- a non-polling in-page timing trace observes target mutations and progress-transition events after Reset, row activation, successive cells, a word selection into row-1 hold, and release from that hold; every visible transition gap must be at most 80 ms and scan-deadline drift at most 50 ms
+- every activation that changes message or board state, and every return from full-screen Settings, returns to a clearly visible whole-row hold treatment on row 1 without changing board geometry: pale teal-gray tiles, a solid 3px dark-teal perimeter, no per-tile active outline, and no frozen progress fill; the next activation releases the hold without selecting anything, including after 復原
 - `zh-TW` `EN` entry point exposes English symbols without replacing the first-level Chinese surface
+- demo activation clears the draft and scanner holds, then restarts scanning from the top row
+- a `zh-TW` demo must select needed phonetic symbols directly from the complete first-layer grid, greedily accept the longest visible continuation before entering another symbol, and use `更多` only for overflow output candidates, never hidden Zhuyin symbols
+- Demo timing is an unsaved runtime cap of 600 ms for scan and first-cell intervals with no transition pause or latency compensation; faster user settings remain faster, and stopping Demo restores normal scheduling without changing stored accessibility timing
+- intentional demo exit must stop cleanly without leaking a failure into later app behavior
+- internal back navigation returns App Info and Input Test to Configuration, then Configuration to the communication board; only back from the root board may exit the app
 - reset restores packaged defaults
 - viewport and canvas/pixel checks prove the UI is not blank or clipped
 
@@ -127,9 +159,49 @@ Required smoke checks when Android runtime is available:
 - verify hardware or accessibility switch input reaches the scanner path when enabled
 - verify persisted config can load and reset
 - verify `zh-TW` profile renders the expected Chinese labels and `EN` entry point
+- verify Android predictive/back-swipe dispatch returns from an internal page to its parent before Activity exit
 - verify speech output manually when TTS or audio behavior changed
 
 APK runtime checks can be small. They do not replace core benchmark coverage.
+
+## Design And Compatibility Review Gate
+
+Design review is a release gate, not a visual polish pass. It must review every user-visible Activity and every supported form factor before an APK is handed to testers.
+
+Required review scope:
+
+- Main AAC communication screen.
+- Configuration panel, export flow, and input-test panel.
+- Android's text-document picker can create the suggested `.txt` file, cancellation leaves history intact, and the saved UTF-8 content matches the browser history export.
+- Native camera-switch setup screen.
+- Android permission dialogs and external chooser handoffs that affect the user flow.
+- Phone portrait, phone landscape or explicit portrait-lock behavior, 7-inch tablet, 10-inch tablet, foldable/tablet landscape, and multi-window or resizable windows when available.
+- System UI modes: gesture navigation, three-button navigation, status bar, display cutout, keyboard/IME if any text field can be focused, and the font/display-size matrix in `docs/TEXT_SCALING_POLICY.md`.
+- Lifecycle events: rotation, app background/foreground, Activity recreation, screen timeout, permission denial/retry, and WebView reload.
+
+Required compatibility checks:
+
+- No tappable or critical content is hidden behind system bars, navigation buttons, display cutouts, camera holes, taskbars, or keyboard UI.
+- Screen stays awake while communication or camera setup is foregrounded.
+- Current composed text and repair history survive rotation, reload, background/foreground, and short Activity recreation.
+- Orientation restrictions are treated as temporary phone behavior only; tablet and future large-screen readiness must be reviewed as resizable/adaptive behavior.
+- Critical actions remain visible without scrolling. Secondary controls may scroll only when their scrollbar or another persistent cue makes that behavior discoverable.
+- Camera preview and overlay alignment are verified in portrait and landscape on phone/tablet-sized windows before camera switch support is claimed on those form factors.
+- Text, controls, and scan targets remain readable and tappable at 200% font scale, one-step-larger display size, and their combination. Function-key metrics must equal word-key metrics, and function labels must remain unclipped at the accepted size floor.
+
+Required evidence before closed/open testing:
+
+- `npm run test:web:e2e` with phone portrait plus tablet portrait and tablet landscape viewport checks.
+- Android emulator or real-device smoke on at least one phone and one tablet-class configuration. If no physical tablet is available, use Android Studio Pixel Tablet or equivalent emulator and document that limitation.
+- Manual screenshots or automated captures for main board, config, input test, and camera setup with system navigation controls visible.
+- Physical-device screenshots for the target Samsung at default scaling and at the worst supported font/display-size combination. Browser-only large-text injection is not sufficient evidence.
+- A current `docs/DEVICE_COMPATIBILITY_REVIEW.md` report listing pass/fail/open risks and release decision.
+
+Known Android guidance that must be considered:
+
+- Apps targeting SDK 35 can be displayed edge-to-edge on Android 15+, so system bar insets are mandatory for tappable content.
+- Android 16 large-screen behavior can ignore orientation and resizability restrictions for apps targeting API 36 on screens with smallest width at least 600dp; tablet readiness cannot rely on `screenOrientation="portrait"`.
+- Keeping the screen on is an Activity-level foreground behavior; every foreground communication/setup Activity that must not time out needs its own keep-awake handling.
 
 ## Data Requirements
 

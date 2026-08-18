@@ -457,7 +457,7 @@
       <img class="app-icon" src="./assets/saytome-aac-icon.png" alt="我想說 SayToMe AAC 應用程式圖示" width="512" height="512">
       <div>
         <h1>我想說 SayToMe AAC</h1>
-        <p class="subtitle">簡明操作說明｜繁體中文（台灣）</p>
+        <p class="subtitle">簡明操作說明｜繁體中文（台灣）｜適用 0.3.1（50）</p>
       </div>
     </div>
     <nav class="quick-nav" aria-label="本頁段落">
@@ -465,8 +465,10 @@
         <a href="#start">快速開始</a>
         <a href="#switch">開關掃描</a>
         <a href="#buttons">常用按鈕</a>
-        <a href="#settings">設定與相機</a>
+        <a href="#settings">必要設定</a>
+        <a href="#export-text">文字匯出</a>
         <a href="#help">問題排除</a>
+        <a href="./releases/v0.3.1.html">0.3.1 更新內容</a>
       </div>
     </nav>
   </header>
@@ -476,13 +478,13 @@
       <div class="section-inner intro-grid">
         <div>
           <h2>快速開始</h2>
-          <p>等待掃描框移動，再用單一開關確認目前的掃描項目。開關可以是觸碰溝通畫面任意位置、音量鍵、外接按鈕或眨眼。已選文字會出現在畫面最上方，完成後可由裝置朗讀。</p>
-          <p>想先觀看操作流程時，可請協助者長按「Config」開啟自動示範。</p>
+          <p>使用者可用一個能穩定操作的外接按鈕控制掃描。常見的低成本選擇是藍牙自拍快門或藍牙遙控按鈕；第一次使用前，請由協助者完成 Android 藍牙配對與輸入測試。0.3.1 可選擇原本的「列、格」或新的「區塊、列、格」掃描方式。</p>
         </div>
         <ol class="start-list">
-          <li><strong>選擇內容：</strong>使用掃描依序選擇常用詞、注音或候選字詞。</li>
-          <li><strong>確認文字：</strong>查看畫面最上方的訊息欄。</li>
-          <li><strong>說出訊息：</strong>選擇「說」，由裝置朗讀完整訊息。</li>
+          <li><strong>準備按鈕：</strong>協助者先確認每按一次，App 只啟動一次。</li>
+          <li><strong>選整列：</strong>框移到目標所在列時，按一次。</li>
+          <li><strong>選格子：</strong>框移到目標格子時，再按一次。</li>
+          <li><strong>說出訊息：</strong>重複選擇內容，完成後選擇「朗讀」。</li>
         </ol>
       </div>
     </section>
@@ -490,7 +492,7 @@
     <section class="guide-section alt" id="switch">
       <div class="section-inner">
         <h2>單一開關掃描</h2>
-        <p class="section-lead">可將整個溝通畫面當作大型觸碰開關，也可使用音量鍵、外接按鈕或相機眨眼。操作分成「選整列」和「選列內格子」兩步。</p>
+        <p class="section-lead">主要操作方式是外接按鈕，例如藍牙自拍快門、藍牙遙控按鈕或相容的輔具開關介面。尚未接上按鈕時，協助者也可觸碰溝通畫面任意位置來練習。預設操作分成「選整列」和「選列內格子」兩步；協助者也可在設定改用「區塊、列、格」三層掃描。</p>
         <div class="instruction-grid reverse">
           <figure>
             <div class="image-pair">
@@ -514,40 +516,43 @@
           </figure>
           <div class="steps">
             <h3>每次選擇的步驟</h3>
+            <p>設定鍵左側的狀態會顯示「目前：選列」或「目前：選格」，提示現在要選整列還是列內格子；這段文字只是狀態提示，不是可輸入的字詞或按鈕。第一格雖然會停留久一點，畫面不再另外顯示難懂的「First」。</p>
             <ol>
               <li>等待青綠色框移到目標所在的整列。</li>
-              <li>觸碰溝通畫面任意位置、按一次音量鍵或外接按鈕；使用相機輸入時，完成一次有效長眨眼。</li>
+              <li>按一次外接按鈕；使用相機輸入時，完成一次有效長眨眼。</li>
               <li>掃描會改成在該列內逐格移動。</li>
               <li>框移到目標格子時，再啟動一次。</li>
             </ol>
 
+            <h3>區塊、列、格掃描</h3>
+            <p>這是 0.3.1 新增的選用模式，適合覺得逐列等待太久的使用者。它只改變掃描路徑，不會改變注音、英文、候選字詞或格子位置。</p>
+            <ol>
+              <li>紫色框會依序框住數列形成的區塊；目標位於該區塊時啟動一次。</li>
+              <li>選定區塊後，青綠色框只掃描區塊內的列；移到目標列時再啟動一次。紫色外框會保留，方便辨認目前範圍。</li>
+              <li>最後在該列內選擇目標格子。</li>
+              <li>如果區塊只有一個可選列，或列內只有一個可選格，App 會自動進入下一層或直接啟動，不要求多按一次。</li>
+            </ol>
+
             <div class="callout">
               <strong>觸碰畫面是「開關」，不是直接點選。</strong><br>
-              在 AAC 溝通主畫面，無論觸碰哪個位置，都只會啟動青綠色掃描框目前所在的列或格子，不會直接選擇手指下的內容。「Config」和設定頁面才是供協助者直接操作的控制項目。
+              在 AAC 溝通主畫面，無論觸碰哪個位置，都只會啟動青綠色掃描框目前所在的列或格子，不會直接選擇手指下的內容。觸碰操作適合協助者設定或陪同練習；日常溝通請使用使用者能穩定操作的按鈕。「設定」和設定頁面由協助者直接操作。
             </div>
 
             <h3>組合並說出 AAC 訊息</h3>
             <ol>
               <li>要快速表達需求時，掃描並選擇「喝水」、「吃飯」、「廁所」、「休息」等常用詞。</li>
-              <li>要輸入其他內容時，依序選擇注音，再從候選格選擇正確的字或詞；選擇「更多」可查看下一頁候選詞。</li>
-              <li>在畫面上方確認完整訊息。需要修正時，選擇「刪」、「清除」或「復原」。</li>
-              <li>訊息完成後選擇「說」，由裝置替使用者朗讀。</li>
-            </ol>
-
-            <h3>觀看自動操作示範</h3>
-            <ol>
-              <li>先處理目前訊息欄中需要保留的內容；示範會自動輸入並清除訊息。</li>
-              <li>請協助者在 AAC 主畫面按住「Config」約 2 秒。</li>
-              <li>示範會自動操作掃描框，依序選列、選格並組合多段 AAC 訊息。</li>
-              <li>要提早停止時，觸碰畫面任意位置一次。</li>
+              <li>37 個注音符號都固定在主畫面，依熟悉的注音順序排成七列，每列最多六格。依序選擇注音後，再從上方候選格選擇正確的字或詞；「更多」只會顯示下一頁候選字詞。</li>
+              <li>有藍色或紅色底色的格子是操作鍵，不會當成文字輸入。需要修正時，選擇候選列中的「復原」回到上一步；它可以撤銷單一字母、注音、整個候選字詞或清除操作。</li>
+              <li>如果誤選候選字詞，選擇「復原」會回到誤選前的同一頁候選詞，方便重新選擇漏掉的項目。</li>
+              <li>訊息完成後選擇「朗讀」，由裝置替使用者朗讀。</li>
             </ol>
 
             <h3>候選詞更新後</h3>
-            <p>如果啟用了 <strong>Hold after suggestion changes</strong>，候選詞更新後會暫停。先啟動一次恢復掃描，再依照上面的兩步選擇。</p>
+            <p>如果啟用了<strong>候選字詞更新後暫停</strong>，候選詞更新後會暫停。先啟動一次恢復掃描，再依照上面的兩步選擇。</p>
 
             <div class="callout">
-              <strong>音量鍵沒有作用？</strong><br>
-              到「Config」確認 <strong>Switch input</strong> 是 <strong>Phone/external buttons</strong>，並按「Save」。
+              <strong>外接按鈕沒有作用？</strong><br>
+              到「設定」確認<strong>開關輸入</strong>是<strong>手機／外接按鍵</strong>，按「儲存」，再用<strong>輸入測試</strong>測試。
             </div>
           </div>
         </div>
@@ -557,89 +562,134 @@
     <section class="guide-section" id="buttons">
       <div class="section-inner">
         <h2>常用按鈕</h2>
-        <p class="section-lead">這些按鈕不會加入一般文字，而是執行操作。</p>
+        <p class="section-lead">主畫面上有深色外框、底色及圖示的格子不會加入一般文字，而是執行操作。窄螢幕會隱藏角落小標，保留完整的按鍵名稱。</p>
         <div class="button-grid">
-          <div class="button-item"><strong>說</strong>朗讀目前完整訊息。</div>
-          <div class="button-item command"><strong>刪</strong>刪除最後一個字或符號。</div>
+          <div class="button-item"><strong>朗讀</strong>朗讀目前完整訊息。</div>
+          <div class="button-item command"><strong>刪除</strong>刪除最後一個字或符號。</div>
           <div class="button-item command"><strong>清除</strong>清空目前訊息。</div>
-          <div class="button-item command"><strong>復原</strong>回到上一次訊息狀態。</div>
+          <div class="button-item command"><strong>復原</strong>回到上一次訊息狀態；若剛才誤選候選詞，也會回到原本的候選頁。</div>
           <div class="button-item"><strong>更多</strong>顯示下一頁候選字詞。</div>
-          <div class="button-item"><strong>EN</strong>開啟英文輸入格。</div>
-          <div class="button-item"><strong>Audio／Silent</strong>切換掃描提示音。</div>
-          <div class="button-item"><strong>Config</strong>開啟設定、測試與匯出。</div>
+          <div class="button-item"><strong>英文</strong>開啟英文拼字及候選字詞；回到注音時會自動移除中英文邊界上不必要的空格。</div>
+          <div class="button-item command"><strong>⚙ 設定</strong>開啟設定、測試與匯出；有外框與底色，表示它是可按的控制鍵。</div>
         </div>
       </div>
     </section>
 
     <section class="guide-section alt" id="settings">
       <div class="section-inner">
-        <h2>設定、相機輸入與文字匯出</h2>
-        <p class="section-lead">在主畫面選擇「Config」。修改後要選擇「Save」，「Cancel」則放棄本次修改。</p>
+        <h2>必要設定</h2>
+        <p class="section-lead">一般使用可直接從主畫面開始。需要調整掃描、輸入或語音時，再選擇「⚙ 設定」。大多數修改要按「儲存」才會儲存。</p>
 
         <div class="settings-layout">
-          <figure>
-            <div class="phone-shot">
-              <a href="./assets/guide-config-current.png" aria-label="開啟完整尺寸的設定畫面圖片">
-                <img src="./assets/guide-config-current.png" alt="設定畫面包含語言、欄數、掃描速度、應用程式資訊、輸入測試、文字匯出與儲存" width="1080" height="2400" loading="lazy">
-              </a>
-            </div>
-            <figcaption>設定上半部與固定操作列。</figcaption>
-          </figure>
-          <figure>
-            <div class="phone-shot">
-              <a href="./assets/guide-input-current.png" aria-label="開啟完整尺寸的輸入方式設定圖片">
-                <img src="./assets/guide-input-current.png" alt="設定畫面的 Switch input 輸入方式和 Camera setup 相機設定按鈕" width="1080" height="2400" loading="lazy">
-              </a>
-            </div>
-            <figcaption>向下捲動可找到開關輸入與相機設定。</figcaption>
-          </figure>
-
           <div class="settings-copy">
+            <div>
+              <h3>設定外接按鈕</h3>
+              <ol>
+                <li>在 Android 設定中配對藍牙自拍快門、藍牙遙控按鈕或其他相容的開關介面。</li>
+                <li>開啟設定，把<strong>開關輸入</strong>設為<strong>手機／外接按鍵</strong>，再按<strong>儲存</strong>。</li>
+                <li>重新開啟設定，選擇<strong>輸入測試</strong>。</li>
+                <li>請使用者用平常的姿勢按數次，確認每按一次只記錄一次，沒有漏按或連續觸發。</li>
+              </ol>
+              <p>不同藍牙快門送出的按鍵訊號可能不同。若輸入測試完全沒有反應，請改用其他相容按鈕或開關介面。</p>
+            </div>
             <div>
               <h3>調整開關掃描</h3>
               <ol>
-                <li>先用 <strong>Scan preset</strong> 選擇預設速度。</li>
-                <li>需要微調時，再改 <strong>Switch speed ms</strong>；數字越大，掃描越慢。</li>
-                <li>選擇 <strong>Input test</strong>，確認按鈕或感應輸入穩定。</li>
-                <li>選擇 <strong>Save</strong> 儲存。</li>
+                <li>用<strong>掃描方式</strong>選擇「列、格」或「區塊、列、格」。兩種方式使用完全相同的溝通版面與候選字詞。</li>
+                <li>先用<strong>掃描速度預設</strong>選擇預設速度。</li>
+                <li>需要微調時，再改<strong>掃描間隔（毫秒）</strong>；數字越大，掃描越慢。</li>
+                <li>選擇<strong>輸入測試</strong>，確認按鈕或感應輸入穩定。</li>
+                <li>選擇<strong>儲存</strong>。</li>
               </ol>
             </div>
             <div>
               <h3>設定相機眨眼輸入</h3>
               <ol>
-                <li>在 <strong>Switch input</strong> 選擇相機長眨眼，或按鈕與相機並用。</li>
-                <li>選擇 <strong>Camera setup</strong> 並允許相機權限。</li>
+                <li>在<strong>開關輸入</strong>選擇<strong>相機長眨眼</strong>，或<strong>按鍵＋相機</strong>。</li>
+                <li>選擇<strong>相機設定</strong>並允許相機權限。</li>
                 <li>固定裝置位置，讓臉部和雙眼清楚出現在預覽中。</li>
-                <li>選擇 <strong>Start setup</strong>，再用 <strong>Test blink</strong> 測試。</li>
-                <li>確認穩定後選擇 <strong>Done</strong>，回設定頁按 <strong>Save</strong>。</li>
+                <li>選擇<strong>開始</strong>，再用<strong>測試</strong>測試。</li>
+                <li>確認穩定後選擇<strong>完成</strong>，回設定頁按<strong>儲存</strong>。</li>
               </ol>
             </div>
             <div>
-              <h3>文字紀錄與匯出</h3>
-              <p>訊息歷史只儲存在裝置內。選擇 <strong>Export text</strong> 後，再從 Android 分享選單選擇目的地。只有在你主動匯出時，文字才會交給所選的其他應用程式。</p>
+              <h3>朗讀語音需要調整時</h3>
+              <ol>
+                <li>選擇 <strong>台灣語音</strong>。</li>
+                <li>按播放鍵試聽，再選擇要使用的語音。</li>
+                <li>若語音尚未安裝，依畫面指示開啟 Android 語音下載設定。</li>
+              </ol>
+              <p>語音選擇會立即套用，不必再按<strong>儲存</strong>。</p>
             </div>
             <div>
               <h3>版本與基本資訊</h3>
-              <p>選擇 <strong>App info</strong> 可查看目前版本、資料處理方式、隱私權政策與支援連結。回報問題時請一併提供版本號碼。</p>
+              <p>選擇<strong>關於本程式</strong>可查看目前版本、資料處理方式、隱私權政策與支援連結。回報問題時請一併提供版本號碼。</p>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="guide-section" id="help">
+    <section class="guide-section" id="export-text">
+      <div class="section-inner">
+        <h2>匯出並開啟文字記錄</h2>
+        <p class="section-lead">App 會把每次完成的訊息保留在這台裝置內。需要交給家人、老師或治療師查看時，可由協助者主動匯出成 UTF-8 純文字檔；App 不會自動上傳或分享內容。</p>
+
+        <div class="instruction-grid">
+          <div class="steps">
+            <h3>在 Android 裝置上</h3>
+            <ol>
+              <li>在主畫面選擇 <strong>⚙ 設定</strong>。</li>
+              <li>選擇 <strong>匯出文字記錄</strong>。</li>
+              <li>Android 會開啟「另存新檔」畫面。選擇資料夾，確認或修改檔名，再按 <strong>儲存</strong>。</li>
+              <li>回到 App 後，確認「文字已匯出」視窗顯示的實際檔名。</li>
+              <li>選擇 <strong>開啟文字檔</strong>，直接用裝置上的文字閱讀 App 查看內容。</li>
+            </ol>
+
+            <div class="callout">
+              <strong>儲存後找不到檔案？</strong><br>
+              先使用完成畫面中的「開啟文字檔」。如果裝置沒有可開啟純文字檔的 App，檔案仍已儲存在剛才選擇的資料夾，可稍後從 Android 的「檔案」App 開啟。
+            </div>
+          </div>
+          <div class="steps">
+            <h3>檔案內容與隱私</h3>
+            <ul>
+              <li>檔案格式是 <strong>.txt</strong>；每次訊息一行，方便閱讀或另行整理。</li>
+              <li>未選擇匯出時，訊息歷史只留在 App 的本機資料中。</li>
+              <li>匯出只建立檔案，不會自動寄信、上傳雲端或複製到剪貼簿。</li>
+              <li>文字可能包含私人或健康資訊。請由使用者或受信任的協助者選擇儲存位置與後續分享對象。</li>
+            </ul>
+
+            <h3>瀏覽器版本</h3>
+            <p>在瀏覽器中選擇 <strong>匯出文字記錄</strong> 會下載文字檔。畫面也會提供 <strong>查看匯出內容</strong>，可立即確認本次匯出的文字。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-section alt" id="help">
       <div class="section-inner">
         <h2>常見問題排除</h2>
         <details>
-          <summary>按音量鍵只改變音量，沒有選擇格子</summary>
-          <p>開啟「Config」，把 <strong>Switch input</strong> 設為 <strong>Phone/external buttons</strong> 或按鈕與相機並用，然後選擇「Save」。</p>
+          <summary>找不到某個注音符號</summary>
+          <p>37 個注音符號都固定在主畫面的七列注音區，不需要選擇「更多」。位置依熟悉的注音順序固定；「更多」只切換候選字詞頁面。</p>
+        </details>
+        <details>
+          <summary>藍牙快門或外接按鈕沒有作用</summary>
+          <ul>
+            <li>確認按鈕已在 Android 藍牙設定中完成配對並顯示已連線。</li>
+            <li>把<strong>開關輸入</strong>設為<strong>手機／外接按鍵</strong>或<strong>按鍵＋相機</strong>，再按<strong>儲存</strong>。</li>
+            <li>進入<strong>輸入測試</strong>確認 App 是否收到按鈕訊號。</li>
+            <li>若完全沒有反應，該按鈕可能未送出 App 支援的 Android 按鍵訊號，請改用其他相容裝置。</li>
+          </ul>
         </details>
         <details>
           <summary>沒有語音或掃描提示音</summary>
           <ul>
             <li>確認媒體音量不是零。</li>
-            <li>主畫面顯示「Silent」時，選擇它切回 Audio。</li>
-            <li>在 Config 檢查 Voice while scanning 和 Voice on activation。</li>
+            <li>主畫面的 <strong>語音：開／語音：關</strong> 是狀態顯示，不是按鈕。</li>
+            <li>在設定頁開啟需要的<strong>選列時朗讀</strong>、<strong>選格時朗讀</strong>或<strong>選定後朗讀</strong>，再按<strong>儲存</strong>。</li>
+            <li>朗讀語音不合適時，進入 <strong>台灣語音</strong> 試聽並選擇其他語音。</li>
           </ul>
         </details>
         <details>
@@ -647,7 +697,7 @@
           <ul>
             <li>確認光線充足、鏡頭乾淨，臉部不要超出預覽。</li>
             <li>固定手機或平板，不要手持晃動。</li>
-            <li>重新執行 Camera setup，調整長眨眼時間和相機縮放。</li>
+            <li>重新執行<strong>相機設定</strong>，調整長眨眼時間和相機縮放。</li>
             <li>仍不穩定時，先改用實體按鈕。</li>
           </ul>
         </details>
@@ -671,6 +721,7 @@
       <p>
         <a href="./privacy-policy/">隱私權政策</a> ·
         <a href="./support/">支援與回饋</a> ·
+        <a href="./releases/v0.3.1.html">0.3.1 更新內容</a> ·
         <a href="https://github.com/poi890poi/shine_aac">GitHub 專案</a>
       </p>
     </div>

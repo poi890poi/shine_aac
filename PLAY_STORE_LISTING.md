@@ -8,7 +8,8 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說 SayToMe AAC`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current Play candidate: `v0.2.5`, Android version code `8`
+- Current source release: `v0.3.1`, Android version code `50`, target SDK `36`
+- Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing
 
@@ -24,7 +25,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 我想說 SayToMe AAC 是一個早期開發中的輔助溝通 AAC 應用程式，主要面向台灣繁體中文使用情境。它的目標是協助說話困難 或無法穩定使用語音的人 用較簡單的方式表達需求 感受 想法與選擇。
 
-這個版本的核心是單一開關掃描。使用者或協助者可以透過一個可靠訊號 例如按鍵 觸碰螢幕 或支援的硬體按鈕 逐步選擇詞語 注音符號 候選字詞與操作。現在的台灣中文設定檔支援繁體中文 注音輸入 候選建議 語音輸出 掃描速度設定 復原 刪除 清除 以及偶爾需要英文時的 EN 輸入入口。
+這個版本的核心是單一開關掃描。使用者或協助者可以透過一個可靠訊號 例如按鍵 觸碰螢幕 或支援的硬體按鈕 逐步選擇詞語 注音符號 候選字詞與操作。現在的台灣中文設定檔支援繁體中文 注音輸入 候選建議 語音輸出 掃描速度設定 復原 清除 以及偶爾需要英文時的英文輸入入口。
 
 這不是完成的臨床產品。這個版本適合小規模 有人陪同的測試 對象包含使用者 家人 照顧者 語言治療師 醫療與照護相關專家 測試者與軟體貢獻者。它不是醫療建議 也不能取代專業 AAC 評估 語言治療 醫療照護 或緊急溝通計畫。
 
@@ -43,12 +44,62 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 ### Release Notes For Internal Testing
 
+0.2.44:
+
+- 修正系統字體或顯示大小放大時，功能鍵提示、名稱與圖示重疊的問題
+- 英文輸入區新增英文候選字詞，中英文相接不必另外選空格
+- 內建介面以「復原」處理單字、字母、注音與整個候選字詞的上一步操作，不再顯示容易混淆的「刪除」鍵
+- 設定、輸入測試及相機設定改用繁體中文
+- 相機設定的主要操作固定顯示，次要調整可捲動
+- WebView 文字大小跟隨 Android 設定，並新增最大字體與較大顯示的測試規範
+- 請在回報問題的 Samsung 手機重新測試最大字體與較大顯示的組合
+- 這仍是早期測試版本，請保留其他可靠的溝通方式
+
+0.2.43:
+
+- 37 個注音符號都固定顯示在第一層，不必再用「更多」尋找
+- 功能鍵、目前選列／選格狀態與「⚙ 設定」更容易分辨
+- 「復原」會回到原本候選頁；EN 會朗讀為「英文」
+- 預設掃描速度放慢，既有自訂速度不變
+- 匯出後會顯示實際檔名，並可直接「開啟文字檔」
+- 這仍是早期測試版本，請保留其他可靠的溝通方式
+
+0.2.41:
+
+- 更新為 Android 16（API 36）目標版本
+- 保留返回上一頁、另存 UTF-8 文字檔與正確文字紀錄功能
+- 保留基本注音優先、更多分頁示範與錯誤修正功能
+- 請在 Android 16 測試返回手勢、系統列、平板橫直向與畫面重建
+
+0.2.40:
+
+- 修正升級後文字紀錄仍列出每次注音、英文與候選字輸入的問題
+- 舊紀錄會整理成每次清除文字區前的最終內容
+- 候選字與復原仍更新同一行，只有重設文字區才新增一行
+- 保留 Android 返回上一頁與另存 UTF-8 文字檔功能
+- 請從前一個測試版本直接升級，不要先清除 app 資料
+
+0.2.39 (superseded; do not upload code 42):
+
+- Android 返回手勢會先回到 app 的上一頁，只在主溝通板離開 app
+- 文字紀錄在編輯期間更新同一行，清除文字區後才新增一行
+- 匯出文字會開啟系統「另存新檔」並建立 UTF-8 文字檔
+- 保留既有設定、草稿與舊版文字紀錄
+- 請重新測試注音後續符號優先順序與「更多」示範流程
+
+0.2.38:
+
+- 未完成的注音音節會優先顯示基本後續符號
+- 示範模式可透過「更多」完成較後面的注音符號與候選字詞
+- 改善慢速掃描與較少欄位設定下的示範可靠性
+- 點按離開示範後可正常繼續掃描與溝通
+
 早期測試版本 主要給台灣繁體中文使用者與協助者試用。
 
-- 新增乾淨背景的我想說吉祥物圖示
-- 準備 Google Play 內部測試用 AAB
-- 加入繁體中文 注音掃描 候選建議與設定畫面的商店截圖
-- 保留 zh-TW 使用中偶爾輸入英文的 EN 入口
+- 改善注音輸入錯誤的容忍與整組修正建議
+- 多符號注音輸入加入重選 並保留已輸入的訊息文字
+- 依候選數量調整候選字與後續注音配置
+- 開始示範模式前會重設訊息與掃描狀態
 - 這仍是早期開發版本 不能作為唯一或緊急溝通方式
 
 ### Screenshot Captions
@@ -84,6 +135,8 @@ Please keep another reliable communication method available during testing, espe
 - Data Safety worksheet: `docs/PLAY_DATA_SAFETY.md`
 - Current declaration: the app does not collect or share user data with SHINE AAC.
 - The app processes messages and settings locally on the device.
+- Text history is stored locally and can be exported by the user or helper.
+- Optional camera switch input uses camera permission for local switch/blink detection only.
 - Android Text-to-Speech behavior may depend on the speech engine installed on the device.
 
 ## Google Play Asset Notes
@@ -93,4 +146,4 @@ Please keep another reliable communication method available during testing, espe
 - Phone screenshots: `store-assets/screenshots/phone/*.png`
 - Screenshot source captures: `store-assets/screenshots/source/*.jpg`
 - Screenshot cleanup script: `scripts/clean-store-screenshots.ps1`
-- Signed Play AAB: `app/build/outputs/bundle/release/app-release.aab`
+- Signed Play AAB: `.artifacts/releases/v0.2.43/shine-aac-v0.2.43-code46-release.aab`

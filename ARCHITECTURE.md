@@ -11,6 +11,8 @@ Preferred near-term direction:
 3. Package the browser UI for Android and future iOS with a thin native wrapper such as Capacitor.
 4. Keep Android device testing as a smoke test for packaging and input delivery, not as the primary place to debug scanning rules.
 
+Scanner rules remain deterministic in the core, but user-visible timing must also satisfy the physical-device acceptance and hot-path invariants in `docs/SCAN_PERFORMANCE_GUARDRAILS.md`.
+
 ## Boundary
 
 ```text
@@ -32,6 +34,14 @@ Platform shell
 ```
 
 The core exposes pure functions. Given the same state and event, it returns the same next state. That makes it easy to test independently and reuse from different UI frameworks.
+
+## Current Android Boundary
+
+The shipped Android app is a WebView shell around `apps/web`, backed by `packages/aac-core`. Native Android code should provide packaging, TTS, permissions, hardware key delivery, camera switch input, and calibration screens.
+
+Legacy native Android scanner, board, and Compose-template code has been removed from the app module. New scanner, board, profile, suggestion, migration, or message-editing behavior belongs in `packages/aac-core` first.
+
+If a native Android UI is revived, it must either consume the shared core through a generated/shared boundary or add explicit parity tests against the JS core before product behavior changes are accepted.
 
 ## Verification Pyramid
 

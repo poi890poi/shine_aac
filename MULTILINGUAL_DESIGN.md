@@ -130,6 +130,8 @@ Recommended first Taiwan Mandarin profile:
   - candidates come from New Chewing `libchewing-data` and include source Zhuyin readings and priorities
   - exact phonetic matches appear before broader ranked backfill
   - after an initial Zhuyin symbol, available phonetic continuations are prioritized so the user can keep composing without hunting through pages
+  - a source-empty Zhuyin buffer offers bounded one-edit repairs, trying the newest symbol position first while keeping every position repairable
+  - `復原` removes mistaken Zhuyin selections one at a time; there is no separate composition-clear command competing with candidate space
   - candidate tiles may replace the typed Zhuyin suffix before inserting the glyph or phrase
 
 The default `zh-TW` board should be intentionally minimalist, but it still needs a learnable route to words that are not visible on the first page. AAC output does not need to be perfectly grammatical or lexically exact to be successful. A user may choose an approximate word, a body-position word, or a nearby need word to communicate intent. The design should optimize for fast, high-information selections and predictable recovery from missing vocabulary.
@@ -154,9 +156,9 @@ Default scanning should be conservative for disability access. ASHA describes AA
 Default timing:
 
 ```text
-scan interval: 1300 ms
+scan interval: 1800 ms
 row-selected transition pause: 0 ms
-first-cell hold: 1700 ms
+first-cell hold: 1800 ms
 ```
 
 Helpers can still customize faster timing or enable a transition pause for a specific user. The default should favor a simple scanner model, lower timing precision, and stamina over maximum throughput.
@@ -317,7 +319,7 @@ Move from one global `symbols` text area toward profile files:
   "id": "zh-TW",
   "displayName": "Taiwan Mandarin",
   "columns": 4,
-  "scanIntervalMs": 1300,
+  "scanIntervalMs": 1800,
   "autoSpace": "none",
   "speechLocale": "zh-TW",
   "symbols": [],
@@ -343,8 +345,8 @@ export const zhTwProfile = {
   displayName: "Taiwan Mandarin",
   writingSystem: "traditional-chinese",
   columns: 4,
-  scanIntervalMs: 1300,
-  firstCellPauseMs: 1700,
+  scanIntervalMs: 1800,
+  firstCellPauseMs: 1800,
   autoSpace: "none",
   speechLocale: "zh-TW",
   composeMessage,

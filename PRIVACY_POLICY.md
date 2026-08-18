@@ -18,6 +18,7 @@ This app is not a finished clinical product, not medical advice, and not a subst
 - The app does not use a SHINE AAC server.
 - The app does not collect, sell, or share personal data with us.
 - Communication content and settings are processed on the device.
+- Optional camera switch input is processed on the device and is not sent to us.
 
 ## 摘要
 
@@ -34,10 +35,18 @@ The app may process the following information locally on the device so that the 
 
 - selected symbols, words, and phrases
 - the current message being composed
+- locally saved text-history entries for previously composed messages
 - app settings such as language profile, scan timing, voice settings, and input settings
+- optional camera switch input signals when camera switch is enabled
 - local test configuration when a test build is being verified
 
 This information is used for app functionality only. It is not transmitted to SHINE AAC servers.
+
+## Camera Switch Input
+
+The app may request camera permission if a user or helper enables optional camera switch input, such as blink-based activation for scanning. Camera processing is used for local input detection only.
+
+The app does not upload camera frames to SHINE AAC, does not save photos, does not record video, and does not use camera data for ads, analytics, or remote logging.
 
 ## 裝置本機處理的資訊
 
@@ -64,15 +73,17 @@ Users and helpers should review the privacy settings and terms for the Text-to-S
 
 ## Data Storage
 
-Configuration is stored locally on the device using app storage. Clearing app data or uninstalling the app may delete local settings.
+Configuration and text history are stored locally on the device using app storage. Text history can be exported from the app by the user or helper. If the local text history grows too large, the app removes the oldest saved message entries first so newer communication remains available.
 
-The app currently does not provide cloud backup, account sync, or server-side recovery.
+Clearing app data or uninstalling the app may delete local settings and local text history.
+
+The app disables Android cloud backup for app data and does not provide account sync or server-side recovery. On some Android 12 or later devices, the device manufacturer may still support direct device-to-device transfer despite the app's backup setting.
 
 ## 資料儲存
 
 設定會儲存在裝置本機的 app 儲存空間。清除 app 資料或解除安裝可能會刪除本機設定。
 
-目前本 app 不提供雲端備份 帳號同步 或伺服器端復原。
+本 app 會停用 Android app 資料的雲端備份，也不提供帳號同步或伺服器端復原。在部分 Android 12 以上裝置中，裝置製造商仍可能提供不經雲端的裝置間直接轉移功能。
 
 ## Data Sharing
 
