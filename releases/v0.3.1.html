@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SHINE AAC v0.3.1 release notes">
+  <title>SHINE AAC v0.3.1 Release Notes</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #172027; background: #f5f7f8; }
+    body { margin: 0; }
+    main { max-width: 52rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; background: #fff; min-height: 100vh; box-sizing: border-box; }
+    h1, h2 { line-height: 1.2; }
+    h1 { color: #075e63; }
+    h2 { margin-top: 2rem; }
+    li { margin: .5rem 0; line-height: 1.55; }
+    p { line-height: 1.6; }
+    code { background: #edf3f3; padding: .1rem .3rem; border-radius: .25rem; }
+    .warning { border-left: .3rem solid #b65c00; padding: .75rem 1rem; background: #fff6e9; }
+    a { color: #075e63; }
+  </style>
+</head>
+<body>
+<main>
+  <p><a href="../">← Operation guide</a></p>
+  <h1>SHINE AAC v0.3.1</h1>
+  <p>Android version code: 50</p>
+
+  <h2>Optional block scanning</h2>
+  <ul>
+    <li>Added an optional <code>Blocks, then rows and columns</code> mode alongside row/column scanning.</li>
+    <li>Both modes reuse the same communication board, suggestions, and independently optimized language layouts.</li>
+    <li>The built-in boards use four balanced row groups, with a visible block outline during row scanning.</li>
+    <li>Single-row blocks and single-item rows advance or activate automatically.</li>
+    <li>Auto Demo supports both scanning modes.</li>
+  </ul>
+
+  <h2>Consistent English input</h2>
+  <ul>
+    <li>English remains a four-column board; the six-column Traditional Chinese layout does not affect it.</li>
+    <li>The fixed <code>I</code> remains in the frequency-ordered spelling area: <code>E T A O</code>, then <code>I N S R</code>.</li>
+    <li>That key enters the pronoun <code>I </code> at a word boundary and lowercase <code>i</code> inside a word.</li>
+    <li>One-character predictions are excluded, avoiding duplication with the fixed alphabet.</li>
+  </ul>
+
+  <h2>Interface and compatibility</h2>
+  <ul>
+    <li>Pause and stopped-state labels are shorter to avoid clipping on phones.</li>
+    <li>Default configurations migrate to the corrected English layout and scan-mode setting; custom boards and dictionaries remain unchanged.</li>
+    <li>Android volume keys remain available to Android, while supported shutter, media, and external-switch keys continue to activate scanning.</li>
+  </ul>
+
+  <h2>Verification</h2>
+  <ul>
+    <li>AAC core: PASS (272 / 272).</li>
+    <li>Web unit tests: PASS (15 / 15).</li>
+    <li>Source and packaged interaction/scanning E2E: PASS.</li>
+    <li>Communication benchmark gates: PASS.</li>
+    <li>Android debug APK and signed release APK/AAB build, metadata, checksums, signatures, and package integrity: verified.</li>
+  </ul>
+
+  <p class="warning">This is an early testing release and must not be the user's only or emergency communication method.</p>
+</main>
+</body>
+</html>
