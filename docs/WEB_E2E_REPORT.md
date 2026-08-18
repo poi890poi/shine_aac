@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-17T17:23:30.714Z
+Generated: 2026-08-18T00:36:56.982Z
 
 Result: PASS
 
@@ -12,7 +12,7 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":51.20000000298023,"resetTargetToProgressMs":21,"rowDeadlineDriftMs":-15.200000002980232,"nextRowTargetToProgressMs":32.400000005960464,"activationToTargetMs":1.3999999910593033,"activationTargetToProgressMs":25.700000002980232,"firstDeadlineDriftMs":-19.5,"secondTargetToProgressMs":19.700000002980232,"laterDeadlineDriftMs":-17.299999997019768,"thirdTargetToProgressMs":33.19999998807907,"selectionToHoldMs":3.699999988079071,"holdReleaseToTargetMs":0.5999999940395355,"selectionTargetToProgressMs":32.79999999701977} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":53.29999999701977,"resetTargetToProgressMs":17.700000002980232,"rowDeadlineDriftMs":-17.099999994039536,"nextRowTargetToProgressMs":32.29999999701977,"activationToTargetMs":1.199999988079071,"activationTargetToProgressMs":32.80000001192093,"firstDeadlineDriftMs":-32.5,"secondTargetToProgressMs":33.19999998807907,"laterDeadlineDriftMs":-32.5,"thirdTargetToProgressMs":30.100000008940697,"selectionToHoldMs":3.800000011920929,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":32.70000000298023} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |

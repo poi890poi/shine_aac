@@ -174,13 +174,13 @@ test("question mark no longer consumes a singleton row in the default board", ()
 
 test("early symbol activation compensates to the previous symbol in the selected row", () => {
   let session = createSession();
-  const rowIndex = findTile(session, "WANT", { occurrence: "last" }).rowIndex;
+  const rowIndex = findTile(session, "NEED", { occurrence: "last" }).rowIndex;
 
   session = moveRowCursorTo(session, rowIndex);
   session = pressSwitch(session, 1000);
   session = advanceSession(session);
   session = advanceSession(session);
-  while (session.scannerState.cellIndex !== 2) {
+  while (session.scannerState.cellIndex !== 1) {
     session = advanceSession(session);
   }
 

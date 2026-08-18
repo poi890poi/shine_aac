@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "label": "Accepted profile-independent English input baseline",
-  "generatedAt": "2026-08-17T16:12:22.702Z",
+  "generatedAt": "2026-08-18T00:26:57.683Z",
   "tasks": [
     {
       "id": "project-core-word-all",
@@ -18,8 +18,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 20,
-        "estimatedTimeMs": 36000,
+        "advances": 18,
+        "estimatedTimeMs": 32400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -41,8 +41,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 10,
-        "estimatedTimeMs": 18000,
+        "advances": 12,
+        "estimatedTimeMs": 21600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -60,15 +60,15 @@
       "sequence": [
         "different"
       ],
-      "finalMessage": "d I fferent",
+      "finalMessage": "different ",
       "metrics": {
-        "selections": 9,
-        "switches": 18,
-        "advances": 74,
-        "estimatedTimeMs": 133200,
+        "selections": 3,
+        "switches": 6,
+        "advances": 20,
+        "estimatedTimeMs": 36000,
         "moreSuggestions": 0,
         "tileActions": {
-          "append": 9
+          "append": 3
         }
       }
     },
@@ -87,8 +87,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 18,
-        "estimatedTimeMs": 32400,
+        "advances": 19,
+        "estimatedTimeMs": 34200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -110,8 +110,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 19,
-        "estimatedTimeMs": 34200,
+        "advances": 20,
+        "estimatedTimeMs": 36000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -133,8 +133,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 12,
-        "estimatedTimeMs": 21600,
+        "advances": 11,
+        "estimatedTimeMs": 19800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -156,8 +156,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 6,
-        "estimatedTimeMs": 10800,
+        "advances": 5,
+        "estimatedTimeMs": 9000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -179,8 +179,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 14,
-        "estimatedTimeMs": 25200,
+        "advances": 13,
+        "estimatedTimeMs": 23400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -202,8 +202,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 11,
-        "estimatedTimeMs": 19800,
+        "advances": 10,
+        "estimatedTimeMs": 18000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -248,8 +248,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 18,
-        "estimatedTimeMs": 32400,
+        "advances": 16,
+        "estimatedTimeMs": 28800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -271,8 +271,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 5,
-        "estimatedTimeMs": 9000,
+        "advances": 7,
+        "estimatedTimeMs": 12600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -317,8 +317,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 13,
-        "estimatedTimeMs": 23400,
+        "advances": 14,
+        "estimatedTimeMs": 25200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -340,8 +340,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 12,
-        "estimatedTimeMs": 21600,
+        "advances": 11,
+        "estimatedTimeMs": 19800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -363,8 +363,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 6,
-        "estimatedTimeMs": 10800,
+        "advances": 5,
+        "estimatedTimeMs": 9000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -386,8 +386,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 15,
-        "estimatedTimeMs": 27000,
+        "advances": 14,
+        "estimatedTimeMs": 25200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -409,8 +409,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 13,
-        "estimatedTimeMs": 23400,
+        "advances": 12,
+        "estimatedTimeMs": 21600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -432,8 +432,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 10,
-        "estimatedTimeMs": 18000,
+        "advances": 9,
+        "estimatedTimeMs": 16200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -455,8 +455,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 9,
-        "estimatedTimeMs": 16200,
+        "advances": 11,
+        "estimatedTimeMs": 19800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -478,8 +478,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 19,
-        "estimatedTimeMs": 34200,
+        "advances": 23,
+        "estimatedTimeMs": 41400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -501,8 +501,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 23,
-        "estimatedTimeMs": 41400,
+        "advances": 24,
+        "estimatedTimeMs": 43200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -524,8 +524,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 14,
-        "estimatedTimeMs": 25200,
+        "advances": 13,
+        "estimatedTimeMs": 23400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -547,8 +547,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 11,
-        "estimatedTimeMs": 19800,
+        "advances": 10,
+        "estimatedTimeMs": 18000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -570,8 +570,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 13,
-        "estimatedTimeMs": 23400,
+        "advances": 12,
+        "estimatedTimeMs": 21600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -593,8 +593,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 7,
-        "estimatedTimeMs": 12600,
+        "advances": 6,
+        "estimatedTimeMs": 10800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -616,8 +616,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 9,
-        "estimatedTimeMs": 16200,
+        "advances": 8,
+        "estimatedTimeMs": 14400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -639,8 +639,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 19,
-        "estimatedTimeMs": 34200,
+        "advances": 17,
+        "estimatedTimeMs": 30600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -662,8 +662,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 12,
-        "estimatedTimeMs": 21600,
+        "advances": 11,
+        "estimatedTimeMs": 19800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -685,8 +685,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 4,
-        "estimatedTimeMs": 7200,
+        "advances": 6,
+        "estimatedTimeMs": 10800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -708,8 +708,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 24,
-        "estimatedTimeMs": 43200,
+        "advances": 22,
+        "estimatedTimeMs": 39600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -731,8 +731,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 16,
-        "estimatedTimeMs": 28800,
+        "advances": 15,
+        "estimatedTimeMs": 27000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -754,8 +754,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 22,
-        "estimatedTimeMs": 39600,
+        "advances": 20,
+        "estimatedTimeMs": 36000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -777,8 +777,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 15,
-        "estimatedTimeMs": 27000,
+        "advances": 14,
+        "estimatedTimeMs": 25200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -800,8 +800,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 34,
-        "estimatedTimeMs": 61200,
+        "advances": 31,
+        "estimatedTimeMs": 55800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -823,8 +823,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 6,
-        "estimatedTimeMs": 10800,
+        "advances": 5,
+        "estimatedTimeMs": 9000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -2215,8 +2215,8 @@
       "metrics": {
         "selections": 26,
         "switches": 52,
-        "advances": 218,
-        "estimatedTimeMs": 392400,
+        "advances": 220,
+        "estimatedTimeMs": 396000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 20,
@@ -2243,8 +2243,8 @@
       "metrics": {
         "selections": 19,
         "switches": 38,
-        "advances": 159,
-        "estimatedTimeMs": 286200,
+        "advances": 161,
+        "estimatedTimeMs": 289800,
         "moreSuggestions": 0,
         "tileActions": {
           "open-category": 1,
@@ -2369,8 +2369,8 @@
       "metrics": {
         "selections": 1,
         "switches": 2,
-        "advances": 6,
-        "estimatedTimeMs": 10800,
+        "advances": 5,
+        "estimatedTimeMs": 9000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -2392,8 +2392,8 @@
       "metrics": {
         "selections": 2,
         "switches": 4,
-        "advances": 12,
-        "estimatedTimeMs": 21600,
+        "advances": 11,
+        "estimatedTimeMs": 19800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -2412,15 +2412,15 @@
         "no",
         "drink"
       ],
-      "finalMessage": "no dr I nk",
+      "finalMessage": "no drink ",
       "metrics": {
-        "selections": 6,
-        "switches": 12,
-        "advances": 49,
-        "estimatedTimeMs": 88200,
+        "selections": 5,
+        "switches": 10,
+        "advances": 32,
+        "estimatedTimeMs": 57600,
         "moreSuggestions": 0,
         "tileActions": {
-          "append": 6
+          "append": 5
         }
       }
     },
@@ -2458,12 +2458,12 @@
       "sequence": [
         "sick"
       ],
-      "finalMessage": "s I ck",
+      "finalMessage": "sick ",
       "metrics": {
         "selections": 4,
         "switches": 8,
-        "advances": 37,
-        "estimatedTimeMs": 66600,
+        "advances": 28,
+        "estimatedTimeMs": 50400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 4
@@ -2510,8 +2510,8 @@
       "metrics": {
         "selections": 3,
         "switches": 6,
-        "advances": 12,
-        "estimatedTimeMs": 21600,
+        "advances": 16,
+        "estimatedTimeMs": 28800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3

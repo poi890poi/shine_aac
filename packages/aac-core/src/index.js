@@ -91,7 +91,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 28;
+export const CurrentConfigVersion = 29;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -368,10 +368,21 @@ const DefaultTilesWithBackspaceV21 = Object.freeze([
 const LegacyDefaultTilesV27 = Object.freeze(
   DefaultTilesWithBackspaceV21.filter((candidate) => candidate.action !== TileAction.Backspace)
 );
-export const DefaultTiles = Object.freeze(
+const LegacyDefaultTilesV28 = Object.freeze(
   LegacyDefaultTilesV27.filter((candidate) =>
     !(candidate.label === "I" && candidate.output === "i" && candidate.action === TileAction.Append)
   )
+);
+export const DefaultTiles = Object.freeze(
+  LegacyDefaultTilesV27
+    .filter((candidate) =>
+      !(candidate.label === "I" && candidate.output === "I" && candidate.action === TileAction.Append)
+    )
+    .map((candidate) =>
+      candidate.label === "I" && candidate.output === "i" && candidate.action === TileAction.Append
+        ? tile("I", "I")
+        : candidate
+    )
 );
 export const EnglishInputColumns = DefaultColumns;
 export const EnglishInputTiles = DefaultTiles;
@@ -1036,7 +1047,8 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
       sameTiles(parsedSymbols, LegacyAlphabetDefaultTiles) ||
       sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3) ||
       sameTiles(parsedSymbols, DefaultTilesWithBackspaceV21) ||
-      sameTiles(parsedSymbols, LegacyDefaultTilesV27)
+      sameTiles(parsedSymbols, LegacyDefaultTilesV27) ||
+      sameTiles(parsedSymbols, LegacyDefaultTilesV28)
     )
   ) {
     return DefaultTiles;

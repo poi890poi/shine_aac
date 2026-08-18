@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-08-17T16:14:02.929Z
+Generated: 2026-08-18T00:27:54.542Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -25,14 +25,14 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Unit | Total | Average | Median | P90 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Estimated scan time | seconds | 4969.80 | 48.25 | 19.80 | 55.80 |
-| Output selections | selected tiles | 411 | 3.99 | 2.00 | 4.00 |
-| Switch activations | activations | 822 | 7.98 | 4.00 | 8.00 |
-| Scanner advances | row/cell advances | 2761 | 26.81 | 11.00 | 31.00 |
-| Activations per target concept | activations/concept | 822 / 152 | 5.41 |
-| Selections per target concept | selections/concept | 411 / 152 | 2.70 |
-| Activations per output character | activations/character | 822 / 393 | 2.09 |
-| Estimated time per output character | seconds/character | 4969.80 / 393 | 12.65 |
+| Estimated scan time | seconds | 4809.60 | 46.70 | 19.80 | 45.00 |
+| Output selections | selected tiles | 404 | 3.92 | 2.00 | 4.00 |
+| Switch activations | activations | 808 | 7.84 | 4.00 | 8.00 |
+| Scanner advances | row/cell advances | 2672 | 25.94 | 11.00 | 25.00 |
+| Activations per target concept | activations/concept | 808 / 152 | 5.32 |
+| Selections per target concept | selections/concept | 404 / 152 | 2.66 |
+| Activations per output character | activations/character | 808 / 390 | 2.07 |
+| Estimated time per output character | seconds/character | 4809.60 / 390 | 12.33 |
 | Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
 | Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
 | Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
@@ -41,16 +41,16 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 48.25 sec | <= 15 sec | gap |
+| Average benchmark time | 46.70 sec | <= 15 sec | gap |
 | Median urgent phrase time | 5.40 sec across 19 marked tasks | <= 10 sec | meets |
-| Average switch activations | 7.98 | <= 6 | gap |
+| Average switch activations | 7.84 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
 
 ## Selected Action Counts
 
 | Tile Action | Count |
 | --- | ---: |
-| append | 310 |
+| append | 303 |
 | close-category | 2 |
 | commit-candidate | 40 |
 | more-suggestions | 56 |
@@ -65,8 +65,8 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 | --- | ---: | ---: | ---: | ---: |
 | Selections | 198 | 189 | -9 | -4.55% |
 | Switch activations | 396 | 378 | -18 | -4.55% |
-| Scanner advances | 1585 | 1491 | -94 | -5.93% |
-| Estimated scan time sec | 2853 | 2683.80 | -169.20 | -5.93% |
+| Scanner advances | 1589 | 1495 | -94 | -5.92% |
+| Estimated scan time sec | 2860.20 | 2691 | -169.20 | -5.92% |
 
 | Task | Current Tokens | Optimized Tokens | Current Activations | Optimized Activations | Difference | Change |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -79,7 +79,7 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 
 ## Paired Baseline Regression
 
-Frozen baseline: Accepted profile-independent English input baseline (2026-08-17T16:12:22.702Z).
+Frozen baseline: Accepted profile-independent English input baseline (2026-08-18T00:26:57.683Z).
 
 Regression gates: PASS. Measured improvement over baseline: NO.
 
@@ -87,32 +87,32 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 
 | Metric | Baseline | Current | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Selections | 411 | 411 | 0 | 0.00% |
-| Switch activations | 822 | 822 | 0 | 0.00% |
-| Scanner advances | 2761 | 2761 | 0 | 0.00% |
-| Estimated scan time sec | 4969.80 | 4969.80 | 0 | 0.00% |
+| Selections | 404 | 404 | 0 | 0.00% |
+| Switch activations | 808 | 808 | 0 | 0.00% |
+| Scanner advances | 2672 | 2672 | 0 | 0.00% |
+| Estimated scan time sec | 4809.60 | 4809.60 | 0 | 0.00% |
 | 更多 selections | 56 | 56 | 0 | 0.00% |
 | P90 switch activations | 8 | 8 | 0 | 0.00% |
-| P90 scan time sec | 55.80 | 55.80 | 0 | 0.00% |
+| P90 scan time sec | 45 | 45 | 0 | 0.00% |
 
 | Gate | Status | Detail |
 | --- | --- | --- |
 | schema | PASS | baseline=1, candidate=1 |
 | task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=false |
 | reachability | PASS | unreachable=0 |
-| total-switches | PASS | baseline=822, candidate=822 |
-| total-scan-time | PASS | baseline=4969800, candidate=4969800 |
+| total-switches | PASS | baseline=808, candidate=808 |
+| total-scan-time | PASS | baseline=4809600, candidate=4809600 |
 | p90-switches | PASS | baseline=8, candidate=8 |
-| p90-scan-time | PASS | baseline=55800, candidate=55800 |
+| p90-scan-time | PASS | baseline=45000, candidate=45000 |
 | bounded-task-paging | PASS | max additional pages=0 |
-| group-universal-core-switches | PASS | baseline=160, candidate=160 |
-| group-universal-core-scan-time | PASS | baseline=968400, candidate=968400 |
+| group-universal-core-switches | PASS | baseline=148, candidate=148 |
+| group-universal-core-scan-time | PASS | baseline=844200, candidate=844200 |
 | group-daily-needs-switches | PASS | baseline=24, candidate=24 |
-| group-daily-needs-scan-time | PASS | baseline=70200, candidate=70200 |
+| group-daily-needs-scan-time | PASS | baseline=68400, candidate=68400 |
 | group-body-comfort-switches | PASS | baseline=24, candidate=24 |
-| group-body-comfort-scan-time | PASS | baseline=122400, candidate=122400 |
-| group-refusal-control-switches | PASS | baseline=28, candidate=28 |
-| group-refusal-control-scan-time | PASS | baseline=156600, candidate=156600 |
+| group-body-comfort-scan-time | PASS | baseline=106200, candidate=106200 |
+| group-refusal-control-switches | PASS | baseline=26, candidate=26 |
+| group-refusal-control-scan-time | PASS | baseline=126000, candidate=126000 |
 | group-care-health-switches | PASS | baseline=18, candidate=18 |
 | group-care-health-scan-time | PASS | baseline=64800, candidate=64800 |
 | group-positioning-switches | PASS | baseline=32, candidate=32 |
@@ -120,24 +120,24 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 | group-people-social-switches | PASS | baseline=22, candidate=22 |
 | group-people-social-scan-time | PASS | baseline=93600, candidate=93600 |
 | group-preference-switches | PASS | baseline=22, candidate=22 |
-| group-preference-scan-time | PASS | baseline=106200, candidate=106200 |
+| group-preference-scan-time | PASS | baseline=104400, candidate=104400 |
 | group-conversation-repair-switches | PASS | baseline=46, candidate=46 |
 | group-conversation-repair-scan-time | PASS | baseline=198000, candidate=198000 |
 | group-regression-switches | PASS | baseline=6, candidate=6 |
-| group-regression-scan-time | PASS | baseline=21600, candidate=21600 |
+| group-regression-scan-time | PASS | baseline=28800, candidate=28800 |
 
 | Communication Function | Baseline Activations | Current Activations | Baseline Time Sec | Current Time Sec | Status |
 | --- | ---: | ---: | ---: | ---: | --- |
-| universal-core | 160 | 160 | 968.40 | 968.40 | PASS |
-| daily-needs | 24 | 24 | 70.20 | 70.20 | PASS |
-| body-comfort | 24 | 24 | 122.40 | 122.40 | PASS |
-| refusal-control | 28 | 28 | 156.60 | 156.60 | PASS |
+| universal-core | 148 | 148 | 844.20 | 844.20 | PASS |
+| daily-needs | 24 | 24 | 68.40 | 68.40 | PASS |
+| body-comfort | 24 | 24 | 106.20 | 106.20 | PASS |
+| refusal-control | 26 | 26 | 126.00 | 126.00 | PASS |
 | care-health | 18 | 18 | 64.80 | 64.80 | PASS |
 | positioning | 32 | 32 | 131.40 | 131.40 | PASS |
 | people-social | 22 | 22 | 93.60 | 93.60 | PASS |
-| preference | 22 | 22 | 106.20 | 106.20 | PASS |
+| preference | 22 | 22 | 104.40 | 104.40 | PASS |
 | conversation-repair | 46 | 46 | 198.00 | 198.00 | PASS |
-| regression | 6 | 6 | 21.60 | 21.60 | PASS |
+| regression | 6 | 6 | 28.80 | 28.80 | PASS |
 
 | Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |
 | --- | --- | ---: | ---: | ---: |
@@ -195,18 +195,18 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 4969.80 seconds
-- Average estimated scan time per passing task: 48.25 seconds
-- Total selections across passing tasks: 411
-- Average selections per passing task: 3.99
-- Total switch activations across passing tasks: 822
-- Average switch activations per passing task: 7.98
-- Total scan advances across passing tasks: 2761
-- Average scan advances per passing task: 26.81
+- Total estimated scan time across passing tasks: 4809.60 seconds
+- Average estimated scan time per passing task: 46.70 seconds
+- Total selections across passing tasks: 404
+- Average selections per passing task: 3.92
+- Total switch activations across passing tasks: 808
+- Average switch activations per passing task: 7.84
+- Total scan advances across passing tasks: 2672
+- Average scan advances per passing task: 25.94
 - Total target concepts across passing tasks: 152
-- Total output characters across passing tasks: 393
-- Activations per target concept: 5.41
-- Activations per output character: 2.09
+- Total output characters across passing tasks: 390
+- Activations per target concept: 5.32
+- Activations per output character: 2.07
 - Direct zh-TW phrase commits during benchmark composition: 17
 - Decomposed zh-TW phrase fallbacks during benchmark composition: 0
 
@@ -281,42 +281,42 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 | Task | Source | Best Output | Time Sec | Selections | Activations | Scan Advances | Actions | Limits | Status |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- |
-| project-core-word-all | Project Core Universal Core Vocabulary | all | 36.00 | 3 | 6 | 20 | append:3 | selections<=4 | PASS |
-| project-core-word-can | Project Core Universal Core Vocabulary | can | 18.00 | 2 | 4 | 10 | append:2 | selections<=4 | PASS |
-| project-core-word-different | Project Core Universal Core Vocabulary | different | 133.20 | 9 | 18 | 74 | append:9 | selections<=10 | PASS |
-| project-core-word-do | Project Core Universal Core Vocabulary | do | 32.40 | 2 | 4 | 18 | append:2 | selections<=3 | PASS |
-| project-core-word-done | Project Core Universal Core Vocabulary | done | 34.20 | 3 | 6 | 19 | append:3 | selections<=5 | PASS |
-| project-core-word-get | Project Core Universal Core Vocabulary | get | 21.60 | 2 | 4 | 12 | append:2 | selections<=4 | PASS |
-| project-core-word-go | Project Core Universal Core Vocabulary | go | 10.80 | 1 | 2 | 6 | append:1 | selections<=3 | PASS |
-| project-core-word-good | Project Core Universal Core Vocabulary | good | 25.20 | 2 | 4 | 14 | append:2 | selections<=5 | PASS |
-| project-core-word-he | Project Core Universal Core Vocabulary | he | 19.80 | 2 | 4 | 11 | append:2 | selections<=3 | PASS |
+| project-core-word-all | Project Core Universal Core Vocabulary | all | 32.40 | 3 | 6 | 18 | append:3 | selections<=4 | PASS |
+| project-core-word-can | Project Core Universal Core Vocabulary | can | 21.60 | 2 | 4 | 12 | append:2 | selections<=4 | PASS |
+| project-core-word-different | Project Core Universal Core Vocabulary | different | 36.00 | 3 | 6 | 20 | append:3 | selections<=10 | PASS |
+| project-core-word-do | Project Core Universal Core Vocabulary | do | 34.20 | 2 | 4 | 19 | append:2 | selections<=3 | PASS |
+| project-core-word-done | Project Core Universal Core Vocabulary | done | 36.00 | 3 | 6 | 20 | append:3 | selections<=5 | PASS |
+| project-core-word-get | Project Core Universal Core Vocabulary | get | 19.80 | 2 | 4 | 11 | append:2 | selections<=4 | PASS |
+| project-core-word-go | Project Core Universal Core Vocabulary | go | 9.00 | 1 | 2 | 5 | append:1 | selections<=3 | PASS |
+| project-core-word-good | Project Core Universal Core Vocabulary | good | 23.40 | 2 | 4 | 13 | append:2 | selections<=5 | PASS |
+| project-core-word-he | Project Core Universal Core Vocabulary | he | 18.00 | 2 | 4 | 10 | append:2 | selections<=3 | PASS |
 | project-core-word-help | Project Core Universal Core Vocabulary | help | 7.20 | 1 | 2 | 4 | append:1 | selections<=5 | PASS |
-| project-core-word-here | Project Core Universal Core Vocabulary | here | 32.40 | 3 | 6 | 18 | append:3 | selections<=5 | PASS |
-| project-core-word-i | Project Core Universal Core Vocabulary | I | 9.00 | 1 | 2 | 5 | append:1 | selections<=2 | PASS |
+| project-core-word-here | Project Core Universal Core Vocabulary | here | 28.80 | 3 | 6 | 16 | append:3 | selections<=5 | PASS |
+| project-core-word-i | Project Core Universal Core Vocabulary | I | 12.60 | 1 | 2 | 7 | append:1 | selections<=2 | PASS |
 | project-core-word-in | Project Core Universal Core Vocabulary | in | 1.80 | 1 | 2 | 1 | append:1 | selections<=3 | PASS |
-| project-core-word-it | Project Core Universal Core Vocabulary | it | 23.40 | 2 | 4 | 13 | append:2 | selections<=3 | PASS |
-| project-core-word-like | Project Core Universal Core Vocabulary | like | 21.60 | 2 | 4 | 12 | append:2 | selections<=5 | PASS |
-| project-core-word-look | Project Core Universal Core Vocabulary | look | 10.80 | 1 | 2 | 6 | append:1 | selections<=5 | PASS |
-| project-core-word-make | Project Core Universal Core Vocabulary | make | 27.00 | 2 | 4 | 15 | append:2 | selections<=5 | PASS |
-| project-core-word-more | Project Core Universal Core Vocabulary | more | 23.40 | 2 | 4 | 13 | append:2 | selections<=5 | PASS |
-| project-core-word-not | Project Core Universal Core Vocabulary | not | 18.00 | 2 | 4 | 10 | append:2 | selections<=4 | PASS |
-| project-core-word-on | Project Core Universal Core Vocabulary | on | 16.20 | 2 | 4 | 9 | append:2 | selections<=3 | PASS |
-| project-core-word-open | Project Core Universal Core Vocabulary | open | 34.20 | 3 | 6 | 19 | append:3 | selections<=5 | PASS |
-| project-core-word-put | Project Core Universal Core Vocabulary | put | 41.40 | 3 | 6 | 23 | append:3 | selections<=4 | PASS |
-| project-core-word-same | Project Core Universal Core Vocabulary | same | 25.20 | 2 | 4 | 14 | append:2 | selections<=5 | PASS |
-| project-core-word-she | Project Core Universal Core Vocabulary | she | 19.80 | 2 | 4 | 11 | append:2 | selections<=4 | PASS |
-| project-core-word-some | Project Core Universal Core Vocabulary | some | 23.40 | 2 | 4 | 13 | append:2 | selections<=5 | PASS |
-| project-core-word-stop | Project Core Universal Core Vocabulary | stop | 12.60 | 1 | 2 | 7 | append:1 | selections<=5 | PASS |
-| project-core-word-that | Project Core Universal Core Vocabulary | that | 16.20 | 2 | 4 | 9 | append:2 | selections<=5 | PASS |
-| project-core-word-turn | Project Core Universal Core Vocabulary | turn | 34.20 | 3 | 6 | 19 | append:3 | selections<=5 | PASS |
-| project-core-word-up | Project Core Universal Core Vocabulary | up | 21.60 | 2 | 4 | 12 | append:2 | selections<=3 | PASS |
-| project-core-word-want | Project Core Universal Core Vocabulary | want | 7.20 | 1 | 2 | 4 | append:1 | selections<=5 | PASS |
-| project-core-word-what | Project Core Universal Core Vocabulary | what | 43.20 | 3 | 6 | 24 | append:3 | selections<=5 | PASS |
-| project-core-word-when | Project Core Universal Core Vocabulary | when | 28.80 | 2 | 4 | 16 | append:2 | selections<=5 | PASS |
-| project-core-word-where | Project Core Universal Core Vocabulary | where | 39.60 | 3 | 6 | 22 | append:3 | selections<=6 | PASS |
-| project-core-word-who | Project Core Universal Core Vocabulary | who | 27.00 | 2 | 4 | 15 | append:2 | selections<=4 | PASS |
-| project-core-word-why | Project Core Universal Core Vocabulary | why | 61.20 | 3 | 6 | 34 | append:3 | selections<=4 | PASS |
-| project-core-word-you | Project Core Universal Core Vocabulary | you | 10.80 | 1 | 2 | 6 | append:1 | selections<=4 | PASS |
+| project-core-word-it | Project Core Universal Core Vocabulary | it | 25.20 | 2 | 4 | 14 | append:2 | selections<=3 | PASS |
+| project-core-word-like | Project Core Universal Core Vocabulary | like | 19.80 | 2 | 4 | 11 | append:2 | selections<=5 | PASS |
+| project-core-word-look | Project Core Universal Core Vocabulary | look | 9.00 | 1 | 2 | 5 | append:1 | selections<=5 | PASS |
+| project-core-word-make | Project Core Universal Core Vocabulary | make | 25.20 | 2 | 4 | 14 | append:2 | selections<=5 | PASS |
+| project-core-word-more | Project Core Universal Core Vocabulary | more | 21.60 | 2 | 4 | 12 | append:2 | selections<=5 | PASS |
+| project-core-word-not | Project Core Universal Core Vocabulary | not | 16.20 | 2 | 4 | 9 | append:2 | selections<=4 | PASS |
+| project-core-word-on | Project Core Universal Core Vocabulary | on | 19.80 | 2 | 4 | 11 | append:2 | selections<=3 | PASS |
+| project-core-word-open | Project Core Universal Core Vocabulary | open | 41.40 | 3 | 6 | 23 | append:3 | selections<=5 | PASS |
+| project-core-word-put | Project Core Universal Core Vocabulary | put | 43.20 | 3 | 6 | 24 | append:3 | selections<=4 | PASS |
+| project-core-word-same | Project Core Universal Core Vocabulary | same | 23.40 | 2 | 4 | 13 | append:2 | selections<=5 | PASS |
+| project-core-word-she | Project Core Universal Core Vocabulary | she | 18.00 | 2 | 4 | 10 | append:2 | selections<=4 | PASS |
+| project-core-word-some | Project Core Universal Core Vocabulary | some | 21.60 | 2 | 4 | 12 | append:2 | selections<=5 | PASS |
+| project-core-word-stop | Project Core Universal Core Vocabulary | stop | 10.80 | 1 | 2 | 6 | append:1 | selections<=5 | PASS |
+| project-core-word-that | Project Core Universal Core Vocabulary | that | 14.40 | 2 | 4 | 8 | append:2 | selections<=5 | PASS |
+| project-core-word-turn | Project Core Universal Core Vocabulary | turn | 30.60 | 3 | 6 | 17 | append:3 | selections<=5 | PASS |
+| project-core-word-up | Project Core Universal Core Vocabulary | up | 19.80 | 2 | 4 | 11 | append:2 | selections<=3 | PASS |
+| project-core-word-want | Project Core Universal Core Vocabulary | want | 10.80 | 1 | 2 | 6 | append:1 | selections<=5 | PASS |
+| project-core-word-what | Project Core Universal Core Vocabulary | what | 39.60 | 3 | 6 | 22 | append:3 | selections<=5 | PASS |
+| project-core-word-when | Project Core Universal Core Vocabulary | when | 27.00 | 2 | 4 | 15 | append:2 | selections<=5 | PASS |
+| project-core-word-where | Project Core Universal Core Vocabulary | where | 36.00 | 3 | 6 | 20 | append:3 | selections<=6 | PASS |
+| project-core-word-who | Project Core Universal Core Vocabulary | who | 25.20 | 2 | 4 | 14 | append:2 | selections<=4 | PASS |
+| project-core-word-why | Project Core Universal Core Vocabulary | why | 55.80 | 3 | 6 | 31 | append:3 | selections<=4 | PASS |
+| project-core-word-you | Project Core Universal Core Vocabulary | you | 9.00 | 1 | 2 | 5 | append:1 | selections<=4 | PASS |
 | zhtw-first-page-drink-water | SHINE zh-TW built-in functional vocabulary | 喝水 | 0.00 | 1 | 2 | 0 | append:1 | selections<=1 | PASS |
 | zhtw-first-page-eat | SHINE zh-TW built-in functional vocabulary | 吃飯 | 1.80 | 1 | 2 | 1 | append:1 | selections<=1 | PASS |
 | zhtw-first-page-toilet | SHINE zh-TW built-in functional vocabulary | 廁所 | 3.60 | 1 | 2 | 2 | append:1 | selections<=1 | PASS |
@@ -372,18 +372,18 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | zhtw-utterance-nausea-doctor | SHINE zh-TW telegraphic AAC utterances | 想吐 更多 醫生 | 19.80 | 3 | 6 | 11 | append:2, more-suggestions:1 | selections<=3 | PASS |
 | zhtw-utterance-finish | SHINE zh-TW telegraphic AAC utterances | 更多 更多 結束 | 28.80 | 3 | 6 | 16 | append:1, more-suggestions:2 | selections<=3 | PASS |
 | zhtw-phonetic-home-podcast | SHINE zh-TW phonetic core regression | 聽 新 資料 夾 | 248.40 | 17 | 34 | 138 | append:13, commit-candidate:4 | selections<=18 | PASS |
-| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽 podcast 新 資料 夾 | 392.40 | 26 | 52 | 218 | append:20, close-category:1, commit-candidate:4, open-category:1 | selections<=30 | PASS |
-| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast 音量 小 | 286.20 | 19 | 38 | 159 | append:15, close-category:1, commit-candidate:2, open-category:1 | selections<=23 | PASS |
+| zhtw-multilingual-home-podcast | SHINE zh-TW phonetic core regression | 聽 podcast 新 資料 夾 | 396.00 | 26 | 52 | 220 | append:20, close-category:1, commit-candidate:4, open-category:1 | selections<=30 | PASS |
+| zhtw-multilingual-audio-repair | SHINE zh-TW phonetic core regression | podcast 音量 小 | 289.80 | 19 | 38 | 161 | append:15, close-category:1, commit-candidate:2, open-category:1 | selections<=23 | PASS |
 | zhtw-phonetic-home-drink | SHINE zh-TW phonetic core regression | 冰 紅茶 少 冰 不要 太 甜 等 一下 喝 用 吸管 | 714.60 | 49 | 98 | 397 | append:37, commit-candidate:12 | selections<=54 | PASS |
 | zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 338.40 | 24 | 48 | 188 | append:19, commit-candidate:5 | selections<=28 | PASS |
 | zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 873.00 | 63 | 126 | 485 | append:50, commit-candidate:13 | selections<=70 | PASS |
-| project-core-go | Project Core Universal Core Vocabulary | go | 10.80 | 1 | 2 | 6 | append:1 | selections<=1 | PASS |
-| project-core-like | Project Core Universal Core Vocabulary | like | 21.60 | 2 | 4 | 12 | append:2 | selections<=2 | PASS |
-| project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 88.20 | 6 | 12 | 49 | append:6 | selections<=6 | PASS |
+| project-core-go | Project Core Universal Core Vocabulary | go | 9.00 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
+| project-core-like | Project Core Universal Core Vocabulary | like | 19.80 | 2 | 4 | 11 | append:2 | selections<=2 | PASS |
+| project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 57.60 | 5 | 10 | 32 | append:5 | selections<=6 | PASS |
 | asha-wants-needs-help | ASHA AAC Practice Portal | help | 7.20 | 1 | 2 | 4 | append:1 | selections<=3 | PASS |
-| asha-feelings-sick | ASHA AAC Practice Portal | sick | 66.60 | 4 | 8 | 37 | append:4 | selections<=4 | PASS |
+| asha-feelings-sick | ASHA AAC Practice Portal | sick | 50.40 | 4 | 8 | 28 | append:4 | selections<=4 | PASS |
 | light-operational-repair | Light & McNaughton communicative competence model | UNDO | 0.00 | 1 | 2 | 0 | undo:1 | selections<=1 | PASS |
-| shine-current-want-water | SHINE AAC current-app regression | I want water | 21.60 | 3 | 6 | 12 | append:3 | selections<=3 | PASS |
+| shine-current-want-water | SHINE AAC current-app regression | I want water | 28.80 | 3 | 6 | 16 | append:3 | selections<=3 | PASS |
 
 ## Sources
 

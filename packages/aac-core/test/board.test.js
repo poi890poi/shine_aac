@@ -131,12 +131,12 @@ test("default tiles include the full alphabet", () => {
   assert.equal(DefaultTiles.filter((candidate) => candidate.label === "I").length, 1);
 });
 
-test("default spelling letters start with common English frequency order without duplicating I", () => {
+test("default spelling letters keep the complete common English frequency order without duplicating I", () => {
   const spellingStart = DefaultTiles.findIndex((candidate) => candidate.action === TileAction.Space) + 1;
   const letters = DefaultTiles.slice(spellingStart)
     .filter((candidate) => candidate.action === TileAction.Append && /^[A-Z]$/.test(candidate.label))
     .map((candidate) => candidate.label);
-  assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "N", "S", "R", "H"]);
+  assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "I", "N", "S", "R"]);
 });
 
 test("legacy default layouts migrate to current frequency order", () => {
@@ -146,14 +146,16 @@ test("legacy default layouts migrate to current frequency order", () => {
     const letters = symbols.slice(spellingStart)
       .filter((candidate) => candidate.action === TileAction.Append && /^[A-Z]$/.test(candidate.label))
       .map((candidate) => candidate.label);
-    assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "N", "S", "R", "H"]);
+    assert.deepEqual(letters.slice(0, 8), ["E", "T", "A", "O", "I", "N", "S", "R"]);
   }
 });
 
 test("version 27 default English layout migrates away from its duplicate I key", () => {
   const legacyDefault = [...DefaultTiles];
-  const nIndex = legacyDefault.findIndex((candidate) => candidate.label === "N" && candidate.output === "n");
-  legacyDefault.splice(nIndex, 0, tile("I", "i"));
+  const iIndex = legacyDefault.findIndex((candidate) => candidate.label === "I");
+  legacyDefault[iIndex] = tile("I", "i");
+  const youIndex = legacyDefault.findIndex((candidate) => candidate.label === "YOU");
+  legacyDefault.splice(youIndex, 0, tile("I", "I"));
 
   const migrated = loadProfileSymbolsForConfig(serializeSymbols(legacyDefault), 27, "en-US");
 
@@ -161,10 +163,25 @@ test("version 27 default English layout migrates away from its duplicate I key",
   assert.equal(migrated.filter((candidate) => candidate.label === "I").length, 1);
 });
 
+test("version 28 default English layout moves its single I key into the alphabet", () => {
+  const legacyDefault = DefaultTiles.filter((candidate) => candidate.label !== "I");
+  const youIndex = legacyDefault.findIndex((candidate) => candidate.label === "YOU");
+  legacyDefault.splice(youIndex, 0, tile("I", "I"));
+
+  const migrated = loadProfileSymbolsForConfig(serializeSymbols(legacyDefault), 28, "en-US");
+  const spellingStart = migrated.findIndex((candidate) => candidate.action === TileAction.Space) + 1;
+
+  assert.deepEqual(migrated, DefaultTiles);
+  assert.equal(migrated.slice(0, spellingStart).some((candidate) => candidate.label === "I"), false);
+  assert.equal(migrated.slice(spellingStart, spellingStart + 5).at(-1).label, "I");
+});
+
 test("built-in layouts migrate away from visible backspace while custom backspace remains supported", () => {
   const englishV21 = [...DefaultTiles];
-  const nIndex = englishV21.findIndex((candidate) => candidate.label === "N" && candidate.output === "n");
-  englishV21.splice(nIndex, 0, tile("I", "i"));
+  const iIndex = englishV21.findIndex((candidate) => candidate.label === "I");
+  englishV21[iIndex] = tile("I", "i");
+  const youIndex = englishV21.findIndex((candidate) => candidate.label === "YOU");
+  englishV21.splice(youIndex, 0, tile("I", "I"));
   englishV21.splice(
     englishV21.findIndex((candidate) => candidate.action === TileAction.Clear),
     0,
