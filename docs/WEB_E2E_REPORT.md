@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-20T10:24:58.716Z
+Generated: 2026-08-20T10:49:19.102Z
 
 Result: PASS
 
@@ -12,8 +12,9 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":49.89999997615814,"resetTargetToProgressMs":30.200000047683716,"rowDeadlineDriftMs":-26,"nextRowTargetToProgressMs":25.599999964237213,"activationToTargetMs":1.199999988079071,"activationTargetToProgressMs":23.80000001192093,"firstDeadlineDriftMs":-23.000000023841494,"secondTargetToProgressMs":23.700000047683716,"laterDeadlineDriftMs":-16.80000001192093,"thirdTargetToProgressMs":15.699999988079071,"selectionToHoldMs":6.099999964237213,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":32.80000001192093} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":51.69999998807907,"resetTargetToProgressMs":23.30000001192093,"rowDeadlineDriftMs":-17.099999988079162,"nextRowTargetToProgressMs":33.89999997615814,"activationToTargetMs":1.2000000476837158,"activationTargetToProgressMs":29.299999952316284,"firstDeadlineDriftMs":-16.399999976158142,"secondTargetToProgressMs":17.600000023841858,"laterDeadlineDriftMs":-16.900000035762787,"thirdTargetToProgressMs":33.19999998807907,"selectionToHoldMs":3.899999976158142,"holdReleaseToTargetMs":1,"selectionTargetToProgressMs":25.900000035762787} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
+| directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
@@ -53,7 +54,7 @@ Result: PASS
 | function-label-default-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
 | function-label-default-larger-display | PASS | 4 function keys share word-key metrics; rendered 18-18px with a 20px normal-board floor |
 | function-label-default-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
-| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 31.5-31.5px with a 20px normal-board floor |
+| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 30.7-30.7px with a 20px normal-board floor |
 | function-label-200pct-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
 | function-label-200pct-larger-display | PASS | 4 function keys share word-key metrics; rendered 21.9-21.9px with a 20px normal-board floor |
 | function-label-200pct-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
@@ -62,7 +63,7 @@ Result: PASS
 | zh-tw-pixel-4a-5g-layout | PASS | fits 13 rows in 851px viewport without scrolling |
 | zh-tw-demo-mode | PASS | greedily completed a visible candidate after direct first-layer Zhuyin input (1 matched characters) |
 | singleton-row-auto-activation | PASS | both modes skip redundant singleton item activation; block mode also skips redundant activation for a one-row block |
-| block-row-column | PASS | reused the exact en-US and zh-TW suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit |
+| block-row-column | PASS | reused the exact en-US and zh-TW suggestions/layout, showed downward block/row progress, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit |
 | screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:

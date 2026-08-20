@@ -102,9 +102,9 @@ Word selections automatically add a trailing space. Letter selections do not. Th
 
 Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, clear, or space with one selection instead of requiring several corrective inputs. Built-in boards therefore do not show a separate backspace key.
 
-The progress hint is drawn as a full-height fill inside the active highlighted row or symbol so it stays close to the user's gaze target and is easy to see:
+The progress hint is drawn inside the active highlighted target so it stays close to the user's gaze target and is easy to see. Block and row progress descends from top to bottom, matching the board's scan direction; individual-symbol progress continues from left to right:
 
-- Full-box highlight: the current row or symbol.
+- Full-box highlight: the current block, row, or symbol.
 - Teal fill: elapsed time in the current scan phase.
 
 This gives users and helpers a visible timing cue without adding another action requirement.

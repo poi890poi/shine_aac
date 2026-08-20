@@ -392,6 +392,10 @@ body.demo-active .phase::after {
   will-change: transform;
 }
 
+.progress-fill[data-progress-direction="down"] {
+  transform-origin: center top;
+}
+
 .tile.review-hold .progress-fill {
   background: transparent;
 }

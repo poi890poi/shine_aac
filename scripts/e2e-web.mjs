@@ -766,6 +766,9 @@ async function scenarioFirstColumnProgressTiming() {
   await waitForUi();
 
   let snapshot = await getSnapshot();
+  if (snapshot.activeRow?.progressDirection !== "down" || !snapshot.activeRow.progressTransform.startsWith("scaleY(")) {
+    throw new Error(`Row progress should descend from the top: ${JSON.stringify(snapshot.activeRow)}`);
+  }
   const initialRowProgress = snapshot.activeRow?.progress ?? 100;
   if (initialRowProgress > 25) {
     throw new Error(`Row progress should start from the post-render scan deadline, got ${initialRowProgress}`);
@@ -788,6 +791,9 @@ async function scenarioFirstColumnProgressTiming() {
   await waitForActive(({ activeCell }) => activeCell?.rowIndex === 0 && activeCell.cellIndex === 0, "first cell");
   await delay(60);
   snapshot = await getSnapshot();
+  if (snapshot.activeCell?.progressDirection !== "right" || !snapshot.activeCell.progressTransform.startsWith("scaleX(")) {
+    throw new Error(`Cell progress should remain left-to-right: ${JSON.stringify(snapshot.activeCell)}`);
+  }
   const firstCellEarlyProgress = snapshot.activeCell?.progress ?? 100;
   if (firstCellEarlyProgress > 20) {
     throw new Error(`First column progress should restart from its own hold, got ${firstCellEarlyProgress}`);
@@ -809,6 +815,10 @@ async function scenarioFirstColumnProgressTiming() {
   }
 
   steps.push(pass("first-column-progress", "first and later cell progress fills restart and track their own scan durations"));
+  steps.push(pass(
+    "directional-row-cell-progress",
+    "row progress descends from the top while individual-cell progress remains left-to-right"
+  ));
 
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
@@ -2809,12 +2819,21 @@ async function scenarioBlockRowColumnMode() {
   if (activeBlockRows.join(",") !== "0,1,2,3") {
     throw new Error(`Four-block highlight did not start with the expected 4-row group: ${JSON.stringify(activeBlockRows)}`);
   }
+  if (
+    blockSnapshot.activeBlock.progressDirection !== "down" ||
+    !blockSnapshot.activeBlock.progressTransform.startsWith("scaleY(")
+  ) {
+    throw new Error(`Block progress should descend from the top: ${JSON.stringify(blockSnapshot.activeBlock)}`);
+  }
 
   await clickTarget(blockSnapshot.activeBlock);
-  await waitForActive(
+  const rowSnapshot = await waitForActive(
     (snapshot) => snapshot.phase === "Rows" && snapshot.activeRow !== null,
     "row within selected block"
   );
+  if (rowSnapshot.activeRow.progressDirection !== "down" || !rowSnapshot.activeRow.progressTransform.startsWith("scaleY(")) {
+    throw new Error(`Nested row progress should descend from the top: ${JSON.stringify(rowSnapshot.activeRow)}`);
+  }
   const selectedBlockRows = await evaluate(`
     [...document.querySelectorAll(".row")]
       .map((row, rowIndex) => row.classList.contains("selected-block-row") ? rowIndex : -1)
@@ -2850,7 +2869,7 @@ async function scenarioBlockRowColumnMode() {
   await evaluate(`globalThis.ShineAacDemoError = ""`);
   steps.push(pass(
     "block-row-column",
-    "reused the exact en-US and zh-TW suggestions/layout, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit"
+    "reused the exact en-US and zh-TW suggestions/layout, showed downward block/row progress, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit"
   ));
 }
 
@@ -3473,11 +3492,13 @@ async function getSnapshot() {
           const computedTransform = progressFill ? getComputedStyle(progressFill).transform : "";
           const transform = computedTransform && computedTransform !== "none" ? computedTransform : inlineTransform;
           let progress = Number.parseFloat(progressFill?.style.width || "0");
-          const scaleMatch = transform.match(/scaleX\\(([^)]+)\\)/);
+          const progressDirection = progressFill?.dataset.progressDirection ?? "right";
+          const scaleMatch = transform.match(/scale[XY]\\(([^)]+)\\)/);
           if (scaleMatch) {
             progress = Number.parseFloat(scaleMatch[1]) * 100;
           } else if (transform.startsWith("matrix(")) {
-            progress = Number.parseFloat(transform.slice(7).split(",")[0]) * 100;
+            const matrix = transform.slice(7).split(",");
+            progress = Number.parseFloat(matrix[progressDirection === "down" ? 3 : 0]) * 100;
           }
           return {
             rowIndex,
@@ -3489,6 +3510,8 @@ async function getSnapshot() {
             activeCell: tile.classList.contains("active-cell"),
             reviewHold: tile.classList.contains("review-hold"),
             cameraHold: tile.classList.contains("camera-hold"),
+            progressDirection,
+            progressTransform: inlineTransform,
             progress,
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2

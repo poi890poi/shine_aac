@@ -848,9 +848,15 @@ function setProgressFills(progress, durationMs) {
     : [...app.querySelectorAll(".tile.is-current .progress-fill")];
   for (const progressFill of progressFills) {
     progressFill.style.transitionDuration = `${durationMs}ms`;
-    progressFill.style.transform = `scaleX(${progress})`;
+    progressFill.style.transform = progressTransform(progressFill, progress);
   }
   return progressFills;
+}
+
+function progressTransform(progressFill, progress) {
+  return progressFill.dataset.progressDirection === "down"
+    ? `scaleY(${progress})`
+    : `scaleX(${progress})`;
 }
 
 function forceProgressLayout(progressFills) {
@@ -1271,6 +1277,16 @@ function updateScanPresentation(board) {
   const previousProgressFills = currentProgressFills;
   const nextActiveTiles = activeRenderedTilesForScanner(scanner);
   const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
+  const progressDirection = [
+    ScanStage.Blocks,
+    ScanStage.BlockSelected,
+    ScanStage.SuggestionPages,
+    ScanStage.Rows,
+    ScanStage.RowSelected
+  ].includes(scanner.stage) ? "down" : "right";
+  for (const progressFill of nextProgressFills) {
+    progressFill.dataset.progressDirection = progressDirection;
+  }
   const deferredTiles = renderedTiles.filter((rendered) => rendered.candidate.scanDeferred === true);
   const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles, ...deferredTiles])];
 
@@ -1396,7 +1412,7 @@ function resetProgressFills(progressFills) {
   const uniqueProgressFills = [...new Set(progressFills)].filter((fill) => fill?.isConnected);
   for (const progressFill of uniqueProgressFills) {
     progressFill.style.transitionDuration = "0ms";
-    progressFill.style.transform = "scaleX(0)";
+    progressFill.style.transform = progressTransform(progressFill, 0);
   }
   forceProgressLayout(uniqueProgressFills);
 }
