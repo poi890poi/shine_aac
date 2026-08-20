@@ -175,9 +175,22 @@ body.demo-active .phase::after {
   background: #f08c00;
 }
 
+.camera-status-waitingOpen,
+.camera-status-signalAmbiguous {
+  border-color: #c88719;
+  background: #fff3bf;
+}
+
+.camera-status-waitingOpen::before,
+.camera-status-signalAmbiguous::before {
+  background: #f08c00;
+}
+
 .camera-status-stale,
 .camera-status-detectorStale,
 .camera-status-cameraStale,
+.camera-status-signalMissing,
+.camera-status-analysisFailure,
 .camera-status-permissionDenied {
   border-color: #b77970;
   background: #f4e4e1;
@@ -186,6 +199,8 @@ body.demo-active .phase::after {
 .camera-status-stale::before,
 .camera-status-detectorStale::before,
 .camera-status-cameraStale::before,
+.camera-status-signalMissing::before,
+.camera-status-analysisFailure::before,
 .camera-status-permissionDenied::before {
   background: #c92a2a;
 }

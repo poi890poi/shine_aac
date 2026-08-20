@@ -34,6 +34,30 @@ class BlinkGestureClassifier(
         }
     }
 
+    internal fun diagnosticSnapshot(
+        closedScore: Double? = null,
+        reopenScore: Double? = closedScore
+    ): DiagnosticSnapshot = DiagnosticSnapshot(
+        state = state.name,
+        signalBand = signalBand(closedScore),
+        reopenBand = signalBand(reopenScore),
+        hasOpenBaseline = hasOpenBaseline,
+        closingForMs = elapsedSince(closingStartedAtMs),
+        closedForMs = elapsedSince(closedStartedAtMs),
+        openCandidateForMs = elapsedSince(openCandidateStartedAtMs),
+        signalLostForMs = elapsedSince(signalLostStartedAtMs)
+    )
+
+    private fun elapsedSince(startedAtMs: Long): Long? =
+        startedAtMs.takeIf { it != NoTime }?.let { System.currentTimeMillis() - it }
+
+    private fun signalBand(score: Double?): String = when {
+        score == null -> "Missing"
+        score <= config.openThreshold -> "Open"
+        score >= config.closeThreshold -> "Closed"
+        else -> "Ambiguous"
+    }
+
     private fun handleOpen(closedScore: Double?, reopenScore: Double?, nowMs: Long): List<Event> {
         if (closedScore == null) {
             closingStartedAtMs = NoTime
@@ -125,6 +149,7 @@ class BlinkGestureClassifier(
     }
 
     data class Config(
+        // Keep runtime classification aligned with CameraSwitchCalibrationActivity.
         val closeThreshold: Double = 0.55,
         val openThreshold: Double = 0.35,
         val requiredOpenBeforeCloseMs: Long = 350L,
@@ -143,6 +168,17 @@ class BlinkGestureClassifier(
         Opened,
         SignalLost
     }
+
+    internal data class DiagnosticSnapshot(
+        val state: String,
+        val signalBand: String,
+        val reopenBand: String,
+        val hasOpenBaseline: Boolean,
+        val closingForMs: Long?,
+        val closedForMs: Long?,
+        val openCandidateForMs: Long?,
+        val signalLostForMs: Long?
+    )
 
     private enum class State {
         Open,

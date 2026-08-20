@@ -15,6 +15,15 @@ class BlinkGestureClassifierTest {
     )
 
     @Test
+    fun defaultThresholdsMatchCameraCalibration() {
+        val classifier = BlinkGestureClassifier()
+
+        assertEquals("Open", classifier.diagnosticSnapshot(0.35).signalBand)
+        assertEquals("Ambiguous", classifier.diagnosticSnapshot(0.45).signalBand)
+        assertEquals("Closed", classifier.diagnosticSnapshot(0.55).signalBand)
+    }
+
+    @Test
     fun asymmetricOpenEyesRearmInTwoFramesWithoutSecondBaselineDelay() {
         val classifier = BlinkGestureClassifier()
 
@@ -25,8 +34,14 @@ class BlinkGestureClassifierTest {
         val activation = classifier.onSignal(0.9, 1400, LongBlinkMs, 0.9)
         assertEquals(1, activation.filterIsInstance<BlinkGestureClassifier.Event.Activated>().size)
 
+        // Mirrors the device trace: the average is ambiguous because one eye is
+        // underestimated, while the more-open eye is a clear reopen signal.
         classifier.onSignal(0.393, 1600, LongBlinkMs, 0.266)
         classifier.onSignal(0.271, 1782, LongBlinkMs, 0.007)
+
+        val rearmed = classifier.diagnosticSnapshot(0.271, 0.007)
+        assertEquals("Open", rearmed.state)
+        assertTrue(rearmed.hasOpenBaseline)
 
         assertTrue(classifier.onSignal(0.9, 1900, LongBlinkMs, 0.9).isEmpty())
         val next = classifier.onSignal(0.9, 2060, LongBlinkMs, 0.9)
@@ -47,9 +62,8 @@ class BlinkGestureClassifierTest {
         classifier.onSignal(0.45, 1700, LongBlinkMs, 0.45)
         classifier.onSignal(0.3, 1800, LongBlinkMs, 0.2)
 
-        assertTrue(classifier.onSignal(0.9, 1900, LongBlinkMs).isEmpty())
-        val next = classifier.onSignal(0.9, 2060, LongBlinkMs)
-        assertEquals(1, next.filterIsInstance<BlinkGestureClassifier.Event.HoldStarted>().size)
+        assertEquals("Open", classifier.diagnosticSnapshot(0.3, 0.2).state)
+        assertTrue(classifier.diagnosticSnapshot(0.3, 0.2).hasOpenBaseline)
     }
 
     @Test
@@ -169,6 +183,41 @@ class BlinkGestureClassifierTest {
         events += classifier.onSignal(0.9, 900, LongBlinkMs)
 
         assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun ambiguousSignalAfterActivationLeavesClassifierWaitingForOpen() {
+        val classifier = BlinkGestureClassifier(config)
+
+        armOpen(classifier, 0)
+        classifier.onSignal(0.9, 500, LongBlinkMs)
+        classifier.onSignal(0.9, 640, LongBlinkMs)
+        classifier.onSignal(0.9, 1350, LongBlinkMs)
+
+        for (now in 1550L..9550L step 200L) {
+            assertTrue(classifier.onSignal(0.5, now, LongBlinkMs).isEmpty())
+        }
+
+        val snapshot = classifier.diagnosticSnapshot(0.5)
+        assertEquals("ActivatedWaitOpen", snapshot.state)
+        assertEquals("Ambiguous", snapshot.signalBand)
+    }
+
+    @Test
+    fun missingSignalAfterActivationAlsoLeavesClassifierWaitingForOpen() {
+        val classifier = BlinkGestureClassifier(config)
+
+        armOpen(classifier, 0)
+        classifier.onSignal(0.9, 500, LongBlinkMs)
+        classifier.onSignal(0.9, 640, LongBlinkMs)
+        classifier.onSignal(0.9, 1350, LongBlinkMs)
+
+        classifier.onSignal(null, 2200, LongBlinkMs)
+        classifier.onSignal(null, 5200, LongBlinkMs)
+
+        val snapshot = classifier.diagnosticSnapshot(null)
+        assertEquals("ActivatedWaitOpen", snapshot.state)
+        assertEquals("Missing", snapshot.signalBand)
     }
 
     private companion object {

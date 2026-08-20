@@ -41,6 +41,7 @@ android {
         targetSdk = 36
         versionCode = shineVersionCode
         versionName = shineVersionName
+        buildConfigField("boolean", "BLINK_DIAGNOSTICS", "false")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -70,6 +71,14 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("diagnostic") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".blinkdiag"
+            versionNameSuffix = "-blinkdiag.3"
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("boolean", "BLINK_DIAGNOSTICS", "true")
+            matchingFallbacks += listOf("release")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -82,6 +91,9 @@ android {
         getByName("main") {
             assets.srcDir(layout.buildDirectory.dir("generated/assets/shineWeb"))
         }
+    }
+    buildFeatures {
+        buildConfig = true
     }
     androidResources {
         noCompress += "m4a"

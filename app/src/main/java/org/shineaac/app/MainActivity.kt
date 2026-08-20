@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -22,6 +23,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private var ttsReady = false
     private lateinit var moeBopomofoVoicePack: TaiwanVoicePack
     private val ttsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val diagnosticsExportExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     @Volatile private var preferredSpeechVoiceName = MoeBopomofoVoiceName
     @Volatile private var hardwareButtonsEnabled = true
     @Volatile private var volumeButtonsEnabled = false
@@ -52,6 +55,7 @@ class MainActivity : ComponentActivity() {
     @Volatile private var switchInputProfile = SwitchInputHardware
     private var webBackNavigationPending = false
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
+    private var blinkDiagnostics: BlinkDiagnosticRecorder? = null
     private var pendingTextHistoryExport: String? = null
     private var pendingTextHistoryExportFileName: String? = null
     private var lastTextHistoryExportUri: Uri? = null
@@ -97,10 +101,36 @@ class MainActivity : ComponentActivity() {
             sendCameraPermissionDenied()
         }
     }
+    private val blinkDiagnosticsDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        val recorder = blinkDiagnostics ?: return@registerForActivityResult
+        if (uri == null) return@registerForActivityResult
+        diagnosticsExportExecutor.execute {
+            try {
+                val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                val output = contentResolver.openOutputStream(uri, "w")
+                    ?: error("The selected document could not be opened for writing")
+                output.use {
+                    @Suppress("DEPRECATION")
+                    recorder.writeZip(it, packageInfo.versionName.orEmpty(), packageInfo.versionCode.toLong())
+                }
+                runOnUiThread {
+                    Toast.makeText(this, "Blink diagnostic trace saved.", Toast.LENGTH_LONG).show()
+                }
+            } catch (error: Exception) {
+                Log.e(BlinkDiagnosticsLogTag, "Could not export blink diagnostics", error)
+                runOnUiThread {
+                    Toast.makeText(this, "Could not save blink diagnostic trace.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (BuildConfig.BLINK_DIAGNOSTICS) blinkDiagnostics = BlinkDiagnosticRecorder()
         applyOrientationPolicy()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         moeBopomofoVoicePack = TaiwanVoicePack(
@@ -141,7 +171,8 @@ class MainActivity : ComponentActivity() {
             },
             sink = InputSink { event ->
                 sendInputEvent(event)
-            }
+            },
+            diagnostics = blinkDiagnostics
         )
     }
 
@@ -286,6 +317,7 @@ class MainActivity : ComponentActivity() {
             engine?.shutdown()
         }
         ttsExecutor.shutdown()
+        diagnosticsExportExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -601,7 +633,53 @@ class MainActivity : ComponentActivity() {
                 .put("appName", getString(R.string.app_name))
                 .put("versionName", packageInfo.versionName.orEmpty())
                 .put("versionCode", packageInfo.versionCode)
+                .put("blinkDiagnostics", BuildConfig.BLINK_DIAGNOSTICS)
                 .toString()
+        }
+
+        @JavascriptInterface
+        fun isBlinkDiagnosticsEnabled(): Boolean = BuildConfig.BLINK_DIAGNOSTICS
+
+        @JavascriptInterface
+        fun exportBlinkDiagnostics() {
+            if (!BuildConfig.BLINK_DIAGNOSTICS || blinkDiagnostics == null) return
+            runOnUiThread {
+                blinkDiagnosticsDocumentLauncher.launch("shine-aac-blink-diagnostics-${System.currentTimeMillis()}.zip")
+            }
+        }
+
+        @JavascriptInterface
+        fun copyBlinkDiagnostics() {
+            val recorder = blinkDiagnostics ?: return
+            if (!BuildConfig.BLINK_DIAGNOSTICS) return
+            diagnosticsExportExecutor.execute {
+                try {
+                    val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                    @Suppress("DEPRECATION")
+                    val report = recorder.buildTextReport(
+                        packageInfo.versionName.orEmpty(),
+                        packageInfo.versionCode.toLong()
+                    )
+                    runOnUiThread {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("SHINE AAC blink debug", report))
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Blink debug copied. Paste it into Codex.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } catch (error: Exception) {
+                    Log.e(BlinkDiagnosticsLogTag, "Could not copy blink diagnostics", error)
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Could not copy blink debug.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
         }
 
         @JavascriptInterface
@@ -742,6 +820,7 @@ class MainActivity : ComponentActivity() {
         const val AndroidSystemVoiceName = "android-system-default"
         const val SpeechPreviewText = "你好，我想喝水。"
         const val E2ELogTag = "ShineAacE2E"
+        const val BlinkDiagnosticsLogTag = "ShineBlinkDiagnostics"
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"

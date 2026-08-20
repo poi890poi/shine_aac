@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.util.Range
 import android.util.Size
@@ -28,12 +29,14 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.Locale
 
 class CameraSwitchInputAdapter(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
     private val settingsProvider: () -> CameraSwitchSettings,
-    private val sink: InputSink
+    private val sink: InputSink,
+    private val diagnostics: CameraSwitchDiagnostics? = null
 ) : InputAdapter {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val mainExecutor = Executor { command -> mainHandler.post(command) }
@@ -45,6 +48,7 @@ class CameraSwitchInputAdapter(
     private val analysisSize = Size(480, 360)
     @Volatile private var mlKitInFlight = false
     @Volatile private var activeFrameId = NoFrame
+    @Volatile private var activeImageProxy: ImageProxy? = null
     private var frameSequence = 0L
     private var lastFrameAt = 0L
     private var lastImageReceivedAt = 0L
@@ -57,6 +61,8 @@ class CameraSwitchInputAdapter(
     private var generation = 0
     private var watchdogScheduled = false
     private var running = false
+    @Volatile private var diagnosticFrameStatus = "analysis"
+    @Volatile private var diagnosticFrameDetail = ""
 
     @SuppressLint("MissingPermission")
     override fun start() {
@@ -65,6 +71,14 @@ class CameraSwitchInputAdapter(
         val startGeneration = generation
         val settings = settingsProvider()
         if (!settings.enabled) return
+        trace("adapterStart") {
+            mapOf(
+                "generation" to startGeneration,
+                "longBlinkMs" to settings.longBlinkMs,
+                "cooldownMs" to settings.cooldownMs,
+                "zoomRatio" to settings.zoomRatio
+            )
+        }
         activeSource = settings.source
         running = true
         lastImageReceivedAt = System.currentTimeMillis()
@@ -104,6 +118,7 @@ class CameraSwitchInputAdapter(
     }
 
     override fun stop() {
+        trace("adapterStop") { mapOf("generation" to generation, "running" to running) }
         generation += 1
         running = false
         watchdogScheduled = false
@@ -117,6 +132,10 @@ class CameraSwitchInputAdapter(
         }
         imageAnalysis = null
         cameraProvider = null
+        activeFrameId = NoFrame
+        mlKitInFlight = false
+        activeImageProxy?.let(::safeClose)
+        activeImageProxy = null
         detector?.close()
         detector = null
         if (holdEventActive) {
@@ -127,13 +146,13 @@ class CameraSwitchInputAdapter(
         tonePlayer = null
         analysisExecutor?.shutdownNow()
         analysisExecutor = null
-        mlKitInFlight = false
-        activeFrameId = NoFrame
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
         blinkClassifier.reset()
         holdEventActive = false
+        diagnosticFrameStatus = "analysis"
+        diagnosticFrameDetail = ""
     }
 
     @SuppressLint("MissingPermission")
@@ -171,12 +190,14 @@ class CameraSwitchInputAdapter(
                 analysis
             )
             applyZoom(camera, settingsProvider().zoomRatio)
+            trace("cameraBound") { mapOf("generation" to bindGeneration, "analysisSize" to "${analysisSize.width}x${analysisSize.height}") }
             sendStatus("active", force = true)
         } catch (error: Exception) {
             Log.w(Tag, "CameraX bind failed", error)
             imageAnalysis?.clearAnalyzer()
             imageAnalysis = null
             sendStatus("cameraStale", force = true)
+            trace("cameraBindFailure") { mapOf("error" to error.javaClass.name, "message" to error.message) }
         }
     }
 
@@ -221,12 +242,7 @@ class CameraSwitchInputAdapter(
             return
         }
         val activeDetector = detector
-        val callbackExecutor = analysisExecutor
         if (activeDetector == null) {
-            imageProxy.close()
-            return
-        }
-        if (callbackExecutor == null) {
             imageProxy.close()
             return
         }
@@ -239,8 +255,11 @@ class CameraSwitchInputAdapter(
         mlKitInFlight = true
         val frameId = ++frameSequence
         activeFrameId = frameId
+        activeImageProxy = imageProxy
         lastFrameAt = now
         val analysisGeneration = generation
+        val submittedAtElapsedMs = SystemClock.elapsedRealtime()
+        trace("frameSubmitted") { mapOf("frameId" to frameId, "generation" to analysisGeneration) }
         mainHandler.postDelayed({
             if (analysisGeneration == generation && activeFrameId == frameId && mlKitInFlight) {
                 Log.w(Tag, "ML Kit frame timeout; marking detector stale")
@@ -250,33 +269,100 @@ class CameraSwitchInputAdapter(
                 blinkClassifier.reset()
                 sendHoldEnd(activeSource, "reason=detectorTimeout")
                 sendStatus("detectorStale", force = true)
+                trace("frameTimeout") { mapOf("frameId" to frameId, "timeoutMs" to MlKitTimeoutMs) }
                 safeClose(imageProxy)
+                if (activeImageProxy === imageProxy) activeImageProxy = null
             }
         }, MlKitTimeoutMs)
         activeDetector.process(InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees))
-            .addOnSuccessListener(callbackExecutor) { faces ->
+            .addOnSuccessListener(mainExecutor) { faces ->
                 if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                val signal = face?.eyeSignal()
-                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
+                val signal = face?.eyeSignal() ?: EyeSignal(rejection = "noFace")
+                updateBlinkState(signal.score, signal.reopenScore, settings)
+                val snapshot = blinkClassifier.diagnosticSnapshot(signal.score, signal.reopenScore)
+                diagnosticFrameStatus = when {
+                    signal.rejection != null -> "signalMissing"
+                    snapshot.state == "ActivatedWaitOpen" -> "waitingOpen"
+                    snapshot.state == "ClosedHolding" -> "blink"
+                    snapshot.reopenBand == "Open" -> "analysis"
+                    snapshot.signalBand == "Ambiguous" -> "signalAmbiguous"
+                    else -> "analysis"
+                }
+                diagnosticFrameDetail = listOfNotNull(
+                    signal.score?.let { "score=${String.format(Locale.US, "%.3f", it)}" },
+                    signal.reopenScore?.let { "reopen=${String.format(Locale.US, "%.3f", it)}" },
+                    "band=${snapshot.signalBand}",
+                    "classifier=${snapshot.state}",
+                    signal.rejection?.let { "rejection=$it" }
+                ).joinToString(";")
+                trace("frameResult") {
+                    mapOf(
+                        "frameId" to frameId,
+                        "latencyMs" to (SystemClock.elapsedRealtime() - submittedAtElapsedMs),
+                        "faceCount" to faces.size,
+                        "leftEyeOpen" to signal.leftEyeOpen,
+                        "rightEyeOpen" to signal.rightEyeOpen,
+                        "closedScore" to signal.score,
+                        "reopenScore" to signal.reopenScore,
+                        "rejection" to signal.rejection,
+                        "yaw" to signal.yaw,
+                        "roll" to signal.roll,
+                        "faceWidth" to signal.faceWidth,
+                        "faceHeight" to signal.faceHeight,
+                        "faceLeft" to signal.faceLeft,
+                        "faceTop" to signal.faceTop,
+                        "trackingId" to signal.trackingId,
+                        "classifierState" to snapshot.state,
+                        "signalBand" to snapshot.signalBand,
+                        "reopenBand" to snapshot.reopenBand,
+                        "hasOpenBaseline" to snapshot.hasOpenBaseline,
+                        "closingForMs" to snapshot.closingForMs,
+                        "closedForMs" to snapshot.closedForMs,
+                        "openCandidateForMs" to snapshot.openCandidateForMs,
+                        "signalLostForMs" to snapshot.signalLostForMs
+                    )
+                }
             }
-            .addOnFailureListener(callbackExecutor) { error ->
+            .addOnFailureListener(mainExecutor) { error ->
                 Log.w(Tag, "ML Kit analysis failed", error)
+                diagnosticFrameStatus = "analysisFailure"
+                diagnosticFrameDetail = "error=${error.javaClass.simpleName}"
+                trace("frameFailure") {
+                    mapOf(
+                        "frameId" to frameId,
+                        "latencyMs" to (SystemClock.elapsedRealtime() - submittedAtElapsedMs),
+                        "error" to error.javaClass.name,
+                        "message" to error.message
+                    )
+                }
             }
-            .addOnCompleteListener(callbackExecutor) {
+            .addOnCompleteListener(mainExecutor) {
                 if (analysisGeneration == generation && activeFrameId == frameId) {
                     lastAnalysisCompletedAt = System.currentTimeMillis()
                     mlKitInFlight = false
                     activeFrameId = NoFrame
-                    sendStatus("analysis")
+                    sendStatus(diagnosticFrameStatus, extraDetail = diagnosticFrameDetail)
                 }
                 safeClose(imageProxy)
+                if (activeImageProxy === imageProxy) activeImageProxy = null
             }
     }
 
     private fun updateBlinkState(score: Double?, reopenScore: Double?, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
         for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
+            trace("classifierEvent") {
+                mapOf(
+                    "event" to event.javaClass.simpleName,
+                    "score" to score,
+                    "detail" to when (event) {
+                        is BlinkGestureClassifier.Event.HoldStarted -> "startedAtMs=${event.startedAtMs}"
+                        is BlinkGestureClassifier.Event.Activated -> "durationMs=${event.durationMs}"
+                        is BlinkGestureClassifier.Event.HoldEnded -> "durationMs=${event.durationMs};reason=${event.reason.name}"
+                    }
+                )
+            }
             when (event) {
                 is BlinkGestureClassifier.Event.HoldStarted -> {
                     sendHoldStart(settings.source)
@@ -287,6 +373,9 @@ class CameraSwitchInputAdapter(
                         lastActivationAt = now
                         holdEventActive = false
                         sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=${event.durationMs}"))
+                        trace("activationDelivered") { mapOf("durationMs" to event.durationMs) }
+                    } else {
+                        trace("activationSuppressed") { mapOf("reason" to "cooldown", "sinceLastMs" to (now - lastActivationAt)) }
                     }
                 }
                 is BlinkGestureClassifier.Event.HoldEnded -> {
@@ -332,7 +421,7 @@ class CameraSwitchInputAdapter(
         if (running && settingsProvider().enabled) scheduleWatchdog()
     }
 
-    private fun sendStatus(state: String, force: Boolean = false) {
+    private fun sendStatus(state: String, force: Boolean = false, extraDetail: String = "") {
         val now = System.currentTimeMillis()
         if (!force && now - lastStatusSentAt < StatusIntervalMs) return
         lastStatusSentAt = now
@@ -340,9 +429,10 @@ class CameraSwitchInputAdapter(
             InputEvent(
                 intent = "cameraStatus",
                 source = activeSource,
-                detail = "state=$state"
+                detail = "state=$state" + extraDetail.takeIf { it.isNotBlank() }?.let { ";$it" }.orEmpty()
             )
         )
+        trace("status") { mapOf("state" to state, "force" to force) }
     }
 
     private fun safeClose(imageProxy: ImageProxy) {
@@ -353,21 +443,60 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private fun Face.eyeSignal(): EyeSignal? {
-        val left = leftEyeOpenProbability ?: return null
-        val right = rightEyeOpenProbability ?: return null
-        if (kotlin.math.abs(headEulerAngleY) > MaxYawDegrees) return null
-        if (kotlin.math.abs(headEulerAngleZ) > MaxRollDegrees) return null
-        if (boundingBox.width() < MinFaceWidthPx || boundingBox.height() < MinFaceHeightPx) return null
+    private fun Face.eyeSignal(): EyeSignal {
+        val left = leftEyeOpenProbability?.toDouble()
+        val right = rightEyeOpenProbability?.toDouble()
+        val rejection = when {
+            left == null -> "leftEyeUnavailable"
+            right == null -> "rightEyeUnavailable"
+            kotlin.math.abs(headEulerAngleY) > MaxYawDegrees -> "yawOutOfRange"
+            kotlin.math.abs(headEulerAngleZ) > MaxRollDegrees -> "rollOutOfRange"
+            boundingBox.width() < MinFaceWidthPx || boundingBox.height() < MinFaceHeightPx -> "faceTooSmall"
+            else -> null
+        }
+        val score = if (rejection == null && left != null && right != null) {
+            (1.0 - ((left + right) / 2.0)).coerceIn(0.0, 1.0)
+        } else {
+            null
+        }
+        val reopenScore = if (rejection == null && left != null && right != null) {
+            (1.0 - maxOf(left, right)).coerceIn(0.0, 1.0)
+        } else {
+            null
+        }
         return EyeSignal(
-            closedScore = (1.0 - ((left + right) / 2.0)).coerceIn(0.0, 1.0),
-            reopenScore = (1.0 - maxOf(left, right)).coerceIn(0.0, 1.0)
+            leftEyeOpen = left,
+            rightEyeOpen = right,
+            score = score,
+            reopenScore = reopenScore,
+            rejection = rejection,
+            yaw = headEulerAngleY,
+            roll = headEulerAngleZ,
+            faceWidth = boundingBox.width(),
+            faceHeight = boundingBox.height(),
+            faceLeft = boundingBox.left,
+            faceTop = boundingBox.top,
+            trackingId = trackingId
         )
     }
 
+    private fun trace(event: String, fields: () -> Map<String, Any?>) {
+        diagnostics?.record(event, fields())
+    }
+
     private data class EyeSignal(
-        val closedScore: Double,
-        val reopenScore: Double
+        val leftEyeOpen: Double? = null,
+        val rightEyeOpen: Double? = null,
+        val score: Double? = null,
+        val reopenScore: Double? = null,
+        val rejection: String? = null,
+        val yaw: Float? = null,
+        val roll: Float? = null,
+        val faceWidth: Int? = null,
+        val faceHeight: Int? = null,
+        val faceLeft: Int? = null,
+        val faceTop: Int? = null,
+        val trackingId: Int? = null
     )
 
     private companion object {

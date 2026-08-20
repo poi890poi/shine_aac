@@ -43,6 +43,17 @@ test("the existing switch-input selector offers an explicit volume-key mode", ()
   assert.doesNotMatch(appSource, /name="volumeButtons/);
 });
 
+test("APK-only blink diagnostics stay gated and expose non-green signal states", () => {
+  assert.match(appSource, /isBlinkDiagnosticsEnabled/);
+  assert.match(appSource, /data-action="copy-blink-diagnostics"/);
+  assert.match(appSource, /data-action="export-blink-diagnostics"/);
+  assert.match(appSource, /case "waitingOpen"/);
+  assert.match(appSource, /case "signalAmbiguous"/);
+  assert.match(appSource, /case "signalMissing"/);
+  assert.match(styles, /\.camera-status-waitingOpen/);
+  assert.match(styles, /\.camera-status-signalMissing/);
+});
+
 test("the Web UI does not reserve native Android system insets a second time", () => {
   assert.doesNotMatch(styles, /safe-area-inset-/);
   assert.match(styles, /\.shell\s*\{[\s\S]*?height:\s*var\(--app-viewport-height\)/);

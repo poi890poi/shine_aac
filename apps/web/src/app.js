@@ -947,10 +947,18 @@ function speakActivation(tile) {
 
 function updateCameraStatus(inputEvent = {}) {
   const state = String(inputEvent.state ?? detailValue(inputEvent.detail, "state") ?? "live");
-  const label = isZhTwUi()
+  const baseLabel = isZhTwUi()
     ? cameraStatusLabel(state)
     : String(inputEvent.label ?? cameraStatusLabel(state));
-  setCameraStatus(state, label, state === "live" || state === "analysis");
+  const score = detailValue(inputEvent.detail, "score");
+  const label = nativeBlinkDiagnosticsEnabled() && score != null
+    ? `${baseLabel} ${score}`
+    : baseLabel;
+  setCameraStatus(
+    state,
+    label,
+    ["live", "analysis", "waitingOpen", "signalAmbiguous", "signalMissing", "analysisFailure"].includes(state)
+  );
   return true;
 }
 
@@ -978,7 +986,15 @@ function updateCameraStatusPresentation() {
   const visible = cameraInputEnabled();
   element.hidden = !visible;
   element.className = `camera-status camera-status-${cameraStatus.state}`;
-  element.textContent = visible ? (isZhTwUi() ? cameraStatusLabel(cameraStatus.state) : cameraStatus.label) : "";
+  element.textContent = visible ? cameraStatus.label : "";
+}
+
+function nativeBlinkDiagnosticsEnabled() {
+  try {
+    return Boolean(globalThis.ShineAacAndroid?.isBlinkDiagnosticsEnabled?.());
+  } catch {
+    return false;
+  }
 }
 
 function cameraStatusLabel(state) {
@@ -990,6 +1006,14 @@ function cameraStatusLabel(state) {
       return zhTw ? "相機正常" : "Cam live";
     case "analysis":
       return zhTw ? "相機正常" : "Cam live";
+    case "waitingOpen":
+      return zhTw ? "等待睜眼" : "Wait open";
+    case "signalAmbiguous":
+      return zhTw ? "眼睛訊號不明" : "Eye signal mid";
+    case "signalMissing":
+      return zhTw ? "無有效眼睛訊號" : "No eye signal";
+    case "analysisFailure":
+      return zhTw ? "辨識錯誤" : "Detect error";
     case "blink":
       return zhTw ? "偵測眨眼" : "Blink";
     case "restarting":
@@ -1984,6 +2008,7 @@ function renderConfig() {
 
   const form = document.createElement("form");
   const exportButtonLabel = session.config.profileId === "zh-TW" ? "匯出文字記錄" : "Export text";
+  const blinkDiagnosticsEnabled = nativeBlinkDiagnosticsEnabled();
   form.innerHTML = `
     <div class="config-grid">
       <label class="field wide">${uiText("Language", "語言")}
@@ -2068,6 +2093,8 @@ function renderConfig() {
       <button class="secondary-button" type="button" data-action="reset">${uiText("Reset", "恢復預設")}</button>
       <button class="secondary-button" type="button" data-action="calibrate">${uiText("Input test", "輸入測試")}</button>
       <button class="secondary-button" type="button" data-action="export-text">${exportButtonLabel}</button>
+      ${blinkDiagnosticsEnabled ? `<button class="secondary-button" type="button" data-action="copy-blink-diagnostics">${uiText("Copy blink debug", "複製眨眼除錯資料")}</button>` : ""}
+      ${blinkDiagnosticsEnabled ? `<button class="secondary-button" type="button" data-action="export-blink-diagnostics">${uiText("Export blink debug", "匯出眨眼除錯資料")}</button>` : ""}
       <button class="secondary-button" type="button" data-action="cancel">${uiText("Cancel", "取消")}</button>
       <button class="primary-button" type="submit">${uiText("Save", "儲存")}</button>
     </div>
@@ -2138,6 +2165,12 @@ function renderConfig() {
     if (action === "speech-voices") openSpeechVoiceSettings();
     if (action === "export-text") {
       exportTextHistory();
+    }
+    if (action === "export-blink-diagnostics") {
+      globalThis.ShineAacAndroid?.exportBlinkDiagnostics?.();
+    }
+    if (action === "copy-blink-diagnostics") {
+      globalThis.ShineAacAndroid?.copyBlinkDiagnostics?.();
     }
     if (action === "reset") {
       const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
