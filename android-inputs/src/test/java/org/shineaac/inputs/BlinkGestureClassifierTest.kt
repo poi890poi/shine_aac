@@ -15,6 +15,44 @@ class BlinkGestureClassifierTest {
     )
 
     @Test
+    fun asymmetricOpenEyesRearmInTwoFramesWithoutSecondBaselineDelay() {
+        val classifier = BlinkGestureClassifier()
+
+        classifier.onSignal(0.1, 0, LongBlinkMs, 0.01)
+        classifier.onSignal(0.1, 400, LongBlinkMs, 0.01)
+        classifier.onSignal(0.9, 500, LongBlinkMs, 0.9)
+        classifier.onSignal(0.9, 700, LongBlinkMs, 0.9)
+        val activation = classifier.onSignal(0.9, 1400, LongBlinkMs, 0.9)
+        assertEquals(1, activation.filterIsInstance<BlinkGestureClassifier.Event.Activated>().size)
+
+        classifier.onSignal(0.393, 1600, LongBlinkMs, 0.266)
+        classifier.onSignal(0.271, 1782, LongBlinkMs, 0.007)
+
+        assertTrue(classifier.onSignal(0.9, 1900, LongBlinkMs, 0.9).isEmpty())
+        val next = classifier.onSignal(0.9, 2060, LongBlinkMs, 0.9)
+        assertEquals(1, next.filterIsInstance<BlinkGestureClassifier.Event.HoldStarted>().size)
+    }
+
+    @Test
+    fun ambiguousFrameBetweenOpenFramesDoesNotRestartRearmTimer() {
+        val classifier = BlinkGestureClassifier()
+
+        classifier.onSignal(0.1, 0, LongBlinkMs)
+        classifier.onSignal(0.1, 400, LongBlinkMs)
+        classifier.onSignal(0.9, 500, LongBlinkMs)
+        classifier.onSignal(0.9, 700, LongBlinkMs)
+        classifier.onSignal(0.9, 1400, LongBlinkMs)
+
+        classifier.onSignal(0.3, 1600, LongBlinkMs, 0.2)
+        classifier.onSignal(0.45, 1700, LongBlinkMs, 0.45)
+        classifier.onSignal(0.3, 1800, LongBlinkMs, 0.2)
+
+        assertTrue(classifier.onSignal(0.9, 1900, LongBlinkMs).isEmpty())
+        val next = classifier.onSignal(0.9, 2060, LongBlinkMs)
+        assertEquals(1, next.filterIsInstance<BlinkGestureClassifier.Event.HoldStarted>().size)
+    }
+
+    @Test
     fun oneOpenFrameDoesNotBreakLongBlink() {
         val classifier = BlinkGestureClassifier(config)
         val events = mutableListOf<BlinkGestureClassifier.Event>()
