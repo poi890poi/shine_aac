@@ -40,7 +40,20 @@ Native Android code should call this entry point. Future input adapters should d
 
 ## Configuration
 
-`Config` includes `Phone/external buttons activate switch`. It defaults on. When disabled, Android native code allows volume/media keys to fall back to normal system behavior where possible.
+`Config` provides two general hardware choices in its existing switch-input
+selector:
+
+- `Buttons — keep volume control` is the default. Camera/focus keys, supported
+  media keys, and external controller buttons activate scanning, while volume
+  keys remain available to adjust Android media volume.
+- `Buttons — volume activates` uses the same hardware path and also consumes
+  volume-up and volume-down as activation events. This supports devices such as
+  Bluetooth shutter remotes that present themselves as volume controls.
+
+Changing back to `Buttons — keep volume control` immediately restores normal
+volume adjustment. Phone volume and remote-generated volume events are treated
+alike because Android does not provide a reliable universal distinction between
+them.
 
 `Config` also includes `Input test`, a helper-facing calibration mode. It pauses normal scanning and records activation events without editing the message. The page has two source categories:
 

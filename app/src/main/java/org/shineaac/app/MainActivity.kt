@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private val ttsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     @Volatile private var preferredSpeechVoiceName = MoeBopomofoVoiceName
     @Volatile private var hardwareButtonsEnabled = true
+    @Volatile private var volumeButtonsEnabled = false
     @Volatile private var cameraSwitchEnabled = false
     @Volatile private var switchInputProfile = SwitchInputHardware
     private var webBackNavigationPending = false
@@ -249,7 +250,7 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        val source = hardwareActivationSource(event.keyCode)
+        val source = hardwareActivationSource(event.keyCode, volumeButtonsEnabled)
         if (source == null) {
             return super.dispatchKeyEvent(event)
         }
@@ -653,6 +654,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 switchInputProfile = nextInputProfile
                 hardwareButtonsEnabled = hardwareEnabledForProfile(switchInputProfile)
+                volumeButtonsEnabled = volumeEnabledForProfile(switchInputProfile)
                 val nextCameraSwitchEnabled = cameraEnabledForProfile(switchInputProfile)
                 if (nextCameraSwitchEnabled != cameraSwitchEnabled) {
                     cameraSwitchEnabled = nextCameraSwitchEnabled
@@ -743,6 +745,7 @@ class MainActivity : ComponentActivity() {
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
+        const val SwitchInputVolume = "volume-buttons"
         const val SwitchInputCameraLongBlink = "camera-long-blink"
         const val SwitchInputHardwareAndCamera = "hardware-and-camera"
         val ExternalLinkHosts = setOf("github.com", "poi890poi.github.io")
@@ -760,6 +763,7 @@ class MainActivity : ComponentActivity() {
             return when (requested) {
                 SwitchInputOff,
                 SwitchInputHardware,
+                SwitchInputVolume,
                 SwitchInputCameraLongBlink,
                 SwitchInputHardwareAndCamera -> requested
                 else -> {
@@ -776,7 +780,12 @@ class MainActivity : ComponentActivity() {
         }
 
         fun hardwareEnabledForProfile(profile: String): Boolean =
-            profile == SwitchInputHardware || profile == SwitchInputHardwareAndCamera
+            profile == SwitchInputHardware ||
+                profile == SwitchInputVolume ||
+                profile == SwitchInputHardwareAndCamera
+
+        fun volumeEnabledForProfile(profile: String): Boolean =
+            profile == SwitchInputVolume
 
         fun cameraEnabledForProfile(profile: String): Boolean =
             profile == SwitchInputCameraLongBlink || profile == SwitchInputHardwareAndCamera
@@ -786,8 +795,11 @@ class MainActivity : ComponentActivity() {
 internal fun webTextZoomPercent(fontScale: Float): Int =
     (fontScale * 100f).roundToInt().coerceIn(50, 200)
 
-internal fun hardwareActivationSource(keyCode: Int): String? = when (keyCode) {
+internal fun hardwareActivationSource(keyCode: Int, volumeButtonsEnabled: Boolean = false): String? = when (keyCode) {
+    KeyEvent.KEYCODE_VOLUME_UP -> if (volumeButtonsEnabled) "android-volume-up" else null
+    KeyEvent.KEYCODE_VOLUME_DOWN -> if (volumeButtonsEnabled) "android-volume-down" else null
     KeyEvent.KEYCODE_CAMERA -> "android-hardware-camera"
+    KeyEvent.KEYCODE_FOCUS -> "android-hardware-camera-focus"
     KeyEvent.KEYCODE_HEADSETHOOK -> "android-media-headset"
     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> "android-media-play-pause"
     KeyEvent.KEYCODE_MEDIA_PLAY -> "android-media-play"

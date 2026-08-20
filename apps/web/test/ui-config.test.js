@@ -5,7 +5,8 @@ import {
   currentUiConfigVersion,
   defaultUiConfig,
   moeBopomofoVoiceName,
-  normalizeUiConfig
+  normalizeUiConfig,
+  normalizeSwitchInputProfile
 } from "../src/ui-config.js";
 
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
@@ -29,6 +30,17 @@ test("an explicitly selected Android voice is preserved", () => {
     normalizeUiConfig({ speechVoiceName: "cmn-tw-x-ctc-local" }).speechVoiceName,
     "cmn-tw-x-ctc-local"
   );
+});
+
+test("the existing switch-input selector offers an explicit volume-key mode", () => {
+  assert.equal(defaultUiConfig.switchInputProfile, "hardware-buttons");
+  assert.equal(normalizeSwitchInputProfile("volume-buttons"), "volume-buttons");
+  assert.equal(
+    normalizeUiConfig({ switchInputProfile: "volume-buttons" }).hardwareButtons,
+    true
+  );
+  assert.match(appSource, /\["volume-buttons",\s*uiText\("Buttons — volume activates"/);
+  assert.doesNotMatch(appSource, /name="volumeButtons/);
 });
 
 test("the Web UI does not reserve native Android system insets a second time", () => {

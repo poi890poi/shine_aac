@@ -2691,7 +2691,8 @@ function scanModeOptionsHtml(selectedMode) {
 
 function switchInputProfileOptionsHtml(selectedProfile) {
   const options = [
-    ["hardware-buttons", uiText("Phone/external buttons", "手機／外接按鍵")],
+    ["hardware-buttons", uiText("Buttons — keep volume control", "按鍵—保留音量控制")],
+    ["volume-buttons", uiText("Buttons — volume activates", "按鍵—音量鍵啟動")],
     ["camera-long-blink", uiText("Camera long blink", "相機長眨眼")],
     ["hardware-and-camera", uiText("Buttons + camera", "按鍵＋相機")],
     ["off", uiText("Off", "關閉")]
@@ -3141,6 +3142,7 @@ function openAndroidSpeechSettings() {
 
 function hardwareInputEnabled(config = uiConfig) {
   return config.switchInputProfile === "hardware-buttons" ||
+    config.switchInputProfile === "volume-buttons" ||
     config.switchInputProfile === "hardware-and-camera";
 }
 

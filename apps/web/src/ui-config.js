@@ -66,7 +66,9 @@ export function normalizeUiConfig(config) {
     // lightweight Ministry of Education Bopomofo option.
     speechVoiceName,
     switchInputProfile: profile,
-    hardwareButtons: profile === "hardware-buttons" || profile === "hardware-and-camera",
+    hardwareButtons: profile === "hardware-buttons" ||
+      profile === "volume-buttons" ||
+      profile === "hardware-and-camera",
     cameraSwitch: profile === "camera-long-blink" || profile === "hardware-and-camera"
   };
   delete normalized.holdAfterSuggestionChange;
@@ -77,6 +79,7 @@ export function normalizeSwitchInputProfile(profile, config = {}) {
   if (
     profile === "off" ||
     profile === "hardware-buttons" ||
+    profile === "volume-buttons" ||
     profile === "camera-long-blink" ||
     profile === "hardware-and-camera"
   ) {
