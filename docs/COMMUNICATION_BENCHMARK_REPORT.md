@@ -1,6 +1,6 @@
 # Communication Benchmark Report
 
-Generated: 2026-08-20T07:05:10.985Z
+Generated: 2026-08-20T11:40:21.792Z
 
 These benchmarks are evaluation-only. They must not be used as special-case app logic.
 
@@ -25,14 +25,14 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Unit | Total | Average | Median | P90 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Estimated scan time | seconds | 4993.80 | 48.48 | 21.00 | 48.00 |
-| Output selections | selected tiles | 404 | 3.92 | 2.00 | 4.00 |
-| Switch activations | activations | 808 | 7.84 | 4.00 | 8.00 |
-| Scanner advances | row/cell advances | 2672 | 25.94 | 11.00 | 25.00 |
-| Activations per target concept | activations/concept | 808 / 152 | 5.32 |
-| Selections per target concept | selections/concept | 404 / 152 | 2.66 |
-| Activations per output character | activations/character | 808 / 390 | 2.07 |
-| Estimated time per output character | seconds/character | 4993.80 / 390 | 12.80 |
+| Estimated scan time | seconds | 4978.20 | 48.33 | 21.00 | 48.00 |
+| Output selections | selected tiles | 402 | 3.90 | 2.00 | 4.00 |
+| Switch activations | activations | 804 | 7.81 | 4.00 | 8.00 |
+| Scanner advances | row/cell advances | 2664 | 25.86 | 11.00 | 25.00 |
+| Activations per target concept | activations/concept | 804 / 152 | 5.29 |
+| Selections per target concept | selections/concept | 402 / 152 | 2.64 |
+| Activations per output character | activations/character | 804 / 390 | 2.06 |
+| Estimated time per output character | seconds/character | 4978.20 / 390 | 12.76 |
 | Direct zh-TW phrase commits | phrase commits | 17 | compression wins during benchmark composition |
 | Decomposed zh-TW phrase fallbacks | phrase fallbacks | 0 | phrases completed by composing component glyphs |
 | Least-cost optimized zh-TW tasks | tasks | 6 | expected-final-message tasks with generic path optimization |
@@ -41,16 +41,16 @@ These benchmarks are evaluation-only. They must not be used as special-case app 
 
 | Metric | Current | Target | Status |
 | --- | ---: | ---: | --- |
-| Average benchmark time | 48.48 sec | <= 15 sec | gap |
+| Average benchmark time | 48.33 sec | <= 15 sec | gap |
 | Median urgent phrase time | 6.00 sec across 19 marked tasks | <= 10 sec | meets |
-| Average switch activations | 7.84 | <= 6 | gap |
+| Average switch activations | 7.81 | <= 6 | gap |
 | Median switch activations | 4.00 | <= 4 | meets |
 
 ## Selected Action Counts
 
 | Tile Action | Count |
 | --- | ---: |
-| append | 303 |
+| append | 301 |
 | close-category | 2 |
 | commit-candidate | 40 |
 | more-suggestions | 56 |
@@ -81,16 +81,16 @@ This comparison is evaluation-only. It searches dictionary-backed segmentations 
 
 Frozen baseline: Accepted profile-independent English input baseline (2026-08-20T07:03:57.983Z).
 
-Regression gates: PASS. Measured improvement over baseline: NO.
+Regression gates: PASS. Measured improvement over baseline: YES.
 
 The gates require aggregate motor effort and scan time, P90 effort and time, and every established communication-function group to remain stable or improve. One task may use at most one additional `更多` selection. This prevents a lower raw paging count from hiding slower or less equitable communication paths.
 
 | Metric | Baseline | Current | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Selections | 404 | 404 | 0 | 0.00% |
-| Switch activations | 808 | 808 | 0 | 0.00% |
-| Scanner advances | 2672 | 2672 | 0 | 0.00% |
-| Estimated scan time sec | 4993.80 | 4993.80 | 0 | 0.00% |
+| Selections | 404 | 402 | -2 | -0.50% |
+| Switch activations | 808 | 804 | -4 | -0.50% |
+| Scanner advances | 2672 | 2664 | -8 | -0.30% |
+| Estimated scan time sec | 4993.80 | 4978.20 | -15.60 | -0.31% |
 | 更多 selections | 56 | 56 | 0 | 0.00% |
 | P90 switch activations | 8 | 8 | 0 | 0.00% |
 | P90 scan time sec | 48 | 48 | 0 | 0.00% |
@@ -100,13 +100,13 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 | schema | PASS | baseline=1, candidate=1 |
 | task-set | PASS | missing=0, unexpected=0, duplicate baseline=0, duplicate candidate=0, changes allowed=false |
 | reachability | PASS | unreachable=0 |
-| total-switches | PASS | baseline=808, candidate=808 |
-| total-scan-time | PASS | baseline=4993800, candidate=4993800 |
+| total-switches | PASS | baseline=808, candidate=804 |
+| total-scan-time | PASS | baseline=4993800, candidate=4978200 |
 | p90-switches | PASS | baseline=8, candidate=8 |
 | p90-scan-time | PASS | baseline=48000, candidate=48000 |
 | bounded-task-paging | PASS | max additional pages=0 |
-| group-universal-core-switches | PASS | baseline=148, candidate=148 |
-| group-universal-core-scan-time | PASS | baseline=877200, candidate=877200 |
+| group-universal-core-switches | PASS | baseline=148, candidate=146 |
+| group-universal-core-scan-time | PASS | baseline=877200, candidate=869400 |
 | group-daily-needs-switches | PASS | baseline=24, candidate=24 |
 | group-daily-needs-scan-time | PASS | baseline=73200, candidate=73200 |
 | group-body-comfort-switches | PASS | baseline=24, candidate=24 |
@@ -119,8 +119,8 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 | group-positioning-scan-time | PASS | baseline=140400, candidate=140400 |
 | group-people-social-switches | PASS | baseline=22, candidate=22 |
 | group-people-social-scan-time | PASS | baseline=100200, candidate=100200 |
-| group-preference-switches | PASS | baseline=22, candidate=22 |
-| group-preference-scan-time | PASS | baseline=111000, candidate=111000 |
+| group-preference-switches | PASS | baseline=22, candidate=20 |
+| group-preference-scan-time | PASS | baseline=111000, candidate=103200 |
 | group-conversation-repair-switches | PASS | baseline=46, candidate=46 |
 | group-conversation-repair-scan-time | PASS | baseline=210000, candidate=210000 |
 | group-regression-switches | PASS | baseline=6, candidate=6 |
@@ -128,20 +128,21 @@ The gates require aggregate motor effort and scan time, P90 effort and time, and
 
 | Communication Function | Baseline Activations | Current Activations | Baseline Time Sec | Current Time Sec | Status |
 | --- | ---: | ---: | ---: | ---: | --- |
-| universal-core | 148 | 148 | 877.20 | 877.20 | PASS |
+| universal-core | 148 | 146 | 877.20 | 869.40 | PASS |
 | daily-needs | 24 | 24 | 73.20 | 73.20 | PASS |
 | body-comfort | 24 | 24 | 111.60 | 111.60 | PASS |
 | refusal-control | 26 | 26 | 133.20 | 133.20 | PASS |
 | care-health | 18 | 18 | 69.00 | 69.00 | PASS |
 | positioning | 32 | 32 | 140.40 | 140.40 | PASS |
 | people-social | 22 | 22 | 100.20 | 100.20 | PASS |
-| preference | 22 | 22 | 111.00 | 111.00 | PASS |
+| preference | 22 | 20 | 111.00 | 103.20 | PASS |
 | conversation-repair | 46 | 46 | 210.00 | 210.00 | PASS |
 | regression | 6 | 6 | 29.40 | 29.40 | PASS |
 
 | Changed Task | Classification | Activation Difference | Time Difference Sec | 更多 Difference |
 | --- | --- | ---: | ---: | ---: |
-| None | unchanged | 0 | 0 | 0 |
+| project-core-word-like | improved | -2 | -7.80 | 0 |
+| project-core-like | improved | -2 | -7.80 | 0 |
 
 ## Read This Correctly
 
@@ -195,18 +196,18 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 
 ## Result Stats
 
-- Total estimated scan time across passing tasks: 4993.80 seconds
-- Average estimated scan time per passing task: 48.48 seconds
-- Total selections across passing tasks: 404
-- Average selections per passing task: 3.92
-- Total switch activations across passing tasks: 808
-- Average switch activations per passing task: 7.84
-- Total scan advances across passing tasks: 2672
-- Average scan advances per passing task: 25.94
+- Total estimated scan time across passing tasks: 4978.20 seconds
+- Average estimated scan time per passing task: 48.33 seconds
+- Total selections across passing tasks: 402
+- Average selections per passing task: 3.90
+- Total switch activations across passing tasks: 804
+- Average switch activations per passing task: 7.81
+- Total scan advances across passing tasks: 2664
+- Average scan advances per passing task: 25.86
 - Total target concepts across passing tasks: 152
 - Total output characters across passing tasks: 390
-- Activations per target concept: 5.32
-- Activations per output character: 2.07
+- Activations per target concept: 5.29
+- Activations per output character: 2.06
 - Direct zh-TW phrase commits during benchmark composition: 17
 - Decomposed zh-TW phrase fallbacks during benchmark composition: 0
 
@@ -295,7 +296,7 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | project-core-word-i | Project Core Universal Core Vocabulary | I | 12.60 | 1 | 2 | 7 | append:1 | selections<=2 | PASS |
 | project-core-word-in | Project Core Universal Core Vocabulary | in | 1.80 | 1 | 2 | 1 | append:1 | selections<=3 | PASS |
 | project-core-word-it | Project Core Universal Core Vocabulary | it | 25.80 | 2 | 4 | 14 | append:2 | selections<=3 | PASS |
-| project-core-word-like | Project Core Universal Core Vocabulary | like | 21.00 | 2 | 4 | 11 | append:2 | selections<=5 | PASS |
+| project-core-word-like | Project Core Universal Core Vocabulary | like | 13.20 | 1 | 2 | 7 | append:1 | selections<=5 | PASS |
 | project-core-word-look | Project Core Universal Core Vocabulary | look | 9.00 | 1 | 2 | 5 | append:1 | selections<=5 | PASS |
 | project-core-word-make | Project Core Universal Core Vocabulary | make | 26.40 | 2 | 4 | 14 | append:2 | selections<=5 | PASS |
 | project-core-word-more | Project Core Universal Core Vocabulary | more | 22.80 | 2 | 4 | 12 | append:2 | selections<=5 | PASS |
@@ -378,7 +379,7 @@ More high-quality data should be added as new Tier A or clinician/caregiver-revi
 | zhtw-phonetic-home-audio-repair | SHINE zh-TW phonetic core regression | 音量 小 從 剛剛 那裡 | 349.80 | 24 | 48 | 188 | append:19, commit-candidate:5 | selections<=28 | PASS |
 | zhtw-phonetic-home-feeling | SHINE zh-TW phonetic core regression | 今天 比較 累 但是 心情 好 想 聽 你 講 這樣 很 舒服 謝謝 | 896.40 | 63 | 126 | 485 | append:50, commit-candidate:13 | selections<=70 | PASS |
 | project-core-go | Project Core Universal Core Vocabulary | go | 9.60 | 1 | 2 | 5 | append:1 | selections<=1 | PASS |
-| project-core-like | Project Core Universal Core Vocabulary | like | 21.00 | 2 | 4 | 11 | append:2 | selections<=2 | PASS |
+| project-core-like | Project Core Universal Core Vocabulary | like | 13.20 | 1 | 2 | 7 | append:1 | selections<=2 | PASS |
 | project-core-refuse-drink | Project Core Universal Core Vocabulary | no drink | 60.00 | 5 | 10 | 32 | append:5 | selections<=6 | PASS |
 | asha-wants-needs-help | ASHA AAC Practice Portal | help | 7.80 | 1 | 2 | 4 | append:1 | selections<=3 | PASS |
 | asha-feelings-sick | ASHA AAC Practice Portal | sick | 52.20 | 4 | 8 | 28 | append:4 | selections<=4 | PASS |

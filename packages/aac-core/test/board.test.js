@@ -10,6 +10,7 @@ import {
   DefaultTransitionPauseMs,
   LanguageProfiles,
   LegacyAlphabetDefaultTiles,
+  LegacyDefaultTilesV32,
   LegacyFirstCellPauseMsV6,
   LegacyFrequencyDefaultTilesV3,
   LegacySuggestionDictionaryV6,
@@ -134,6 +135,17 @@ test("default tiles include the full alphabet", () => {
     assert.equal(labels.has(letter), true, `missing ${letter}`);
   }
   assert.equal(DefaultTiles.filter((candidate) => candidate.label === "I").length, 1);
+  assert.equal(DefaultTiles.some((candidate) => candidate.label === "LIKE"), true);
+  assert.equal(DefaultTiles.some((candidate) => candidate.label === "?"), true);
+});
+
+test("English fills its two spare cells with question mark and relocated clear", () => {
+  const rows = boardRows(createBoardConfig({ profileId: "en-US" }), "", false, {});
+
+  assert.deepEqual(rows[5].map((candidate) => candidate.label), ["LOOK", "SAY", "LIKE", "SPC"]);
+  assert.deepEqual(rows.at(-2).map((candidate) => candidate.label), ["V", "K", "X", "?"]);
+  assert.deepEqual(rows.at(-1).map((candidate) => candidate.label), ["J", "Q", "Z", "CLR"]);
+  assert.equal(rows.every((row) => row.length === 4), true);
 });
 
 test("default spelling letters keep the complete common English frequency order without duplicating I", () => {
@@ -156,7 +168,7 @@ test("legacy default layouts migrate to current frequency order", () => {
 });
 
 test("version 27 default English layout migrates away from its duplicate I key", () => {
-  const legacyDefault = [...DefaultTiles];
+  const legacyDefault = [...LegacyDefaultTilesV32];
   const iIndex = legacyDefault.findIndex((candidate) => candidate.label === "I");
   legacyDefault[iIndex] = tile("I", "i");
   const youIndex = legacyDefault.findIndex((candidate) => candidate.label === "YOU");
@@ -169,7 +181,7 @@ test("version 27 default English layout migrates away from its duplicate I key",
 });
 
 test("version 28 default English layout moves its single I key into the alphabet", () => {
-  const legacyDefault = DefaultTiles.filter((candidate) => candidate.label !== "I");
+  const legacyDefault = LegacyDefaultTilesV32.filter((candidate) => candidate.label !== "I");
   const youIndex = legacyDefault.findIndex((candidate) => candidate.label === "YOU");
   legacyDefault.splice(youIndex, 0, tile("I", "I"));
 
@@ -181,8 +193,15 @@ test("version 28 default English layout moves its single I key into the alphabet
   assert.equal(migrated.slice(spellingStart, spellingStart + 5).at(-1).label, "I");
 });
 
+test("version 32 built-in English layout fills its spare cells while custom layouts remain unchanged", () => {
+  const serialized = serializeSymbols(LegacyDefaultTilesV32);
+
+  assert.deepEqual(loadProfileSymbolsForConfig(serialized, 32, "en-US"), DefaultTiles);
+  assert.deepEqual(loadProfileSymbolsForConfig(serialized, CurrentConfigVersion, "en-US"), LegacyDefaultTilesV32);
+});
+
 test("built-in layouts migrate away from visible backspace while custom backspace remains supported", () => {
-  const englishV21 = [...DefaultTiles];
+  const englishV21 = [...LegacyDefaultTilesV32];
   const iIndex = englishV21.findIndex((candidate) => candidate.label === "I");
   englishV21[iIndex] = tile("I", "i");
   const youIndex = englishV21.findIndex((candidate) => candidate.label === "YOU");
@@ -861,6 +880,16 @@ test("English profile remains the default and auto-spaces words", () => {
   assert.equal(config.profileId, "en-US");
   assert.equal(updateMessage("", tile("YES", "yes"), config), "yes ");
   assert.equal(updateMessage("yes ", tile("WATER", "water"), config), "yes water ");
+});
+
+test("English question mark closes the preceding word without adding a stray space", () => {
+  const config = createBoardConfig({ profileId: "en-US" });
+  const questionMark = DefaultTiles.find((candidate) => candidate.label === "?");
+
+  assert.equal(updateMessage("help ", questionMark, config), "help? ");
+  assert.equal(updateMessage("help", questionMark, config), "help? ");
+  assert.equal(updateMessage("help? ", questionMark, config), "help? ");
+  assert.equal(updateMessage("", questionMark, config), "? ");
 });
 
 test("the single I key is a pronoun at a boundary and a spelling letter inside a word", () => {

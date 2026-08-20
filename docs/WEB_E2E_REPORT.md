@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-20T10:49:19.102Z
+Generated: 2026-08-20T11:48:01.453Z
 
 Result: PASS
 
@@ -12,11 +12,12 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":51.69999998807907,"resetTargetToProgressMs":23.30000001192093,"rowDeadlineDriftMs":-17.099999988079162,"nextRowTargetToProgressMs":33.89999997615814,"activationToTargetMs":1.2000000476837158,"activationTargetToProgressMs":29.299999952316284,"firstDeadlineDriftMs":-16.399999976158142,"secondTargetToProgressMs":17.600000023841858,"laterDeadlineDriftMs":-16.900000035762787,"thirdTargetToProgressMs":33.19999998807907,"selectionToHoldMs":3.899999976158142,"holdReleaseToTargetMs":1,"selectionTargetToProgressMs":25.900000035762787} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.10000002384186,"resetTargetToProgressMs":20.899999976158142,"rowDeadlineDriftMs":-19.399999976158142,"nextRowTargetToProgressMs":19.30000001192093,"activationToTargetMs":1.2000000476837158,"activationTargetToProgressMs":15.799999952316284,"firstDeadlineDriftMs":-15.799999952316284,"secondTargetToProgressMs":33.59999996423721,"laterDeadlineDriftMs":-22.80000001192093,"thirdTargetToProgressMs":22.400000035762787,"selectionToHoldMs":4.800000011920929,"holdReleaseToTargetMs":1,"selectionTargetToProgressMs":23.5} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
+| english-filled-rows | PASS | filled both spare cells, kept ? at the bottom, and moved CLR to the matching final position |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
 | undo-correction | PASS | undid WATER and selected FOOD |
 | text-history | PASS | updated one live history line through composition, undo, and correction |
@@ -54,7 +55,7 @@ Result: PASS
 | function-label-default-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
 | function-label-default-larger-display | PASS | 4 function keys share word-key metrics; rendered 18-18px with a 20px normal-board floor |
 | function-label-default-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |
-| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 30.7-30.7px with a 20px normal-board floor |
+| function-label-200pct-default | PASS | 4 function keys share word-key metrics; rendered 31.5-31.5px with a 20px normal-board floor |
 | function-label-200pct-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |
 | function-label-200pct-larger-display | PASS | 4 function keys share word-key metrics; rendered 21.9-21.9px with a 20px normal-board floor |
 | function-label-200pct-larger-display-viewport | PASS | fits 13 rows in 694px viewport without scrolling |

@@ -165,11 +165,16 @@ test("drink is available through neutral AOSP prefix completion", () => {
   assert.equal(session.message, "drink ");
 });
 
-test("question mark no longer consumes a singleton row in the default board", () => {
-  const rows = visibleBoard(createSession());
+test("question mark and relocated clear fill the final English rows", () => {
+  let session = createSession();
+  const rows = visibleBoard(session);
 
-  assert.equal(rows.at(-1).length, 3);
-  assert.equal(rows.flat().some((candidate) => candidate.label === "?"), false);
+  assert.deepEqual(rows.at(-2).map((candidate) => candidate.label), ["V", "K", "X", "?"]);
+  assert.deepEqual(rows.at(-1).map((candidate) => candidate.label), ["J", "Q", "Z", "CLR"]);
+
+  session = selectLabel(session, "HELP", { occurrence: "last" });
+  session = selectLabel(session, "?", { occurrence: "last" });
+  assert.equal(session.message, "help? ");
 });
 
 test("early symbol activation compensates to the previous symbol in the selected row", () => {

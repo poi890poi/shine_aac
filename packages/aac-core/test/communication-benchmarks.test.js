@@ -9,12 +9,14 @@ import {
 import {
   benchmarkLimitFailures,
   compareBenchmarkSnapshots,
+  composeToken,
   createBenchmarkSnapshot,
   evaluateBenchmark,
   normalizeText,
   optimizeZhTwText
 } from "./communication-benchmark-runner.js";
 import {
+  LegacyDefaultTilesV32,
   ScanMode,
   createBoardConfig,
   createSession
@@ -116,6 +118,22 @@ test("communication benchmark runner can evaluate block mode independently", () 
   assert.equal(result.metrics.switches, 3);
 });
 
+test("direct LIKE tile reduces core scan cost compared with the version 32 layout", () => {
+  const previous = composeToken(createSession({
+    config: createBoardConfig({ profileId: "en-US", symbols: LegacyDefaultTilesV32 })
+  }), "like");
+  const current = composeToken(createSession({
+    config: createBoardConfig({ profileId: "en-US" })
+  }), "like");
+
+  assert.equal(previous.session.message, "like ");
+  assert.equal(current.session.message, "like ");
+  assert.equal(current.metrics.selections, 1);
+  assert.ok(current.metrics.selections < previous.metrics.selections);
+  assert.ok(current.metrics.advances < previous.metrics.advances);
+  assert.ok(current.metrics.estimatedTimeMs < previous.metrics.estimatedTimeMs);
+});
+
 test("English keeps its independently optimized four-column, four-block configuration", () => {
   const englishBenchmarks = CommunicationBenchmarks.filter(
     (benchmark) => (benchmark.profileId ?? "en-US") === "en-US"
@@ -143,9 +161,9 @@ test("English keeps its independently optimized four-column, four-block configur
 
   assert.deepEqual(fourColumnFourBlock, {
     blockCount: 4,
-    advances: 305,
-    switches: 273,
-    estimatedTimeMs: 620400
+    advances: 301,
+    switches: 267,
+    estimatedTimeMs: 610800
   });
   assert.equal(
     fourColumnCandidates.every((candidate) =>
@@ -154,9 +172,9 @@ test("English keeps its independently optimized four-column, four-block configur
     true
   );
   assert.deepEqual(sixColumnFourBlock, {
-    advances: 360,
-    switches: 273,
-    estimatedTimeMs: 715800
+    advances: 347,
+    switches: 267,
+    estimatedTimeMs: 696000
   });
 });
 

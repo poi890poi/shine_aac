@@ -93,7 +93,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 32;
+export const CurrentConfigVersion = 33;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -378,7 +378,7 @@ const LegacyDefaultTilesV28 = Object.freeze(
     !(candidate.label === "I" && candidate.output === "i" && candidate.action === TileAction.Append)
   )
 );
-export const DefaultTiles = Object.freeze(
+export const LegacyDefaultTilesV32 = Object.freeze(
   LegacyDefaultTilesV27
     .filter((candidate) =>
       !(candidate.label === "I" && candidate.output === "I" && candidate.action === TileAction.Append)
@@ -389,6 +389,16 @@ export const DefaultTiles = Object.freeze(
         : candidate
     )
 );
+export const DefaultTiles = Object.freeze([
+  ...LegacyDefaultTilesV32.flatMap((candidate) => {
+    if (candidate.action === TileAction.Clear) return [tile("LIKE", "like")];
+    if (candidate.label === "X" && candidate.output === "x") {
+      return [candidate, tile("?", "?")];
+    }
+    return [candidate];
+  }),
+  tile("CLR", "CLR", TileAction.Clear)
+]);
 export const EnglishInputColumns = DefaultColumns;
 export const EnglishInputTiles = DefaultTiles;
 const RecommendedScanBlockCounts = Object.freeze({
@@ -1101,7 +1111,8 @@ function migrateSymbolsForConfig(parsedSymbols, storedVersion, profileId = Defau
       sameTiles(parsedSymbols, LegacyFrequencyDefaultTilesV3) ||
       sameTiles(parsedSymbols, DefaultTilesWithBackspaceV21) ||
       sameTiles(parsedSymbols, LegacyDefaultTilesV27) ||
-      sameTiles(parsedSymbols, LegacyDefaultTilesV28)
+      sameTiles(parsedSymbols, LegacyDefaultTilesV28) ||
+      sameTiles(parsedSymbols, LegacyDefaultTilesV32)
     )
   ) {
     return DefaultTiles;
@@ -3332,6 +3343,12 @@ export function updateMessage(current, selectedTile, options = {}) {
 export function appendToken(current, selectedTile, options = {}) {
   const token = selectedTile.output;
   if (options.autoSpace === AutoSpaceMode.None) return current + token;
+
+  if (token === "?") {
+    const withoutTrailingSpace = current.trimEnd();
+    if (withoutTrailingSpace.endsWith("?")) return `${withoutTrailingSpace} `;
+    return `${withoutTrailingSpace}? `;
+  }
 
   const isSharedPronounAndLetter = token === "I" && selectedTile.label === "I";
   if (isSharedPronounAndLetter && /[A-Za-z']$/u.test(current)) {

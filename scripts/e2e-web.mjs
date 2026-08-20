@@ -197,6 +197,7 @@ try {
   await scenarioFirstColumnProgressTiming();
   await scenarioCameraHoldPausesScan();
   await scenarioCameraHoldActivationIsImmediate();
+  await scenarioEnglishFilledRows();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioHistoryUpgradeMigration();
@@ -2147,6 +2148,33 @@ async function scenarioAutoScanMorePages() {
     "auto-scan-more-pages",
     "opt-in More navigation scans each four-row suggestion page as one target and confirms the visible page"
   ));
+}
+
+async function scenarioEnglishFilledRows() {
+  await assertMessage("");
+  const snapshot = await getSnapshot();
+  const labels = (row) => row.map((tile) => tile.label);
+
+  if (
+    JSON.stringify(labels(snapshot.rows[5] ?? [])) !== JSON.stringify(["LOOK", "SAY", "LIKE", "SPC"]) ||
+    JSON.stringify(labels(snapshot.rows.at(-2) ?? [])) !== JSON.stringify(["V", "K", "X", "?"]) ||
+    JSON.stringify(labels(snapshot.rows.at(-1) ?? [])) !== JSON.stringify(["J", "Q", "Z", "CLR"])
+  ) {
+    throw new Error(`English spare-cell layout is incorrect: ${JSON.stringify(snapshot.rows.map(labels))}`);
+  }
+
+  await selectLabel("HELP", { occurrence: "last" });
+  await selectLabel("?", { occurrence: "last" });
+  await assertMessage("help? ");
+  await selectLabel("CLR", { occurrence: "last" });
+  await assertMessage("");
+  steps.push(pass("english-filled-rows", "filled both spare cells, kept ? at the bottom, and moved CLR to the matching final position"));
+  await evaluate(`
+    localStorage.removeItem("shine-aac-text-history-v1");
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
 }
 
 async function scenarioDeferredZhuyinFirstPass() {
