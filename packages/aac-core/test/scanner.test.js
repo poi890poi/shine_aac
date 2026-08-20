@@ -10,7 +10,8 @@ import {
   scanAccessCost,
   scanDurationForStage,
   scanRecognitionLoad,
-  scanRowBlocks
+  scanRowBlocks,
+  scanSelectableCellIndices
 } from "../src/index.js";
 
 const rowSizes = [6, 4, 5];
@@ -261,6 +262,152 @@ test("early cell activation selects the previous cell", () => {
   assert.equal(confirmation.type, "selected");
   assert.equal(confirmation.rowIndex, 1);
   assert.equal(confirmation.cellIndex, 1);
+});
+
+test("filtered scan positions keep stable visual cell indices and restore every cell on pass two", () => {
+  const sizes = [5];
+  const indicesForPass = (_rowIndex, passIndex) => passIndex === 1 ? [0, 2, 4] : [0, 1, 2, 3, 4];
+  let state = advanceScanner(
+    createScannerState({ stage: ScanStage.RowSelected }),
+    1,
+    (row) => sizes[row],
+    2,
+    ScanMode.RowColumn,
+    4,
+    indicesForPass
+  );
+  assert.equal(state.stage, ScanStage.FirstCell);
+  assert.equal(state.cellIndex, 0);
+
+  state = advanceScanner(state, 1, (row) => sizes[row], 2, ScanMode.RowColumn, 4, indicesForPass);
+  assert.equal(state.cellIndex, 2);
+  state = advanceScanner(state, 1, (row) => sizes[row], 2, ScanMode.RowColumn, 4, indicesForPass);
+  assert.equal(state.cellIndex, 4);
+  state = advanceScanner(state, 1, (row) => sizes[row], 2, ScanMode.RowColumn, 4, indicesForPass);
+
+  assert.equal(state.stage, ScanStage.FirstCell);
+  assert.equal(state.passIndex, 2);
+  assert.equal(state.cellIndex, 0);
+  state = advanceScanner(state, 1, (row) => sizes[row], 2, ScanMode.RowColumn, 4, indicesForPass);
+  assert.equal(state.cellIndex, 1);
+});
+
+test("latency compensation follows the previous filtered visual cell", () => {
+  const indicesForPass = () => [0, 2, 4];
+  const confirmation = confirmWithLatencyCompensation(
+    createScannerState({ stage: ScanStage.Cells, rowIndex: 0, cellIndex: 4 }),
+    1,
+    () => 5,
+    100,
+    250,
+    ScanMode.RowColumn,
+    4,
+    indicesForPass
+  );
+
+  assert.equal(confirmation.type, "selected");
+  assert.equal(confirmation.cellIndex, 2);
+});
+
+test("first-cell confirmation selects the mapped visual cell rather than physical column zero", () => {
+  const confirmation = confirmScanner(
+    createScannerState({ stage: ScanStage.FirstCell, rowIndex: 0, cellIndex: 2 }),
+    1,
+    () => 5,
+    ScanMode.RowColumn,
+    4,
+    () => [2, 4]
+  );
+
+  assert.equal(confirmation.type, "selected");
+  assert.equal(confirmation.cellIndex, 2);
+});
+
+test("continuous filtered scanning opens the full projection on its second cycle", () => {
+  const indicesForPass = (_rowIndex, passIndex) => passIndex === 1 ? [1] : [0, 1, 2];
+  let state = createScannerState({ stage: ScanStage.FirstCell, cellIndex: 1 });
+  state = advanceScanner(state, 1, () => 3, 0, ScanMode.RowColumn, 4, indicesForPass);
+
+  assert.equal(state.stage, ScanStage.FirstCell);
+  assert.equal(state.passIndex, 2);
+  assert.equal(state.cellIndex, 0);
+});
+
+test("one-pass scan projections fail open instead of hiding deferred cells", () => {
+  const row = [
+    { action: "append", scanDeferred: true },
+    { action: "append" },
+    { action: "append", scanDeferred: true }
+  ];
+
+  assert.deepEqual(scanSelectableCellIndices(row, 1, 2), [1]);
+  assert.deepEqual(scanSelectableCellIndices(row, 2, 2), [0, 1, 2]);
+  assert.deepEqual(scanSelectableCellIndices(row, 1, 1), [0, 1, 2]);
+});
+
+test("first-pass row scanning skips rows whose targets are all deferred", () => {
+  const indicesForPass = (rowIndex, passIndex) => {
+    if (passIndex > 1) return [0];
+    return rowIndex === 1 ? [] : [0];
+  };
+  const state = advanceScanner(
+    createScannerState({ stage: ScanStage.Rows, rowIndex: 0 }),
+    3,
+    () => 1,
+    2,
+    ScanMode.RowColumn,
+    4,
+    indicesForPass
+  );
+
+  assert.equal(state.rowIndex, 2);
+  assert.equal(state.passIndex, 1);
+});
+
+test("a row available only on pass two keeps its full cell projection after confirmation", () => {
+  const indicesForPass = (_rowIndex, passIndex) => passIndex === 1 ? [] : [0, 2];
+  const confirmation = confirmScanner(
+    createScannerState({ stage: ScanStage.Rows, rowIndex: 0, passIndex: 2 }),
+    1,
+    () => 3,
+    ScanMode.RowColumn,
+    4,
+    indicesForPass
+  );
+
+  assert.equal(confirmation.nextState.stage, ScanStage.RowSelected);
+  assert.equal(confirmation.nextState.passIndex, 2);
+  const firstCell = advanceScanner(
+    confirmation.nextState,
+    1,
+    () => 3,
+    2,
+    ScanMode.RowColumn,
+    4,
+    indicesForPass
+  );
+  assert.equal(firstCell.stage, ScanStage.FirstCell);
+  assert.equal(firstCell.passIndex, 2);
+  assert.equal(firstCell.cellIndex, 0);
+});
+
+test("block scanning ignores a block with no first-pass targets", () => {
+  const indicesForPass = (rowIndex, passIndex) => {
+    if (passIndex > 1) return [0];
+    return rowIndex >= 2 && rowIndex <= 3 ? [] : [0];
+  };
+  const state = advanceScanner(
+    createScannerState({ scanMode: ScanMode.BlockRowColumn, stage: ScanStage.Blocks, blockIndex: 0 }),
+    6,
+    () => 1,
+    2,
+    ScanMode.BlockRowColumn,
+    3,
+    indicesForPass
+  );
+
+  assert.equal(state.blockIndex, 2);
+  assert.equal(state.passIndex, 1);
 });
 
 test("row scanning skips empty rows", () => {

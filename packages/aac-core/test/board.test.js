@@ -41,7 +41,8 @@ import {
   suggestTiles,
   suggestionRow,
   tile,
-  updateMessage
+  updateMessage,
+  zhTwSupportsGlyphReadingPrefix
 } from "../src/index.js";
 import {
   EnUsFrequencyEntries,
@@ -751,6 +752,71 @@ test("default scanning gives first targets extra time", () => {
   assert.equal(config.firstCellPauseMs > config.scanIntervalMs, true);
   assert.equal(config.autoScanSuggestionPages, false);
   assert.equal(createBoardConfig({ autoScanSuggestionPages: true }).autoScanSuggestionPages, true);
+  assert.equal(config.deferUnsupportedZhuyinOnFirstPass, false);
+  assert.equal(
+    createBoardConfig({ deferUnsupportedZhuyinOnFirstPass: true })
+      .deferUnsupportedZhuyinOnFirstPass,
+    true
+  );
+});
+
+test("zh-TW first-pass metadata defers unsupported glyph continuations without hiding them", () => {
+  const config = createBoardConfig({
+    profileId: "zh-TW",
+    deferUnsupportedZhuyinOnFirstPass: true
+  });
+  const afterF = boardRows(config, "ㄈ", true, {}).flat();
+  const afterB = boardRows(config, "ㄅ", true, {}).flat();
+  const afterH = boardRows(config, "ㄏ", true, {}).flat();
+
+  assert.equal(findActionTile(afterF, "ㄩ", TileAction.Append).scanDeferred, true);
+  assert.notEqual(findActionTile(afterF, "ㄨ", TileAction.Append).scanDeferred, true);
+  assert.equal(findActionTile(afterB, "ㄉ", TileAction.Append).scanDeferred, true);
+  assert.equal(findActionTile(afterH, "ㄕ", TileAction.Append).scanDeferred, true);
+  assert.equal(afterF.some((candidate) =>
+    candidate.action !== TileAction.Append && candidate.scanDeferred === true
+  ), false);
+});
+
+test("zh-TW first-pass deferral fails open for an unknown current buffer", () => {
+  const rows = boardRows(createBoardConfig({
+    profileId: "zh-TW",
+    deferUnsupportedZhuyinOnFirstPass: true
+  }), "ㄌㄙ", true, {}).flat();
+
+  assert.equal(rows.some((candidate) => candidate.scanDeferred === true), false);
+});
+
+test("every source-backed single-glyph reading is accepted by the first-pass prefix index", () => {
+  for (const entry of ZhTwFrequencyDictionary) {
+    const characters = Array.from(entry.label);
+    if (characters.length !== 1 || !/^\p{Script=Han}$/u.test(characters[0])) continue;
+    for (const key of entry.keys ?? [entry.key]) {
+      for (let length = 1; length <= key.length; length += 1) {
+        assert.equal(
+          zhTwSupportsGlyphReadingPrefix(key.slice(0, length)),
+          true,
+          `${entry.label} should retain source reading prefix ${key.slice(0, length)}`
+        );
+      }
+    }
+  }
+});
+
+test("zh-TW deferral reduces first-pass core targets while retaining the full second pass", () => {
+  const rows = boardRows(createBoardConfig({
+    profileId: "zh-TW",
+    deferUnsupportedZhuyinOnFirstPass: true
+  }), "ㄈ", true, {});
+  const symbols = rows.flat().filter((candidate) =>
+    candidate.action === TileAction.Append && ZhuyinInputSymbols.includes(candidate.output)
+  );
+  const firstPassCount = symbols.filter((candidate) => candidate.scanDeferred !== true).length;
+
+  assert.equal(symbols.length, ZhuyinInputSymbols.length);
+  assert.ok(firstPassCount > 0);
+  assert.ok(firstPassCount < symbols.length);
+  assert.equal(symbols.length - firstPassCount, symbols.filter((candidate) => candidate.scanDeferred).length);
 });
 
 test("scan timing presets are named bundles over normal timing fields", () => {

@@ -213,6 +213,7 @@ try {
   await scenarioLongEnglishSuggestionSpans();
   await scenarioZhTwLayoutMigration();
   await scenarioAutoScanMorePages();
+  await scenarioDeferredZhuyinFirstPass();
   await scenarioZhTwResetUsesPackagedDefaults();
   await scenarioFunctionLabelScaleMatrix();
   await scenarioZhTwLocaleConsistency();
@@ -2135,6 +2136,78 @@ async function scenarioAutoScanMorePages() {
   steps.push(pass(
     "auto-scan-more-pages",
     "opt-in More navigation scans each four-row suggestion page as one target and confirms the visible page"
+  ));
+}
+
+async function scenarioDeferredZhuyinFirstPass() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 32,
+      profileId: "zh-TW",
+      columns: 6,
+      scanMode: "row-column",
+      scanIntervalMs: 180,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 240,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 2,
+      autoScanSuggestionPages: false,
+      deferUnsupportedZhuyinOnFirstPass: true
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForLabels(["ㄈ", "ㄨ", "ㄩ", "清除"]);
+  await selectLabel("清除");
+  await assertMessage("");
+  await selectLabel("ㄈ");
+  await assertMessage("ㄈ");
+
+  const presentation = await evaluate(`
+    (() => {
+      const byLabel = (label) => [...document.querySelectorAll(".tile")]
+        .find((tile) => tile.dataset.label === label && tile.dataset.action === "append");
+      const deferred = byLabel("ㄩ");
+      const supported = byLabel("ㄨ");
+      return {
+        deferredClass: deferred?.classList.contains("scan-deferred") === true,
+        supportedClass: supported?.classList.contains("scan-deferred") === true,
+        borderStyle: deferred ? getComputedStyle(deferred).borderStyle : "",
+        progressBackground: deferred
+          ? getComputedStyle(deferred.querySelector(".progress-fill")).backgroundColor
+          : "",
+        description: deferred?.getAttribute("aria-description") ?? ""
+      };
+    })()
+  `);
+  if (
+    !presentation.deferredClass ||
+    presentation.supportedClass ||
+    presentation.borderStyle !== "dashed" ||
+    presentation.progressBackground !== "rgba(0, 0, 0, 0)" ||
+    !presentation.description.includes("第二輪")
+  ) {
+    throw new Error(`Deferred Zhuyin styling is not clear and temporary: ${JSON.stringify(presentation)}`);
+  }
+
+  await selectLabel("ㄩ", { activationDelayMs: 30 });
+  await assertMessage("ㄈㄩ");
+  const failOpenCount = await evaluate(`document.querySelectorAll(".tile.scan-deferred").length`);
+  if (failOpenCount !== 0) {
+    throw new Error(`Invalid Zhuyin buffer should fail open, found ${failOpenCount} deferred cells`);
+  }
+  const persisted = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}").deferUnsupportedZhuyinOnFirstPass`);
+  if (persisted !== true) throw new Error("Zhuyin first-pass deferral option was not persisted");
+  steps.push(pass(
+    "deferred-zhuyin-first-pass",
+    "unsupported ㄈㄩ is visibly deferred on pass one, selectable on pass two, and invalid buffers fail open"
   ));
 }
 

@@ -220,6 +220,7 @@ function loadConfig() {
       scanMode: stored.scanMode ?? profileDefaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, profileDefaults.scanPassLimit),
       autoScanSuggestionPages: stored.autoScanSuggestionPages === true,
+      deferUnsupportedZhuyinOnFirstPass: stored.deferUnsupportedZhuyinOnFirstPass === true,
       suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
         stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
         storedVersion,
@@ -268,7 +269,8 @@ function loadNativeConfig(defaults) {
       ),
       scanMode: stored.scanMode ?? defaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, defaults.scanPassLimit),
-      autoScanSuggestionPages: stored.autoScanSuggestionPages === true
+      autoScanSuggestionPages: stored.autoScanSuggestionPages === true,
+      deferUnsupportedZhuyinOnFirstPass: stored.deferUnsupportedZhuyinOnFirstPass === true
     });
   } catch {
     return null;
@@ -287,6 +289,7 @@ function saveConfig(config) {
     scanMode: config.scanMode,
     scanPassLimit: config.scanPassLimit,
     autoScanSuggestionPages: config.autoScanSuggestionPages,
+    deferUnsupportedZhuyinOnFirstPass: config.deferUnsupportedZhuyinOnFirstPass,
     suggestionDictionary: serializeDictionary(config.suggestionDictionary),
     symbols: serializeSymbols(config.symbols)
   }));
@@ -1268,7 +1271,8 @@ function updateScanPresentation(board) {
   const previousProgressFills = currentProgressFills;
   const nextActiveTiles = activeRenderedTilesForScanner(scanner);
   const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
-  const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles])];
+  const deferredTiles = renderedTiles.filter((rendered) => rendered.candidate.scanDeferred === true);
+  const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles, ...deferredTiles])];
 
   for (const [rowIndex, rowElement] of renderedRows.entries()) {
     const stoppedRows = scanner.stage === ScanStage.Stopped && session.config.scanMode === ScanMode.BlockRowColumn
@@ -1287,6 +1291,7 @@ function updateScanPresentation(board) {
 
   for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
+    const deferredThisPass = candidate.scanDeferred === true && scanner.passIndex === 1;
     const activeBlock =
       (
         scanner.stage === ScanStage.Blocks ||
@@ -1306,6 +1311,14 @@ function updateScanPresentation(board) {
     const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold, cameraHold, activeBlock);
     if (rendered.element.className !== nextClassName) {
       rendered.element.className = nextClassName;
+    }
+    if (deferredThisPass) {
+      rendered.element.setAttribute(
+        "aria-description",
+        uiText("Available on the second scan pass", "第二輪掃描時可選")
+      );
+    } else {
+      rendered.element.removeAttribute("aria-description");
     }
   }
 
@@ -1415,7 +1428,8 @@ function boardSignature(board) {
         candidate.output,
         candidate.action,
         candidate.replaceLength ?? "",
-        candidate.columnSpan ?? 1
+        candidate.columnSpan ?? 1,
+        candidate.scanDeferred === true ? "deferred" : ""
       ].join("\u001f"))
       .join("\u001e"))
   ].join("\u001d");
@@ -1453,6 +1467,9 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   if (session.config.suggestionWrapLabels?.[candidate.label]) classes.push("wrapped-word");
   if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
   if (candidate.toneFallback === true) classes.push("tone-fallback");
+  if (candidate.scanDeferred === true && session.scannerState.passIndex === 1) {
+    classes.push("scan-deferred");
+  }
   if (activeBlock) classes.push("active-block", "is-current");
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");
@@ -1973,6 +1990,10 @@ function renderConfig() {
         ${uiText("Auto-scan More pages", "自動掃描「更多」頁面")}
       </label>
       <label class="field check-field">
+        <input name="deferUnsupportedZhuyinOnFirstPass" type="checkbox" ${session.config.deferUnsupportedZhuyinOnFirstPass ? "checked" : ""}>
+        ${uiText("Defer unsupported Zhuyin until pass 2", "第一輪略過無有效字音的注音")}
+      </label>
+      <label class="field check-field">
         <input name="rowScanVoice" type="checkbox" ${uiConfig.rowScanVoice ? "checked" : ""}>
         ${uiText("Voice while row scanning", "選列時朗讀")}
       </label>
@@ -2023,6 +2044,7 @@ function renderConfig() {
     form.elements.scanMode.value = profile.scanMode;
     form.elements.scanPassLimit.value = String(profile.scanPassLimit);
     form.elements.autoScanSuggestionPages.checked = profile.autoScanSuggestionPages;
+    form.elements.deferUnsupportedZhuyinOnFirstPass.checked = profile.deferUnsupportedZhuyinOnFirstPass;
     form.elements.scanTimingPreset.value = "default";
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
@@ -2105,6 +2127,7 @@ function renderConfig() {
       scanMode: String(data.get("scanMode") ?? ScanMode.RowColumn),
       scanPassLimit: normalizeStoredScanPassLimit(data.get("scanPassLimit"), 2),
       autoScanSuggestionPages: data.get("autoScanSuggestionPages") === "on",
+      deferUnsupportedZhuyinOnFirstPass: data.get("deferUnsupportedZhuyinOnFirstPass") === "on",
       suggestionDictionary: profile.id === "zh-TW"
         ? profile.suggestionDictionary
         : parseDictionary(String(data.get("suggestionDictionary") ?? "")),

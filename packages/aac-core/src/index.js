@@ -93,7 +93,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 31;
+export const CurrentConfigVersion = 32;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -552,6 +552,7 @@ const ZhTwBufferedIntentPredictionsByPrefix = buildZhTwBufferedIntentPredictions
   ZhTwFrequencyDictionary
 );
 const ZhTwValidPrefixSet = zhTwValidPrefixSet(ZhTwFrequencyDictionary);
+const ZhTwGlyphReadingPrefixSet = zhTwGlyphReadingPrefixSet(ZhTwFrequencyDictionary);
 const ZhTwSpokenEvidenceByTarget = new Map(
   ZhTwSpokenEvidenceEntries.map((entry) => [`${entry.label}\u0000${entry.firstSymbol}`, entry])
 );
@@ -789,6 +790,7 @@ export const LanguageProfiles = Object.freeze({
     scanPassLimit: DefaultScanPassLimit,
     scanMode: DefaultScanMode,
     autoScanSuggestionPages: false,
+    deferUnsupportedZhuyinOnFirstPass: false,
     autoSpace: AutoSpaceMode.Word,
     speechLocale: "en-US",
     suggestionDictionary: DefaultSuggestionDictionary,
@@ -806,6 +808,7 @@ export const LanguageProfiles = Object.freeze({
     scanPassLimit: DefaultScanPassLimit,
     scanMode: DefaultScanMode,
     autoScanSuggestionPages: false,
+    deferUnsupportedZhuyinOnFirstPass: false,
     autoSpace: AutoSpaceMode.None,
     speechLocale: "zh-TW",
     suggestionDictionary: ZhTwSuggestionDictionary,
@@ -834,6 +837,7 @@ export function createBoardConfig(overrides = {}) {
     ...safeOverrides,
     scanMode: normalizeScanMode(safeOverrides.scanMode ?? profile.scanMode),
     autoScanSuggestionPages: safeOverrides.autoScanSuggestionPages === true,
+    deferUnsupportedZhuyinOnFirstPass: safeOverrides.deferUnsupportedZhuyinOnFirstPass === true,
     scanBlockCount: normalizeScanBlockCount(
       safeOverrides.scanBlockCount ?? recommendedScanBlockCount(profile.id)
     ),
@@ -887,7 +891,7 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
       if (categoryRows.length > 0) return categoryRows;
     }
     const suggestionColumns = zhTwSuggestionColumnCount(safeColumns);
-    return [
+    const rows = [
       ...zhTwSuggestionRows(
         message,
         normalized.suggestionDictionary,
@@ -898,6 +902,9 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
       ),
       ...zhTwFirstLayerRows(normalized.symbols, safeColumns)
     ];
+    return normalized.deferUnsupportedZhuyinOnFirstPass
+      ? withDeferredZhuyinTiles(rows, message)
+      : rows;
   }
 
   const suggestions = englishSuggestionRows(message, normalized.suggestionDictionary, safeColumns, canUndo, {
@@ -969,6 +976,25 @@ function balancedChunk(items, maxColumns) {
 
 function isZhuyinInputTile(candidate) {
   return candidate?.action === TileAction.Append && ZhuyinInputSymbolSet.has(candidate.output);
+}
+
+function withDeferredZhuyinTiles(rows, message) {
+  const buffer = trailingZhuyinBuffer(message);
+  if (buffer && !zhTwSupportsGlyphReadingPrefix(buffer)) return rows;
+
+  return rows.map((row) => row.map((candidate) => {
+    if (!isZhuyinInputTile(candidate)) return candidate;
+    if (zhTwSupportsGlyphReadingPrefix(`${buffer}${candidate.output}`)) return candidate;
+    return Object.freeze({
+      ...candidate,
+      scanDeferred: true,
+      scanDeferredReason: "unsupported-glyph-prefix"
+    });
+  }));
+}
+
+export function zhTwSupportsGlyphReadingPrefix(prefix) {
+  return typeof prefix === "string" && ZhTwGlyphReadingPrefixSet.has(prefix);
 }
 
 export function parseDictionary(text) {
@@ -2598,6 +2624,20 @@ export function createScannerState(overrides = {}) {
   };
 }
 
+function zhTwGlyphReadingPrefixSet(dictionary) {
+  const prefixes = new Set();
+  for (const entry of dictionary) {
+    const characters = Array.from(entry.label);
+    if (characters.length !== 1 || !isHanCharacter(characters[0])) continue;
+    for (const key of entryKeys(entry)) {
+      for (let length = 1; length <= key.length; length += 1) {
+        prefixes.add(key.slice(0, length));
+      }
+    }
+  }
+  return prefixes;
+}
+
 export function scanRowBlocks(
   rowCount,
   columnCountForRow,
@@ -2708,13 +2748,44 @@ function selectableRowIndices(rowCount, columnCountForRow) {
   return selectableRows;
 }
 
+function scannerCellIndices(
+  rowIndex,
+  passIndex,
+  columnCountForRow,
+  selectableCellIndicesForRow
+) {
+  const columnCount = Math.max(0, columnCountForRow(rowIndex));
+  const proposed = typeof selectableCellIndicesForRow === "function"
+    ? selectableCellIndicesForRow(rowIndex, passIndex)
+    : Array.from({ length: columnCount }, (_value, index) => index);
+  if (!Array.isArray(proposed)) {
+    return Array.from({ length: columnCount }, (_value, index) => index);
+  }
+  return [...new Set(proposed)]
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < columnCount)
+    .sort((left, right) => left - right);
+}
+
+function scannerRowsForPass(rowIndices, passIndex, columnCountForRow, selectableCellIndicesForRow) {
+  return rowIndices.filter((rowIndex) =>
+    scannerCellIndices(rowIndex, passIndex, columnCountForRow, selectableCellIndicesForRow).length > 0
+  );
+}
+
+function nextScannerValue(current, values) {
+  if (values.length === 0) return current;
+  const position = values.indexOf(current);
+  return values[floorMod(Math.max(0, position) + 1, values.length)];
+}
+
 export function advanceScanner(
   state,
   rowCount,
   columnCountForRow,
   scanPassLimit = DefaultScanPassLimit,
   scanMode = DefaultScanMode,
-  scanBlockCount = DefaultScanBlockCount
+  scanBlockCount = DefaultScanBlockCount,
+  selectableCellIndicesForRow = undefined
 ) {
   if (rowCount <= 0) return state;
   const passLimit = normalizeScanPassLimit(scanPassLimit);
@@ -2726,9 +2797,22 @@ export function advanceScanner(
   switch (state.stage) {
     case ScanStage.Blocks: {
       if (blocks.length === 0) return state;
-      const safeBlock = clampInt(state.blockIndex, 0, blocks.length - 1);
-      const cycleStartBlockIndex = clampInt(state.cycleStartBlockIndex, 0, blocks.length - 1);
-      const nextBlockIndex = floorMod(safeBlock + 1, blocks.length);
+      const selectableBlocks = blocks
+        .map((_block, blockIndex) => blockIndex)
+        .filter((blockIndex) => scannerRowsForPass(
+          blocks[blockIndex],
+          passIndex,
+          columnCountForRow,
+          selectableCellIndicesForRow
+        ).length > 0);
+      if (selectableBlocks.length === 0) return state;
+      const requestedBlock = clampInt(state.blockIndex, 0, blocks.length - 1);
+      const safeBlock = selectableBlocks.includes(requestedBlock) ? requestedBlock : selectableBlocks[0];
+      const requestedCycleStart = clampInt(state.cycleStartBlockIndex, 0, blocks.length - 1);
+      const cycleStartBlockIndex = selectableBlocks.includes(requestedCycleStart)
+        ? requestedCycleStart
+        : selectableBlocks[0];
+      const nextBlockIndex = nextScannerValue(safeBlock, selectableBlocks);
       const completedPass = nextBlockIndex === cycleStartBlockIndex;
       if (completedPass && passLimit > 0 && passIndex >= passLimit) {
         return createScannerState({
@@ -2744,7 +2828,12 @@ export function advanceScanner(
         blockIndex: nextBlockIndex,
         rowIndex: blocks[nextBlockIndex][0],
         cellIndex: 0,
-        passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
+        passIndex: scannerPassIndexAfterCompletion(
+          passIndex,
+          completedPass,
+          passLimit,
+          selectableCellIndicesForRow
+        ),
         cycleStartBlockIndex,
         returningToBlocks: false,
         returningToRows: false
@@ -2753,7 +2842,12 @@ export function advanceScanner(
     case ScanStage.BlockSelected: {
       if (blocks.length === 0) return state;
       const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
-      const rowIndex = blocks[blockIndex][0];
+      const rowIndex = scannerRowsForPass(
+        blocks[blockIndex],
+        passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      )[0] ?? blocks[blockIndex][0];
       return {
         ...state,
         stage: ScanStage.Rows,
@@ -2771,11 +2865,18 @@ export function advanceScanner(
       if (normalizedMode === ScanMode.BlockRowColumn && blocks.length > 0) {
         const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
         const block = blocks[blockIndex];
-        const safeRowPosition = Math.max(0, block.indexOf(state.rowIndex));
-        const cycleStartRowIndex = block.includes(state.cycleStartRowIndex)
+        const selectableRows = scannerRowsForPass(
+          block,
+          passIndex,
+          columnCountForRow,
+          selectableCellIndicesForRow
+        );
+        if (selectableRows.length === 0) return state;
+        const safeRow = selectableRows.includes(state.rowIndex) ? state.rowIndex : selectableRows[0];
+        const cycleStartRowIndex = selectableRows.includes(state.cycleStartRowIndex)
           ? state.cycleStartRowIndex
-          : block[0];
-        const nextRowIndex = block[floorMod(safeRowPosition + 1, block.length)];
+          : selectableRows[0];
+        const nextRowIndex = nextScannerValue(safeRow, selectableRows);
         const completedPass = nextRowIndex === cycleStartRowIndex;
         if (completedPass && passLimit > 0 && passIndex >= passLimit) {
           return createScannerState({
@@ -2792,16 +2893,32 @@ export function advanceScanner(
           blockIndex,
           rowIndex: nextRowIndex,
           cellIndex: 0,
-          passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
+          passIndex: scannerPassIndexAfterCompletion(
+            passIndex,
+            completedPass,
+            passLimit,
+            selectableCellIndicesForRow
+          ),
           cycleStartRowIndex,
           returningToBlocks: false,
           returningToRows: false,
           firstRowInBlock: false
         };
       }
-      const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
-      const cycleStartRowIndex = clampInt(state.cycleStartRowIndex, 0, rowCount - 1);
-      const nextRowIndex = nextSelectableRow(safeRow, rowCount, columnCountForRow);
+      const selectableRows = scannerRowsForPass(
+        Array.from({ length: rowCount }, (_value, index) => index),
+        passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      if (selectableRows.length === 0) return state;
+      const requestedRow = clampInt(state.rowIndex, 0, rowCount - 1);
+      const safeRow = selectableRows.includes(requestedRow) ? requestedRow : selectableRows[0];
+      const requestedCycleStart = clampInt(state.cycleStartRowIndex, 0, rowCount - 1);
+      const cycleStartRowIndex = selectableRows.includes(requestedCycleStart)
+        ? requestedCycleStart
+        : selectableRows[0];
+      const nextRowIndex = nextScannerValue(safeRow, selectableRows);
       const completedPass = nextRowIndex === cycleStartRowIndex;
       if (completedPass && passLimit > 0 && passIndex >= passLimit) {
         return createScannerState({
@@ -2814,35 +2931,71 @@ export function advanceScanner(
         ...state,
         rowIndex: nextRowIndex,
         cellIndex: 0,
-        passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
+        passIndex: scannerPassIndexAfterCompletion(
+          passIndex,
+          completedPass,
+          passLimit,
+          selectableCellIndicesForRow
+        ),
         cycleStartRowIndex,
         returningToRows: false,
         firstRowInBlock: false
       };
     }
-    case ScanStage.RowSelected:
+    case ScanStage.RowSelected: {
+      const indices = scannerCellIndices(
+        state.rowIndex,
+        passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      if (indices.length === 0) return state;
       return {
         ...state,
         stage: ScanStage.FirstCell,
-        cellIndex: 0,
-        passIndex: 1,
+        cellIndex: indices[0],
         returningToBlocks: false,
         returningToRows: false,
         firstRowInBlock: false
       };
+    }
     case ScanStage.FirstCell: {
-      const columns = Math.max(1, columnCountForRow(state.rowIndex));
-      if (columns === 1) {
-        return advanceCompletedCellPass(state, passLimit, normalizedMode);
+      const indices = scannerCellIndices(
+        state.rowIndex,
+        passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      if (indices.length <= 1) {
+        return advanceCompletedCellPass(
+          state,
+          passLimit,
+          normalizedMode,
+          columnCountForRow,
+          selectableCellIndicesForRow
+        );
       }
-      return { ...state, stage: ScanStage.Cells, cellIndex: columns === 1 ? 0 : 1 };
+      const currentPosition = Math.max(0, indices.indexOf(state.cellIndex));
+      return { ...state, stage: ScanStage.Cells, cellIndex: indices[currentPosition + 1] ?? indices[0] };
     }
     case ScanStage.Cells: {
-      const columns = Math.max(1, columnCountForRow(state.rowIndex));
-      if (state.cellIndex >= columns - 1) {
-        return advanceCompletedCellPass(state, passLimit, normalizedMode);
+      const indices = scannerCellIndices(
+        state.rowIndex,
+        passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      const currentPosition = indices.indexOf(state.cellIndex);
+      if (currentPosition < 0 || currentPosition >= indices.length - 1) {
+        return advanceCompletedCellPass(
+          state,
+          passLimit,
+          normalizedMode,
+          columnCountForRow,
+          selectableCellIndicesForRow
+        );
       }
-      return { ...state, cellIndex: state.cellIndex + 1 };
+      return { ...state, cellIndex: indices[currentPosition + 1] };
     }
     case ScanStage.Stopped:
       return state;
@@ -2851,7 +3004,13 @@ export function advanceScanner(
   }
 }
 
-function advanceCompletedCellPass(state, passLimit, scanMode) {
+function advanceCompletedCellPass(
+  state,
+  passLimit,
+  scanMode,
+  columnCountForRow,
+  selectableCellIndicesForRow
+) {
   const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
   if (passLimit > 0 && passIndex >= passLimit) {
     const rowIndex = Math.max(0, state.rowIndex);
@@ -2865,14 +3024,39 @@ function advanceCompletedCellPass(state, passLimit, scanMode) {
       returningToRows: true
     });
   }
+  const nextPassIndex = scannerPassIndexAfterCompletion(
+    passIndex,
+    true,
+    passLimit,
+    selectableCellIndicesForRow
+  );
+  const nextIndices = scannerCellIndices(
+    state.rowIndex,
+    nextPassIndex,
+    columnCountForRow,
+    selectableCellIndicesForRow
+  );
   return {
     ...state,
     stage: ScanStage.FirstCell,
-    cellIndex: 0,
-    passIndex: passLimit > 0 ? passIndex + 1 : passIndex,
+    cellIndex: nextIndices[0] ?? 0,
+    passIndex: nextPassIndex,
     returningToRows: false,
     firstRowInBlock: false
   };
+}
+
+function scannerPassIndexAfterCompletion(
+  passIndex,
+  completedPass,
+  passLimit,
+  selectableCellIndicesForRow
+) {
+  if (!completedPass) return passIndex;
+  if (passLimit > 0) return passIndex + 1;
+  return typeof selectableCellIndicesForRow === "function"
+    ? Math.min(2, passIndex + 1)
+    : passIndex;
 }
 
 export function normalizeScanPassLimit(value) {
@@ -2902,7 +3086,8 @@ export function confirmScanner(
   rowCount,
   columnCountForRow,
   scanMode = DefaultScanMode,
-  scanBlockCount = DefaultScanBlockCount
+  scanBlockCount = DefaultScanBlockCount,
+  selectableCellIndicesForRow = undefined
 ) {
   if (rowCount <= 0) return { type: "none", nextState: state };
   const normalizedMode = normalizeScanMode(scanMode);
@@ -2913,18 +3098,38 @@ export function confirmScanner(
     case ScanStage.Blocks: {
       if (blocks.length === 0) return { type: "none", nextState: state };
       const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
-      const block = blocks[blockIndex];
+      const block = scannerRowsForPass(
+        blocks[blockIndex],
+        state.passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      if (block.length === 0) return { type: "none", nextState: state };
+      const firstPassBlock = scannerRowsForPass(
+        blocks[blockIndex],
+        1,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      const localPassIndex = firstPassBlock.length > 0 ? 1 : 2;
       const rowIndex = block[0];
-      if (block.length === 1 && Math.max(0, columnCountForRow(rowIndex)) === 1) {
+      const cellIndices = scannerCellIndices(
+        rowIndex,
+        localPassIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      if (block.length === 1 && cellIndices.length === 1) {
         return {
           type: "selected",
           rowIndex,
-          cellIndex: 0,
+          cellIndex: cellIndices[0],
           nextState: createScannerState({
             scanMode: normalizedMode,
             stage: ScanStage.Blocks,
             blockIndex,
             rowIndex,
+            passIndex: localPassIndex,
             cycleStartBlockIndex: blockIndex,
             cycleStartRowIndex: rowIndex
           })
@@ -2938,6 +3143,7 @@ export function confirmScanner(
             stage: ScanStage.RowSelected,
             blockIndex,
             rowIndex,
+            passIndex: localPassIndex,
             cycleStartBlockIndex: blockIndex,
             cycleStartRowIndex: rowIndex
           })
@@ -2950,6 +3156,7 @@ export function confirmScanner(
           stage: ScanStage.BlockSelected,
           blockIndex,
           rowIndex,
+          passIndex: localPassIndex,
           cycleStartBlockIndex: blockIndex
         })
       };
@@ -2971,16 +3178,33 @@ export function confirmScanner(
     }
     case ScanStage.Rows: {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
-      if (Math.max(0, columnCountForRow(safeRow)) === 1) {
+      const firstPassCellIndices = scannerCellIndices(
+        safeRow,
+        1,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
+      const localPassIndex = firstPassCellIndices.length > 0 ? 1 : 2;
+      const cellIndices = localPassIndex === 1
+        ? firstPassCellIndices
+        : scannerCellIndices(
+          safeRow,
+          localPassIndex,
+          columnCountForRow,
+          selectableCellIndicesForRow
+        );
+      if (cellIndices.length === 0) return { type: "none", nextState: state };
+      if (cellIndices.length === 1) {
         return {
           type: "selected",
           rowIndex: safeRow,
-          cellIndex: 0,
+          cellIndex: cellIndices[0],
           nextState: createScannerState({
             scanMode: normalizedMode,
             stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
             blockIndex: state.blockIndex,
             rowIndex: safeRow,
+            passIndex: localPassIndex,
             cycleStartBlockIndex: state.blockIndex,
             cycleStartRowIndex: safeRow
           })
@@ -2993,6 +3217,7 @@ export function confirmScanner(
           stage: ScanStage.RowSelected,
           blockIndex: state.blockIndex,
           rowIndex: safeRow,
+          passIndex: localPassIndex,
           cycleStartBlockIndex: state.cycleStartBlockIndex,
           cycleStartRowIndex: safeRow
         })
@@ -3014,10 +3239,16 @@ export function confirmScanner(
     }
     case ScanStage.FirstCell: {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
+      const cellIndices = scannerCellIndices(
+        safeRow,
+        state.passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
       return {
         type: "selected",
         rowIndex: safeRow,
-        cellIndex: 0,
+        cellIndex: cellIndices.includes(state.cellIndex) ? state.cellIndex : cellIndices[0] ?? 0,
         nextState: createScannerState({
           scanMode: normalizedMode,
           stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
@@ -3030,11 +3261,16 @@ export function confirmScanner(
     }
     case ScanStage.Cells: {
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
-      const columns = Math.max(1, columnCountForRow(safeRow));
+      const cellIndices = scannerCellIndices(
+        safeRow,
+        state.passIndex,
+        columnCountForRow,
+        selectableCellIndicesForRow
+      );
       return {
         type: "selected",
         rowIndex: safeRow,
-        cellIndex: clampInt(state.cellIndex, 0, columns - 1),
+        cellIndex: cellIndices.includes(state.cellIndex) ? state.cellIndex : cellIndices[0] ?? 0,
         nextState: createScannerState({
           scanMode: normalizedMode,
           stage: normalizedMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows,
@@ -3059,12 +3295,20 @@ export function confirmWithLatencyCompensation(
   elapsedInHighlightMs,
   compensationWindowMs,
   scanMode = DefaultScanMode,
-  scanBlockCount = DefaultScanBlockCount
+  scanBlockCount = DefaultScanBlockCount,
+  selectableCellIndicesForRow = undefined
 ) {
   const compensatedState = elapsedInHighlightMs >= 0 && elapsedInHighlightMs < compensationWindowMs
-    ? previousHighlight(state, rowCount, columnCountForRow)
+    ? previousHighlight(state, rowCount, columnCountForRow, selectableCellIndicesForRow)
     : state;
-  return confirmScanner(compensatedState, rowCount, columnCountForRow, scanMode, scanBlockCount);
+  return confirmScanner(
+    compensatedState,
+    rowCount,
+    columnCountForRow,
+    scanMode,
+    scanBlockCount,
+    selectableCellIndicesForRow
+  );
 }
 
 export function updateMessage(current, selectedTile, options = {}) {
@@ -3163,6 +3407,7 @@ export function visibleBoard(session) {
     cached.columns === session.config.columns &&
     cached.symbols === session.config.symbols &&
     cached.suggestionColumnSpans === session.config.suggestionColumnSpans &&
+    cached.deferUnsupportedZhuyinOnFirstPass === session.config.deferUnsupportedZhuyinOnFirstPass &&
     cached.message === session.message &&
     cached.canUndo === canUndo &&
     cached.activeCategory === activeCategory &&
@@ -3176,6 +3421,7 @@ export function visibleBoard(session) {
       columns: session.config.columns,
       symbols: session.config.symbols,
       suggestionColumnSpans: session.config.suggestionColumnSpans,
+      deferUnsupportedZhuyinOnFirstPass: session.config.deferUnsupportedZhuyinOnFirstPass,
       message: session.message,
       canUndo,
       activeCategory,
@@ -3191,13 +3437,17 @@ export function advanceSession(session, scanPassLimit = session.config.scanPassL
     return advanceSuggestionPageSession(session);
   }
   const rows = visibleBoard(session);
+  const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
+    ? (rowIndex, passIndex) => scanSelectableCellIndices(rows[rowIndex], passIndex, scanPassLimit)
+    : undefined;
   const nextState = advanceScanner(
     session.scannerState,
     rows.length,
     (row) => selectableCount(rows[row]),
     scanPassLimit,
     session.config.scanMode,
-    session.config.scanBlockCount
+    session.config.scanBlockCount,
+    selectableCellIndicesForRow
   );
   return {
     ...session,
@@ -3225,6 +3475,13 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     };
   }
   const rows = visibleBoard(session);
+  const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
+    ? (rowIndex, passIndex) => scanSelectableCellIndices(
+      rows[rowIndex],
+      passIndex,
+      session.config.scanPassLimit
+    )
+    : undefined;
   const confirmation = confirmWithLatencyCompensation(
     session.scannerState,
     rows.length,
@@ -3232,7 +3489,8 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     elapsedInHighlightMs,
     session.config.inputLatencyCompensationMs,
     session.config.scanMode,
-    session.config.scanBlockCount
+    session.config.scanBlockCount,
+    selectableCellIndicesForRow
   );
 
   if (confirmation.type === "none") {
@@ -3252,7 +3510,14 @@ export function pressSwitch(session, elapsedInHighlightMs) {
         ),
         session.config.scanPassLimit,
         session.config.scanMode,
-        session.config.scanBlockCount
+        session.config.scanBlockCount,
+        session.config.deferUnsupportedZhuyinOnFirstPass
+          ? (row, passIndex) => scanSelectableCellIndices(
+            isLockingRow && row === confirmation.nextState.rowIndex ? lockedRow : rows[row],
+            passIndex,
+            session.config.scanPassLimit
+          )
+          : undefined
       );
       return {
         ...session,
@@ -3615,11 +3880,34 @@ function parseSymbolLine(line) {
   return tile(label, value);
 }
 
-function previousHighlight(state, rowCount, columnCountForRow) {
+function previousHighlight(state, rowCount, columnCountForRow, selectableCellIndicesForRow) {
   if (rowCount <= 0) return state;
   if (state.stage !== ScanStage.Cells) return state;
-  const columns = Math.max(1, columnCountForRow(state.rowIndex));
-  return { ...state, cellIndex: floorMod(state.cellIndex - 1, columns) };
+  const indices = scannerCellIndices(
+    state.rowIndex,
+    state.passIndex,
+    columnCountForRow,
+    selectableCellIndicesForRow
+  );
+  if (indices.length === 0) return state;
+  const currentPosition = indices.indexOf(state.cellIndex);
+  return {
+    ...state,
+    cellIndex: indices[floorMod((currentPosition < 0 ? 0 : currentPosition) - 1, indices.length)]
+  };
+}
+
+export function scanSelectableCellIndices(
+  row,
+  passIndex = 1,
+  scanPassLimit = DefaultScanPassLimit
+) {
+  const allSelectable = [];
+  for (const [cellIndex, candidate] of (row ?? []).entries()) {
+    if (candidate.action !== TileAction.Noop) allSelectable.push(cellIndex);
+  }
+  if (passIndex !== 1 || normalizeScanPassLimit(scanPassLimit) === 1) return allSelectable;
+  return allSelectable.filter((cellIndex) => row[cellIndex].scanDeferred !== true);
 }
 
 function emptyZhuyinState() {
@@ -3653,14 +3941,6 @@ function paddedRow(row, columns) {
     ...row,
     ...Array.from({ length: Math.max(0, columns - row.length) }, () => tile("", "", TileAction.Noop))
   ];
-}
-
-function nextSelectableRow(rowIndex, rowCount, columnCountForRow) {
-  for (let offset = 1; offset <= rowCount; offset += 1) {
-    const candidate = floorMod(rowIndex + offset, rowCount);
-    if (columnCountForRow(candidate) > 0) return candidate;
-  }
-  return rowIndex;
 }
 
 function labelForWord(word) {

@@ -74,6 +74,16 @@ test("automatic More-page scanning is an explicit persisted option", () => {
   assert.match(appSource, /ScanStage\.SuggestionPages/);
 });
 
+test("unsupported Zhuyin deferral is opt-in, persisted, and visibly temporary", () => {
+  assert.match(appSource, /name="deferUnsupportedZhuyinOnFirstPass"/);
+  assert.match(appSource, /deferUnsupportedZhuyinOnFirstPass:\s*config\.deferUnsupportedZhuyinOnFirstPass/);
+  assert.match(appSource, /stored\.deferUnsupportedZhuyinOnFirstPass === true/);
+  assert.match(appSource, /candidate\.scanDeferred === true/);
+  assert.match(styles, /\.tile\.scan-deferred\s*\{[\s\S]*?border-style:\s*dashed/);
+  assert.match(styles, /\.tile\.scan-deferred \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
+  assert.doesNotMatch(appSource, /aria-disabled[^\n]*scanDeferred/);
+});
+
 test("tone fallback controls use a distinct secondary treatment", () => {
   assert.match(appSource, /candidate\.toneFallback === true/);
   assert.match(styles, /\.tile\.tone-fallback\s*\{[\s\S]*?border-color:\s*#8064a2/);

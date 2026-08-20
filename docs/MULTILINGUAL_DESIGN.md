@@ -228,6 +228,12 @@ static board rows: unchanged Zhuyin symbols and controls
 
 An optional automatic page-scan mode makes unknown page location less costly. Activating `更多` shows the first unseen page and temporarily treats all four suggestion rows as one scan target. Each dwell advances to the next bounded page; activation confirms the visible page and returns to the configured row/column or block/row/column scanner with a protected first-target dwell. Two complete page passes stop automatically even when ordinary scanning is continuous. The option is off by default, so existing `更多` behavior remains available.
 
+### First-pass Zhuyin deferral
+
+An optional scan projection reduces first-pass search without rejecting input. The core derives valid prefixes exclusively from every single-Han-glyph reading in the packaged New Chewing data; phrase-initial shortcuts do not define glyph phonotactics. While the active Zhuyin buffer is source-backed, static symbols that cannot continue any glyph reading remain in their stable visual cells but are marked for the second pass. Rows and blocks containing only deferred targets are skipped on pass one. Pass two restores every normal target, so phrase shortcuts and unusual input remain constructible.
+
+Deferred cells use a muted dashed treatment and no progress fill, but are not exposed as disabled controls. Candidates, tones, repair actions, `復原`, `更多`, language controls, and other functional keys are never deferred. Unknown or already invalid buffers fail open. A configured one-pass scanner also fails open because there would be no recovery pass; continuous scanning filters its first cycle and remains on the full projection afterward. The option is off by default.
+
 This is intentionally close to a Zhuyin IME model: the typed Zhuyin buffer is visible, and a candidate list converts that buffer into characters or phrases. The AAC adaptation is the hard limit: suggestions are capped at 2-3 pages, currently no more than 3. The system should not grow into a full productivity IME with unbounded candidate lists, context rewriting, user-learning side effects, or extra composition modes.
 
 Candidate commit rule:

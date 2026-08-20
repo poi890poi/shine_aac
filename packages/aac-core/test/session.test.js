@@ -353,6 +353,47 @@ test("More auto-scan pauses after two complete page passes", () => {
   assert.equal(session.lastSelection, null);
 });
 
+for (const scanMode of [ScanMode.RowColumn, ScanMode.BlockRowColumn]) {
+  test(`${scanMode} defers unsupported Zhuyin cells on pass one and restores them on pass two`, () => {
+    const config = createBoardConfig({
+      profileId: "zh-TW",
+      scanMode,
+      deferUnsupportedZhuyinOnFirstPass: true
+    });
+    let session = createSession({ config, message: "ㄈ", messageHistory: [""] });
+    const board = visibleBoard(session);
+    const rowIndex = board.findIndex((row) => row.some((candidate) => candidate.label === "ㄩ"));
+    const cellIndex = board[rowIndex].findIndex((candidate) => candidate.label === "ㄩ");
+    session = {
+      ...session,
+      scannerState: createScannerState({
+        scanMode,
+        stage: ScanStage.RowSelected,
+        blockIndex: 0,
+        rowIndex
+      }),
+      lockedRow: board[rowIndex]
+    };
+
+    session = advanceSession(session);
+    const firstPassCells = [];
+    for (let step = 0; step < board[rowIndex].length + 2 && session.scannerState.passIndex === 1; step += 1) {
+      firstPassCells.push(session.scannerState.cellIndex);
+      session = advanceSession(session);
+    }
+    assert.equal(firstPassCells.includes(cellIndex), false);
+    assert.equal(session.scannerState.passIndex, 2);
+
+    for (let step = 0; step < board[rowIndex].length + 2; step += 1) {
+      if (session.scannerState.cellIndex === cellIndex) break;
+      session = advanceSession(session);
+    }
+    assert.equal(session.scannerState.cellIndex, cellIndex);
+    session = pressSwitch(session, 1000);
+    assert.equal(session.message, "ㄈㄩ");
+  });
+}
+
 test("undo repairs the previous message state with one selection", () => {
   let session = createSession({ message: "I want", messageHistory: ["", "I", "I "] });
   session = selectSuggestionCell(session, 0);

@@ -564,6 +564,10 @@ class MainActivity : ComponentActivity() {
                 .put("scanMode", prefs.getString("scanMode", DefaultScanMode))
                 .put("scanPassLimit", prefs.getInt("scanPassLimit", DefaultScanPassLimit))
                 .put("autoScanSuggestionPages", prefs.getBoolean("autoScanSuggestionPages", false))
+                .put(
+                    "deferUnsupportedZhuyinOnFirstPass",
+                    prefs.getBoolean("deferUnsupportedZhuyinOnFirstPass", false),
+                )
                 .toString()
         }
 
