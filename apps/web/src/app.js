@@ -1280,7 +1280,6 @@ function updateScanPresentation(board) {
   const progressDirection = [
     ScanStage.Blocks,
     ScanStage.BlockSelected,
-    ScanStage.SuggestionPages,
     ScanStage.Rows,
     ScanStage.RowSelected
   ].includes(scanner.stage) ? "down" : "right";
@@ -1400,6 +1399,9 @@ function activeBlockRows(scanner, board) {
 function selectedBlockContextRows(scanner, board) {
   const isRowScanning = scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected;
   if (session.config.scanMode !== ScanMode.BlockRowColumn || !isRowScanning) return [];
+  if (scanner.suggestionPageRowsActive) {
+    return board.slice(0, 4).map((_row, rowIndex) => rowIndex);
+  }
   const blocks = scanRowBlocks(
     board.length,
     (row) => selectableCount(board[row]),

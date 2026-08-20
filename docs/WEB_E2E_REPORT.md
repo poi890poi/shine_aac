@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-20T11:48:01.453Z
+Generated: 2026-08-20T12:26:57.729Z
 
 Result: PASS
 
@@ -12,7 +12,7 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":50.10000002384186,"resetTargetToProgressMs":20.899999976158142,"rowDeadlineDriftMs":-19.399999976158142,"nextRowTargetToProgressMs":19.30000001192093,"activationToTargetMs":1.2000000476837158,"activationTargetToProgressMs":15.799999952316284,"firstDeadlineDriftMs":-15.799999952316284,"secondTargetToProgressMs":33.59999996423721,"laterDeadlineDriftMs":-22.80000001192093,"thirdTargetToProgressMs":22.400000035762787,"selectionToHoldMs":4.800000011920929,"holdReleaseToTargetMs":1,"selectionTargetToProgressMs":23.5} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":61.09999996423721,"resetTargetToProgressMs":24.5,"rowDeadlineDriftMs":-19.899999976158142,"nextRowTargetToProgressMs":19.100000023841858,"activationToTargetMs":1.9000000357627869,"activationTargetToProgressMs":31.80000001192093,"firstDeadlineDriftMs":-21.30000001192093,"secondTargetToProgressMs":21.5,"laterDeadlineDriftMs":-16.100000023841858,"thirdTargetToProgressMs":31.80000001192093,"selectionToHoldMs":7.100000023841858,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":31.400000035762787} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
@@ -48,7 +48,7 @@ Result: PASS
 | zh-tw-dense-function-key-layout | PASS | 4 function keys share word-key metrics; rendered 20-20px with a 20px normal-board floor |
 | zh-tw-official-zhuyin-route | PASS | Zhuyin activation uses the dedicated Ministry of Education audio route |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
-| auto-scan-more-pages | PASS | opt-in More navigation scans each four-row suggestion page as one target and confirms the visible page |
+| auto-scan-more-pages | PASS | opt-in More navigation previews pages horizontally; activation selects the visible four-row page and enters row scanning |
 | deferred-zhuyin-first-pass | PASS | unsupported ㄈㄩ is visibly deferred on pass one, selectable on pass two, and invalid buffers fail open |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults and held the first row for deliberate startup |
 | function-label-default-default | PASS | 4 function keys share word-key metrics; rendered 20-20px with a 20px normal-board floor |

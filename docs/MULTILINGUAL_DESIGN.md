@@ -226,7 +226,7 @@ static board rows: unchanged Zhuyin symbols and controls
 
 `更多` advances only the suggestion rows. It must not change the message, static board, or input mode. Page count is capped so scanning remains bounded.
 
-An optional automatic page-scan mode makes unknown page location less costly. Activating `更多` shows the first unseen page and temporarily treats all four suggestion rows as one scan target. Each dwell advances to the next bounded page; activation confirms the visible page and returns to the configured row/column or block/row/column scanner with a protected first-target dwell. Two complete page passes stop automatically even when ordinary scanning is continuous. The option is off by default, so existing `更多` behavior remains available.
+An optional automatic page-scan mode makes unknown page location less costly. Activating `更多` shows the first unseen page and temporarily previews all four suggestion rows with synchronized horizontal progress. Each dwell advances to the next bounded page. In block/row/column mode, activation selects the visible four-row page as the active block and immediately enters its row scan without selecting a candidate or repeating top-level block scanning; row/column mode likewise resumes at the first visible candidate row. Two complete page passes stop automatically even when ordinary scanning is continuous. The option is off by default, so existing `更多` behavior remains available.
 
 ### First-pass Zhuyin deferral
 

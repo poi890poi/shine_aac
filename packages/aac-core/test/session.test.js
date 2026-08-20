@@ -294,7 +294,7 @@ test("More keeps ordinary navigation when automatic page scanning is disabled", 
 });
 
 for (const scanMode of [ScanMode.RowColumn, ScanMode.BlockRowColumn]) {
-  test(`${scanMode} More auto-scan confirms a page and returns to normal scanning`, () => {
+  test(`${scanMode} activation leaves the visible More page ready for row scanning`, () => {
     let session = selectMoreSuggestions(createSession({
       config: createBoardConfig({
         profileId: "zh-TW",
@@ -312,20 +312,50 @@ for (const scanMode of [ScanMode.RowColumn, ScanMode.BlockRowColumn]) {
     assert.equal(session.suggestionPage, 2);
     session = pressSwitch(session, 1000);
 
-    assert.equal(
-      session.scannerState.stage,
-      scanMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows
-    );
+    assert.equal(session.scannerState.stage, ScanStage.Rows);
     assert.equal(session.suggestionPage, 2);
     assert.equal(session.lastSelection, null);
-    assert.equal(
-      scanMode === ScanMode.BlockRowColumn
-        ? session.scannerState.returningToBlocks
-        : session.scannerState.returningToRows,
-      true
-    );
+    if (scanMode === ScanMode.BlockRowColumn) {
+      assert.equal(session.scannerState.suggestionPageRowsActive, true);
+      assert.equal(session.scannerState.firstRowInBlock, true);
+      const visitedRows = [session.scannerState.rowIndex];
+      for (let step = 0; step < 3; step += 1) {
+        session = advanceSession(session);
+        visitedRows.push(session.scannerState.rowIndex);
+      }
+      assert.deepEqual(visitedRows, [0, 1, 2, 3]);
+    } else {
+      assert.equal(session.scannerState.returningToRows, true);
+      assert.equal(session.scannerState.suggestionPageRowsActive, false);
+    }
   });
 }
+
+test("selected suggestion-page rows return to top-level blocks only after their normal scan passes", () => {
+  let session = selectMoreSuggestions(createSession({
+    config: createBoardConfig({
+      profileId: "zh-TW",
+      scanMode: ScanMode.BlockRowColumn,
+      scanPassLimit: 2,
+      autoScanSuggestionPages: true
+    })
+  }));
+
+  session = pressSwitch(session, 1000);
+  assert.equal(session.scannerState.stage, ScanStage.Rows);
+  assert.equal(session.scannerState.suggestionPageRowsActive, true);
+
+  for (let step = 0; step < 7; step += 1) {
+    session = advanceSession(session);
+    assert.equal(session.scannerState.stage, ScanStage.Rows);
+    assert.equal(session.scannerState.rowIndex <= 3, true);
+  }
+  session = advanceSession(session);
+
+  assert.equal(session.scannerState.stage, ScanStage.Blocks);
+  assert.equal(session.scannerState.returningToBlocks, true);
+  assert.equal(session.scannerState.suggestionPageRowsActive, false);
+});
 
 test("More auto-scan pauses after two complete page passes", () => {
   let session = selectMoreSuggestions(createSession({

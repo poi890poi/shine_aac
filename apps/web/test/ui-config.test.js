@@ -73,6 +73,12 @@ test("block and row progress descends while cell progress remains horizontal", (
   assert.match(styles, /\.progress-fill\[data-progress-direction="down"\]\s*\{[\s\S]*?transform-origin:\s*center top/);
 });
 
+test("automatic suggestion-page progress remains horizontal", () => {
+  const directionStages = appSource.match(/const progressDirection = \[([\s\S]*?)\]\.includes\(scanner\.stage\) \? "down" : "right";/)?.[1] ?? "";
+
+  assert.doesNotMatch(directionStages, /ScanStage\.SuggestionPages/);
+});
+
 test("automatic More-page scanning is an explicit persisted option", () => {
   assert.match(appSource, /name="autoScanSuggestionPages"/);
   assert.match(appSource, /autoScanSuggestionPages:\s*config\.autoScanSuggestionPages/);

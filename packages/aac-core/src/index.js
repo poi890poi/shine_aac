@@ -2631,6 +2631,7 @@ export function createScannerState(overrides = {}) {
     cycleStartSuggestionPage: 0,
     suggestionPageCount: 1,
     stoppedFromSuggestionPages: false,
+    suggestionPageRowsActive: false,
     ...stateOverrides
   };
 }
@@ -2671,6 +2672,24 @@ export function scanRowBlocks(
     offset += size;
   }
   return blocks;
+}
+
+function scannerBlocksForState(
+  state,
+  rowCount,
+  columnCountForRow,
+  normalizedMode,
+  scanBlockCount
+) {
+  if (normalizedMode !== ScanMode.BlockRowColumn) return [];
+  if (state.suggestionPageRowsActive) {
+    const suggestionRows = selectableRowIndices(
+      Math.min(rowCount, ZhTwSuggestionRowCount),
+      columnCountForRow
+    );
+    return suggestionRows.length > 0 ? [suggestionRows] : [];
+  }
+  return scanRowBlocks(rowCount, columnCountForRow, scanBlockCount);
 }
 
 export function scanRecognitionLoad(
@@ -2801,9 +2820,13 @@ export function advanceScanner(
   if (rowCount <= 0) return state;
   const passLimit = normalizeScanPassLimit(scanPassLimit);
   const normalizedMode = normalizeScanMode(scanMode);
-  const blocks = normalizedMode === ScanMode.BlockRowColumn
-    ? scanRowBlocks(rowCount, columnCountForRow, scanBlockCount)
-    : [];
+  const blocks = scannerBlocksForState(
+    state,
+    rowCount,
+    columnCountForRow,
+    normalizedMode,
+    scanBlockCount
+  );
   const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
   switch (state.stage) {
     case ScanStage.Blocks: {
@@ -3032,7 +3055,8 @@ function advanceCompletedCellPass(
       rowIndex,
       cycleStartBlockIndex: state.cycleStartBlockIndex,
       cycleStartRowIndex: rowIndex,
-      returningToRows: true
+      returningToRows: true,
+      suggestionPageRowsActive: state.suggestionPageRowsActive
     });
   }
   const nextPassIndex = scannerPassIndexAfterCompletion(
@@ -3102,9 +3126,13 @@ export function confirmScanner(
 ) {
   if (rowCount <= 0) return { type: "none", nextState: state };
   const normalizedMode = normalizeScanMode(scanMode);
-  const blocks = normalizedMode === ScanMode.BlockRowColumn
-    ? scanRowBlocks(rowCount, columnCountForRow, scanBlockCount)
-    : [];
+  const blocks = scannerBlocksForState(
+    state,
+    rowCount,
+    columnCountForRow,
+    normalizedMode,
+    scanBlockCount
+  );
   switch (state.stage) {
     case ScanStage.Blocks: {
       if (blocks.length === 0) return { type: "none", nextState: state };
@@ -3230,7 +3258,8 @@ export function confirmScanner(
           rowIndex: safeRow,
           passIndex: localPassIndex,
           cycleStartBlockIndex: state.cycleStartBlockIndex,
-          cycleStartRowIndex: safeRow
+          cycleStartRowIndex: safeRow,
+          suggestionPageRowsActive: state.suggestionPageRowsActive
         })
       };
     }
@@ -3244,7 +3273,8 @@ export function confirmScanner(
           blockIndex: state.blockIndex,
           rowIndex: safeRow,
           cycleStartBlockIndex: state.cycleStartBlockIndex,
-          cycleStartRowIndex: safeRow
+          cycleStartRowIndex: safeRow,
+          suggestionPageRowsActive: state.suggestionPageRowsActive
         })
       };
     }
@@ -3486,7 +3516,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
   ) {
     return {
       ...session,
-      scannerState: scannerStateAfterSuggestionPageConfirmation(session.config),
+      scannerState: scannerStateAfterSuggestionPageActivation(session.config),
       lockedRow: null,
       lastSelection: null
     };
@@ -3598,7 +3628,7 @@ function advanceSuggestionPageSession(session) {
     return {
       ...session,
       suggestionPage: 0,
-      scannerState: scannerStateAfterSuggestionPageConfirmation(session.config),
+      scannerState: scannerStateAfterSuggestionPageActivation(session.config),
       lockedRow: null,
       lastSelection: null
     };
@@ -3641,12 +3671,23 @@ function advanceSuggestionPageSession(session) {
   };
 }
 
-function scannerStateAfterSuggestionPageConfirmation(config) {
+function scannerStateAfterSuggestionPageActivation(config) {
   const blockMode = normalizeScanMode(config.scanMode) === ScanMode.BlockRowColumn;
+  if (blockMode) {
+    return createScannerState({
+      scanMode: config.scanMode,
+      stage: ScanStage.Rows,
+      blockIndex: 0,
+      rowIndex: 0,
+      cycleStartBlockIndex: 0,
+      cycleStartRowIndex: 0,
+      firstRowInBlock: true,
+      suggestionPageRowsActive: true
+    });
+  }
   return createScannerState({
     scanMode: config.scanMode,
-    returningToBlocks: blockMode,
-    returningToRows: !blockMode
+    returningToRows: true
   });
 }
 

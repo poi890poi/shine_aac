@@ -28,7 +28,7 @@ Useful docs:
 - [Architecture](docs/ARCHITECTURE.md)
 - [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
 - [Release Process](docs/RELEASE_PROCESS.md)
-- [v0.3.1 Release Notes](docs/releases/v0.3.1.md)
+- [v0.3.2 Release Notes](docs/releases/v0.3.2.md)
 - [AAC Core](packages/aac-core/README.md)
 - [Testing Report](docs/TESTING_REPORT.md)
 - [Text And Display Scaling Policy](docs/TEXT_SCALING_POLICY.md)
@@ -162,7 +162,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - row-to-symbol transition pause
 - first-row / first-symbol hold
 - input-latency compensation window
-- optional automatic scanning across `更多` suggestion pages, with page confirmation and a fixed two-pass pause
+- optional automatic scanning across `更多` suggestion pages, with synchronized horizontal page progress; activation selects the visible page as a row block, enters its row scan directly, and two missed passes pause
 - optional first-pass deferral of Zhuyin symbols that do not continue any source-backed single-glyph reading
 - suggestion dictionary
 - custom symbols and words

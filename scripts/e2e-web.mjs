@@ -2073,7 +2073,7 @@ async function scenarioAutoScanMorePages() {
       configVersion: 31,
       profileId: "zh-TW",
       columns: 6,
-      scanMode: "row-column",
+      scanMode: "block-row-column",
       scanIntervalMs: 180,
       transitionPauseMs: 0,
       firstCellPauseMs: 240,
@@ -2093,9 +2093,7 @@ async function scenarioAutoScanMorePages() {
   `);
   await waitForLabels(["更多", "ㄅ"]);
 
-  const more = await findLabel("更多");
-  await activateWhenRenderedTargetIsCurrent("active-row", more.rowIndex, more.cellIndex, 12000);
-  await activateWhenRenderedTargetIsCurrent("active-cell", more.rowIndex, more.cellIndex, 12000);
+  await selectLabel("更多");
 
   const firstPage = await waitForActive(
     (snapshot) => snapshot.phase === "SuggestionPages" && snapshot.activeBlock,
@@ -2107,6 +2105,13 @@ async function scenarioAutoScanMorePages() {
   );
   if (JSON.stringify([...activePageRows]) !== JSON.stringify([0, 1, 2, 3])) {
     throw new Error(`More auto-scan should highlight four suggestion rows: ${JSON.stringify([...activePageRows])}`);
+  }
+  const pageProgressDirections = await evaluate(`
+    [...document.querySelectorAll(".tile.active-block .progress-fill")]
+      .map((fill) => fill.dataset.progressDirection)
+  `);
+  if (pageProgressDirections.length === 0 || pageProgressDirections.some((direction) => direction !== "right")) {
+    throw new Error(`More auto-scan should use horizontal page progress: ${JSON.stringify(pageProgressDirections)}`);
   }
   const firstLabels = firstPage.rows.slice(0, 4).flat().map((tile) => tile.label);
 
@@ -2122,31 +2127,39 @@ async function scenarioAutoScanMorePages() {
     await delay(20);
   }
   if (!nextPage) throw new Error("More auto-scan did not advance to another suggestion page");
-  const confirmedLabels = nextPage.rows.slice(0, 4).flat().map((tile) => tile.label);
+  const visiblePageLabels = nextPage.rows.slice(0, 4).flat().map((tile) => tile.label);
 
   await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "more-page-e2e" })`);
   await delay(30);
-  const confirmed = await getSnapshot();
-  const visibleLabels = confirmed.rows.slice(0, 4).flat().map((tile) => tile.label);
+  const resumed = await getSnapshot();
+  const visibleLabels = resumed.rows.slice(0, 4).flat().map((tile) => tile.label);
   if (
-    confirmed.phase !== "Rows" ||
-    confirmed.activeBlock ||
-    confirmed.activeRow?.rowIndex !== 0 ||
-    JSON.stringify(visibleLabels) !== JSON.stringify(confirmedLabels)
+    resumed.phase !== "Rows" ||
+    resumed.activeBlock ||
+    resumed.activeRow?.rowIndex !== 0 ||
+    JSON.stringify(visibleLabels) !== JSON.stringify(visiblePageLabels)
   ) {
-    throw new Error(`More page confirmation did not return to normal scanning on the visible page: ${JSON.stringify({
-      phase: confirmed.phase,
-      activeBlock: confirmed.activeBlock,
-      activeRow: confirmed.activeRow,
-      samePage: JSON.stringify(visibleLabels) === JSON.stringify(confirmedLabels)
+    throw new Error(`Activation did not exit More auto-paging into normal scanning on the visible page: ${JSON.stringify({
+      phase: resumed.phase,
+      activeBlock: resumed.activeBlock,
+      activeRow: resumed.activeRow,
+      samePage: JSON.stringify(visibleLabels) === JSON.stringify(visiblePageLabels)
     })}`);
+  }
+  const selectedPageRows = await evaluate(`
+    [...document.querySelectorAll(".row")]
+      .map((row, rowIndex) => row.classList.contains("selected-block-row") ? rowIndex : -1)
+      .filter((rowIndex) => rowIndex >= 0)
+  `);
+  if (JSON.stringify(selectedPageRows) !== JSON.stringify([0, 1, 2, 3])) {
+    throw new Error(`Visible More page did not remain the active row block: ${JSON.stringify(selectedPageRows)}`);
   }
 
   const persisted = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}").autoScanSuggestionPages`);
   if (persisted !== true) throw new Error("More auto-scan option was not persisted");
   steps.push(pass(
     "auto-scan-more-pages",
-    "opt-in More navigation scans each four-row suggestion page as one target and confirms the visible page"
+    "opt-in More navigation previews pages horizontally; activation selects the visible four-row page and enters row scanning"
   ));
 }
 
