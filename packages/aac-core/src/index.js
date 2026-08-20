@@ -786,6 +786,10 @@ export const ZhTwSuggestionDictionary = Object.freeze([
   tile("不舒服"),
   ...ZhTwTiles.filter((candidate) => candidate.action === TileAction.Append)
 ]);
+const ZhTwKnownLabels = new Set([
+  ...ZhTwFrequencyDictionary.map((entry) => entry.label),
+  ...ZhTwSuggestionDictionary.map((candidate) => candidate.label)
+]);
 
 export const LanguageProfiles = Object.freeze({
   "en-US": Object.freeze({
@@ -1435,20 +1439,26 @@ function zhTwSuggestionTiles(
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
     ? zhTwBufferedSuggestionTiles(message, buffer, columns, staticTiles)
-    : zhTwUnbufferedSuggestionTiles(message, dictionary);
+    : zhTwUnbufferedSuggestionTiles(message, dictionary, columns);
 
   return candidatesWithoutSuppressedLabels(candidates);
 }
 
-function zhTwUnbufferedSuggestionTiles(message, dictionary = ZhTwSuggestionDictionary) {
+function zhTwUnbufferedSuggestionTiles(
+  message,
+  dictionary = ZhTwSuggestionDictionary,
+  columns = DefaultColumns
+) {
   const contextCompletions = zhTwContextCompletionTiles(message);
-  if (contextCompletions.length > 0) return contextCompletions;
-
   const configuredSuggestions = zhTwConfiguredSuggestionCandidates(dictionary);
 
   if (message.length === 0) return configuredSuggestions;
+  if (contextCompletions[0]?.context === trailingHanContext(message)) {
+    return contextCompletions;
+  }
 
   return concatenateTileCandidates(
+    contextCompletions.slice(0, clampInt(columns, 2, 8)),
     configuredSuggestions,
     zhTwSourceBackfillCandidates()
   );
@@ -2053,7 +2063,10 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
 }
 
 function zhTwContextCompletionTiles(message) {
-  for (const context of trailingHanContexts(message)) {
+  const contexts = trailingHanContexts(message);
+  const completePhraseContext = ZhTwKnownLabels.has(contexts[0]);
+  for (const [index, context] of contexts.entries()) {
+    if (index > 0 && completePhraseContext) break;
     const candidates = (ZhTwPhraseCompletionsByPrefix.get(context) ?? [])
       .filter((entry) => !ZhTwSuppressedSuggestionLabels.has(entry.label))
       .map((entry) => zhTwContextCompletionTile(entry, context));
@@ -2676,12 +2689,108 @@ export function scanRowBlocks(
   return blocks;
 }
 
+export function scanRowBlocksForPass(
+  rowCount,
+  columnCountForRow,
+  requestedBlockCount = FourBlockCount,
+  passIndex = 1,
+  selectableCellIndicesForRow = undefined
+) {
+  const blocks = scanRowBlocks(rowCount, columnCountForRow, requestedBlockCount);
+  if (typeof selectableCellIndicesForRow !== "function") return blocks;
+
+  const activeBlocks = blocks
+    .map((block) => scannerRowsForPass(
+      block,
+      passIndex,
+      columnCountForRow,
+      selectableCellIndicesForRow
+    ))
+    .filter((block) => block.length > 0);
+  if (passIndex !== 1) return activeBlocks;
+  const activeRows = activeBlocks.flat().sort((left, right) => left - right);
+  return compactBalancedRowBlocks(activeRows, requestedBlockCount, 2);
+}
+
+function compactBalancedRowBlocks(rows, requestedBlockCount, minimumRows) {
+  if (rows.length === 0) return [];
+  const runs = [];
+  for (const row of rows) {
+    const current = runs.at(-1);
+    if (current && row === current.at(-1) + 1) current.push(row);
+    else runs.push([row]);
+  }
+
+  while (runs.length > 1 && runs.some((run) => run.length < minimumRows)) {
+    const index = runs.findIndex((run) => run.length < minimumRows);
+    const previousGap = index > 0
+      ? runs[index][0] - runs[index - 1].at(-1) - 1
+      : Number.POSITIVE_INFINITY;
+    const nextGap = index < runs.length - 1
+      ? runs[index + 1][0] - runs[index].at(-1) - 1
+      : Number.POSITIVE_INFINITY;
+    const mergeStart = previousGap <= nextGap ? index - 1 : index;
+    runs.splice(mergeStart, 2, [...runs[mergeStart], ...runs[mergeStart + 1]]);
+  }
+
+  const requested = Math.max(1, clampInt(requestedBlockCount, 1, rows.length));
+  while (runs.length > requested) {
+    let closestIndex = 0;
+    let closestGap = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < runs.length - 1; index += 1) {
+      const gap = runs[index + 1][0] - runs[index].at(-1) - 1;
+      if (gap < closestGap) {
+        closestGap = gap;
+        closestIndex = index;
+      }
+    }
+    runs.splice(closestIndex, 2, [...runs[closestIndex], ...runs[closestIndex + 1]]);
+  }
+
+  const blockCounts = runs.map(() => 1);
+  const maximumBlockCount = runs.reduce(
+    (sum, run) => sum + Math.max(1, Math.floor(run.length / minimumRows)),
+    0
+  );
+  const targetBlockCount = Math.min(requested, maximumBlockCount);
+  while (blockCounts.reduce((sum, count) => sum + count, 0) < targetBlockCount) {
+    let splitIndex = -1;
+    let largestProjectedSize = -1;
+    for (let index = 0; index < runs.length; index += 1) {
+      const nextCount = blockCounts[index] + 1;
+      if (Math.floor(runs[index].length / nextCount) < minimumRows) continue;
+      const projectedSize = runs[index].length / nextCount;
+      if (projectedSize > largestProjectedSize) {
+        splitIndex = index;
+        largestProjectedSize = projectedSize;
+      }
+    }
+    if (splitIndex < 0) break;
+    blockCounts[splitIndex] += 1;
+  }
+
+  return runs.flatMap((run, runIndex) => {
+    const count = blockCounts[runIndex];
+    const baseSize = Math.floor(run.length / count);
+    const widerBlockCount = run.length % count;
+    const blocks = [];
+    let offset = 0;
+    for (let blockIndex = 0; blockIndex < count; blockIndex += 1) {
+      const size = baseSize + (blockIndex < widerBlockCount ? 1 : 0);
+      blocks.push(run.slice(offset, offset + size));
+      offset += size;
+    }
+    return blocks;
+  });
+}
+
 function scannerBlocksForState(
   state,
   rowCount,
   columnCountForRow,
   normalizedMode,
-  scanBlockCount
+  scanBlockCount,
+  selectableCellIndicesForRow
 ) {
   if (normalizedMode !== ScanMode.BlockRowColumn) return [];
   if (state.suggestionPageRowsActive) {
@@ -2691,7 +2800,13 @@ function scannerBlocksForState(
     );
     return suggestionRows.length > 0 ? [suggestionRows] : [];
   }
-  return scanRowBlocks(rowCount, columnCountForRow, scanBlockCount);
+  return scanRowBlocksForPass(
+    rowCount,
+    columnCountForRow,
+    scanBlockCount,
+    state.passIndex,
+    selectableCellIndicesForRow
+  );
 }
 
 export function scanRecognitionLoad(
@@ -2827,7 +2942,8 @@ export function advanceScanner(
     rowCount,
     columnCountForRow,
     normalizedMode,
-    scanBlockCount
+    scanBlockCount,
+    selectableCellIndicesForRow
   );
   const passIndex = Math.max(1, clampInt(state.passIndex, 1, 1000000));
   switch (state.stage) {
@@ -2878,8 +2994,11 @@ export function advanceScanner(
     case ScanStage.BlockSelected: {
       if (blocks.length === 0) return state;
       const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
+      const selectedBlockRows = Array.isArray(state.selectedBlockRows)
+        ? state.selectedBlockRows
+        : blocks[blockIndex];
       const rowIndex = scannerRowsForPass(
-        blocks[blockIndex],
+        selectedBlockRows,
         passIndex,
         columnCountForRow,
         selectableCellIndicesForRow
@@ -2892,6 +3011,7 @@ export function advanceScanner(
         cellIndex: 0,
         passIndex: 1,
         cycleStartRowIndex: rowIndex,
+        selectedBlockRows,
         returningToBlocks: false,
         returningToRows: false,
         firstRowInBlock: true
@@ -2900,7 +3020,9 @@ export function advanceScanner(
     case ScanStage.Rows: {
       if (normalizedMode === ScanMode.BlockRowColumn && blocks.length > 0) {
         const blockIndex = clampInt(state.blockIndex, 0, blocks.length - 1);
-        const block = blocks[blockIndex];
+        const block = Array.isArray(state.selectedBlockRows)
+          ? state.selectedBlockRows
+          : blocks[blockIndex];
         const selectableRows = scannerRowsForPass(
           block,
           passIndex,
@@ -3058,7 +3180,8 @@ function advanceCompletedCellPass(
       cycleStartBlockIndex: state.cycleStartBlockIndex,
       cycleStartRowIndex: rowIndex,
       returningToRows: true,
-      suggestionPageRowsActive: state.suggestionPageRowsActive
+      suggestionPageRowsActive: state.suggestionPageRowsActive,
+      selectedBlockRows: state.selectedBlockRows
     });
   }
   const nextPassIndex = scannerPassIndexAfterCompletion(
@@ -3133,7 +3256,8 @@ export function confirmScanner(
     rowCount,
     columnCountForRow,
     normalizedMode,
-    scanBlockCount
+    scanBlockCount,
+    selectableCellIndicesForRow
   );
   switch (state.stage) {
     case ScanStage.Blocks: {
@@ -3186,7 +3310,8 @@ export function confirmScanner(
             rowIndex,
             passIndex: localPassIndex,
             cycleStartBlockIndex: blockIndex,
-            cycleStartRowIndex: rowIndex
+            cycleStartRowIndex: rowIndex,
+            selectedBlockRows: block
           })
         };
       }
@@ -3198,21 +3323,23 @@ export function confirmScanner(
           blockIndex,
           rowIndex,
           passIndex: localPassIndex,
-          cycleStartBlockIndex: blockIndex
+          cycleStartBlockIndex: blockIndex,
+          selectedBlockRows: block
         })
       };
     }
     case ScanStage.BlockSelected: {
-      const blockIndex = blocks.length > 0
-        ? clampInt(state.blockIndex, 0, blocks.length - 1)
-        : 0;
+      const blockIndex = blocks.length > 0 ? clampInt(state.blockIndex, 0, blocks.length - 1) : 0;
+      const selectedBlockRows = Array.isArray(state.selectedBlockRows)
+        ? state.selectedBlockRows
+        : blocks[blockIndex];
       return {
         type: "none",
         nextState: createScannerState({
           scanMode: normalizedMode,
           stage: ScanStage.Blocks,
           blockIndex,
-          rowIndex: blocks[blockIndex]?.[0] ?? 0,
+          rowIndex: selectedBlockRows?.[0] ?? 0,
           cycleStartBlockIndex: blockIndex
         })
       };
@@ -3261,7 +3388,8 @@ export function confirmScanner(
           passIndex: localPassIndex,
           cycleStartBlockIndex: state.cycleStartBlockIndex,
           cycleStartRowIndex: safeRow,
-          suggestionPageRowsActive: state.suggestionPageRowsActive
+          suggestionPageRowsActive: state.suggestionPageRowsActive,
+          selectedBlockRows: state.selectedBlockRows
         })
       };
     }
@@ -3276,7 +3404,8 @@ export function confirmScanner(
           rowIndex: safeRow,
           cycleStartBlockIndex: state.cycleStartBlockIndex,
           cycleStartRowIndex: safeRow,
-          suggestionPageRowsActive: state.suggestionPageRowsActive
+          suggestionPageRowsActive: state.suggestionPageRowsActive,
+          selectedBlockRows: state.selectedBlockRows
         })
       };
     }

@@ -24,6 +24,8 @@ import {
   pressSwitch,
   scanDurationForStage,
   scanRowBlocks,
+  scanRowBlocksForPass,
+  scanSelectableCellIndices,
   scanTimingPresetIdForConfig,
   selectableCount,
   serializeDictionary,
@@ -1031,11 +1033,7 @@ function announceCurrentScanTarget() {
 
   if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
     if (!uiConfig.rowScanVoice) return;
-    const blocks = scanRowBlocks(
-      board.length,
-      (row) => selectableCount(board[row]),
-      session.config.scanBlockCount
-    );
+    const blocks = scanBlocksForPresentation(scanner, board);
     const blockNumber = Math.min(blocks.length, Math.max(1, scanner.blockIndex + 1));
     speakFeedback(uiText(
       `Block ${blockNumber} of ${blocks.length}`,
@@ -1388,11 +1386,7 @@ function activeBlockRows(scanner, board) {
     return board.slice(0, 4).map((_row, rowIndex) => rowIndex);
   }
   if (scanner.stage !== ScanStage.Blocks && scanner.stage !== ScanStage.BlockSelected) return [];
-  const blocks = scanRowBlocks(
-    board.length,
-    (row) => selectableCount(board[row]),
-    session.config.scanBlockCount
-  );
+  const blocks = scanBlocksForPresentation(scanner, board);
   return blocks[scanner.blockIndex] ?? [];
 }
 
@@ -1402,12 +1396,26 @@ function selectedBlockContextRows(scanner, board) {
   if (scanner.suggestionPageRowsActive) {
     return board.slice(0, 4).map((_row, rowIndex) => rowIndex);
   }
-  const blocks = scanRowBlocks(
+  if (Array.isArray(scanner.selectedBlockRows)) return scanner.selectedBlockRows;
+  const blocks = scanBlocksForPresentation(scanner, board);
+  return blocks[scanner.blockIndex] ?? [];
+}
+
+function scanBlocksForPresentation(scanner, board) {
+  const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
+    ? (rowIndex, passIndex) => scanSelectableCellIndices(
+      board[rowIndex],
+      passIndex,
+      session.config.scanPassLimit
+    )
+    : undefined;
+  return scanRowBlocksForPass(
     board.length,
     (row) => selectableCount(board[row]),
-    session.config.scanBlockCount
+    session.config.scanBlockCount,
+    scanner.passIndex,
+    selectableCellIndicesForRow
   );
-  return blocks[scanner.blockIndex] ?? [];
 }
 
 function resetProgressFills(progressFills) {

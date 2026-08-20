@@ -11,6 +11,7 @@ import {
   scanDurationForStage,
   scanRecognitionLoad,
   scanRowBlocks,
+  scanRowBlocksForPass,
   scanSelectableCellIndices
 } from "../src/index.js";
 
@@ -391,7 +392,7 @@ test("a row available only on pass two keeps its full cell projection after conf
   assert.equal(firstCell.cellIndex, 0);
 });
 
-test("block scanning ignores a block with no first-pass targets", () => {
+test("block scanning removes empty gaps from reduced first-pass blocks", () => {
   const indicesForPass = (rowIndex, passIndex) => {
     if (passIndex > 1) return [0];
     return rowIndex >= 2 && rowIndex <= 3 ? [] : [0];
@@ -406,7 +407,7 @@ test("block scanning ignores a block with no first-pass targets", () => {
     indicesForPass
   );
 
-  assert.equal(state.blockIndex, 2);
+  assert.equal(state.blockIndex, 1);
   assert.equal(state.passIndex, 1);
 });
 
@@ -425,6 +426,56 @@ test("default block mode creates the 4-3-3-3 groups used by 13-row boards", () =
     [7, 8, 9],
     [10, 11, 12]
   ]);
+});
+
+test("reduced first-pass blocks stay compact, balanced, and at least two rows wide", () => {
+  const sizes = Array.from({ length: 13 }, () => 4);
+  const firstPassRows = new Set([0, 1, 2, 3, 4, 9, 10, 11, 12]);
+  const indicesForPass = (rowIndex, passIndex) =>
+    passIndex > 1 || firstPassRows.has(rowIndex) ? [0] : [];
+
+  assert.deepEqual(
+    scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 1, indicesForPass),
+    [[0, 1, 2], [3, 4], [9, 10], [11, 12]]
+  );
+  assert.deepEqual(
+    scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 2, indicesForPass),
+    [[0, 1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
+  );
+});
+
+test("a compact first-pass block keeps its rows while scanning inside it", () => {
+  const sizes = Array.from({ length: 13 }, () => 4);
+  const firstPassRows = new Set([0, 1, 2, 3, 4, 9, 10, 11, 12]);
+  const indicesForPass = (rowIndex, passIndex) =>
+    passIndex > 1 || firstPassRows.has(rowIndex) ? [0] : [];
+  const selection = confirmScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 2,
+      rowIndex: 9
+    }),
+    sizes.length,
+    (row) => sizes[row],
+    ScanMode.BlockRowColumn,
+    4,
+    indicesForPass
+  );
+
+  assert.deepEqual(selection.nextState.selectedBlockRows, [9, 10]);
+  const rowsState = advanceScanner(
+    selection.nextState,
+    sizes.length,
+    (row) => sizes[row],
+    2,
+    ScanMode.BlockRowColumn,
+    4,
+    indicesForPass
+  );
+  assert.equal(rowsState.stage, ScanStage.Rows);
+  assert.equal(rowsState.rowIndex, 9);
+  assert.deepEqual(rowsState.selectedBlockRows, [9, 10]);
 });
 
 test("six-column English can use three 4-3-3 row blocks", () => {

@@ -1240,9 +1240,17 @@ test("zh-TW committed Han context backs off to its newest useful glyph", () => {
   assert.equal(water.sourceLabel, "喝水");
   assert.equal(applyTile("我喝", [], water, config, {}).message, "我喝水");
   assert.equal(
-    suggestions.some((candidate) => candidate.matchType === "base"),
-    false
+    suggestions.some((candidate) => candidate.label === "喝水"),
+    true
   );
+});
+
+test("zh-TW completed phrases keep static next-utterance suggestions without an exact continuation", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const suggestions = boardRows(config, "不知道", false, {}).slice(0, 4).flat();
+
+  assert.equal(suggestions.some((candidate) => candidate.matchType === "context"), false);
+  assert.equal(suggestions.some((candidate) => candidate.label === "喝水"), true);
 });
 
 test("zh-TW combines committed Han context with an incomplete Zhuyin buffer", () => {

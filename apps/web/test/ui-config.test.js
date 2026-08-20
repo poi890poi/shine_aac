@@ -98,6 +98,11 @@ test("unsupported Zhuyin deferral is opt-in, persisted, and visibly temporary", 
   assert.doesNotMatch(appSource, /aria-disabled[^\n]*scanDeferred/);
 });
 
+test("reduced first-pass blocks reuse compact core grouping in the rendered highlight", () => {
+  assert.match(appSource, /function scanBlocksForPresentation[\s\S]*?scanRowBlocksForPass/);
+  assert.match(appSource, /Array\.isArray\(scanner\.selectedBlockRows\)[\s\S]*?scanner\.selectedBlockRows/);
+});
+
 test("tone fallback controls use a distinct secondary treatment", () => {
   assert.match(appSource, /candidate\.toneFallback === true/);
   assert.match(styles, /\.tile\.tone-fallback\s*\{[\s\S]*?border-color:\s*#8064a2/);

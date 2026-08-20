@@ -7,8 +7,9 @@ import {
   createScannerState,
   createSession,
   pressSwitch,
-  scanRowBlocks,
   scanDurationForStage,
+  scanRowBlocksForPass,
+  scanSelectableCellIndices,
   selectableCount,
   visibleBoard,
   ZhTwFrequencyDictionary
@@ -53,11 +54,7 @@ function scanCost(session, rowIndex, cellIndex) {
   const rows = visibleBoard(session);
   const singletonRow = selectableCount(rows[rowIndex]) === 1;
   if (session.config.scanMode === ScanMode.BlockRowColumn) {
-    const blocks = scanRowBlocks(
-      rows.length,
-      (row) => selectableCount(rows[row]),
-      session.config.scanBlockCount
-    );
+    const blocks = scanBlocksForSession(session, rows);
     const targetBlockIndex = blocks.findIndex((block) => block.includes(rowIndex));
     const singletonBlock = blocks[targetBlockIndex]?.length === 1;
     const blockCursor = session.scannerState.stage === ScanStage.Blocks
@@ -104,11 +101,7 @@ function selectPosition(session, position) {
 
   if (blockMode) {
     const rows = visibleBoard(next);
-    const blocks = scanRowBlocks(
-      rows.length,
-      (row) => selectableCount(rows[row]),
-      next.config.scanBlockCount
-    );
+    const blocks = scanBlocksForSession(next, rows);
     const targetBlockIndex = blocks.findIndex((block) => block.includes(position.rowIndex));
     for (let step = 0; step <= blocks.length; step += 1) {
       if (next.scannerState.stage === ScanStage.Blocks && next.scannerState.blockIndex === targetBlockIndex) break;
@@ -139,11 +132,7 @@ function selectPosition(session, position) {
 
   if (!rowWasAutomaticallyActivated) {
     const rowSearchLimit = blockMode
-      ? scanRowBlocks(
-        visibleBoard(next).length,
-        (row) => selectableCount(visibleBoard(next)[row]),
-        next.config.scanBlockCount
-      )
+      ? scanBlocksForSession(next, visibleBoard(next))
         .find((block) => block.includes(position.rowIndex))?.length ?? 0
       : visibleBoard(next).length;
     for (let step = 0; step <= rowSearchLimit; step += 1) {
@@ -178,6 +167,23 @@ function selectPosition(session, position) {
   next = pressSwitch(next, 1000);
   metrics.switches += 1;
   return completedSelection(next, metrics);
+}
+
+function scanBlocksForSession(session, rows = visibleBoard(session)) {
+  const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
+    ? (rowIndex, passIndex) => scanSelectableCellIndices(
+      rows[rowIndex],
+      passIndex,
+      session.config.scanPassLimit
+    )
+    : undefined;
+  return scanRowBlocksForPass(
+    rows.length,
+    (row) => selectableCount(rows[row]),
+    session.config.scanBlockCount,
+    session.scannerState.passIndex,
+    selectableCellIndicesForRow
+  );
 }
 
 function completedSelection(next, metrics) {

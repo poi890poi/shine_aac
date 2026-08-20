@@ -5,7 +5,8 @@ import {
   ZhTwFrequencyDictionary,
   ZhuyinInputSymbols,
   scanDurationForStage,
-  scanRowBlocks,
+  scanRowBlocksForPass,
+  scanSelectableCellIndices,
   selectableCount,
   visibleBoard
 } from "../../../packages/aac-core/src/index.js";
@@ -548,10 +549,19 @@ export function createDemoMode({
     const scanner = session.scannerState;
     if (scanner.stage !== ScanStage.Blocks) return false;
     const rows = visibleBoard(session);
-    const blocks = scanRowBlocks(
+    const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
+      ? (rowIndex, passIndex) => scanSelectableCellIndices(
+        rows[rowIndex],
+        passIndex,
+        session.config.scanPassLimit
+      )
+      : undefined;
+    const blocks = scanRowBlocksForPass(
       rows.length,
       (row) => selectableCount(rows[row]),
-      session.config.scanBlockCount
+      session.config.scanBlockCount,
+      scanner.passIndex,
+      selectableCellIndicesForRow
     );
     return (blocks[scanner.blockIndex] ?? []).some((rowIndex) =>
       (rows[rowIndex] ?? []).some((candidate) => tileMatchesTarget(candidate, target))
