@@ -59,7 +59,7 @@ Hidden debug channels must not be treated as proof of user-visible behavior. Aut
 - Mistakes must be cheap. `UNDO` repairs the previous message state with one selection, and a selected row can be cancelled when a helper explicitly enables transition pause.
 - Dynamic suggestions must not move the static board. The suggestion row remains fixed and should prefer useful fallback targets such as `SPC` or high-frequency letters over blank cells.
 - Dynamic suggestions must not change while a selected row is being scanned. The selected row is locked until the cell choice is complete or cancelled.
-- Transition escape after row selection is optional and disabled by default. The default timing keeps the scanner model simple: row selection moves directly to the first cell, and the first cell receives a longer hold because it is otherwise easy to overshoot.
+- Transition escape after row selection is optional and disabled by default. The default timing keeps the scanner model simple: block selection gives its first row a longer hold, and row selection moves directly to a first cell with the same longer hold because both targets are otherwise easy to overshoot.
 - Early symbol activations can be latency-compensated to the previous symbol inside the same row. Row activations are not remapped to previous rows.
 - The progress hint belongs near the active row or symbol, because that is where the user's gaze already is.
 - The message display must make trailing spaces visible with a cursor.

@@ -42,7 +42,7 @@ export const TileAction = Object.freeze({
 export const DefaultColumns = 4;
 export const DefaultScanIntervalMs = 1800;
 export const DefaultTransitionPauseMs = 0;
-export const DefaultFirstCellPauseMs = DefaultScanIntervalMs;
+export const DefaultFirstCellPauseMs = 2400;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
 export const DefaultScanPassLimit = 2;
@@ -76,7 +76,7 @@ export const ScanTimingPresets = Object.freeze({
   }),
   firstCellSupport: Object.freeze({
     id: "firstCellSupport",
-    label: "First symbol support",
+    label: "First target support",
     scanIntervalMs: DefaultScanIntervalMs,
     transitionPauseMs: 0,
     firstCellPauseMs: 3000,
@@ -91,13 +91,15 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 29;
+export const CurrentConfigVersion = 30;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
 const LegacyDefaultFirstCellPauseMs = 900;
 const EarlierDefaultFirstCellPauseMs = 1700;
 const PreviousDefaultFirstCellPauseMs = 2300;
+const ConsistentIntervalDefaultFirstCellPauseMs = 1800;
+const ConsistentIntervalDefaultFirstCellPauseMinVersion = 24;
 export const DefaultProfileId = "en-US";
 export const AutoSpaceMode = Object.freeze({
   Word: "word",
@@ -1176,7 +1178,11 @@ export function loadFirstCellPauseForConfig(storedPauseMs, storedVersion) {
       storedPauseMs === LegacyFirstCellPauseMsV6 ||
       storedPauseMs === LegacyDefaultFirstCellPauseMs ||
       storedPauseMs === EarlierDefaultFirstCellPauseMs ||
-      storedPauseMs === PreviousDefaultFirstCellPauseMs
+      storedPauseMs === PreviousDefaultFirstCellPauseMs ||
+      (
+        storedVersion >= ConsistentIntervalDefaultFirstCellPauseMinVersion &&
+        storedPauseMs === ConsistentIntervalDefaultFirstCellPauseMs
+      )
     )
   ) {
     return DefaultFirstCellPauseMs;
@@ -2360,6 +2366,7 @@ export function createScannerState(overrides = {}) {
     cycleStartRowIndex: 0,
     returningToBlocks: false,
     returningToRows: false,
+    firstRowInBlock: false,
     ...stateOverrides
   };
 }
@@ -2529,7 +2536,8 @@ export function advanceScanner(
         passIndex: 1,
         cycleStartRowIndex: rowIndex,
         returningToBlocks: false,
-        returningToRows: false
+        returningToRows: false,
+        firstRowInBlock: true
       };
     }
     case ScanStage.Rows: {
@@ -2560,7 +2568,8 @@ export function advanceScanner(
           passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
           cycleStartRowIndex,
           returningToBlocks: false,
-          returningToRows: false
+          returningToRows: false,
+          firstRowInBlock: false
         };
       }
       const safeRow = clampInt(state.rowIndex, 0, rowCount - 1);
@@ -2580,7 +2589,8 @@ export function advanceScanner(
         cellIndex: 0,
         passIndex: completedPass && passLimit > 0 ? passIndex + 1 : passIndex,
         cycleStartRowIndex,
-        returningToRows: false
+        returningToRows: false,
+        firstRowInBlock: false
       };
     }
     case ScanStage.RowSelected:
@@ -2590,7 +2600,8 @@ export function advanceScanner(
         cellIndex: 0,
         passIndex: 1,
         returningToBlocks: false,
-        returningToRows: false
+        returningToRows: false,
+        firstRowInBlock: false
       };
     case ScanStage.FirstCell: {
       const columns = Math.max(1, columnCountForRow(state.rowIndex));
@@ -2632,7 +2643,8 @@ function advanceCompletedCellPass(state, passLimit, scanMode) {
     stage: ScanStage.FirstCell,
     cellIndex: 0,
     passIndex: passLimit > 0 ? passIndex + 1 : passIndex,
-    returningToRows: false
+    returningToRows: false,
+    firstRowInBlock: false
   };
 }
 
@@ -3231,7 +3243,9 @@ export function scanDurationForStage(state, config = createBoardConfig()) {
     case ScanStage.BlockSelected:
       return config.transitionPauseMs;
     case ScanStage.Rows:
-      return state.returningToRows ? config.firstCellPauseMs : config.scanIntervalMs;
+      return state.returningToRows || state.firstRowInBlock
+        ? config.firstCellPauseMs
+        : config.scanIntervalMs;
     case ScanStage.RowSelected:
       return config.transitionPauseMs;
     case ScanStage.FirstCell:

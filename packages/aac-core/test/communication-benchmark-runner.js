@@ -8,6 +8,7 @@ import {
   createSession,
   pressSwitch,
   scanRowBlocks,
+  scanDurationForStage,
   selectableCount,
   visibleBoard,
   ZhTwFrequencyDictionary
@@ -76,18 +77,7 @@ function scanCost(session, rowIndex, cellIndex) {
 }
 
 function scanAdvanceMs(session) {
-  switch (session.scannerState.stage) {
-    case ScanStage.BlockSelected:
-    case ScanStage.RowSelected:
-      return session.config.transitionPauseMs;
-    case ScanStage.FirstCell:
-      return session.config.firstCellPauseMs;
-    case ScanStage.Blocks:
-    case ScanStage.Rows:
-    case ScanStage.Cells:
-    default:
-      return session.config.scanIntervalMs;
-  }
+  return scanDurationForStage(session.scannerState, session.config);
 }
 
 function bestPositionForToken(session, token) {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "label": "Accepted profile-independent English input baseline",
-  "generatedAt": "2026-08-18T00:26:57.683Z",
+  "generatedAt": "2026-08-20T07:03:57.983Z",
   "tasks": [
     {
       "id": "project-core-word-all",
@@ -19,7 +19,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 18,
-        "estimatedTimeMs": 32400,
+        "estimatedTimeMs": 34200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -42,7 +42,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 12,
-        "estimatedTimeMs": 21600,
+        "estimatedTimeMs": 22800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -65,7 +65,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 20,
-        "estimatedTimeMs": 36000,
+        "estimatedTimeMs": 37200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -88,7 +88,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 19,
-        "estimatedTimeMs": 34200,
+        "estimatedTimeMs": 35400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -111,7 +111,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 20,
-        "estimatedTimeMs": 36000,
+        "estimatedTimeMs": 37200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -134,7 +134,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 20400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -157,7 +157,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 5,
-        "estimatedTimeMs": 9000,
+        "estimatedTimeMs": 9600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -180,7 +180,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 13,
-        "estimatedTimeMs": 23400,
+        "estimatedTimeMs": 24000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -203,7 +203,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 10,
-        "estimatedTimeMs": 18000,
+        "estimatedTimeMs": 18600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -226,7 +226,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 4,
-        "estimatedTimeMs": 7200,
+        "estimatedTimeMs": 7800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -249,7 +249,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 16,
-        "estimatedTimeMs": 28800,
+        "estimatedTimeMs": 29400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -318,7 +318,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 14,
-        "estimatedTimeMs": 25200,
+        "estimatedTimeMs": 25800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -341,7 +341,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 21000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -387,7 +387,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 14,
-        "estimatedTimeMs": 25200,
+        "estimatedTimeMs": 26400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -410,7 +410,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 12,
-        "estimatedTimeMs": 21600,
+        "estimatedTimeMs": 22800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -433,7 +433,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 9,
-        "estimatedTimeMs": 16200,
+        "estimatedTimeMs": 17400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -456,7 +456,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 21000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -479,7 +479,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 23,
-        "estimatedTimeMs": 41400,
+        "estimatedTimeMs": 43200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -502,7 +502,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 24,
-        "estimatedTimeMs": 43200,
+        "estimatedTimeMs": 44400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -525,7 +525,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 13,
-        "estimatedTimeMs": 23400,
+        "estimatedTimeMs": 24600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -548,7 +548,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 10,
-        "estimatedTimeMs": 18000,
+        "estimatedTimeMs": 19200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -571,7 +571,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 12,
-        "estimatedTimeMs": 21600,
+        "estimatedTimeMs": 22800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -594,7 +594,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 6,
-        "estimatedTimeMs": 10800,
+        "estimatedTimeMs": 11400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -617,7 +617,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 8,
-        "estimatedTimeMs": 14400,
+        "estimatedTimeMs": 15000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -640,7 +640,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 17,
-        "estimatedTimeMs": 30600,
+        "estimatedTimeMs": 31800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -663,7 +663,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 20400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -686,7 +686,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 6,
-        "estimatedTimeMs": 10800,
+        "estimatedTimeMs": 11400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -709,7 +709,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 22,
-        "estimatedTimeMs": 39600,
+        "estimatedTimeMs": 40800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -732,7 +732,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 15,
-        "estimatedTimeMs": 27000,
+        "estimatedTimeMs": 28200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -755,7 +755,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 20,
-        "estimatedTimeMs": 36000,
+        "estimatedTimeMs": 36600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -778,7 +778,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 14,
-        "estimatedTimeMs": 25200,
+        "estimatedTimeMs": 26400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -801,7 +801,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 31,
-        "estimatedTimeMs": 55800,
+        "estimatedTimeMs": 57000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3
@@ -824,7 +824,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 5,
-        "estimatedTimeMs": 9000,
+        "estimatedTimeMs": 9600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -870,7 +870,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 1,
-        "estimatedTimeMs": 1800,
+        "estimatedTimeMs": 2400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -893,7 +893,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 2,
-        "estimatedTimeMs": 3600,
+        "estimatedTimeMs": 4200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -916,7 +916,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 3,
-        "estimatedTimeMs": 5400,
+        "estimatedTimeMs": 6000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -962,7 +962,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 2,
-        "estimatedTimeMs": 3600,
+        "estimatedTimeMs": 4200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -985,7 +985,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 3,
-        "estimatedTimeMs": 5400,
+        "estimatedTimeMs": 6000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1008,7 +1008,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 4,
-        "estimatedTimeMs": 7200,
+        "estimatedTimeMs": 7800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1054,7 +1054,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 3,
-        "estimatedTimeMs": 5400,
+        "estimatedTimeMs": 6000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1077,7 +1077,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 4,
-        "estimatedTimeMs": 7200,
+        "estimatedTimeMs": 7800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1100,7 +1100,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 5,
-        "estimatedTimeMs": 9000,
+        "estimatedTimeMs": 9600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1146,7 +1146,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 4,
-        "estimatedTimeMs": 7200,
+        "estimatedTimeMs": 7800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1169,7 +1169,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 5,
-        "estimatedTimeMs": 9000,
+        "estimatedTimeMs": 9600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1215,7 +1215,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 5,
-        "estimatedTimeMs": 9000,
+        "estimatedTimeMs": 9600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1238,7 +1238,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 6,
-        "estimatedTimeMs": 10800,
+        "estimatedTimeMs": 11400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1261,7 +1261,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 7,
-        "estimatedTimeMs": 12600,
+        "estimatedTimeMs": 13200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -1285,7 +1285,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 6,
-        "estimatedTimeMs": 10800,
+        "estimatedTimeMs": 11400,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1310,7 +1310,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 7,
-        "estimatedTimeMs": 12600,
+        "estimatedTimeMs": 13800,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1335,7 +1335,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 8,
-        "estimatedTimeMs": 14400,
+        "estimatedTimeMs": 15600,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1360,7 +1360,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 9,
-        "estimatedTimeMs": 16200,
+        "estimatedTimeMs": 17400,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1385,7 +1385,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 7,
-        "estimatedTimeMs": 12600,
+        "estimatedTimeMs": 13200,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1410,7 +1410,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 8,
-        "estimatedTimeMs": 14400,
+        "estimatedTimeMs": 15600,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1435,7 +1435,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 9,
-        "estimatedTimeMs": 16200,
+        "estimatedTimeMs": 17400,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1460,7 +1460,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 10,
-        "estimatedTimeMs": 18000,
+        "estimatedTimeMs": 19200,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1485,7 +1485,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 8,
-        "estimatedTimeMs": 14400,
+        "estimatedTimeMs": 15000,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1510,7 +1510,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 9,
-        "estimatedTimeMs": 16200,
+        "estimatedTimeMs": 17400,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1535,7 +1535,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 10,
-        "estimatedTimeMs": 18000,
+        "estimatedTimeMs": 19200,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1560,7 +1560,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 21000,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1585,7 +1585,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 9,
-        "estimatedTimeMs": 16200,
+        "estimatedTimeMs": 16800,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1610,7 +1610,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 10,
-        "estimatedTimeMs": 18000,
+        "estimatedTimeMs": 19200,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1635,7 +1635,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 21000,
         "moreSuggestions": 1,
         "tileActions": {
           "more-suggestions": 1,
@@ -1661,7 +1661,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 12,
-        "estimatedTimeMs": 21600,
+        "estimatedTimeMs": 22800,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1687,7 +1687,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 13,
-        "estimatedTimeMs": 23400,
+        "estimatedTimeMs": 25200,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1713,7 +1713,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 14,
-        "estimatedTimeMs": 25200,
+        "estimatedTimeMs": 27000,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1739,7 +1739,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 15,
-        "estimatedTimeMs": 27000,
+        "estimatedTimeMs": 28800,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1765,7 +1765,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 13,
-        "estimatedTimeMs": 23400,
+        "estimatedTimeMs": 24600,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1791,7 +1791,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 14,
-        "estimatedTimeMs": 25200,
+        "estimatedTimeMs": 27000,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1817,7 +1817,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 15,
-        "estimatedTimeMs": 27000,
+        "estimatedTimeMs": 28800,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1843,7 +1843,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 16,
-        "estimatedTimeMs": 28800,
+        "estimatedTimeMs": 30600,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1869,7 +1869,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 14,
-        "estimatedTimeMs": 25200,
+        "estimatedTimeMs": 26400,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1895,7 +1895,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 15,
-        "estimatedTimeMs": 27000,
+        "estimatedTimeMs": 28800,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1921,7 +1921,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 16,
-        "estimatedTimeMs": 28800,
+        "estimatedTimeMs": 30600,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1947,7 +1947,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 17,
-        "estimatedTimeMs": 30600,
+        "estimatedTimeMs": 32400,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1973,7 +1973,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 15,
-        "estimatedTimeMs": 27000,
+        "estimatedTimeMs": 28200,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -1999,7 +1999,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 16,
-        "estimatedTimeMs": 28800,
+        "estimatedTimeMs": 30600,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -2025,7 +2025,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 15,
-        "estimatedTimeMs": 27000,
+        "estimatedTimeMs": 28800,
         "moreSuggestions": 1,
         "tileActions": {
           "append": 2,
@@ -2053,7 +2053,7 @@
         "selections": 5,
         "switches": 10,
         "advances": 25,
-        "estimatedTimeMs": 45000,
+        "estimatedTimeMs": 48000,
         "moreSuggestions": 3,
         "tileActions": {
           "more-suggestions": 3,
@@ -2082,7 +2082,7 @@
         "selections": 6,
         "switches": 12,
         "advances": 31,
-        "estimatedTimeMs": 55800,
+        "estimatedTimeMs": 59400,
         "moreSuggestions": 4,
         "tileActions": {
           "more-suggestions": 4,
@@ -2109,7 +2109,7 @@
         "selections": 4,
         "switches": 8,
         "advances": 19,
-        "estimatedTimeMs": 34200,
+        "estimatedTimeMs": 36600,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -2135,7 +2135,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 21600,
         "moreSuggestions": 1,
         "tileActions": {
           "append": 2,
@@ -2161,7 +2161,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 16,
-        "estimatedTimeMs": 28800,
+        "estimatedTimeMs": 30600,
         "moreSuggestions": 2,
         "tileActions": {
           "more-suggestions": 2,
@@ -2188,7 +2188,7 @@
         "selections": 17,
         "switches": 34,
         "advances": 138,
-        "estimatedTimeMs": 248400,
+        "estimatedTimeMs": 255600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 13,
@@ -2216,7 +2216,7 @@
         "selections": 26,
         "switches": 52,
         "advances": 220,
-        "estimatedTimeMs": 396000,
+        "estimatedTimeMs": 407400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 20,
@@ -2244,7 +2244,7 @@
         "selections": 19,
         "switches": 38,
         "advances": 161,
-        "estimatedTimeMs": 289800,
+        "estimatedTimeMs": 298200,
         "moreSuggestions": 0,
         "tileActions": {
           "open-category": 1,
@@ -2281,7 +2281,7 @@
         "selections": 49,
         "switches": 98,
         "advances": 397,
-        "estimatedTimeMs": 714600,
+        "estimatedTimeMs": 735600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 37,
@@ -2309,7 +2309,7 @@
         "selections": 24,
         "switches": 48,
         "advances": 188,
-        "estimatedTimeMs": 338400,
+        "estimatedTimeMs": 349800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 19,
@@ -2346,7 +2346,7 @@
         "selections": 63,
         "switches": 126,
         "advances": 485,
-        "estimatedTimeMs": 873000,
+        "estimatedTimeMs": 896400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 50,
@@ -2370,7 +2370,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 5,
-        "estimatedTimeMs": 9000,
+        "estimatedTimeMs": 9600,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -2393,7 +2393,7 @@
         "selections": 2,
         "switches": 4,
         "advances": 11,
-        "estimatedTimeMs": 19800,
+        "estimatedTimeMs": 21000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 2
@@ -2417,7 +2417,7 @@
         "selections": 5,
         "switches": 10,
         "advances": 32,
-        "estimatedTimeMs": 57600,
+        "estimatedTimeMs": 60000,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 5
@@ -2440,7 +2440,7 @@
         "selections": 1,
         "switches": 2,
         "advances": 4,
-        "estimatedTimeMs": 7200,
+        "estimatedTimeMs": 7800,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 1
@@ -2463,7 +2463,7 @@
         "selections": 4,
         "switches": 8,
         "advances": 28,
-        "estimatedTimeMs": 50400,
+        "estimatedTimeMs": 52200,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 4
@@ -2511,7 +2511,7 @@
         "selections": 3,
         "switches": 6,
         "advances": 16,
-        "estimatedTimeMs": 28800,
+        "estimatedTimeMs": 29400,
         "moreSuggestions": 0,
         "tileActions": {
           "append": 3

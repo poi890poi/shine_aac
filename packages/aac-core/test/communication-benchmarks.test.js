@@ -145,7 +145,7 @@ test("English keeps its independently optimized four-column, four-block configur
     blockCount: 4,
     advances: 305,
     switches: 273,
-    estimatedTimeMs: 549000
+    estimatedTimeMs: 620400
   });
   assert.equal(
     fourColumnCandidates.every((candidate) =>
@@ -156,7 +156,7 @@ test("English keeps its independently optimized four-column, four-block configur
   assert.deepEqual(sixColumnFourBlock, {
     advances: 360,
     switches: 273,
-    estimatedTimeMs: 648000
+    estimatedTimeMs: 715800
   });
 });
 

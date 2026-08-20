@@ -2158,8 +2158,8 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
   if (stored.configVersion < 22 || stored.profileId !== "zh-TW" || stored.columns !== 6) {
     throw new Error(`zh-TW reset saved wrong config metadata: ${JSON.stringify(stored)}`);
   }
-  if (stored.scanIntervalMs !== 1800 || stored.firstCellPauseMs !== stored.scanIntervalMs) {
-    throw new Error(`zh-TW reset should use one consistent default scan interval: ${JSON.stringify(stored)}`);
+  if (stored.scanIntervalMs !== 1800 || stored.firstCellPauseMs !== 2400) {
+    throw new Error(`zh-TW reset should preserve the slower first-target hold: ${JSON.stringify(stored)}`);
   }
   if (
     !stored.symbols.includes("ㄅ") ||

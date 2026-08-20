@@ -741,14 +741,14 @@ test("old built-in zh-TW dictionary migrates to short AAC labels", () => {
   assert.equal(labels.includes("我要喝水"), false);
 });
 
-test("default scanning uses one consistent row and cell interval", () => {
+test("default scanning gives first targets extra time", () => {
   const config = createBoardConfig();
 
   assert.equal(config.scanMode, ScanMode.RowColumn);
   assert.equal(config.scanIntervalMs, 1800);
   assert.equal(config.transitionPauseMs, 0);
-  assert.equal(config.firstCellPauseMs, 1800);
-  assert.equal(config.firstCellPauseMs, config.scanIntervalMs);
+  assert.equal(config.firstCellPauseMs, 2400);
+  assert.equal(config.firstCellPauseMs > config.scanIntervalMs, true);
 });
 
 test("scan timing presets are named bundles over normal timing fields", () => {
@@ -779,9 +779,12 @@ test("legacy default scan timing migrates while custom values are preserved", ()
   assert.equal(loadFirstCellPauseForConfig(1700, 20), DefaultFirstCellPauseMs);
   assert.equal(loadFirstCellPauseForConfig(2300, 23), DefaultFirstCellPauseMs);
   assert.equal(loadFirstCellPauseForConfig(LegacyFirstCellPauseMsV6, 6), DefaultFirstCellPauseMs);
+  assert.equal(loadFirstCellPauseForConfig(1800, 24), DefaultFirstCellPauseMs);
+  assert.equal(loadFirstCellPauseForConfig(1800, 29), DefaultFirstCellPauseMs);
   assert.equal(loadScanIntervalForConfig(1800, 10), 1800);
   assert.equal(loadTransitionPauseForConfig(850, 10), 850);
   assert.equal(loadFirstCellPauseForConfig(1800, 6), 1800);
+  assert.equal(loadFirstCellPauseForConfig(1850, 29), 1850);
 });
 
 test("English profile remains the default and auto-spaces words", () => {

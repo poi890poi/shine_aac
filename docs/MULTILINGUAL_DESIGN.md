@@ -151,14 +151,14 @@ Pipeline rules:
 
 ### Scanning Timing
 
-Default scanning should be conservative for disability access. ASHA describes AAC systems as combinations of symbols, selection techniques, and strategies that must fit an individual's physical, visual, cognitive, language, and communication needs. In row/column switch scanning, speed is not just a preference: it affects fatigue, timing errors, and whether the first cell in a selected row feels reachable.
+Default scanning should be conservative for disability access. ASHA describes AAC systems as combinations of symbols, selection techniques, and strategies that must fit an individual's physical, visual, cognitive, language, and communication needs. In switch scanning, speed is not just a preference: it affects fatigue, timing errors, and whether the first row after block entry or the first cell in a selected row feels reachable.
 
 Default timing:
 
 ```text
 scan interval: 1800 ms
 row-selected transition pause: 0 ms
-first-cell hold: 1800 ms
+first-row / first-cell hold: 2400 ms
 ```
 
 Helpers can still customize faster timing or enable a transition pause for a specific user. The default should favor a simple scanner model, lower timing precision, and stamina over maximum throughput.
@@ -346,7 +346,7 @@ export const zhTwProfile = {
   writingSystem: "traditional-chinese",
   columns: 4,
   scanIntervalMs: 1800,
-  firstCellPauseMs: 1800,
+  firstCellPauseMs: 2400,
   autoSpace: "none",
   speechLocale: "zh-TW",
   composeMessage,

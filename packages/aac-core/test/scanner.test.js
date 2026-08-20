@@ -8,6 +8,7 @@ import {
   confirmWithLatencyCompensation,
   createScannerState,
   scanAccessCost,
+  scanDurationForStage,
   scanRecognitionLoad,
   scanRowBlocks
 } from "../src/index.js";
@@ -138,6 +139,39 @@ test("confirming a one-row block automatically activates its row", () => {
   assert.equal(confirmation.nextState.stage, ScanStage.RowSelected);
   assert.equal(confirmation.nextState.blockIndex, 1);
   assert.equal(confirmation.nextState.rowIndex, 1);
+});
+
+test("the first row after block entry uses the first-target hold", () => {
+  const firstRow = advanceScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.BlockSelected,
+      blockIndex: 0
+    }),
+    rowSizes.length,
+    columnCountForRow,
+    2,
+    ScanMode.BlockRowColumn,
+    2
+  );
+  const timing = { scanIntervalMs: 1800, firstCellPauseMs: 2400, transitionPauseMs: 0 };
+
+  assert.equal(firstRow.stage, ScanStage.Rows);
+  assert.equal(firstRow.rowIndex, 0);
+  assert.equal(firstRow.firstRowInBlock, true);
+  assert.equal(scanDurationForStage(firstRow, timing), 2400);
+
+  const secondRow = advanceScanner(
+    firstRow,
+    rowSizes.length,
+    columnCountForRow,
+    2,
+    ScanMode.BlockRowColumn,
+    2
+  );
+  assert.equal(secondRow.rowIndex, 1);
+  assert.equal(secondRow.firstRowInBlock, false);
+  assert.equal(scanDurationForStage(secondRow, timing), 1800);
 });
 
 test("one-row, one-item blocks cascade directly to item selection", () => {

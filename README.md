@@ -65,7 +65,7 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - Row/column switch scanning plus an optional block/row/column mode, both using the same board and suggestions.
 - Single-action switch selection: tap anywhere to select the highlighted block when enabled, row, and then symbol.
 - An optional row-to-symbol cancel pause so accidental row selections can be escaped before symbol scanning starts. The MVP default is `0 ms`, which skips this state entirely because the current transition/escape interaction was hurting basic use.
-- A configurable first-symbol hold. By default it matches the normal scan speed; a named support preset remains available for users who need longer on column 1.
+- A configurable first-target hold for the first symbol in a row and the first row after entering a block. Its built-in default is `2400 ms`, longer than the normal `1800 ms` scan interval.
 - An optional review hold after suggestion changes. It is off by default so selecting a word immediately resumes scanning; helpers can opt in when a user needs an explicit review pause.
 - Input-latency compensation: very early symbol activations are treated as intended selections of the previous symbol in the same row. Row activations are never remapped to a previous row.
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
@@ -76,7 +76,7 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - Voice feedback for row scanning, symbol scanning, and activated targets, configurable by a helper. Row-scan voice is off by default; symbol and activation voice remain on.
 - A developer-only demo mode. On a phone, long-press `Config` to start the extended everyday conversation demo; tap anywhere to exit. Browser builds can also start it with `?demo=water` or `localStorage["shine-aac-demo-mode"]="water"`. It emits the same activation intents as real input, including word selections, alphabet spelling across deeper rows, speech, clear, and `UNDO` correction.
 - Different visual styles for text-entry targets, space, speak, and repair functions such as `CLR`, `UNDO`, and `DEL`.
-- Adjustable scan speed, transition pause, first-symbol hold, suggestion-review hold, and input-latency compensation.
+- Adjustable scan speed, transition pause, first-target hold, suggestion-review hold, and input-latency compensation.
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
 
 ## Switch Scanning Design
@@ -89,7 +89,7 @@ Row/column mode uses these stages:
 3. `FirstCell`: the first symbol in the locked row is highlighted with its own configurable hold.
 4. `Cells`: the remaining symbols in the locked row are highlighted in sequence.
 
-Block/row/column mode begins with `Blocks`, then scans only the rows inside the selected block before using the same cell stages. The selected block retains a purple outline during row scanning. A single-row block and a single-item row advance automatically, so an extra switch activation is not required. Scan mode is deliberately independent from language, board columns, symbol placement, and suggestions.
+Block/row/column mode begins with `Blocks`, then scans only the rows inside the selected block before using the same cell stages. The selected block retains a purple outline during row scanning. The first row shown after entering a block uses the same configurable first-target hold as the first symbol in a row; the built-in default is `2400 ms`, compared with the normal `1800 ms` scan interval. A single-row block and a single-item row advance automatically, so an extra switch activation is not required. Scan mode is deliberately independent from language, board columns, symbol placement, and suggestions.
 
 The `RowSelected` transient state exists because many users produce a second accidental activation shortly after the row selection. Without this pause, the system can jump into symbol scanning and select the first or second symbol before the user has had time to perceive the mode change. However, this extra state was confusing in current MVP testing, so the built-in default transition pause is `0 ms`. When the value is `0`, the code skips `RowSelected` completely and goes straight to `FirstCell`. Helpers can enable the pause later by setting a positive transition time.
 
@@ -158,7 +158,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - number of columns
 - switch scan speed
 - row-to-symbol transition pause
-- first-symbol hold
+- first-row / first-symbol hold
 - input-latency compensation window
 - suggestion dictionary
 - custom symbols and words
@@ -192,7 +192,7 @@ MOVIE=movie
 BED=bed
 ```
 
-Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-symbol hold, suggestion-review hold off, voice defaults, and input-latency compensation window.
+Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-target hold, suggestion-review hold off, voice defaults, and input-latency compensation window.
 
 To build locally, install the Android SDK and either set `ANDROID_HOME` or create `local.properties` with:
 

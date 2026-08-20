@@ -1912,7 +1912,7 @@ function renderConfig() {
       <label class="field">${uiText("Row cancel pause ms", "選列取消等待（毫秒）")}
         <input name="transitionPauseMs" type="number" min="0" max="4000" step="50" value="${session.config.transitionPauseMs}">
       </label>
-      <label class="field">${uiText("First symbol hold ms", "第一格停留（毫秒）")}
+      <label class="field">${uiText("First row / symbol hold ms", "第一列／第一格停留（毫秒）")}
         <input name="firstCellPauseMs" type="number" min="300" max="6000" step="50" value="${session.config.firstCellPauseMs}">
       </label>
       <label class="field">${uiText("Latency compensation ms", "輸入延遲補償（毫秒）")}
@@ -2536,7 +2536,7 @@ function scanTimingPresetOptionsHtml(config) {
         default: "一般開關",
         slower: "較慢開關",
         cameraLongBlink: "相機長眨眼",
-        firstCellSupport: "第一格加長",
+        firstCellSupport: "第一列／格加長",
         cancelable: "可取消選列"
       };
       const label = isZhTwUi() ? zhTwLabels[preset.id] ?? preset.label : preset.label;
