@@ -8,7 +8,7 @@ Edit `version.properties`:
 
 ```properties
 versionName=0.3.2
-versionCode=52
+versionCode=53
 ```
 
 - `versionName`: public SemVer version.
@@ -45,7 +45,7 @@ Build and package a versioned debug APK:
 This creates ignored local artifacts:
 
 ```text
-.artifacts\releases\v0.3.2\shine-aac-v0.3.2-code52-debug.apk
+.artifacts\releases\v0.3.2\shine-aac-v0.3.2-code53-debug.apk
 .artifacts\releases\v0.3.2\SHA256SUMS.txt
 .artifacts\releases\v0.3.2\RELEASE_NOTES.md
 ```
@@ -69,9 +69,9 @@ Generate an upload keystore outside Git, then build and package both signed arti
 The versioned artifacts and checksums are created at:
 
 ```text
-.artifacts\releases\v0.3.2\shine-aac-v0.3.2-code52-release.apk
+.artifacts\releases\v0.3.2\shine-aac-v0.3.2-code53-release.apk
 .artifacts\releases\v0.3.2\RELEASE_APK_SHA256SUMS.txt
-.artifacts\releases\v0.3.2\shine-aac-v0.3.2-code52-release.aab
+.artifacts\releases\v0.3.2\shine-aac-v0.3.2-code53-release.aab
 .artifacts\releases\v0.3.2\PLAY_AAB_SHA256SUMS.txt
 .artifacts\releases\v0.3.2\RELEASE_NOTES.md
 ```
