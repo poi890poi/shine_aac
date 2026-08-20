@@ -99,6 +99,21 @@ function selectPosition(session, position) {
   const metrics = { ...blankMetrics(), selections: 1 };
   let rowWasAutomaticallyActivated = false;
 
+  if (position.candidate.scanDeferred === true && next.scannerState.passIndex === 1) {
+    const firstPassTargetCount = blockMode
+      ? scanBlocksForSession(next, visibleBoard(next)).length
+      : visibleBoard(next).length;
+    for (let step = 0; step <= firstPassTargetCount; step += 1) {
+      if (next.scannerState.passIndex > 1) break;
+      metrics.estimatedTimeMs += scanAdvanceMs(next);
+      next = advanceSession(next);
+      metrics.advances += 1;
+    }
+    if (next.scannerState.passIndex === 1) {
+      throw new Error(`Deferred target did not become selectable: ${position.candidate.label}`);
+    }
+  }
+
   if (blockMode) {
     const rows = visibleBoard(next);
     const blocks = scanBlocksForSession(next, rows);

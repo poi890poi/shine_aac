@@ -182,6 +182,10 @@ function normalizeStoredScanPassLimit(value, fallback = 2) {
   return clamp(Number.isFinite(numeric) ? numeric : fallback, 1, 3);
 }
 
+function booleanOrDefault(value, fallback) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function loadConfig() {
   const defaults = createBoardConfig({ profileId: initialProductProfileId });
   const nativeConfig = loadNativeConfig(defaults);
@@ -222,7 +226,10 @@ function loadConfig() {
       scanMode: stored.scanMode ?? profileDefaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, profileDefaults.scanPassLimit),
       autoScanSuggestionPages: stored.autoScanSuggestionPages === true,
-      deferUnsupportedZhuyinOnFirstPass: stored.deferUnsupportedZhuyinOnFirstPass === true,
+      deferUnsupportedZhuyinOnFirstPass: booleanOrDefault(
+        stored.deferUnsupportedZhuyinOnFirstPass,
+        profileDefaults.deferUnsupportedZhuyinOnFirstPass
+      ),
       suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
         stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
         storedVersion,
@@ -272,7 +279,10 @@ function loadNativeConfig(defaults) {
       scanMode: stored.scanMode ?? defaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, defaults.scanPassLimit),
       autoScanSuggestionPages: stored.autoScanSuggestionPages === true,
-      deferUnsupportedZhuyinOnFirstPass: stored.deferUnsupportedZhuyinOnFirstPass === true
+      deferUnsupportedZhuyinOnFirstPass: booleanOrDefault(
+        stored.deferUnsupportedZhuyinOnFirstPass,
+        defaults.deferUnsupportedZhuyinOnFirstPass
+      )
     });
   } catch {
     return null;

@@ -88,10 +88,10 @@ test("automatic More-page scanning is an explicit persisted option", () => {
   assert.match(appSource, /ScanStage\.SuggestionPages/);
 });
 
-test("unsupported Zhuyin deferral is opt-in, persisted, and visibly temporary", () => {
+test("unsupported Zhuyin deferral defaults by profile, persists overrides, and stays visibly temporary", () => {
   assert.match(appSource, /name="deferUnsupportedZhuyinOnFirstPass"/);
   assert.match(appSource, /deferUnsupportedZhuyinOnFirstPass:\s*config\.deferUnsupportedZhuyinOnFirstPass/);
-  assert.match(appSource, /stored\.deferUnsupportedZhuyinOnFirstPass === true/);
+  assert.match(appSource, /booleanOrDefault\([\s\S]*?stored\.deferUnsupportedZhuyinOnFirstPass/);
   assert.match(appSource, /candidate\.scanDeferred === true/);
   assert.match(styles, /\.tile\.scan-deferred\s*\{[\s\S]*?border-style:\s*dashed/);
   assert.match(styles, /\.tile\.scan-deferred \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);

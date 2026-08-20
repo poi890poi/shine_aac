@@ -822,7 +822,7 @@ export const LanguageProfiles = Object.freeze({
     scanPassLimit: DefaultScanPassLimit,
     scanMode: DefaultScanMode,
     autoScanSuggestionPages: false,
-    deferUnsupportedZhuyinOnFirstPass: false,
+    deferUnsupportedZhuyinOnFirstPass: true,
     autoSpace: AutoSpaceMode.None,
     speechLocale: "zh-TW",
     suggestionDictionary: ZhTwSuggestionDictionary,
@@ -851,7 +851,9 @@ export function createBoardConfig(overrides = {}) {
     ...safeOverrides,
     scanMode: normalizeScanMode(safeOverrides.scanMode ?? profile.scanMode),
     autoScanSuggestionPages: safeOverrides.autoScanSuggestionPages === true,
-    deferUnsupportedZhuyinOnFirstPass: safeOverrides.deferUnsupportedZhuyinOnFirstPass === true,
+    deferUnsupportedZhuyinOnFirstPass:
+      (safeOverrides.deferUnsupportedZhuyinOnFirstPass
+        ?? profile.deferUnsupportedZhuyinOnFirstPass) === true,
     scanBlockCount: normalizeScanBlockCount(
       safeOverrides.scanBlockCount ?? recommendedScanBlockCount(profile.id)
     ),

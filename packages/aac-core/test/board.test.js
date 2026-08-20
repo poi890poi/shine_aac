@@ -773,9 +773,16 @@ test("default scanning gives first targets extra time", () => {
   assert.equal(createBoardConfig({ autoScanSuggestionPages: true }).autoScanSuggestionPages, true);
   assert.equal(config.deferUnsupportedZhuyinOnFirstPass, false);
   assert.equal(
-    createBoardConfig({ deferUnsupportedZhuyinOnFirstPass: true })
-      .deferUnsupportedZhuyinOnFirstPass,
+    createBoardConfig({ profileId: "zh-TW" }).deferUnsupportedZhuyinOnFirstPass,
     true
+  );
+  assert.equal(
+    createBoardConfig({
+      profileId: "zh-TW",
+      deferUnsupportedZhuyinOnFirstPass: false
+    })
+      .deferUnsupportedZhuyinOnFirstPass,
+    false
   );
 });
 
