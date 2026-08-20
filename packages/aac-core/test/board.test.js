@@ -1488,23 +1488,24 @@ test("zh-TW soft demotion respects intent and preserves ordinary negative contro
   assert.equal(secondContextPage.some((candidate) => candidate.sourceLabel === "統一"), true);
 });
 
-test("zh-TW golden common glyphs and daily words are source-backed and reachable", () => {
+test("zh-TW golden glyphs are source-backed and daily words are direct or glyph-composable", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const failures = [];
 
   for (const label of [...new Set([...ZhTwGoldenCommonGlyphs, ...ZhTwGoldenDailyWords])]) {
     const entries = ZhTwFrequencyDictionary.filter((entry) => entry.label === label);
-    if (entries.length === 0) {
-      failures.push(`${label}: missing from packaged source dictionary`);
-      continue;
-    }
-
     const reachable = entries.some((entry) =>
       suggestionLabelsAcrossPages(config, entry.key).includes(label)
     );
-    if (!reachable) {
-      failures.push(`${label}: not visible from ${entries.map((entry) => entry.key).join("/")}`);
-    }
+    if (reachable) continue;
+
+    const glyphs = Array.from(label);
+    const composable = glyphs.length > 1 && glyphs.every((glyph) =>
+      ZhTwFrequencyDictionary.some((entry) =>
+        entry.label === glyph && entry.glyphToneCoverageKey === true
+      )
+    );
+    if (!composable) failures.push(`${label}: neither direct nor glyph-composable`);
   }
 
   assert.deepEqual(failures, []);
@@ -1551,6 +1552,85 @@ test("zh-TW independently ranked top-2000 common glyphs are protected and reacha
   assert.deepEqual(failures, []);
   assert.ok(suggestionLabelsAcrossPages(config, "ㄐㄧ").includes("擊"));
   assert.ok(suggestionLabelsAcrossPages(config, "ㄐㄧㄝ").includes("姐"));
+});
+
+test("zh-TW tone fallback makes every independently ranked MOE glyph reachable", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const toneProtectedEntries = ZhTwFrequencyDictionary
+    .filter((entry) => entry.glyphToneCoverageKey === true);
+  const failures = [];
+  let directCount = 0;
+  let toneFallbackCount = 0;
+
+  assert.equal(toneProtectedEntries.length, MoeZhTwGlyphFrequencyEntries.length);
+  assert.equal(toneProtectedEntries.length, 4343);
+
+  for (const entry of toneProtectedEntries) {
+    const normalTiles = suggestionTilesAcrossPages(config, entry.key, true);
+    if (normalTiles.some((candidate) =>
+      candidate.action === TileAction.CommitCandidate && candidate.output === entry.label
+    )) {
+      directCount += 1;
+      continue;
+    }
+
+    const toneMark = entry.toneKey.at(-1);
+    const toneControl = normalTiles.find((candidate) =>
+      candidate.toneFallback === true && candidate.output === toneMark
+    );
+    if (!toneControl) {
+      failures.push(`${entry.label}:${entry.key}:missing-${toneMark}`);
+      continue;
+    }
+    const tonedTiles = suggestionTilesAcrossPages(config, entry.toneKey, true);
+    if (!tonedTiles.some((candidate) =>
+      candidate.action === TileAction.CommitCandidate && candidate.output === entry.label
+    )) {
+      failures.push(`${entry.label}:${entry.toneKey}:unreachable`);
+      continue;
+    }
+    toneFallbackCount += 1;
+  }
+
+  assert.deepEqual(failures, []);
+  assert.ok(directCount > toneFallbackCount);
+  assert.ok(toneFallbackCount > 0);
+});
+
+test("zh-TW tone fallback remains optional and replaces the complete toned buffer", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const firstPage = boardRows(config, "ㄈㄨ", true, { suggestionPage: 0 }).slice(0, 4).flat();
+  const normalTiles = suggestionTilesAcrossPages(config, "ㄈㄨ", true);
+  const fourthTone = normalTiles.find((candidate) =>
+    candidate.toneFallback === true && candidate.output === "ˋ"
+  );
+
+  assert.equal(firstPage.some((candidate) => candidate.toneFallback === true), false);
+  assert.ok(fourthTone);
+  assert.equal(speechLabelForTile(fourthTone, "zh-TW"), "四聲");
+
+  const toned = applyTile("ㄈㄨ", ["ㄈ"], fourthTone, config, {});
+  assert.equal(toned.message, "ㄈㄨˋ");
+  const glyph = suggestionTilesAcrossPages(config, toned.message, true)
+    .find((candidate) => candidate.action === TileAction.CommitCandidate && candidate.output === "咐");
+  assert.ok(glyph);
+  assert.equal(applyTile(toned.message, toned.messageHistory, glyph, config, {}).message, "咐");
+});
+
+test("zh-TW tone coverage retains source-backed zero-weight standalone readings", () => {
+  const expected = new Map([
+    ["嚀", "ㄋㄧㄥˊ"],
+    ["嚨", "ㄌㄨㄥˊ"],
+    ["囌", "ㄙㄨˉ"],
+    ["榷", "ㄑㄩㄝˋ"]
+  ]);
+  const actual = new Map(
+    ZhTwFrequencyDictionary
+      .filter((entry) => expected.has(entry.label))
+      .map((entry) => [entry.label, entry.toneKey])
+  );
+
+  assert.deepEqual(actual, expected);
 });
 
 test("zh-TW protected glyph lane retains leading source-ranked phrase predictions", () => {

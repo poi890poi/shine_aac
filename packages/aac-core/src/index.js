@@ -204,6 +204,7 @@ export const ZhuyinSpeechNames = Object.freeze({
 
 export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
   if (profileId === "zh-TW") {
+    if (candidate.toneFallback === true) return candidate.label;
     if (candidate.action === TileAction.Space) return "空格";
     if (candidate.action === TileAction.Backspace) return "刪除";
     if (candidate.action === TileAction.Clear) return "清除";
@@ -440,6 +441,14 @@ export const UndoSuggestionTile = Object.freeze(tile("UNDO", "UNDO", TileAction.
 export const MoreSuggestionsTile = Object.freeze(tile("MORE", "MORE", TileAction.MoreSuggestions));
 const zhTwUndoSuggestionTile = Object.freeze(tile("復原", "UNDO", TileAction.Undo));
 const zhTwMoreSuggestionsTile = Object.freeze(tile("更多", "MORE", TileAction.MoreSuggestions));
+const ZhuyinToneDefinitions = Object.freeze([
+  Object.freeze({ label: "一聲", mark: "ˉ" }),
+  Object.freeze({ label: "二聲", mark: "ˊ" }),
+  Object.freeze({ label: "三聲", mark: "ˇ" }),
+  Object.freeze({ label: "四聲", mark: "ˋ" }),
+  Object.freeze({ label: "輕聲", mark: "˙" })
+]);
+const ZhuyinToneMarkSet = new Set(ZhuyinToneDefinitions.map(({ mark }) => mark));
 
 const boardModeTile = (label = "返回") => tile(label, "board", TileAction.ExitMode);
 const zhuyinModeTile = (label = "注音") => tile(label, "zhuyin", TileAction.EnterMode);
@@ -466,13 +475,15 @@ const chewingZhuyinEntry = (entry) => Object.freeze({
   label: entry.label,
   output: entry.output,
   key: entry.key,
-  keys: Object.freeze([entry.key]),
+  keys: Object.freeze([entry.key, entry.toneKey].filter(Boolean)),
   source: entry.source,
   sourceRank: entry.sourceRank,
   frequency: entry.frequency,
   glyphFrequency: entry.glyphFrequency,
   glyphFrequencyRank: entry.glyphFrequencyRank,
-  glyphCoverageKey: entry.glyphCoverageKey === true
+  glyphCoverageKey: entry.glyphCoverageKey === true,
+  glyphToneCoverageKey: entry.glyphToneCoverageKey === true,
+  toneKey: entry.toneKey
 });
 const MinZhuyinTargets = 8;
 const MaxZhuyinCandidateTargets = 20;
@@ -596,7 +607,7 @@ export function analyzeZhTwPhoneticAccess(options = {}) {
     dictionaryEntryCount: dictionary.length,
     totalWeight,
     staticCoverageWeight,
-    staticCoverageRatio: totalWeight > 0 ? staticCoverageWeight / totalWeight : 0,
+    staticCoverageRatio: totalWeight > 0 ? Math.min(1, staticCoverageWeight / totalWeight) : 0,
     firstSymbolStats: Object.freeze(firstSymbolStats),
     hiddenSymbolStats: Object.freeze(hiddenSymbolStats),
     visibleDeadEndContinuations: Object.freeze(visibleDeadEndContinuations),
@@ -1469,32 +1480,84 @@ function zhTwPromoteProtectedGlyphs(candidates, buffer, columns) {
     .sort((left, right) =>
       left.glyphFrequencyRank - right.glyphFrequencyRank || zhTwCandidateRank(left, right)
     );
-  if (protectedGlyphs.length === 0) return candidates;
-
   // More occupies one target per page, and Undo may occupy one target across
   // the reachable window. Keep a small source-ranked front for strong phrase
   // predictions, then guarantee common glyphs before long-tail candidates.
   // Phrases remain constructible glyph by glyph.
   const pageSize = clampInt(columns, 2, 8) * ZhTwSuggestionRowCount;
   const candidateCapacityWithUndo = Math.max(1, (pageSize - 1) * MaxZhTwSuggestionPages - 1);
-  const sourceFrontCount = Math.min(
+  const preliminarySourceFrontCount = Math.min(
     MaxZhTwSourcePredictionsBeforeProtectedGlyphs,
     Math.max(0, candidateCapacityWithUndo - protectedGlyphs.length)
   );
+  const preliminarySourceFront = candidates.slice(0, preliminarySourceFrontCount);
+  const preliminaryPromotedSet = new Set([...preliminarySourceFront, ...protectedGlyphs]);
+  const preliminaryReachable = [
+    ...preliminarySourceFront,
+    ...protectedGlyphs.filter((candidate) => !preliminarySourceFront.includes(candidate)),
+    ...candidates.filter((candidate) => !preliminaryPromotedSet.has(candidate))
+  ].slice(0, candidateCapacityWithUndo);
+  const toneFallbackTiles = zhTwToneFallbackTiles(buffer, candidates, preliminaryReachable);
+  if (protectedGlyphs.length === 0 && toneFallbackTiles.length === 0) return candidates;
+
+  const sourceFrontCount = Math.min(
+    MaxZhTwSourcePredictionsBeforeProtectedGlyphs,
+    Math.max(0, candidateCapacityWithUndo - protectedGlyphs.length - toneFallbackTiles.length)
+  );
   const sourceFront = candidates.slice(0, sourceFrontCount);
-  const promotedSet = new Set([...sourceFront, ...protectedGlyphs]);
-  return [
+  const promotedHead = [
     ...sourceFront,
-    ...protectedGlyphs.filter((candidate) => !sourceFront.includes(candidate)),
-    ...candidates.filter((candidate) => !promotedSet.has(candidate))
+    ...protectedGlyphs.filter((candidate) => !sourceFront.includes(candidate))
+  ];
+  const promotedSet = new Set(promotedHead);
+  const remainingCandidates = candidates.filter((candidate) => !promotedSet.has(candidate));
+  const reachableTailCount = Math.max(
+    0,
+    candidateCapacityWithUndo - promotedHead.length - toneFallbackTiles.length
+  );
+  return [
+    ...promotedHead,
+    ...remainingCandidates.slice(0, reachableTailCount),
+    ...toneFallbackTiles,
+    ...remainingCandidates.slice(reachableTailCount)
   ];
 }
 
 function zhTwIsProtectedGlyphForBuffer(candidate, buffer) {
+  const usesToneFallback = ZhuyinToneMarkSet.has(buffer.at(-1));
   return candidate.action === TileAction.CommitCandidate &&
-    candidate.glyphCoverageKey === true &&
+    (usesToneFallback ? candidate.glyphToneCoverageKey === true : candidate.glyphCoverageKey === true) &&
     Array.from(candidate.output).length === 1 &&
     candidate.zhuyinKey === buffer;
+}
+
+function zhTwToneFallbackTiles(buffer, candidates, reachableCandidates) {
+  if (!buffer || ZhuyinToneMarkSet.has(buffer.at(-1))) return [];
+  const reachableGlyphs = new Set(
+    reachableCandidates
+      .filter((candidate) => candidate.action === TileAction.CommitCandidate)
+      .map((candidate) => candidate.output)
+  );
+  const toneEligibleCandidates = candidates.filter((candidate) =>
+    candidate.action === TileAction.CommitCandidate &&
+    candidate.glyphToneCoverageKey === true &&
+    candidate.glyphCoverageKey !== true &&
+    candidate.zhuyinKey === buffer &&
+    ZhuyinToneMarkSet.has(candidate.toneKey?.at(-1))
+  );
+  if (toneEligibleCandidates.every((candidate) => reachableGlyphs.has(candidate.output))) return [];
+  // Once this key needs tone fallback, expose every applicable tone. Reserving
+  // those controls can displace another tail glyph, whose tone must remain available too.
+  const availableMarks = new Set(
+    toneEligibleCandidates.map((candidate) => candidate.toneKey.at(-1))
+  );
+  if (availableMarks.size === 0) return [];
+  return ZhuyinToneDefinitions
+    .filter(({ mark }) => availableMarks.has(mark))
+    .map(({ label, mark }) => Object.freeze({
+      ...tile(label, mark, TileAction.Append),
+      toneFallback: true
+    }));
 }
 
 function zhTwWeakIntentSoftDemotionRerank(candidates, buffer) {
@@ -1815,7 +1878,9 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
     frequency: entry.frequency,
     glyphFrequency: entry.glyphFrequency,
     glyphFrequencyRank: entry.glyphFrequencyRank,
-    glyphCoverageKey: entry.glyphCoverageKey === true
+    glyphCoverageKey: entry.glyphCoverageKey === true,
+    glyphToneCoverageKey: entry.glyphToneCoverageKey === true,
+    toneKey: entry.toneKey
   });
 }
 
@@ -1891,7 +1956,7 @@ function zhTwShouldSoftDemoteForWeakIntent(candidate, buffer) {
 function trailingZhuyinBuffer(message) {
   let buffer = "";
   for (const character of Array.from(message).reverse()) {
-    if (!ZhuyinInputSymbolSet.has(character)) break;
+    if (!ZhuyinInputSymbolSet.has(character) && !ZhuyinToneMarkSet.has(character)) break;
     buffer = character + buffer;
   }
   return buffer;

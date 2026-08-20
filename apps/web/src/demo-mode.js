@@ -670,7 +670,11 @@ function zhTwMessage(labels) {
   return [Object.freeze({
     type: "zh-tw-text",
     text: labels.join(""),
-    targets: Object.freeze(labels.map(zhTwTarget))
+    targets: Object.freeze(labels.flatMap((label) =>
+      bestZhTwEntryForDemo(label)
+        ? [zhTwTarget(label)]
+        : Array.from(label).map(zhTwTarget)
+    ))
   })];
 }
 

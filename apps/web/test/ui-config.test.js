@@ -67,6 +67,11 @@ test("profile-optimized block scanning is an explicit optional mode with its own
   assert.match(styles, /\.row\.selected-block-row::before\s*\{[\s\S]*?border:\s*2px solid rgba\(103, 80, 164, 0\.72\)/);
 });
 
+test("tone fallback controls use a distinct secondary treatment", () => {
+  assert.match(appSource, /candidate\.toneFallback === true/);
+  assert.match(styles, /\.tile\.tone-fallback\s*\{[\s\S]*?border-color:\s*#8064a2/);
+});
+
 test("English suggestion sizing runs at the top level of both scanning modes", () => {
   assert.match(
     appSource,

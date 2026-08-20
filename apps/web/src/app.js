@@ -1415,6 +1415,7 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   if (candidate.action === TileAction.Noop) classes.push("noop");
   if (session.config.suggestionWrapLabels?.[candidate.label]) classes.push("wrapped-word");
   if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
+  if (candidate.toneFallback === true) classes.push("tone-fallback");
   if (activeBlock) classes.push("active-block", "is-current");
   if (activeRow) classes.push("active-row", "is-current");
   if (activeCell) classes.push("active-cell", "is-current");

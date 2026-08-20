@@ -317,7 +317,10 @@ function composeZhTwLatinToken(session, token) {
 function composeZhTwToken(session, token) {
   const label = String(token);
   const targetEntry = bestZhTwEntry(label);
-  if (!targetEntry) throw new Error(`No zh-TW dictionary entry for ${label}`);
+  if (!targetEntry) {
+    if (Array.from(label).length <= 1) throw new Error(`No zh-TW dictionary entry for ${label}`);
+    return composeZhTwGlyphs(session, label);
+  }
 
   let next = session;
   let metrics = blankMetrics();
@@ -348,6 +351,26 @@ function composeZhTwToken(session, token) {
     };
   }
 
+  if (Array.from(label).length <= 1 && targetEntry.toneKey) {
+    const toneMark = targetEntry.toneKey.at(-1);
+    const selectedTone = selectVisibleTileAcrossSuggestionPages(next, (candidate) =>
+      candidate.toneFallback === true && candidate.output === toneMark
+    );
+    if (selectedTone) {
+      next = selectedTone.session;
+      metrics = addMetrics(metrics, selectedTone.metrics);
+      const toneCandidate = selectVisibleTileAcrossSuggestionPages(next, (candidate) =>
+        candidate.action === TileAction.CommitCandidate && candidate.label === label
+      );
+      if (toneCandidate) {
+        return {
+          session: toneCandidate.session,
+          metrics: addMetrics(metrics, toneCandidate.metrics)
+        };
+      }
+    }
+  }
+
   if (Array.from(label).length <= 1) {
     throw new Error(`No visible zh-TW candidate for ${label} after ${targetEntry.key}`);
   }
@@ -358,12 +381,18 @@ function composeZhTwToken(session, token) {
     metrics = addMetrics(metrics, selected.metrics);
   }
 
+  const decomposed = composeZhTwGlyphs(next, label);
+  return { session: decomposed.session, metrics: addMetrics(metrics, decomposed.metrics) };
+}
+
+function composeZhTwGlyphs(session, label) {
+  let next = session;
+  let metrics = blankMetrics();
   for (const character of Array.from(label)) {
     const selected = composeZhTwToken(next, character);
     next = selected.session;
     metrics = addMetrics(metrics, selected.metrics);
   }
-
   metrics.zhTwDecomposedPhraseFallbacks += 1;
   return { session: next, metrics };
 }

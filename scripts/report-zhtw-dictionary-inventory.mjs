@@ -74,10 +74,10 @@ const lines = [
   "",
   "These buckets use the Taiwan Ministry of Education frequency table rather than the New Chewing source rank. Phrases are not coverage requirements because they remain constructible from reachable glyphs.",
   "",
-  "| Reference Set | Count | Direct Reachable | Direct % |",
-  "| --- | ---: | ---: | ---: |",
+  "| Reference Set | Count | Toneless Reachable | Toneless % | Tone Fallback | Total Reachable | Total % |",
+  "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
   ...analysis.moeReferenceGlyphBuckets.map((bucket) =>
-    `| ${bucket.label} | ${bucket.count} | ${bucket.directReachable} | ${percent(bucket.directReachabilityRatio)} |`
+    `| ${bucket.label} | ${bucket.count} | ${bucket.directReachable} | ${percent(bucket.directReachabilityRatio)} | ${bucket.toneFallbackReachable} | ${bucket.directOrToneReachable} | ${percent(bucket.directOrToneReachabilityRatio)} |`
   ),
   "",
   "## Fast Efficiency Estimates",
@@ -125,8 +125,14 @@ const lines = [
   "### MOE Frequency-Ranked Glyphs Not Directly Reachable",
   "",
   analysis.sampleMoeUnreachableGlyphs.length === 0
-    ? "No independent MOE common-glyph gaps."
+    ? "No independent MOE glyphs require tone fallback."
     : analysis.sampleMoeUnreachableGlyphs.join(" "),
+  "",
+  "### MOE Glyphs Not Reachable With Tone Fallback",
+  "",
+  analysis.sampleMoeToneUnreachableGlyphs.length === 0
+    ? "No independent MOE common-glyph gaps after tone fallback."
+    : analysis.sampleMoeToneUnreachableGlyphs.join(" "),
   "",
   "### Words/Phrases Not Directly Reachable",
   "",

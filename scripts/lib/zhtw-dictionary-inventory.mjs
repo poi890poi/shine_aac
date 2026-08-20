@@ -1,8 +1,11 @@
 import {
   DefaultColumns,
+  TileAction,
   ZhTwFrequencyDictionary,
   ZhuyinInputSymbols,
   ZhuyinStaticInputSymbols,
+  boardRows,
+  createBoardConfig,
   zhTwVisibleNextSymbolsForPrefix
 } from "../../packages/aac-core/src/index.js";
 import { MoeZhTwGlyphFrequencyEntries } from "../../packages/aac-core/src/data/zh-tw-moe-glyph-frequency.generated.js";
@@ -82,6 +85,7 @@ export function analyzeZhTwDictionaryInventory(options = {}) {
   const wordCompositionOnlyCount = sourceWordLabels
     .filter((label) => !directEstimateByLabel.has(label) && Boolean(composeFromGlyphEstimates(label, directEstimateByLabel)))
     .length;
+  const moeRuntimeReachabilityByLabel = analyzeMoeToneFallbackReachability(columns);
   const moeReferenceGlyphBuckets = [
     { label: "MOE frequency rank <= 1000", rankLimit: 1000 },
     { label: "MOE frequency rank <= 2000", rankLimit: 2000 },
@@ -91,12 +95,17 @@ export function analyzeZhTwDictionaryInventory(options = {}) {
     const labels = MoeZhTwGlyphFrequencyEntries
       .filter(([, , rank]) => rank <= rankLimit)
       .map(([label]) => label);
-    return topEntityBucket(
+    const directReachable = labels.filter((glyph) => moeRuntimeReachabilityByLabel.get(glyph) === "direct").length;
+    const toneFallbackReachable = labels.filter((glyph) => moeRuntimeReachabilityByLabel.get(glyph) === "tone").length;
+    return Object.freeze({
       label,
-      labels,
-      directEstimateByLabel,
-      bestEstimateByLabel
-    );
+      count: labels.length,
+      directReachable,
+      directReachabilityRatio: ratio(directReachable, labels.length),
+      toneFallbackReachable,
+      directOrToneReachable: directReachable + toneFallbackReachable,
+      directOrToneReachabilityRatio: ratio(directReachable + toneFallbackReachable, labels.length)
+    });
   });
 
   return Object.freeze({
@@ -144,7 +153,13 @@ export function analyzeZhTwDictionaryInventory(options = {}) {
     moeReferenceGlyphBuckets: Object.freeze(moeReferenceGlyphBuckets),
     sampleMoeUnreachableGlyphs: Object.freeze(
       MoeZhTwGlyphFrequencyEntries
-        .filter(([label]) => !directEstimateByLabel.has(label))
+        .filter(([label]) => moeRuntimeReachabilityByLabel.get(label) !== "direct")
+        .slice(0, 40)
+        .map(([label]) => label)
+    ),
+    sampleMoeToneUnreachableGlyphs: Object.freeze(
+      MoeZhTwGlyphFrequencyEntries
+        .filter(([label]) => !moeRuntimeReachabilityByLabel.has(label))
         .slice(0, 40)
         .map(([label]) => label)
     ),
@@ -155,6 +170,38 @@ export function analyzeZhTwDictionaryInventory(options = {}) {
       .slice(0, 40),
     sourceGlyphSet
   });
+}
+
+function analyzeMoeToneFallbackReachability(columns) {
+  const config = createBoardConfig({ profileId: "zh-TW", columns });
+  const tilesByBuffer = new Map();
+  const visibleTiles = (buffer) => {
+    if (tilesByBuffer.has(buffer)) return tilesByBuffer.get(buffer);
+    const tiles = Array.from({ length: MaxZhTwSuggestionPages }, (_, suggestionPage) =>
+      boardRows(config, buffer, true, { suggestionPage }).slice(0, ZhTwSuggestionRowCount).flat()
+    ).flat();
+    tilesByBuffer.set(buffer, tiles);
+    return tiles;
+  };
+  const result = new Map();
+  for (const entry of ZhTwFrequencyDictionary.filter((candidate) => candidate.glyphToneCoverageKey === true)) {
+    const normalTiles = visibleTiles(entry.key);
+    if (normalTiles.some((candidate) =>
+      candidate.action === TileAction.CommitCandidate && candidate.output === entry.label
+    )) {
+      result.set(entry.label, "direct");
+      continue;
+    }
+    const toneMark = entry.toneKey?.at(-1);
+    const toneControlReachable = normalTiles.some((candidate) =>
+      candidate.toneFallback === true && candidate.output === toneMark
+    );
+    const tonedGlyphReachable = toneControlReachable && visibleTiles(entry.toneKey).some((candidate) =>
+      candidate.action === TileAction.CommitCandidate && candidate.output === entry.label
+    );
+    if (tonedGlyphReachable) result.set(entry.label, "tone");
+  }
+  return result;
 }
 
 function buildBestRankByLabel(dictionary) {

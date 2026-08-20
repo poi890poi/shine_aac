@@ -1,6 +1,6 @@
 # zh-TW Dictionary Inventory Report
 
-Generated: 2026-08-20T05:55:03.115Z
+Generated: 2026-08-20T06:24:51.204Z
 
 This is the fast inventory report. It estimates broad source-dictionary reachability and efficiency from the phonetic access graph instead of running real-time scanning or full virtual utterance benchmarks.
 
@@ -8,27 +8,27 @@ This is the fast inventory report. It estimates broad source-dictionary reachabi
 
 | Metric | Value | Meaning |
 | --- | ---: | --- |
-| Source dictionary entries | 60000 | Generated New Chewing entries after SHINE length/key limits |
-| Unique source labels | 33529 | Unique glyph, word, and phrase labels |
+| Source dictionary entries | 60513 | Generated New Chewing entries after SHINE length/key limits |
+| Unique source labels | 34048 | Unique glyph, word, and phrase labels |
 | Available Zhuyin symbols | 37 | Full zh-TW phonetic symbol inventory |
 | Static first-level Zhuyin symbols | 37 | All symbols visible without paging |
 | Dynamic continuation Zhuyin symbols | 0 | Hidden symbols required for phonetic input |
-| Source glyph labels | 6065 | Unique single-Han-character labels in the dictionary |
-| Source multi-glyph word/phrase labels | 27464 | Unique labels longer than one Han character |
-| Unique Han characters appearing anywhere | 6283 | Character inventory across all labels |
+| Source glyph labels | 6563 | Unique single-Han-character labels in the dictionary |
+| Source multi-glyph word/phrase labels | 27485 | Unique labels longer than one Han character |
+| Unique Han characters appearing anywhere | 6625 | Character inventory across all labels |
 
 ## Fast Reachability Estimates
 
 | Metric | Value | Target / Use |
 | --- | ---: | --- |
-| Entry phonetic-path reachability | 60000 / 60000 (100.00%) | Broad graph reachability before candidate rank/page limits |
+| Entry phonetic-path reachability | 60513 / 60513 (100.00%) | Broad graph reachability before candidate rank/page limits |
 | Weighted phonetic-path reachability | 100.00% | Frequency-weighted view of source entries |
-| Direct glyph candidate reachability | 5484 / 6065 (90.42%) | Single glyph can be committed directly within 3 pages |
-| Direct word/phrase candidate reachability | 27407 / 27464 (99.79%) | Multi-glyph label can be committed directly within 3 pages |
-| Word/phrase composability from glyphs | 26949 / 27464 (98.12%) | Multi-glyph label can be built from direct glyph candidates |
-| Word/phrase direct-or-composable reachability | 27458 / 27464 (99.98%) | Core coverage view for multi-glyph expressions |
-| All-label direct-or-composable reachability | 32942 / 33529 (98.25%) | Core coverage view for all labels |
-| Composition-only word/phrase labels | 51 | Reachable through glyph composition but not direct candidate pages |
+| Direct glyph candidate reachability | 5864 / 6563 (89.35%) | Single glyph can be committed directly within 3 pages |
+| Direct word/phrase candidate reachability | 27427 / 27485 (99.79%) | Multi-glyph label can be committed directly within 3 pages |
+| Word/phrase composability from glyphs | 27086 / 27485 (98.55%) | Multi-glyph label can be built from direct glyph candidates |
+| Word/phrase direct-or-composable reachability | 27479 / 27485 (99.98%) | Core coverage view for multi-glyph expressions |
+| All-label direct-or-composable reachability | 33343 / 34048 (97.93%) | Core coverage view for all labels |
+| Composition-only word/phrase labels | 52 | Reachable through glyph composition but not direct candidate pages |
 
 ## Top Entity Buckets
 
@@ -48,21 +48,21 @@ These rows are the main efficiency guardrail. They emphasize high-source-rank gl
 
 These buckets use the Taiwan Ministry of Education frequency table rather than the New Chewing source rank. Phrases are not coverage requirements because they remain constructible from reachable glyphs.
 
-| Reference Set | Count | Direct Reachable | Direct % |
-| --- | ---: | ---: | ---: |
-| MOE frequency rank <= 1000 | 999 | 999 | 100.00% |
-| MOE frequency rank <= 2000 | 1995 | 1995 | 100.00% |
-| MOE frequency rank <= 3000 | 2963 | 2827 | 95.41% |
-| All MOE frequency entries | 4343 | 3627 | 83.51% |
+| Reference Set | Count | Toneless Reachable | Toneless % | Tone Fallback | Total Reachable | Total % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| MOE frequency rank <= 1000 | 999 | 999 | 100.00% | 0 | 999 | 100.00% |
+| MOE frequency rank <= 2000 | 1995 | 1995 | 100.00% | 0 | 1995 | 100.00% |
+| MOE frequency rank <= 3000 | 2963 | 2853 | 96.29% | 110 | 2963 | 100.00% |
+| All MOE frequency entries | 4343 | 3957 | 91.11% | 386 | 4343 | 100.00% |
 
 ## Fast Efficiency Estimates
 
 | Label Set | Count | Median Activations | P90 Activations | Average Activations | Median Selections | P90 Selections |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Direct glyph candidates | 5484 | 8 | 10 | 7.34 | 4 | 5 |
-| Direct word/phrase candidates | 27407 | 8 | 10 | 8.27 | 4 | 5 |
-| Best word/phrase direct-or-composed | 27458 | 8 | 10 | 8.28 | 4 | 5 |
-| Best all-label direct-or-composed | 32942 | 8 | 10 | 8.12 | 4 | 5 |
+| Direct glyph candidates | 5864 | 8 | 10 | 7.41 | 4 | 5 |
+| Direct word/phrase candidates | 27427 | 8 | 10 | 8.28 | 4 | 5 |
+| Best word/phrase direct-or-composed | 27479 | 8 | 10 | 8.28 | 4 | 5 |
+| Best all-label direct-or-composed | 33343 | 8 | 10 | 8.12 | 4 | 5 |
 
 ## Previous-Version Comparison
 
@@ -70,14 +70,14 @@ Baseline: Previous pre-efficiency baseline. Use this section to review systemic 
 
 | Metric | Previous | Current | Difference | Change |
 | --- | ---: | ---: | ---: | ---: |
-| Source dictionary entries | 60000 | 60000 | 0 | 0.00% |
-| Unique source labels | 33523 | 33529 | +6 | 0.02% |
+| Source dictionary entries | 60000 | 60513 | +513 | 0.85% |
+| Unique source labels | 33523 | 34048 | +525 | 1.57% |
 | Entry phonetic-path reachability | 98.46% | 100.00% | +1.54 pp | 1.56% |
 | Weighted phonetic-path reachability | 98.87% | 100.00% | +1.13 pp | 1.14% |
-| Direct glyph candidate reachability | 85.30% | 90.42% | +5.12 pp | 6.00% |
+| Direct glyph candidate reachability | 85.30% | 89.35% | +4.05 pp | 4.75% |
 | Direct word/phrase candidate reachability | 98.22% | 99.79% | +1.57 pp | 1.60% |
 | Word/phrase direct-or-composable reachability | 98.41% | 99.98% | +1.57 pp | 1.59% |
-| All-label direct-or-composable reachability | 96.04% | 98.25% | +2.21 pp | 2.30% |
+| All-label direct-or-composable reachability | 96.04% | 97.93% | +1.89 pp | 1.97% |
 | Top 500 glyph direct reachability | 98.60% | 100.00% | +1.40 pp | 1.42% |
 | Top 500 word/phrase direct reachability | 99.20% | 100.00% | +0.80 pp | 0.81% |
 | Direct glyph median activations | 8 | 8 | 0 | 0.00% |
@@ -97,7 +97,11 @@ These samples are diagnostic, not hand-tuning instructions.
 
 ### MOE Frequency-Ranked Glyphs Not Directly Reachable
 
-咐 肢 斧 璧 嘩 寂 獄 喃 婿 艱 嘰 吩 紂 蜘 嚷 砝 碌 飢 壹 瑚 嬸 寓 吱 姪 犧 啼 乞 陌 裕 愧 熄 誼 溉 撫 彿 蜴 噢 逝 鋸 儡
+咐 肢 斧 怡 踐 璧 繫 寂 獄 婿 艱 嘰 蜘 隙 浴 碌 飢 壹 瑚 寓 吱 姪 犧 啼 乞 裕 蔬 熄 誼 撫 彿 蜴 噢 禧 緻 逝 鋸 礫 葫 懼
+
+### MOE Glyphs Not Reachable With Tone Fallback
+
+No independent MOE common-glyph gaps after tone fallback.
 
 ### Words/Phrases Not Directly Reachable
 
@@ -115,4 +119,4 @@ These samples are diagnostic, not hand-tuning instructions.
 - Direct candidate reachability estimates whether a label appears within the first reachable suggestion pages after composing its key.
 - Composable reachability treats long labels as possible when every component glyph has a direct candidate path.
 - Efficiency is estimated as two switch activations per selected tile. It intentionally excludes real-time row/cell waits; virtual communication benchmarks cover realistic scan path cost.
-- Runtime for this report: 1264 ms on this machine.
+- Runtime for this report: 2041 ms on this machine.
