@@ -11,30 +11,35 @@ class BlinkGestureClassifier(
     private var openBaselineStartedAtMs = NoTime
     private var hasOpenBaseline = config.requiredOpenBeforeCloseMs <= 0
 
-    fun reset() {
+    fun reset(assumeOpenBaseline: Boolean = false) {
         state = State.Open
         closingStartedAtMs = NoTime
         closedStartedAtMs = NoTime
         openCandidateStartedAtMs = NoTime
         signalLostStartedAtMs = NoTime
         openBaselineStartedAtMs = NoTime
-        hasOpenBaseline = config.requiredOpenBeforeCloseMs <= 0
+        hasOpenBaseline = assumeOpenBaseline || config.requiredOpenBeforeCloseMs <= 0
     }
 
-    fun onSignal(closedScore: Double?, nowMs: Long, longBlinkMs: Long): List<Event> {
+    fun onSignal(
+        closedScore: Double?,
+        nowMs: Long,
+        longBlinkMs: Long,
+        reopenScore: Double? = closedScore
+    ): List<Event> {
         return when (state) {
-            State.Open -> handleOpen(closedScore, nowMs)
-            State.ClosedHolding -> handleClosedHolding(closedScore, nowMs, longBlinkMs)
-            State.ActivatedWaitOpen -> handleActivatedWaitOpen(closedScore, nowMs)
+            State.Open -> handleOpen(closedScore, reopenScore, nowMs)
+            State.ClosedHolding -> handleClosedHolding(closedScore, reopenScore, nowMs, longBlinkMs)
+            State.ActivatedWaitOpen -> handleActivatedWaitOpen(closedScore, reopenScore, nowMs)
         }
     }
 
-    private fun handleOpen(closedScore: Double?, nowMs: Long): List<Event> {
+    private fun handleOpen(closedScore: Double?, reopenScore: Double?, nowMs: Long): List<Event> {
         if (closedScore == null) {
             closingStartedAtMs = NoTime
             return emptyList()
         }
-        if (closedScore <= config.openThreshold) {
+        if (reopenScore != null && reopenScore <= config.openThreshold) {
             closingStartedAtMs = NoTime
             if (openBaselineStartedAtMs == NoTime) {
                 openBaselineStartedAtMs = nowMs
@@ -44,11 +49,12 @@ class BlinkGestureClassifier(
             }
             return emptyList()
         }
-        openBaselineStartedAtMs = NoTime
-        if (!hasOpenBaseline || closedScore < config.closeThreshold) {
+        if (closedScore < config.closeThreshold) {
             closingStartedAtMs = NoTime
             return emptyList()
         }
+        openBaselineStartedAtMs = NoTime
+        if (!hasOpenBaseline) return emptyList()
         if (closingStartedAtMs == NoTime) {
             closingStartedAtMs = nowMs
         }
@@ -62,7 +68,12 @@ class BlinkGestureClassifier(
         return listOf(Event.HoldStarted(closedStartedAtMs))
     }
 
-    private fun handleClosedHolding(closedScore: Double?, nowMs: Long, longBlinkMs: Long): List<Event> {
+    private fun handleClosedHolding(
+        closedScore: Double?,
+        reopenScore: Double?,
+        nowMs: Long,
+        longBlinkMs: Long
+    ): List<Event> {
         if (closedScore == null) {
             if (signalLostStartedAtMs == NoTime) signalLostStartedAtMs = nowMs
             if (nowMs - signalLostStartedAtMs >= config.signalLostCancelMs) {
@@ -74,50 +85,51 @@ class BlinkGestureClassifier(
         }
         signalLostStartedAtMs = NoTime
 
-        if (closedScore <= config.openThreshold) {
+        if (reopenScore != null && reopenScore <= config.openThreshold) {
             if (openCandidateStartedAtMs == NoTime) openCandidateStartedAtMs = nowMs
             if (nowMs - openCandidateStartedAtMs >= config.openStableMs) {
                 val durationMs = nowMs - closedStartedAtMs
-                reset()
+                reset(assumeOpenBaseline = true)
                 return listOf(Event.HoldEnded(durationMs, EndReason.Opened))
             }
             return emptyList()
         }
-        openCandidateStartedAtMs = NoTime
-
-        if (closedScore >= config.closeThreshold && nowMs - closedStartedAtMs >= longBlinkMs) {
-            state = State.ActivatedWaitOpen
+        if (closedScore >= config.closeThreshold) {
             openCandidateStartedAtMs = NoTime
-            signalLostStartedAtMs = NoTime
-            return listOf(Event.Activated(nowMs - closedStartedAtMs))
+            if (nowMs - closedStartedAtMs >= longBlinkMs) {
+                state = State.ActivatedWaitOpen
+                signalLostStartedAtMs = NoTime
+                return listOf(Event.Activated(nowMs - closedStartedAtMs))
+            }
         }
         return emptyList()
     }
 
-    private fun handleActivatedWaitOpen(closedScore: Double?, nowMs: Long): List<Event> {
+    private fun handleActivatedWaitOpen(closedScore: Double?, reopenScore: Double?, nowMs: Long): List<Event> {
         if (closedScore == null) {
             openCandidateStartedAtMs = NoTime
             return emptyList()
         }
-        if (closedScore > config.openThreshold) {
+        if (closedScore >= config.closeThreshold) {
             openCandidateStartedAtMs = NoTime
             return emptyList()
         }
+        if (reopenScore == null || reopenScore > config.openThreshold) return emptyList()
         if (openCandidateStartedAtMs == NoTime) {
             openCandidateStartedAtMs = nowMs
         }
         if (nowMs - openCandidateStartedAtMs >= config.openStableMs) {
-            reset()
+            reset(assumeOpenBaseline = true)
         }
         return emptyList()
     }
 
     data class Config(
-        val closeThreshold: Double = 0.78,
-        val openThreshold: Double = 0.28,
+        val closeThreshold: Double = 0.55,
+        val openThreshold: Double = 0.35,
         val requiredOpenBeforeCloseMs: Long = 350L,
         val minClosedStableMs: Long = 120L,
-        val openStableMs: Long = 220L,
+        val openStableMs: Long = 150L,
         val signalLostCancelMs: Long = 700L
     )
 

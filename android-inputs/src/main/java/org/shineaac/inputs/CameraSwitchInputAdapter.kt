@@ -257,8 +257,8 @@ class CameraSwitchInputAdapter(
             .addOnSuccessListener(callbackExecutor) { faces ->
                 if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                val score = face?.closedScore()
-                updateBlinkState(score, settings)
+                val signal = face?.eyeSignal()
+                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
             }
             .addOnFailureListener(callbackExecutor) { error ->
                 Log.w(Tag, "ML Kit analysis failed", error)
@@ -274,9 +274,9 @@ class CameraSwitchInputAdapter(
             }
     }
 
-    private fun updateBlinkState(score: Double?, settings: CameraSwitchSettings) {
+    private fun updateBlinkState(score: Double?, reopenScore: Double?, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
-        for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs)) {
+        for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
             when (event) {
                 is BlinkGestureClassifier.Event.HoldStarted -> {
                     sendHoldStart(settings.source)
@@ -353,14 +353,22 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private fun Face.closedScore(): Double? {
+    private fun Face.eyeSignal(): EyeSignal? {
         val left = leftEyeOpenProbability ?: return null
         val right = rightEyeOpenProbability ?: return null
         if (kotlin.math.abs(headEulerAngleY) > MaxYawDegrees) return null
         if (kotlin.math.abs(headEulerAngleZ) > MaxRollDegrees) return null
         if (boundingBox.width() < MinFaceWidthPx || boundingBox.height() < MinFaceHeightPx) return null
-        return (1.0 - ((left + right) / 2.0)).coerceIn(0.0, 1.0)
+        return EyeSignal(
+            closedScore = (1.0 - ((left + right) / 2.0)).coerceIn(0.0, 1.0),
+            reopenScore = (1.0 - maxOf(left, right)).coerceIn(0.0, 1.0)
+        )
     }
+
+    private data class EyeSignal(
+        val closedScore: Double,
+        val reopenScore: Double
+    )
 
     private companion object {
         const val NoFrame = -1L
