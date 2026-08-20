@@ -749,6 +749,8 @@ test("default scanning gives first targets extra time", () => {
   assert.equal(config.transitionPauseMs, 0);
   assert.equal(config.firstCellPauseMs, 2400);
   assert.equal(config.firstCellPauseMs > config.scanIntervalMs, true);
+  assert.equal(config.autoScanSuggestionPages, false);
+  assert.equal(createBoardConfig({ autoScanSuggestionPages: true }).autoScanSuggestionPages, true);
 });
 
 test("scan timing presets are named bundles over normal timing fields", () => {

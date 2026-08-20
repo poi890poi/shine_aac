@@ -212,6 +212,7 @@ try {
   await scenarioLargeTextLabelCompatibility();
   await scenarioLongEnglishSuggestionSpans();
   await scenarioZhTwLayoutMigration();
+  await scenarioAutoScanMorePages();
   await scenarioZhTwResetUsesPackagedDefaults();
   await scenarioFunctionLabelScaleMatrix();
   await scenarioZhTwLocaleConsistency();
@@ -2052,6 +2053,89 @@ async function scenarioZhTwLayoutMigration() {
     delete globalThis.__zhuyinSpeechCalls;
   `);
   steps.push(pass("zh-tw-layout", "migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions"));
+}
+
+async function scenarioAutoScanMorePages() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 31,
+      profileId: "zh-TW",
+      columns: 6,
+      scanMode: "row-column",
+      scanIntervalMs: 180,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 240,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0,
+      autoScanSuggestionPages: true
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForLabels(["更多", "ㄅ"]);
+
+  const more = await findLabel("更多");
+  await activateWhenRenderedTargetIsCurrent("active-row", more.rowIndex, more.cellIndex, 12000);
+  await activateWhenRenderedTargetIsCurrent("active-cell", more.rowIndex, more.cellIndex, 12000);
+
+  const firstPage = await waitForActive(
+    (snapshot) => snapshot.phase === "SuggestionPages" && snapshot.activeBlock,
+    "automatic suggestion page block",
+    3000
+  );
+  const activePageRows = new Set(
+    firstPage.rows.flat().filter((tile) => tile.activeBlock).map((tile) => tile.rowIndex)
+  );
+  if (JSON.stringify([...activePageRows]) !== JSON.stringify([0, 1, 2, 3])) {
+    throw new Error(`More auto-scan should highlight four suggestion rows: ${JSON.stringify([...activePageRows])}`);
+  }
+  const firstLabels = firstPage.rows.slice(0, 4).flat().map((tile) => tile.label);
+
+  const deadline = Date.now() + 3000;
+  let nextPage = null;
+  while (Date.now() < deadline) {
+    const snapshot = await getSnapshot();
+    const labels = snapshot.rows.slice(0, 4).flat().map((tile) => tile.label);
+    if (snapshot.phase === "SuggestionPages" && JSON.stringify(labels) !== JSON.stringify(firstLabels)) {
+      nextPage = snapshot;
+      break;
+    }
+    await delay(20);
+  }
+  if (!nextPage) throw new Error("More auto-scan did not advance to another suggestion page");
+  const confirmedLabels = nextPage.rows.slice(0, 4).flat().map((tile) => tile.label);
+
+  await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "more-page-e2e" })`);
+  await delay(30);
+  const confirmed = await getSnapshot();
+  const visibleLabels = confirmed.rows.slice(0, 4).flat().map((tile) => tile.label);
+  if (
+    confirmed.phase !== "Rows" ||
+    confirmed.activeBlock ||
+    confirmed.activeRow?.rowIndex !== 0 ||
+    JSON.stringify(visibleLabels) !== JSON.stringify(confirmedLabels)
+  ) {
+    throw new Error(`More page confirmation did not return to normal scanning on the visible page: ${JSON.stringify({
+      phase: confirmed.phase,
+      activeBlock: confirmed.activeBlock,
+      activeRow: confirmed.activeRow,
+      samePage: JSON.stringify(visibleLabels) === JSON.stringify(confirmedLabels)
+    })}`);
+  }
+
+  const persisted = await evaluate(`JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}").autoScanSuggestionPages`);
+  if (persisted !== true) throw new Error("More auto-scan option was not persisted");
+  steps.push(pass(
+    "auto-scan-more-pages",
+    "opt-in More navigation scans each four-row suggestion page as one target and confirms the visible page"
+  ));
 }
 
 async function scenarioZhTwResetUsesPackagedDefaults() {

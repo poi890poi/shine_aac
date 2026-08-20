@@ -28,6 +28,24 @@ function selectSuggestionCell(session, cellIndex) {
   return pressSwitch(next, 1000);
 }
 
+function selectMoreSuggestions(session) {
+  const board = visibleBoard(session);
+  for (const [rowIndex, row] of board.entries()) {
+    const cellIndex = row.findIndex((candidate) => candidate.action === "more-suggestions");
+    if (cellIndex < 0) continue;
+    return pressSwitch({
+      ...session,
+      scannerState: createScannerState({
+        scanMode: session.config.scanMode,
+        stage: cellIndex === 0 ? ScanStage.FirstCell : ScanStage.Cells,
+        rowIndex,
+        cellIndex
+      })
+    }, 1000);
+  }
+  assert.fail("Expected a More suggestions tile");
+}
+
 test("complete phrase can be entered through one-switch session transitions", () => {
   let session = createSession();
 
@@ -262,6 +280,77 @@ test("a temporary pass limit can drive a demo without changing saved session con
 
   assert.equal(session.scannerState.stage, ScanStage.Stopped);
   assert.equal(session.config.scanPassLimit, 0);
+});
+
+test("More keeps ordinary navigation when automatic page scanning is disabled", () => {
+  const session = selectMoreSuggestions(createSession({
+    config: createBoardConfig({ profileId: "zh-TW" })
+  }));
+
+  assert.equal(session.config.autoScanSuggestionPages, false);
+  assert.equal(session.suggestionPage, 1);
+  assert.equal(session.scannerState.stage, ScanStage.Rows);
+  assert.equal(session.lastSelection.tile.action, "more-suggestions");
+});
+
+for (const scanMode of [ScanMode.RowColumn, ScanMode.BlockRowColumn]) {
+  test(`${scanMode} More auto-scan confirms a page and returns to normal scanning`, () => {
+    let session = selectMoreSuggestions(createSession({
+      config: createBoardConfig({
+        profileId: "zh-TW",
+        scanMode,
+        scanPassLimit: 0,
+        autoScanSuggestionPages: true
+      })
+    }));
+
+    assert.equal(session.suggestionPage, 1);
+    assert.equal(session.scannerState.stage, ScanStage.SuggestionPages);
+    assert.equal(session.scannerState.passIndex, 1);
+
+    session = advanceSession(session);
+    assert.equal(session.suggestionPage, 2);
+    session = pressSwitch(session, 1000);
+
+    assert.equal(
+      session.scannerState.stage,
+      scanMode === ScanMode.BlockRowColumn ? ScanStage.Blocks : ScanStage.Rows
+    );
+    assert.equal(session.suggestionPage, 2);
+    assert.equal(session.lastSelection, null);
+    assert.equal(
+      scanMode === ScanMode.BlockRowColumn
+        ? session.scannerState.returningToBlocks
+        : session.scannerState.returningToRows,
+      true
+    );
+  });
+}
+
+test("More auto-scan pauses after two complete page passes", () => {
+  let session = selectMoreSuggestions(createSession({
+    config: createBoardConfig({
+      profileId: "zh-TW",
+      scanPassLimit: 0,
+      autoScanSuggestionPages: true
+    })
+  }));
+  const visitedPages = [session.suggestionPage];
+
+  for (let step = 0; step < 6; step += 1) {
+    session = advanceSession(session);
+    visitedPages.push(session.suggestionPage);
+  }
+
+  assert.deepEqual(visitedPages, [1, 2, 0, 1, 2, 0, 1]);
+  assert.equal(session.scannerState.stage, ScanStage.Stopped);
+  assert.equal(session.scannerState.stoppedFromSuggestionPages, true);
+  assert.equal(session.scannerState.passIndex, 2);
+
+  session = pressSwitch(session, 1000);
+  assert.equal(session.scannerState.stage, ScanStage.Rows);
+  assert.equal(session.suggestionPage, 1);
+  assert.equal(session.lastSelection, null);
 });
 
 test("undo repairs the previous message state with one selection", () => {

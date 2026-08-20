@@ -6,6 +6,7 @@ import { EnUsFrequencyEntries } from "./data/en-us-frequency.generated.js";
 export const ScanStage = Object.freeze({
   Blocks: "Blocks",
   BlockSelected: "BlockSelected",
+  SuggestionPages: "SuggestionPages",
   Rows: "Rows",
   RowSelected: "RowSelected",
   FirstCell: "FirstCell",
@@ -46,6 +47,7 @@ export const DefaultFirstCellPauseMs = 2400;
 export const LegacyFirstCellPauseMsV6 = 1400;
 export const DefaultInputLatencyCompensationMs = 250;
 export const DefaultScanPassLimit = 2;
+export const SuggestionPageScanPassLimit = 2;
 export const DefaultScanMode = ScanMode.RowColumn;
 export const FourBlockCount = 4;
 export const DefaultScanBlockCount = FourBlockCount;
@@ -91,7 +93,7 @@ export const ScanTimingPresets = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs
   })
 });
-export const CurrentConfigVersion = 30;
+export const CurrentConfigVersion = 31;
 const LegacyDefaultScanIntervalMs = 900;
 const PreviousDefaultScanIntervalMs = 1300;
 const PreviousDefaultTransitionPauseMs = 450;
@@ -786,6 +788,7 @@ export const LanguageProfiles = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
     scanPassLimit: DefaultScanPassLimit,
     scanMode: DefaultScanMode,
+    autoScanSuggestionPages: false,
     autoSpace: AutoSpaceMode.Word,
     speechLocale: "en-US",
     suggestionDictionary: DefaultSuggestionDictionary,
@@ -802,6 +805,7 @@ export const LanguageProfiles = Object.freeze({
     inputLatencyCompensationMs: DefaultInputLatencyCompensationMs,
     scanPassLimit: DefaultScanPassLimit,
     scanMode: DefaultScanMode,
+    autoScanSuggestionPages: false,
     autoSpace: AutoSpaceMode.None,
     speechLocale: "zh-TW",
     suggestionDictionary: ZhTwSuggestionDictionary,
@@ -829,6 +833,7 @@ export function createBoardConfig(overrides = {}) {
     symbols: profile.symbols,
     ...safeOverrides,
     scanMode: normalizeScanMode(safeOverrides.scanMode ?? profile.scanMode),
+    autoScanSuggestionPages: safeOverrides.autoScanSuggestionPages === true,
     scanBlockCount: normalizeScanBlockCount(
       safeOverrides.scanBlockCount ?? recommendedScanBlockCount(profile.id)
     ),
@@ -2586,6 +2591,9 @@ export function createScannerState(overrides = {}) {
     returningToBlocks: false,
     returningToRows: false,
     firstRowInBlock: false,
+    cycleStartSuggestionPage: 0,
+    suggestionPageCount: 1,
+    stoppedFromSuggestionPages: false,
     ...stateOverrides
   };
 }
@@ -3179,6 +3187,9 @@ export function visibleBoard(session) {
 }
 
 export function advanceSession(session, scanPassLimit = session.config.scanPassLimit) {
+  if (session.scannerState.stage === ScanStage.SuggestionPages) {
+    return advanceSuggestionPageSession(session);
+  }
   const rows = visibleBoard(session);
   const nextState = advanceScanner(
     session.scannerState,
@@ -3199,6 +3210,20 @@ export function advanceSession(session, scanPassLimit = session.config.scanPassL
 }
 
 export function pressSwitch(session, elapsedInHighlightMs) {
+  if (
+    session.scannerState.stage === ScanStage.SuggestionPages ||
+    (
+      session.scannerState.stage === ScanStage.Stopped &&
+      session.scannerState.stoppedFromSuggestionPages
+    )
+  ) {
+    return {
+      ...session,
+      scannerState: scannerStateAfterSuggestionPageConfirmation(session.config),
+      lockedRow: null,
+      lastSelection: null
+    };
+  }
   const rows = visibleBoard(session);
   const confirmation = confirmWithLatencyCompensation(
     session.scannerState,
@@ -3246,7 +3271,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
 
   const selectedTile = rows[confirmation.rowIndex][confirmation.cellIndex];
   const applied = applyTile(session.message, session.messageHistory, selectedTile, session.config, session);
-  return {
+  const nextSession = {
     ...session,
     message: applied.message,
     messageHistory: applied.messageHistory,
@@ -3256,8 +3281,25 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     zhuyinStage: applied.zhuyinStage ?? session.zhuyinStage,
     zhuyinGroup: applied.zhuyinGroup ?? session.zhuyinGroup,
     suggestionPage: applied.suggestionPage ?? session.suggestionPage,
-    suggestionPageHistory: applied.suggestionPageHistory ?? session.suggestionPageHistory,
-    scannerState: confirmation.nextState,
+    suggestionPageHistory: applied.suggestionPageHistory ?? session.suggestionPageHistory
+  };
+  const suggestionPageCount =
+    selectedTile.action === TileAction.MoreSuggestions &&
+    session.config.autoScanSuggestionPages
+      ? suggestionPageCountForSession(nextSession)
+      : 1;
+  const entersSuggestionPageScan = suggestionPageCount > 1;
+  return {
+    ...nextSession,
+    scannerState: entersSuggestionPageScan
+      ? createScannerState({
+        scanMode: session.config.scanMode,
+        stage: ScanStage.SuggestionPages,
+        passIndex: 1,
+        cycleStartSuggestionPage: nextSession.suggestionPage,
+        suggestionPageCount
+      })
+      : confirmation.nextState,
     lockedRow: null,
     lastSelection: {
       rowIndex: confirmation.rowIndex,
@@ -3266,6 +3308,75 @@ export function pressSwitch(session, elapsedInHighlightMs) {
       effect: applied.effect
     }
   };
+}
+
+function advanceSuggestionPageSession(session) {
+  const pageCount = Math.max(1, Number(session.scannerState.suggestionPageCount) || 1);
+  if (pageCount <= 1) {
+    return {
+      ...session,
+      suggestionPage: 0,
+      scannerState: scannerStateAfterSuggestionPageConfirmation(session.config),
+      lockedRow: null,
+      lastSelection: null
+    };
+  }
+
+  const state = session.scannerState;
+  const currentPage = floorMod(session.suggestionPage ?? 0, pageCount);
+  const cycleStartSuggestionPage = floorMod(state.cycleStartSuggestionPage ?? currentPage, pageCount);
+  const nextPage = floorMod(currentPage + 1, pageCount);
+  const completedPass = nextPage === cycleStartSuggestionPage;
+  const passIndex = Math.max(1, clampInt(state.passIndex, 1, SuggestionPageScanPassLimit));
+  if (completedPass && passIndex >= SuggestionPageScanPassLimit) {
+    return {
+      ...session,
+      suggestionPage: cycleStartSuggestionPage,
+      scannerState: createScannerState({
+        scanMode: session.config.scanMode,
+        stage: ScanStage.Stopped,
+        passIndex: SuggestionPageScanPassLimit,
+        cycleStartSuggestionPage,
+        suggestionPageCount: pageCount,
+        stoppedFromSuggestionPages: true
+      }),
+      lockedRow: null,
+      lastSelection: null
+    };
+  }
+
+  return {
+    ...session,
+    suggestionPage: nextPage,
+    scannerState: {
+      ...state,
+      passIndex: completedPass ? passIndex + 1 : passIndex,
+      cycleStartSuggestionPage,
+      stoppedFromSuggestionPages: false
+    },
+    lockedRow: null,
+    lastSelection: null
+  };
+}
+
+function scannerStateAfterSuggestionPageConfirmation(config) {
+  const blockMode = normalizeScanMode(config.scanMode) === ScanMode.BlockRowColumn;
+  return createScannerState({
+    scanMode: config.scanMode,
+    returningToBlocks: blockMode,
+    returningToRows: !blockMode
+  });
+}
+
+function suggestionPageCountForSession(session) {
+  if (session.config.profileId !== "zh-TW") return 1;
+  return zhTwSuggestionPageCount(
+    session.message,
+    session.config.suggestionDictionary,
+    zhTwSuggestionColumnCount(session.config.columns),
+    session.messageHistory.length > 0,
+    session.config.symbols
+  );
 }
 
 export function applyTile(message, messageHistory, selectedTile, config = createBoardConfig(), inputState = {}) {
@@ -3444,6 +3555,7 @@ export function withLockedRow(rows, scannerState, lockedRow) {
     !lockedRow ||
     scannerState.stage === ScanStage.Blocks ||
     scannerState.stage === ScanStage.BlockSelected ||
+    scannerState.stage === ScanStage.SuggestionPages ||
     scannerState.stage === ScanStage.Rows ||
     scannerState.stage === ScanStage.Stopped ||
     scannerState.rowIndex < 0 ||
@@ -3461,6 +3573,8 @@ export function scanDurationForStage(state, config = createBoardConfig()) {
       return state.returningToBlocks ? config.firstCellPauseMs : config.scanIntervalMs;
     case ScanStage.BlockSelected:
       return config.transitionPauseMs;
+    case ScanStage.SuggestionPages:
+      return config.scanIntervalMs;
     case ScanStage.Rows:
       return state.returningToRows || state.firstRowInBlock
         ? config.firstCellPauseMs

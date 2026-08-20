@@ -4,6 +4,7 @@ import {
   ScanMode,
   ScanStage,
   ScanTimingPresets,
+  SuggestionPageScanPassLimit,
   TileAction,
   advanceSession,
   applyScanTimingPreset,
@@ -218,6 +219,7 @@ function loadConfig() {
       ),
       scanMode: stored.scanMode ?? profileDefaults.scanMode,
       scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, profileDefaults.scanPassLimit),
+      autoScanSuggestionPages: stored.autoScanSuggestionPages === true,
       suggestionDictionary: loadProfileSuggestionDictionaryForConfig(
         stored.suggestionDictionary ?? serializeDictionary(profileDefaults.suggestionDictionary),
         storedVersion,
@@ -265,7 +267,8 @@ function loadNativeConfig(defaults) {
         defaults.inputLatencyCompensationMs
       ),
       scanMode: stored.scanMode ?? defaults.scanMode,
-      scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, defaults.scanPassLimit)
+      scanPassLimit: normalizeStoredScanPassLimit(stored.scanPassLimit, defaults.scanPassLimit),
+      autoScanSuggestionPages: stored.autoScanSuggestionPages === true
     });
   } catch {
     return null;
@@ -283,6 +286,7 @@ function saveConfig(config) {
     inputLatencyCompensationMs: config.inputLatencyCompensationMs,
     scanMode: config.scanMode,
     scanPassLimit: config.scanPassLimit,
+    autoScanSuggestionPages: config.autoScanSuggestionPages,
     suggestionDictionary: serializeDictionary(config.suggestionDictionary),
     symbols: serializeSymbols(config.symbols)
   }));
@@ -690,7 +694,8 @@ function activateSwitch(inputEvent = {}) {
   const nextSession = { ...nextSessionWithTiming, config: baseConfig };
   const selection = nextSession.lastSelection;
   const shouldHold = shouldHoldAfterStateChange(selection);
-  session = (uiConfig.restartScanFromTop && selection) || shouldHold
+  const enteredSuggestionPageScan = nextSession.scannerState.stage === ScanStage.SuggestionPages;
+  session = !enteredSuggestionPageScan && ((uiConfig.restartScanFromTop && selection) || shouldHold)
     ? {
       ...nextSession,
       scannerState: createScannerState({ scanMode: session.config.scanMode }),
@@ -714,6 +719,8 @@ function activateSwitch(inputEvent = {}) {
 
   if (selection?.effect === "speak") {
     speak(session.message);
+  } else if (enteredSuggestionPageScan) {
+    announceCurrentScanTarget();
   } else if (selection) {
     speakActivation(selection.tile);
   } else {
@@ -850,6 +857,10 @@ function forceProgressLayout(progressFills) {
 }
 
 function shouldHoldAfterStateChange(selection) {
+  if (
+    selection?.tile.action === TileAction.MoreSuggestions &&
+    session.config.autoScanSuggestionPages
+  ) return false;
   return Boolean(selection && !["none", "speak"].includes(selection.effect));
 }
 
@@ -990,11 +1001,24 @@ function announceCurrentScanTarget() {
   if (configOpen) return;
   const board = visibleBoard(session);
   const scanner = session.scannerState;
-  const key = `${scanner.stage}:${scanner.blockIndex}:${scanner.rowIndex}:${scanner.cellIndex}:${scanner.passIndex}`;
+  const key = `${scanner.stage}:${scanner.blockIndex}:${scanner.rowIndex}:${scanner.cellIndex}:${scanner.passIndex}:${session.suggestionPage}`;
   if (key === lastScanAnnouncementKey) return;
   lastScanAnnouncementKey = key;
 
   if (scanner.stage === ScanStage.Stopped) return;
+
+  if (scanner.stage === ScanStage.SuggestionPages) {
+    if (!uiConfig.rowScanVoice) return;
+    const candidates = board.slice(0, 4).flat()
+      .filter((candidate) => ![TileAction.Noop, TileAction.MoreSuggestions].includes(candidate.action));
+    const pageNumber = Math.max(1, Number(session.suggestionPage ?? 0) + 1);
+    const labels = candidates.map(labelForSpeech).filter(Boolean);
+    speakFeedback([
+      uiText(`Suggestion page ${pageNumber}`, `候選第 ${pageNumber} 頁`),
+      ...labels
+    ].join(", "));
+    return;
+  }
 
   if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
     if (!uiConfig.rowScanVoice) return;
@@ -1264,7 +1288,11 @@ function updateScanPresentation(board) {
   for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
     const activeBlock =
-      (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) &&
+      (
+        scanner.stage === ScanStage.Blocks ||
+        scanner.stage === ScanStage.BlockSelected ||
+        scanner.stage === ScanStage.SuggestionPages
+      ) &&
       blockRows.includes(rendered.rowIndex);
     const activeRow =
       (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) &&
@@ -1297,6 +1325,9 @@ function updateScanPresentation(board) {
 
 function activeRenderedTilesForScanner(scanner) {
   if (scanner.stage === ScanStage.Stopped) return [];
+  if (scanner.stage === ScanStage.SuggestionPages) {
+    return renderedTileGrid.slice(0, 4).flat();
+  }
   if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
     const board = visibleBoard(session);
     return activeBlockRows(scanner, board).flatMap((rowIndex) => renderedTileGrid[rowIndex] ?? []);
@@ -1312,6 +1343,9 @@ function activeRenderedTilesForScanner(scanner) {
 function progressTargetKeyForScanner(scanner, isReviewHold) {
   if (scanner.stage === ScanStage.Stopped) return "stopped";
   const prefix = isReviewHold ? "review" : "scan";
+  if (scanner.stage === ScanStage.SuggestionPages) {
+    return `${prefix}:${scanner.stage}:${session.suggestionPage}`;
+  }
   if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
     return `${prefix}:${scanner.stage}:${scanner.blockIndex}`;
   }
@@ -1322,6 +1356,9 @@ function progressTargetKeyForScanner(scanner, isReviewHold) {
 }
 
 function activeBlockRows(scanner, board) {
+  if (scanner.stage === ScanStage.SuggestionPages) {
+    return board.slice(0, 4).map((_row, rowIndex) => rowIndex);
+  }
   if (scanner.stage !== ScanStage.Blocks && scanner.stage !== ScanStage.BlockSelected) return [];
   const blocks = scanRowBlocks(
     board.length,
@@ -1618,13 +1655,19 @@ function appendVisibleMessage(container, value) {
 
 function phaseLabel(scanner) {
   const zhTw = session.config.profileId === "zh-TW";
-  const passLimit = demoMode.scanPassLimit(session.config.scanPassLimit);
+  const passLimit = scanner.stage === ScanStage.SuggestionPages
+    ? SuggestionPageScanPassLimit
+    : demoMode.scanPassLimit(session.config.scanPassLimit);
   const passSuffix = passLimit === 0
     ? (zhTw ? " · 持續" : " · Continuous")
     : (zhTw
       ? ` · 第 ${Math.max(1, scanner.passIndex)} / ${passLimit} 次`
       : ` · Pass ${Math.max(1, scanner.passIndex)} / ${passLimit}`);
   switch (scanner.stage) {
+    case ScanStage.SuggestionPages:
+      return zhTw
+        ? `掃描候選頁${passSuffix}`
+        : `Scanning suggestion pages${passSuffix}`;
     case ScanStage.Blocks:
       if (scanner.returningToBlocks) {
         return zhTw ? `返回選區${passSuffix}` : `Back to blocks${passSuffix}`;
@@ -1664,6 +1707,8 @@ function statusPhaseCode(scanner) {
 
 function phaseCode(stage) {
   switch (stage) {
+    case ScanStage.SuggestionPages:
+      return "SuggestionPages";
     case ScanStage.Blocks:
       return "Blocks";
     case ScanStage.BlockSelected:
@@ -1924,6 +1969,10 @@ function renderConfig() {
         </select>
       </label>
       <label class="field check-field">
+        <input name="autoScanSuggestionPages" type="checkbox" ${session.config.autoScanSuggestionPages ? "checked" : ""}>
+        ${uiText("Auto-scan More pages", "自動掃描「更多」頁面")}
+      </label>
+      <label class="field check-field">
         <input name="rowScanVoice" type="checkbox" ${uiConfig.rowScanVoice ? "checked" : ""}>
         ${uiText("Voice while row scanning", "選列時朗讀")}
       </label>
@@ -1973,6 +2022,7 @@ function renderConfig() {
     form.elements.inputLatencyCompensationMs.value = String(profile.inputLatencyCompensationMs);
     form.elements.scanMode.value = profile.scanMode;
     form.elements.scanPassLimit.value = String(profile.scanPassLimit);
+    form.elements.autoScanSuggestionPages.checked = profile.autoScanSuggestionPages;
     form.elements.scanTimingPreset.value = "default";
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
@@ -2054,6 +2104,7 @@ function renderConfig() {
       inputLatencyCompensationMs: clamp(Number(data.get("inputLatencyCompensationMs")), 0, 1200),
       scanMode: String(data.get("scanMode") ?? ScanMode.RowColumn),
       scanPassLimit: normalizeStoredScanPassLimit(data.get("scanPassLimit"), 2),
+      autoScanSuggestionPages: data.get("autoScanSuggestionPages") === "on",
       suggestionDictionary: profile.id === "zh-TW"
         ? profile.suggestionDictionary
         : parseDictionary(String(data.get("suggestionDictionary") ?? "")),

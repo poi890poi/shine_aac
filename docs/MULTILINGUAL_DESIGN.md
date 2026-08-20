@@ -224,7 +224,9 @@ row 4: ranked candidates, with 更多 in the last cell when another page exists
 static board rows: unchanged Zhuyin symbols and controls
 ```
 
-`更多` advances only the suggestion rows. It must not change the message, scanner mechanics, static board, or input mode. Page count is capped so scanning remains bounded.
+`更多` advances only the suggestion rows. It must not change the message, static board, or input mode. Page count is capped so scanning remains bounded.
+
+An optional automatic page-scan mode makes unknown page location less costly. Activating `更多` shows the first unseen page and temporarily treats all four suggestion rows as one scan target. Each dwell advances to the next bounded page; activation confirms the visible page and returns to the configured row/column or block/row/column scanner with a protected first-target dwell. Two complete page passes stop automatically even when ordinary scanning is continuous. The option is off by default, so existing `更多` behavior remains available.
 
 This is intentionally close to a Zhuyin IME model: the typed Zhuyin buffer is visible, and a candidate list converts that buffer into characters or phrases. The AAC adaptation is the hard limit: suggestions are capped at 2-3 pages, currently no more than 3. The system should not grow into a full productivity IME with unbounded candidate lists, context rewriting, user-learning side effects, or extra composition modes.
 

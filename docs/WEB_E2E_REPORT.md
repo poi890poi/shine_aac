@@ -1,6 +1,6 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-20T07:51:20.231Z
+Generated: 2026-08-20T08:18:02.524Z
 
 Result: PASS
 
@@ -12,7 +12,7 @@ Result: PASS
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":54.10000002384186,"resetTargetToProgressMs":32.19999998807907,"rowDeadlineDriftMs":-30.5,"nextRowTargetToProgressMs":30.69999998807907,"activationToTargetMs":1.100000023841858,"activationTargetToProgressMs":26,"firstDeadlineDriftMs":-24.700000047683716,"secondTargetToProgressMs":24.600000023841858,"laterDeadlineDriftMs":-19.19999998807907,"thirdTargetToProgressMs":19.099999964237213,"selectionToHoldMs":4.899999976158142,"holdReleaseToTargetMs":0.800000011920929,"selectionTargetToProgressMs":32.39999997615814} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":65.19999998807907,"resetTargetToProgressMs":32.90000003576279,"rowDeadlineDriftMs":-31.900000035762787,"nextRowTargetToProgressMs":31.600000023841858,"activationToTargetMs":1.300000011920929,"activationTargetToProgressMs":32.5,"firstDeadlineDriftMs":-25,"secondTargetToProgressMs":23.5,"laterDeadlineDriftMs":-22,"thirdTargetToProgressMs":23.5,"selectionToHoldMs":4.199999988079071,"holdReleaseToTargetMs":0.800000011920929,"selectionTargetToProgressMs":22.5} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
@@ -46,6 +46,7 @@ Result: PASS
 | zh-tw-dense-function-key-layout | PASS | 4 function keys share word-key metrics; rendered 20-20px with a 20px normal-board floor |
 | zh-tw-official-zhuyin-route | PASS | Zhuyin activation uses the dedicated Ministry of Education audio route |
 | zh-tw-layout | PASS | migrated old zh-TW config to direct Zhuyin symbols and replacement suggestions |
+| auto-scan-more-pages | PASS | opt-in More navigation scans each four-row suggestion page as one target and confirms the visible page |
 | zh-tw-reset | PASS | reset restored packaged zh-TW defaults and held the first row for deliberate startup |
 | function-label-default-default | PASS | 4 function keys share word-key metrics; rendered 20-20px with a 20px normal-board floor |
 | function-label-default-default-viewport | PASS | fits 13 rows in 851px viewport without scrolling |

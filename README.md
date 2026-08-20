@@ -161,6 +161,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - row-to-symbol transition pause
 - first-row / first-symbol hold
 - input-latency compensation window
+- optional automatic scanning across `更多` suggestion pages, with page confirmation and a fixed two-pass pause
 - suggestion dictionary
 - custom symbols and words
 - row-scan voice feedback, symbol-scan voice feedback, activation voice feedback, and a dedicated Android-style Taiwan voice list separating downloaded, online, and downloadable voices with radio selection, inline preview/download actions, engine metadata, and restart-from-top behavior
@@ -193,7 +194,7 @@ MOVIE=movie
 BED=bed
 ```
 
-Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-target hold, suggestion-review hold off, voice defaults, and input-latency compensation window.
+Configuration is stored on the device. The app migrates old built-in default layouts and old built-in suggestion dictionaries to the current defaults, but it preserves custom layouts and custom dictionaries. The `Reset` button restores the built-in frequency-ordered layout, default column count, switch speed, row-to-symbol pause, first-target hold, automatic `更多` page scanning off, suggestion-review hold off, voice defaults, and input-latency compensation window.
 
 To build locally, install the Android SDK and either set `ANDROID_HOME` or create `local.properties` with:
 

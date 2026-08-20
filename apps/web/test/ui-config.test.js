@@ -67,6 +67,13 @@ test("profile-optimized block scanning is an explicit optional mode with its own
   assert.match(styles, /\.row\.selected-block-row::before\s*\{[\s\S]*?border:\s*2px solid rgba\(103, 80, 164, 0\.72\)/);
 });
 
+test("automatic More-page scanning is an explicit persisted option", () => {
+  assert.match(appSource, /name="autoScanSuggestionPages"/);
+  assert.match(appSource, /autoScanSuggestionPages:\s*config\.autoScanSuggestionPages/);
+  assert.match(appSource, /stored\.autoScanSuggestionPages === true/);
+  assert.match(appSource, /ScanStage\.SuggestionPages/);
+});
+
 test("tone fallback controls use a distinct secondary treatment", () => {
   assert.match(appSource, /candidate\.toneFallback === true/);
   assert.match(styles, /\.tile\.tone-fallback\s*\{[\s\S]*?border-color:\s*#8064a2/);

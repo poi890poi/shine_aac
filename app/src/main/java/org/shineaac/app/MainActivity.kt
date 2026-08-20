@@ -563,6 +563,7 @@ class MainActivity : ComponentActivity() {
                 .put("inputLatencyCompensationMs", prefs.getFloat("inputLatencyCompensationMs", 250f).toDouble())
                 .put("scanMode", prefs.getString("scanMode", DefaultScanMode))
                 .put("scanPassLimit", prefs.getInt("scanPassLimit", DefaultScanPassLimit))
+                .put("autoScanSuggestionPages", prefs.getBoolean("autoScanSuggestionPages", false))
                 .toString()
         }
 
