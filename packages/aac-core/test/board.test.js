@@ -1091,7 +1091,7 @@ test("zh-TW empty input never expands the phonetic corpus as a fallback", () => 
 
 test("zh-TW nonempty Han input preserves bounded corpus backfill when context has no completion", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
-  const suggestions = boardRows(config, "是不", false, { suggestionPage: 2 })
+  const suggestions = boardRows(config, "龘", false, { suggestionPage: 2 })
     .slice(0, 4)
     .flat();
 
@@ -1227,6 +1227,22 @@ test("zh-TW committed Han text suggests dictionary-backed phrase continuations",
   assert.equal(suggestions.every((candidate) => candidate.matchType === "context"), true);
   assert.equal(findActionTile(rows, "視", TileAction.CommitCandidate).sourceLabel, "電視");
   assert.equal(applyTile("電", [], findActionTile(rows, "視", TileAction.CommitCandidate), config, {}).message, "電視");
+});
+
+test("zh-TW committed Han context backs off to its newest useful glyph", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config, "我喝", false, {});
+  const suggestions = rows.slice(0, 4).flat();
+  const water = findActionTile(suggestions, "水", TileAction.CommitCandidate);
+
+  assert.equal(water.matchType, "context");
+  assert.equal(water.context, "喝");
+  assert.equal(water.sourceLabel, "喝水");
+  assert.equal(applyTile("我喝", [], water, config, {}).message, "我喝水");
+  assert.equal(
+    suggestions.some((candidate) => candidate.matchType === "base"),
+    false
+  );
 });
 
 test("zh-TW combines committed Han context with an incomplete Zhuyin buffer", () => {

@@ -761,6 +761,7 @@ async function scenarioFirstColumnProgressTiming() {
       scanVoice: false,
       activationVoice: false,
       restartScanFromTop: true,
+      verticalGroupProgress: true,
     }));
     location.reload();
   `);
@@ -2086,7 +2087,8 @@ async function scenarioAutoScanMorePages() {
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
-      restartScanFromTop: true
+      restartScanFromTop: true,
+      verticalGroupProgress: false
     }));
     localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
@@ -2842,7 +2844,8 @@ async function scenarioBlockRowColumnMode() {
       rowScanVoice: false,
       scanVoice: false,
       activationVoice: false,
-      restartScanFromTop: true
+      restartScanFromTop: true,
+      verticalGroupProgress: true
     }));
     localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();

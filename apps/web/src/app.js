@@ -1277,7 +1277,7 @@ function updateScanPresentation(board) {
   const previousProgressFills = currentProgressFills;
   const nextActiveTiles = activeRenderedTilesForScanner(scanner);
   const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
-  const progressDirection = [
+  const progressDirection = uiConfig.verticalGroupProgress && [
     ScanStage.Blocks,
     ScanStage.BlockSelected,
     ScanStage.Rows,
@@ -2028,6 +2028,10 @@ function renderConfig() {
         <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
         ${uiText("Restart scan at top after input", "輸入後從第一列重新開始")}
       </label>
+      <label class="field check-field">
+        <input name="verticalGroupProgress" type="checkbox" ${uiConfig.verticalGroupProgress ? "checked" : ""}>
+        ${uiText("Vertical block / row progress", "區塊／列使用垂直進度")}
+      </label>
       <label class="field">${uiText("Switch input", "開關輸入")}
         <select name="switchInputProfile">
           ${switchInputProfileOptionsHtml(uiConfig.switchInputProfile)}
@@ -2159,6 +2163,7 @@ function renderConfig() {
       activationVoice: data.get("activationVoice") === "on",
       speechVoiceName: String(data.get("speechVoiceName") ?? uiConfig.speechVoiceName ?? ""),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
+      verticalGroupProgress: data.get("verticalGroupProgress") === "on",
       switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons")
     });
     saveUiConfig(uiStorageKey, uiConfig);

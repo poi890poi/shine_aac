@@ -2053,16 +2053,17 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
 }
 
 function zhTwContextCompletionTiles(message) {
-  const context = trailingHanContext(message);
-  if (!context) return [];
-
-  const candidates = (ZhTwPhraseCompletionsByPrefix.get(context) ?? [])
-    .filter((entry) => !ZhTwSuppressedSuggestionLabels.has(entry.label))
-    .map((entry) => zhTwContextCompletionTile(entry, context));
-  return distinctBy(
-    zhTwWeakIntentContextCompletionRerank(candidates),
-    (candidate) => `${candidate.label}\u0000${candidate.output}`
-  );
+  for (const context of trailingHanContexts(message)) {
+    const candidates = (ZhTwPhraseCompletionsByPrefix.get(context) ?? [])
+      .filter((entry) => !ZhTwSuppressedSuggestionLabels.has(entry.label))
+      .map((entry) => zhTwContextCompletionTile(entry, context));
+    if (candidates.length === 0) continue;
+    return distinctBy(
+      zhTwWeakIntentContextCompletionRerank(candidates),
+      (candidate) => `${candidate.label}\u0000${candidate.output}`
+    );
+  }
+  return [];
 }
 
 function zhTwWeakIntentContextCompletionRerank(candidates) {
@@ -2085,6 +2086,7 @@ function zhTwContextCompletionTile(entry, context) {
     zhuyinKey: entry.key,
     matchType: "context",
     sourceLabel: entry.label,
+    context,
     keys: entry.keys,
     frequencyRank: entry.frequencyRank,
     frequency: entry.frequency

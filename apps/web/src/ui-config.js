@@ -9,6 +9,7 @@ export const defaultUiConfig = Object.freeze({
   activationVoice: true,
   speechVoiceName: moeBopomofoVoiceName,
   restartScanFromTop: true,
+  verticalGroupProgress: false,
   hardwareButtons: true,
   cameraSwitch: false,
   switchInputProfile: "hardware-buttons"

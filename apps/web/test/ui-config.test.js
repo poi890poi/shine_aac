@@ -67,9 +67,11 @@ test("profile-optimized block scanning is an explicit optional mode with its own
   assert.match(styles, /\.row\.selected-block-row::before\s*\{[\s\S]*?border:\s*2px solid rgba\(103, 80, 164, 0\.72\)/);
 });
 
-test("block and row progress descends while cell progress remains horizontal", () => {
+test("vertical block and row progress is optional while cell progress remains horizontal", () => {
+  assert.equal(defaultUiConfig.verticalGroupProgress, false);
+  assert.match(appSource, /name="verticalGroupProgress"/);
   assert.match(appSource, /progressFill\.dataset\.progressDirection === "down"[\s\S]*?scaleY/);
-  assert.match(appSource, /ScanStage\.Blocks[\s\S]*?ScanStage\.Rows[\s\S]*?\? "down" : "right"/);
+  assert.match(appSource, /uiConfig\.verticalGroupProgress && \[[\s\S]*?ScanStage\.Blocks[\s\S]*?ScanStage\.Rows[\s\S]*?\? "down" : "right"/);
   assert.match(styles, /\.progress-fill\[data-progress-direction="down"\]\s*\{[\s\S]*?transform-origin:\s*center top/);
 });
 
