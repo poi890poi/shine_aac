@@ -21,6 +21,7 @@ object CameraSwitchPreferences {
             longBlinkMs = clampLong(prefs.getLong("longBlinkMs", 800L), MinLongBlinkMs, MaxLongBlinkMs),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio),
+            detectionParameters = readDetectionParameters(prefs),
             source = source
         )
     }
@@ -30,6 +31,7 @@ object CameraSwitchPreferences {
         longBlinkMs: Long,
         cooldownMs: Long,
         zoomRatio: Float = DefaultZoomRatio,
+        detectionParameters: BlinkDetectionParameters = BlinkDetectionParameters(),
         qualityLabel: String? = null,
         qualityDetail: String? = null
     ) {
@@ -39,6 +41,7 @@ object CameraSwitchPreferences {
             .putLong("cooldownMs", clampLong(cooldownMs, MinCooldownMs, MaxCooldownMs))
             .putFloat("zoomRatio", clampFloat(zoomRatio, MinZoomRatio, MaxZoomRatio))
             .putLong("calibratedAtMs", System.currentTimeMillis())
+        writeDetectionParameters(editor, detectionParameters.normalized())
         writeString(editor, "qualityLabel", qualityLabel)
         writeString(editor, "qualityDetail", qualityDetail)
         editor.apply()
@@ -69,6 +72,37 @@ object CameraSwitchPreferences {
             qualityDetail = prefs.getString("qualityDetail", null),
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio)
         )
+    }
+
+    private fun readDetectionParameters(prefs: android.content.SharedPreferences): BlinkDetectionParameters =
+        BlinkDetectionParameters(
+            closeThreshold = prefs.getFloat("blinkCloseThreshold", 0.55f).toDouble(),
+            reopenThreshold = prefs.getFloat("blinkReopenThreshold", 0.35f).toDouble(),
+            requiredOpenBeforeCloseMs = prefs.getLong("blinkRequiredOpenMs", 350L),
+            minClosedStableMs = prefs.getLong("blinkMinClosedMs", 120L),
+            reopenStableMs = prefs.getLong("blinkReopenStableMs", 150L),
+            signalLostCancelMs = prefs.getLong("blinkSignalLostMs", 700L),
+            maxYawDegrees = prefs.getFloat("blinkMaxYaw", 25f),
+            maxRollDegrees = prefs.getFloat("blinkMaxRoll", 25f),
+            minFaceWidthPx = prefs.getInt("blinkMinFaceWidth", 40),
+            minFaceHeightPx = prefs.getInt("blinkMinFaceHeight", 48)
+        ).normalized()
+
+    private fun writeDetectionParameters(
+        editor: android.content.SharedPreferences.Editor,
+        value: BlinkDetectionParameters
+    ) {
+        editor
+            .putFloat("blinkCloseThreshold", value.closeThreshold.toFloat())
+            .putFloat("blinkReopenThreshold", value.reopenThreshold.toFloat())
+            .putLong("blinkRequiredOpenMs", value.requiredOpenBeforeCloseMs)
+            .putLong("blinkMinClosedMs", value.minClosedStableMs)
+            .putLong("blinkReopenStableMs", value.reopenStableMs)
+            .putLong("blinkSignalLostMs", value.signalLostCancelMs)
+            .putFloat("blinkMaxYaw", value.maxYawDegrees)
+            .putFloat("blinkMaxRoll", value.maxRollDegrees)
+            .putInt("blinkMinFaceWidth", value.minFaceWidthPx)
+            .putInt("blinkMinFaceHeight", value.minFaceHeightPx)
     }
 
     private fun writeString(

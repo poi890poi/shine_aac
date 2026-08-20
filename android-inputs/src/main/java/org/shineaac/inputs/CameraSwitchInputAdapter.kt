@@ -21,7 +21,6 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.LifecycleOwner
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -50,7 +49,8 @@ class CameraSwitchInputAdapter(
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
-    private val blinkClassifier = BlinkGestureClassifier()
+    private var blinkClassifier = BlinkGestureClassifier()
+    private var activeDetectionParameters = BlinkDetectionParameters()
     private var holdEventActive = false
     private var lastActivationAt = 0L
     private var activeSource = "android-camera-long-blink"
@@ -65,6 +65,8 @@ class CameraSwitchInputAdapter(
         val startGeneration = generation
         val settings = settingsProvider()
         if (!settings.enabled) return
+        activeDetectionParameters = settings.detectionParameters.normalized()
+        blinkClassifier = BlinkGestureClassifier(activeDetectionParameters.classifierConfig())
         activeSource = settings.source
         running = true
         lastImageReceivedAt = System.currentTimeMillis()
@@ -257,7 +259,7 @@ class CameraSwitchInputAdapter(
             .addOnSuccessListener(callbackExecutor) { faces ->
                 if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                val signal = face?.eyeSignal()
+                val signal = face?.blinkEyeSignal(activeDetectionParameters)
                 updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
             }
             .addOnFailureListener(callbackExecutor) { error ->
@@ -353,23 +355,6 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private fun Face.eyeSignal(): EyeSignal? {
-        val left = leftEyeOpenProbability ?: return null
-        val right = rightEyeOpenProbability ?: return null
-        if (kotlin.math.abs(headEulerAngleY) > MaxYawDegrees) return null
-        if (kotlin.math.abs(headEulerAngleZ) > MaxRollDegrees) return null
-        if (boundingBox.width() < MinFaceWidthPx || boundingBox.height() < MinFaceHeightPx) return null
-        return EyeSignal(
-            closedScore = (1.0 - ((left + right) / 2.0)).coerceIn(0.0, 1.0),
-            reopenScore = (1.0 - maxOf(left, right)).coerceIn(0.0, 1.0)
-        )
-    }
-
-    private data class EyeSignal(
-        val closedScore: Double,
-        val reopenScore: Double
-    )
-
     private companion object {
         const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 200L
@@ -381,10 +366,6 @@ class CameraSwitchInputAdapter(
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
-        const val MaxYawDegrees = 25f
-        const val MaxRollDegrees = 25f
-        const val MinFaceWidthPx = 40
-        const val MinFaceHeightPx = 48
         const val Tag = "ShineCameraSwitch"
     }
 }

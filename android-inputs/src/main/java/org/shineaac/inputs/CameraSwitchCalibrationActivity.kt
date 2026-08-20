@@ -94,6 +94,10 @@ class CameraSwitchCalibrationActivity : Activity() {
     private val longBlinkDurations = mutableListOf<Long>()
     private val restClosedDurations = mutableListOf<Long>()
     private val testLongBlinkDurations = mutableListOf<Long>()
+    private val restEyeSignals = mutableListOf<BlinkEyeSignal>()
+    private val slowBlinkEyeSignals = mutableListOf<BlinkEyeSignal>()
+    private val calibrationFrameIntervalsMs = mutableListOf<Long>()
+    private var lastCalibrationSignalAtMs = 0L
     private var longBlinkClosed = false
     private var longBlinkClosedStartedAt = 0L
     private var calibrationHoldCuePlayed = false
@@ -113,6 +117,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var previewLastLongCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = 800L
     private var calibratedZoomRatio = 1.6f
+    private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
     private var cameraPermissionRequested = false
 
@@ -127,6 +132,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
         calibratedZoomRatio = savedSettings.zoomRatio
+        detectionParameters = savedSettings.detectionParameters
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         detector = FaceDetection.getClient(
             FaceDetectorOptions.Builder()
@@ -498,6 +504,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         longBlinkDurations.clear()
         restClosedDurations.clear()
         testLongBlinkDurations.clear()
+        restEyeSignals.clear()
+        slowBlinkEyeSignals.clear()
+        calibrationFrameIntervalsMs.clear()
+        lastCalibrationSignalAtMs = 0L
         longBlinkClosed = false
         calibrationHoldCuePlayed = false
         restClosed = false
@@ -590,20 +600,27 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         phase = Phase.Complete
         calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
+        detectionParameters = BlinkParameterAutoCalibrator.tune(
+            restSignals = restEyeSignals,
+            slowBlinkSignals = slowBlinkEyeSignals,
+            frameIntervalsMs = calibrationFrameIntervalsMs,
+            fallback = detectionParameters
+        )
         val quality = calibrationQuality()
         CameraSwitchPreferences.saveCalibration(
             context = this,
             longBlinkMs = calibratedLongBlinkHoldMs,
             cooldownMs = 900L,
             zoomRatio = calibratedZoomRatio,
+            detectionParameters = detectionParameters,
             qualityLabel = quality.label,
             qualityDetail = quality.detail
         )
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         updateHoldUi()
         val message = tr(
-            "${cueSet.complete} ${quality.label}. Long blink hold ${calibratedLongBlinkHoldMs}ms.",
-            "${cueSet.complete} ${quality.label}。長眨眼需維持 ${calibratedLongBlinkHoldMs} 毫秒。"
+            "${cueSet.complete} ${quality.label}. Long blink hold ${calibratedLongBlinkHoldMs}ms; camera thresholds updated.",
+            "${cueSet.complete} ${quality.label}。長眨眼需維持 ${calibratedLongBlinkHoldMs} 毫秒；相機門檻已更新。"
         )
         statusView?.text = message
         metricsView?.text = quality.detail
@@ -668,6 +685,9 @@ class CameraSwitchCalibrationActivity : Activity() {
             append(tr(", rest false ", "，放鬆時誤判 ")).append(falseLongBlinks)
             append(tr(", hold ", "，維持 ")).append(calibratedLongBlinkHoldMs).append(tr("ms", " 毫秒"))
             append(tr(", zoom ", "，縮放 ")).append("%.1f".format(calibratedZoomRatio)).append(tr("x", " 倍"))
+            append(tr(", close ", "，閉眼門檻 ")).append("%.2f".format(detectionParameters.closeThreshold))
+            append(tr(", reopen ", "，張眼門檻 ")).append("%.2f".format(detectionParameters.reopenThreshold))
+            append(tr(", stability ", "，穩定時間 ")).append(detectionParameters.reopenStableMs).append(tr("ms", " 毫秒"))
             if (!slowBlinkOk) append(tr(" | no measured slow blink; default hold used", "｜未測得慢眨眼，使用預設時間"))
         }
         return CalibrationQuality(label, detail)
@@ -941,9 +961,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
             .addOnSuccessListener { faces ->
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                val score = face?.closedScore()
-                if (score != null) collectCalibrationSample(score)
-                val previewBlink = score?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
+                val signal = face?.blinkEyeSignal(detectionParameters)
+                val score = signal?.closedScore
+                if (signal != null) collectCalibrationSample(signal, now)
+                val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
                 mainHandler?.post {
                     overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height, score != null)
                     when (previewBlink) {
@@ -1023,59 +1044,71 @@ class CameraSwitchCalibrationActivity : Activity() {
         tonePlayer?.playLongAccepted()
     }
 
-    private fun collectCalibrationSample(score: Double) {
+    private fun collectCalibrationSample(signal: BlinkEyeSignal, now: Long) {
+        if (phase == Phase.Rest || phase == Phase.LongBlink) {
+            if (lastCalibrationSignalAtMs > 0L) {
+                calibrationFrameIntervalsMs.add(now - lastCalibrationSignalAtMs)
+            }
+            lastCalibrationSignalAtMs = now
+        }
         when (phase) {
-            Phase.Rest -> collectRestClosedDuration(score)
-            Phase.LongBlink -> collectLongBlinkDuration(score)
-            Phase.TestLongBlink -> collectTestLongBlinkDuration(score)
+            Phase.Rest -> {
+                restEyeSignals.add(signal)
+                collectRestClosedDuration(signal)
+            }
+            Phase.LongBlink -> {
+                slowBlinkEyeSignals.add(signal)
+                collectLongBlinkDuration(signal)
+            }
+            Phase.TestLongBlink -> collectTestLongBlinkDuration(signal)
             else -> Unit
         }
     }
 
-    private fun collectLongBlinkDuration(score: Double) {
+    private fun collectLongBlinkDuration(signal: BlinkEyeSignal) {
         val now = System.currentTimeMillis()
-        if (!longBlinkClosed && score >= CloseScore) {
+        if (!longBlinkClosed && signal.closedScore >= detectionParameters.closeThreshold) {
             longBlinkClosed = true
             longBlinkClosedStartedAt = now
             calibrationHoldCuePlayed = false
         } else if (longBlinkClosed && !calibrationHoldCuePlayed && now - longBlinkClosedStartedAt >= calibratedLongBlinkHoldMs) {
             calibrationHoldCuePlayed = true
             playHoldReachedCue()
-        } else if (longBlinkClosed && score <= OpenScore) {
+        } else if (longBlinkClosed && signal.reopenScore <= detectionParameters.reopenThreshold) {
             longBlinkDurations.add(now - longBlinkClosedStartedAt)
             longBlinkClosed = false
             calibrationHoldCuePlayed = false
         }
     }
 
-    private fun collectRestClosedDuration(score: Double) {
+    private fun collectRestClosedDuration(signal: BlinkEyeSignal) {
         val now = System.currentTimeMillis()
-        if (!restClosed && score >= CloseScore) {
+        if (!restClosed && signal.closedScore >= detectionParameters.closeThreshold) {
             restClosed = true
             restClosedStartedAt = now
-        } else if (restClosed && score <= OpenScore) {
+        } else if (restClosed && signal.reopenScore <= detectionParameters.reopenThreshold) {
             restClosedDurations.add(now - restClosedStartedAt)
             restClosed = false
         }
     }
 
-    private fun collectTestLongBlinkDuration(score: Double) {
+    private fun collectTestLongBlinkDuration(signal: BlinkEyeSignal) {
         val now = System.currentTimeMillis()
-        if (!testLongBlinkClosed && score >= CloseScore) {
+        if (!testLongBlinkClosed && signal.closedScore >= detectionParameters.closeThreshold) {
             testLongBlinkClosed = true
             testLongBlinkClosedStartedAt = now
             testHoldCuePlayed = false
         } else if (testLongBlinkClosed && !testHoldCuePlayed && now - testLongBlinkClosedStartedAt >= calibratedLongBlinkHoldMs) {
             testHoldCuePlayed = true
             playHoldReachedCue()
-        } else if (testLongBlinkClosed && score <= OpenScore) {
+        } else if (testLongBlinkClosed && signal.reopenScore <= detectionParameters.reopenThreshold) {
             testLongBlinkDurations.add(now - testLongBlinkClosedStartedAt)
             testLongBlinkClosed = false
             testHoldCuePlayed = false
         }
     }
 
-    private fun collectPreviewBlinkDuration(score: Double): PreviewBlink {
+    private fun collectPreviewBlinkDuration(signal: BlinkEyeSignal): PreviewBlink {
         if (!shouldPreviewMonitor()) {
             previewLongBlinkClosed = false
             previewLongBlinkClosedStartedAt = 0L
@@ -1083,7 +1116,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             return PreviewBlink.None
         }
         val now = System.currentTimeMillis()
-        if (!previewLongBlinkClosed && score >= CloseScore) {
+        if (!previewLongBlinkClosed && signal.closedScore >= detectionParameters.closeThreshold) {
             previewLongBlinkClosed = true
             previewLongBlinkClosedStartedAt = now
             previewHoldCuePlayed = false
@@ -1093,7 +1126,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             previewHoldCuePlayed = true
             playHoldReachedCue()
         }
-        if (previewLongBlinkClosed && score <= OpenScore) {
+        if (previewLongBlinkClosed && signal.reopenScore <= detectionParameters.reopenThreshold) {
             val duration = now - previewLongBlinkClosedStartedAt
             previewLongBlinkClosed = false
             previewHoldCuePlayed = false
@@ -1112,12 +1145,6 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
         }
         return PreviewBlink.None
-    }
-
-    private fun Face.closedScore(): Double? {
-        val values = listOfNotNull(leftEyeOpenProbability, rightEyeOpenProbability).map { it.toDouble() }
-        if (values.isEmpty()) return null
-        return (1.0 - values.average()).coerceIn(0.0, 1.0)
     }
 
     private fun orientedImageSize(image: Image, rotation: Int): Size =
@@ -1254,8 +1281,6 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val TargetCameraFps = 10
         const val MinCameraFps = 5
         const val MaxCameraFps = 15
-        const val CloseScore = 0.55
-        const val OpenScore = 0.35
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
         const val LongBlinkTestMs = 10000L
