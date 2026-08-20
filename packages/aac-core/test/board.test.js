@@ -49,6 +49,10 @@ import {
 } from "../src/data/en-us-frequency.generated.js";
 import { ZhTwChewingDictionaryEntries } from "../src/data/zh-tw-chewing.generated.js";
 import {
+  MoeZhTwGlyphFrequencyEntries,
+  MoeZhTwGlyphFrequencyMetadata
+} from "../src/data/zh-tw-moe-glyph-frequency.generated.js";
+import {
   ZhTwSpokenEvidenceEntries,
   ZhTwSpokenEvidenceMetadata
 } from "../src/data/zh-tw-spoken.generated.js";
@@ -1370,7 +1374,7 @@ test("zh-TW source-backed analyzer exposes top Chewing candidates for each Zhuyi
   assert.deepEqual(failures, []);
 });
 
-test("zh-TW single-symbol spoken reranking is capped and source candidates remain reachable", () => {
+test("zh-TW single-symbol reranking keeps a source front and all top candidates reachable", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const failures = [];
   let displacedCount = 0;
@@ -1393,14 +1397,9 @@ test("zh-TW single-symbol spoken reranking is capped and source candidates remai
     const unreachable = sourceEntries
       .filter((entry) => !reachableLabels.has(entry.label))
       .map((entry) => `${entry.label}#${entry.frequencyRank}`);
-    const displacedLastChanceGlyphs = missingEntries
-      .filter((entry) => Array.from(entry.output).length === 1 && entry.zhuyinKey === symbol)
-      .map((entry) => entry.label);
-
-    if (missing.length > 2 || unreachable.length > 0 || displacedLastChanceGlyphs.length > 0) {
+    if (missing.length > Math.floor(sourceEntries.length / 2) || unreachable.length > 0) {
       failures.push(
-        `${symbol}: displaced=${missing.join(", ")}; ` +
-        `lastChance=${displacedLastChanceGlyphs.join(", ")}; unreachable=${unreachable.join(", ")}`
+        `${symbol}: displaced=${missing.join(", ")}; unreachable=${unreachable.join(", ")}`
       );
     }
   }
@@ -1509,6 +1508,58 @@ test("zh-TW golden common glyphs and daily words are source-backed and reachable
   }
 
   assert.deepEqual(failures, []);
+});
+
+test("zh-TW independently ranked top-2000 common glyphs are protected and reachable without tones", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const expectedGlyphs = MoeZhTwGlyphFrequencyEntries
+    .filter(([, , rank]) => rank <= 2000)
+    .map(([label]) => label);
+  const protectedEntries = ZhTwFrequencyDictionary
+    .filter((entry) => entry.glyphCoverageKey && entry.glyphFrequencyRank <= 2000);
+  const protectedByLabel = new Map(protectedEntries.map((entry) => [entry.label, entry]));
+  const entriesByKey = new Map();
+
+  assert.deepEqual(MoeZhTwGlyphFrequencyMetadata, {
+    sourcePageUrl: "https://language.moe.gov.tw/001/Upload/files/SITE_CONTENT/M0001/PRIMARY/shrest2-18.htm",
+    sourceZipUrl: "https://language.moe.gov.tw/001/Upload/files/SITE_CONTENT/M0001/PRIMARY/download/shrest18.zip",
+    commonStandardGlyphCount: 4808,
+    rankedCommonGlyphCount: 4343
+  });
+  assert.equal(expectedGlyphs.length, 1995);
+  assert.equal(protectedByLabel.size, expectedGlyphs.length);
+
+  for (const label of expectedGlyphs) {
+    const entry = protectedByLabel.get(label);
+    assert.ok(entry, `${label} should have a protected source-backed reading`);
+    if (!entriesByKey.has(entry.key)) entriesByKey.set(entry.key, []);
+    entriesByKey.get(entry.key).push(entry);
+  }
+
+  const failures = [];
+  for (const [key, entries] of entriesByKey) {
+    const visibleLabels = new Set(
+      suggestionTilesAcrossPages(config, key, true)
+        .filter((candidate) => candidate.action === TileAction.CommitCandidate)
+        .map((candidate) => candidate.label)
+    );
+    for (const entry of entries) {
+      if (!visibleLabels.has(entry.label)) failures.push(`${entry.label}:${key}`);
+    }
+  }
+
+  assert.deepEqual(failures, []);
+  assert.ok(suggestionLabelsAcrossPages(config, "ㄐㄧ").includes("擊"));
+  assert.ok(suggestionLabelsAcrossPages(config, "ㄐㄧㄝ").includes("姐"));
+});
+
+test("zh-TW protected glyph lane retains leading source-ranked phrase predictions", () => {
+  const firstPage = boardRows(createBoardConfig({ profileId: "zh-TW" }), "ㄐㄧ", true, { suggestionPage: 0 })
+    .slice(0, 4)
+    .flat();
+
+  assert.ok(firstPage.some((candidate) => candidate.label === "建議"));
+  assert.ok(firstPage.some((candidate) => candidate.label === "機"));
 });
 
 test("zh-TW academic daily conversation cases are composable through normal suggestions", () => {

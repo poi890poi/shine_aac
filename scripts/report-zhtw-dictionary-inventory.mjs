@@ -70,6 +70,16 @@ const lines = [
   "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ...analysis.topEntityBuckets.map(topEntityRow),
   "",
+  "## Independent MOE Common-Glyph Guardrail",
+  "",
+  "These buckets use the Taiwan Ministry of Education frequency table rather than the New Chewing source rank. Phrases are not coverage requirements because they remain constructible from reachable glyphs.",
+  "",
+  "| Reference Set | Count | Direct Reachable | Direct % |",
+  "| --- | ---: | ---: | ---: |",
+  ...analysis.moeReferenceGlyphBuckets.map((bucket) =>
+    `| ${bucket.label} | ${bucket.count} | ${bucket.directReachable} | ${percent(bucket.directReachabilityRatio)} |`
+  ),
+  "",
   "## Fast Efficiency Estimates",
   "",
   "| Label Set | Count | Median Activations | P90 Activations | Average Activations | Median Selections | P90 Selections |",
@@ -111,6 +121,12 @@ const lines = [
   analysis.sampleUnreachableGlyphs.length === 0
     ? "No sampled direct glyph gaps."
     : analysis.sampleUnreachableGlyphs.join(" "),
+  "",
+  "### MOE Frequency-Ranked Glyphs Not Directly Reachable",
+  "",
+  analysis.sampleMoeUnreachableGlyphs.length === 0
+    ? "No independent MOE common-glyph gaps."
+    : analysis.sampleMoeUnreachableGlyphs.join(" "),
   "",
   "### Words/Phrases Not Directly Reachable",
   "",

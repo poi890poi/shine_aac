@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import https from "node:https";
+import { MoeZhTwGlyphFrequencyEntries } from "../packages/aac-core/src/data/zh-tw-moe-glyph-frequency.generated.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WorkspaceRoot = resolve(__dirname, "..");
@@ -14,8 +15,12 @@ const MaxLabelLength = 4;
 const MaxKeyLength = 8;
 const MaxEntriesPerKey = 120;
 const MaxGeneratedEntries = 60000;
+const ProtectedGlyphRankLimit = 2000;
 const ToneMarks = /[ˊˇˋ˙]/gu;
 const ZhuyinSymbols = new Set(Array.from("ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ"));
+const MoeGlyphFrequencyByLabel = new Map(
+  MoeZhTwGlyphFrequencyEntries.map(([label, frequency, rank]) => [label, { frequency, rank }])
+);
 
 const rawCsv = await readChewingTsiCsv();
 const generatedEntries = buildGeneratedEntries(rawCsv);
@@ -79,17 +84,59 @@ function buildGeneratedEntries(raw) {
     }
   }
 
-  return [...trimPerKey(bestByLabelAndKey.values()).values()]
+  const sourceRanked = [...bestByLabelAndKey.values()]
     .sort(compareEntries)
-    .slice(0, MaxGeneratedEntries)
-    .map((entry, index) => ({
+    .map((entry, index) => ({ ...entry, sourceRank: index + 1 }));
+  const preferredCoverageEntryByLabel = preferredCoverageEntries(sourceRanked);
+  const annotated = sourceRanked.map((entry) => {
+    const moe = MoeGlyphFrequencyByLabel.get(entry.label);
+    const preferred = preferredCoverageEntryByLabel.get(entry.label);
+    if (!moe || preferred !== entry) return entry;
+    return {
+      ...entry,
+      glyphFrequency: moe.frequency,
+      glyphFrequencyRank: moe.rank,
+      glyphCoverageKey: true
+    };
+  });
+  const trimmed = [...trimPerKey(annotated).values()].sort(compareSourceRanks);
+  const selectedByLabelAndKey = new Map(
+    trimmed.slice(0, MaxGeneratedEntries).map((entry) => [`${entry.label}\u0000${entry.key}`, entry])
+  );
+  for (const entry of trimmed.filter((candidate) => candidate.glyphCoverageKey)) {
+    selectedByLabelAndKey.set(`${entry.label}\u0000${entry.key}`, entry);
+  }
+  const selected = [...selectedByLabelAndKey.values()].sort(compareSourceRanks);
+  while (selected.length > MaxGeneratedEntries) {
+    const removableIndex = selected.findLastIndex((entry) => !entry.glyphCoverageKey);
+    if (removableIndex < 0) throw new Error("Protected MOE glyph entries exceed the generated dictionary limit");
+    selected.splice(removableIndex, 1);
+  }
+
+  return selected.map((entry) => ({
       label: entry.label,
       output: entry.output,
       key: entry.key,
       frequency: entry.priority,
-      sourceRank: index + 1,
-      source: "new-chewing"
+      sourceRank: entry.sourceRank,
+      source: "new-chewing",
+      ...(entry.glyphCoverageKey ? {
+        glyphFrequency: entry.glyphFrequency,
+        glyphFrequencyRank: entry.glyphFrequencyRank,
+        glyphCoverageKey: true
+      } : {})
     }));
+}
+
+function preferredCoverageEntries(entries) {
+  const preferred = new Map();
+  for (const entry of entries) {
+    const moeRank = MoeGlyphFrequencyByLabel.get(entry.label)?.rank;
+    if (Array.from(entry.label).length !== 1 || !moeRank || moeRank > ProtectedGlyphRankLimit) continue;
+    const existing = preferred.get(entry.label);
+    if (!existing || compareEntries(entry, existing) < 0) preferred.set(entry.label, entry);
+  }
+  return preferred;
 }
 
 function trimPerKey(entries) {
@@ -101,7 +148,15 @@ function trimPerKey(entries) {
 
   const kept = new Map();
   for (const entriesForKey of byKey.values()) {
-    for (const entry of entriesForKey.sort(compareEntries).slice(0, MaxEntriesPerKey)) {
+    const protectedEntries = entriesForKey.filter((entry) => entry.glyphCoverageKey).sort(compareGlyphCoverageEntries);
+    if (protectedEntries.length > MaxEntriesPerKey) {
+      throw new Error(`Protected MOE glyph entries exceed the per-key limit for ${entriesForKey[0]?.key}`);
+    }
+    const sourceEntries = entriesForKey
+      .filter((entry) => !entry.glyphCoverageKey)
+      .sort(compareEntries)
+      .slice(0, MaxEntriesPerKey - protectedEntries.length);
+    for (const entry of [...protectedEntries, ...sourceEntries]) {
       kept.set(`${entry.label}\u0000${entry.key}`, entry);
     }
   }
@@ -113,6 +168,14 @@ function compareEntries(left, right) {
     left.sourceIndex - right.sourceIndex ||
     Array.from(left.label).length - Array.from(right.label).length ||
     left.label.localeCompare(right.label, "zh-Hant");
+}
+
+function compareSourceRanks(left, right) {
+  return left.sourceRank - right.sourceRank || compareEntries(left, right);
+}
+
+function compareGlyphCoverageEntries(left, right) {
+  return left.glyphFrequencyRank - right.glyphFrequencyRank || compareEntries(left, right);
 }
 
 function normalizeSyllable(value) {

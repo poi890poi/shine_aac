@@ -5,6 +5,7 @@ import {
   ZhuyinStaticInputSymbols,
   zhTwVisibleNextSymbolsForPrefix
 } from "../../packages/aac-core/src/index.js";
+import { MoeZhTwGlyphFrequencyEntries } from "../../packages/aac-core/src/data/zh-tw-moe-glyph-frequency.generated.js";
 
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
@@ -81,6 +82,22 @@ export function analyzeZhTwDictionaryInventory(options = {}) {
   const wordCompositionOnlyCount = sourceWordLabels
     .filter((label) => !directEstimateByLabel.has(label) && Boolean(composeFromGlyphEstimates(label, directEstimateByLabel)))
     .length;
+  const moeReferenceGlyphBuckets = [
+    { label: "MOE frequency rank <= 1000", rankLimit: 1000 },
+    { label: "MOE frequency rank <= 2000", rankLimit: 2000 },
+    { label: "MOE frequency rank <= 3000", rankLimit: 3000 },
+    { label: "All MOE frequency entries", rankLimit: Number.POSITIVE_INFINITY }
+  ].map(({ label, rankLimit }) => {
+    const labels = MoeZhTwGlyphFrequencyEntries
+      .filter(([, , rank]) => rank <= rankLimit)
+      .map(([label]) => label);
+    return topEntityBucket(
+      label,
+      labels,
+      directEstimateByLabel,
+      bestEstimateByLabel
+    );
+  });
 
   return Object.freeze({
     columns,
@@ -124,6 +141,13 @@ export function analyzeZhTwDictionaryInventory(options = {}) {
       topEntityBucket("Top 1000 words/phrases", topRankedLabels(sourceWordLabels, labelRank, 1000), directEstimateByLabel, bestEstimateByLabel),
       topEntityBucket("Top 5000 words/phrases", topRankedLabels(sourceWordLabels, labelRank, 5000), directEstimateByLabel, bestEstimateByLabel)
     ]),
+    moeReferenceGlyphBuckets: Object.freeze(moeReferenceGlyphBuckets),
+    sampleMoeUnreachableGlyphs: Object.freeze(
+      MoeZhTwGlyphFrequencyEntries
+        .filter(([label]) => !directEstimateByLabel.has(label))
+        .slice(0, 40)
+        .map(([label]) => label)
+    ),
     sampleUnreachableGlyphs: sourceGlyphLabels.filter((label) => !directEstimateByLabel.has(label)).slice(0, 40),
     sampleDirectWordGaps: sourceWordLabels.filter((label) => !directEstimateByLabel.has(label)).slice(0, 40),
     sampleNotComposableWords: sourceWordLabels
@@ -188,7 +212,7 @@ function buildPrefixGroups(dictionary) {
 
 function visibleSuggestionItemsForBuffer(buffer, prefixGroups, candidateLabelCache, columns) {
   if (candidateLabelCache.has(buffer)) return candidateLabelCache.get(buffer);
-  const ranked = (prefixGroups.get(buffer) ?? [])
+  const sourceRanked = (prefixGroups.get(buffer) ?? [])
     .map((entry) => ({
       entry,
       matchingKey: entryKeys(entry)
@@ -200,6 +224,7 @@ function visibleSuggestionItemsForBuffer(buffer, prefixGroups, candidateLabelCac
     .filter((candidate, index, candidates) =>
       candidates.findIndex((other) => other.entry.label === candidate.entry.label) === index
     );
+  const ranked = promoteProtectedGlyphs(sourceRanked, buffer, columns);
   const nextSymbols = zhTwVisibleNextSymbolsForPrefix(buffer, columns);
   const immediateCandidateCount = immediateCandidateCountForBuffer(buffer, columns, nextSymbols.length);
   const firstPageNextSymbolCount = firstPageNextSymbolCountForBuffer(buffer, columns, nextSymbols.length, immediateCandidateCount);
@@ -223,6 +248,31 @@ function visibleSuggestionItemsForBuffer(buffer, prefixGroups, candidateLabelCac
   ];
   candidateLabelCache.set(buffer, visibleItems);
   return visibleItems;
+}
+
+function promoteProtectedGlyphs(candidates, buffer, columns) {
+  const protectedGlyphs = candidates
+    .filter((candidate) =>
+      candidate.entry.glyphCoverageKey === true &&
+      textLength(candidate.entry.output) === 1 &&
+      candidate.matchingKey === buffer
+    )
+    .sort((left, right) =>
+      left.entry.glyphFrequencyRank - right.entry.glyphFrequencyRank ||
+      compareCandidateForBuffer(left, right, buffer)
+    );
+  if (protectedGlyphs.length === 0) return candidates;
+
+  const pageSize = columns * ZhTwSuggestionRowCount;
+  const candidateCapacityWithUndo = Math.max(1, (pageSize - 1) * MaxZhTwSuggestionPages - 1);
+  const sourceFrontCount = Math.min(8, Math.max(0, candidateCapacityWithUndo - protectedGlyphs.length));
+  const sourceFront = candidates.slice(0, sourceFrontCount);
+  const promotedSet = new Set([...sourceFront, ...protectedGlyphs]);
+  return [
+    ...sourceFront,
+    ...protectedGlyphs.filter((candidate) => !sourceFront.includes(candidate)),
+    ...candidates.filter((candidate) => !promotedSet.has(candidate))
+  ];
 }
 
 function compareCandidateForBuffer(left, right, buffer) {

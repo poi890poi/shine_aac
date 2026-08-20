@@ -451,6 +451,7 @@ const zhuyinCategoryCloseTile = Object.freeze(tile("注音", "category", TileAct
 const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
 const MaxZhTwContextChars = 3;
+const MaxZhTwSourcePredictionsBeforeProtectedGlyphs = 8;
 const MaxZhTwFirstSymbolSpokenPromotions = 2;
 const MinZhTwSpokenPromotionTokenCount = 20;
 const MinZhTwSpokenPromotionConversationCount = 5;
@@ -468,7 +469,10 @@ const chewingZhuyinEntry = (entry) => Object.freeze({
   keys: Object.freeze([entry.key]),
   source: entry.source,
   sourceRank: entry.sourceRank,
-  frequency: entry.frequency
+  frequency: entry.frequency,
+  glyphFrequency: entry.glyphFrequency,
+  glyphFrequencyRank: entry.glyphFrequencyRank,
+  glyphCoverageKey: entry.glyphCoverageKey === true
 });
 const MinZhuyinTargets = 8;
 const MaxZhuyinCandidateTargets = 20;
@@ -1438,7 +1442,8 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
       ...remainingCandidates.filter((candidate) => candidate.zhuyinKey.length !== buffer.length)
     ]
     : remainingCandidates;
-  const orderedCandidates = zhTwConservativeFirstSymbolRerank(zhTwWeakIntentSoftDemotionRerank([
+  const hasCompleteDirectBoard = staticSymbols.size === ZhuyinInputSymbols.length;
+  const sourceOrderedCandidates = zhTwConservativeFirstSymbolRerank(zhTwWeakIntentSoftDemotionRerank([
     // When the buffer can still form a phonetic syllable, completing that input is
     // fundamental. Glyph and phrase candidates are speculative until the user commits one.
     ...firstPagePhoneticNextSymbols,
@@ -1447,12 +1452,49 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
     ...firstPageInitialNextSymbols,
     ...laterCandidates,
     ...overflowInitialNextSymbols
-  ], buffer), buffer, columns, staticSymbols.size === ZhuyinInputSymbols.length);
+  ], buffer), buffer, columns, hasCompleteDirectBoard);
+  const orderedCandidates = hasCompleteDirectBoard
+    ? zhTwPromoteProtectedGlyphs(sourceOrderedCandidates, buffer, columns)
+    : sourceOrderedCandidates;
 
   return distinctBy(
     orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwPromoteProtectedGlyphs(candidates, buffer, columns) {
+  const protectedGlyphs = candidates
+    .filter((candidate) => zhTwIsProtectedGlyphForBuffer(candidate, buffer))
+    .sort((left, right) =>
+      left.glyphFrequencyRank - right.glyphFrequencyRank || zhTwCandidateRank(left, right)
+    );
+  if (protectedGlyphs.length === 0) return candidates;
+
+  // More occupies one target per page, and Undo may occupy one target across
+  // the reachable window. Keep a small source-ranked front for strong phrase
+  // predictions, then guarantee common glyphs before long-tail candidates.
+  // Phrases remain constructible glyph by glyph.
+  const pageSize = clampInt(columns, 2, 8) * ZhTwSuggestionRowCount;
+  const candidateCapacityWithUndo = Math.max(1, (pageSize - 1) * MaxZhTwSuggestionPages - 1);
+  const sourceFrontCount = Math.min(
+    MaxZhTwSourcePredictionsBeforeProtectedGlyphs,
+    Math.max(0, candidateCapacityWithUndo - protectedGlyphs.length)
+  );
+  const sourceFront = candidates.slice(0, sourceFrontCount);
+  const promotedSet = new Set([...sourceFront, ...protectedGlyphs]);
+  return [
+    ...sourceFront,
+    ...protectedGlyphs.filter((candidate) => !sourceFront.includes(candidate)),
+    ...candidates.filter((candidate) => !promotedSet.has(candidate))
+  ];
+}
+
+function zhTwIsProtectedGlyphForBuffer(candidate, buffer) {
+  return candidate.action === TileAction.CommitCandidate &&
+    candidate.glyphCoverageKey === true &&
+    Array.from(candidate.output).length === 1 &&
+    candidate.zhuyinKey === buffer;
 }
 
 function zhTwWeakIntentSoftDemotionRerank(candidates, buffer) {
@@ -1770,7 +1812,10 @@ function zhTwCandidateTile(entry, replaceLength, matchingKey, matchType) {
     matchType,
     keys: entry.keys,
     frequencyRank: entry.frequencyRank,
-    frequency: entry.frequency
+    frequency: entry.frequency,
+    glyphFrequency: entry.glyphFrequency,
+    glyphFrequencyRank: entry.glyphFrequencyRank,
+    glyphCoverageKey: entry.glyphCoverageKey === true
   });
 }
 
