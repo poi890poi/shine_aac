@@ -129,6 +129,7 @@ Recommended first Taiwan Mandarin profile:
   - 4 columns by 4 rows for `zh-TW` candidates
   - candidates come from New Chewing `libchewing-data` and include source Zhuyin readings and priorities
   - exact phonetic matches appear before broader ranked backfill
+  - when a Zhuyin buffer is active, up to three recent committed Han glyphs provide bounded phrase-continuation evidence without changing the raw buffer or coverage paths
   - after an initial Zhuyin symbol, available phonetic continuations are prioritized so the user can keep composing without hunting through pages
   - a source-empty Zhuyin buffer offers bounded one-edit repairs, trying the newest symbol position first while keeping every position repairable
   - `復原` removes mistaken Zhuyin selections one at a time; there is no separate composition-clear command competing with candidate space
@@ -148,6 +149,10 @@ Pipeline rules:
 - Trim globally and per key by Chewing priority to keep the APK and suggestion pages bounded.
 - Use AAC layout rules only for presentation: page limit, replacement length, continuation visibility, static duplicate suppression, and localized function labels.
 - Verify coverage against the generated Chewing source data, not against the app's own previous suggestions.
+
+Buffered intent prediction is an efficiency layer, not a coverage mechanism. The core aligns source phrase readings to their Han glyphs, indexes the uncommitted continuations, and combines the newest useful Han suffix with an incomplete Zhuyin prefix. Up to two ordinary exact-buffer candidates remain reserved when available before at most four contextual predictions. Ranking uses source frequency, context length, untyped Zhuyin symbols, and a penalty for guessing extra phrase glyphs; short supported continuations therefore beat longer speculative phrases. Selection replaces only the active Zhuyin suffix, and contradictory input removes the prediction naturally.
+
+Prediction efficiency is evaluated without wall-clock timing. Paired core tests count typed Zhuyin symbols, candidate selections, scanner geometry, page depth, and `更多` activations. Glyph reachability and tone fallback remain separate invariants.
 
 ### Scanning Timing
 

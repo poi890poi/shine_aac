@@ -463,6 +463,8 @@ const ZhTwSuggestionRowCount = 4;
 const MaxZhTwSuggestionPages = 3;
 const MaxZhTwContextChars = 3;
 const MaxZhTwSourcePredictionsBeforeProtectedGlyphs = 8;
+const MaxZhTwBufferedIntentPredictions = 4;
+const MinZhTwExactCandidatesBeforeIntent = 2;
 const MaxZhTwFirstSymbolSpokenPromotions = 2;
 const MinZhTwSpokenPromotionTokenCount = 20;
 const MinZhTwSpokenPromotionConversationCount = 5;
@@ -544,6 +546,9 @@ export const ZhTwFrequencyDictionary = Object.freeze(
 const ZhTwDictionaryByPrefix = buildZhTwDictionaryByPrefix(ZhTwFrequencyDictionary);
 const ZhTwNextSymbolsByPrefix = buildZhTwNextSymbolsByPrefix(ZhTwFrequencyDictionary);
 const ZhTwPhraseCompletionsByPrefix = buildZhTwPhraseCompletionsByPrefix(ZhTwFrequencyDictionary);
+const ZhTwBufferedIntentPredictionsByPrefix = buildZhTwBufferedIntentPredictionsByPrefix(
+  ZhTwFrequencyDictionary
+);
 const ZhTwValidPrefixSet = zhTwValidPrefixSet(ZhTwFrequencyDictionary);
 const ZhTwSpokenEvidenceByTarget = new Map(
   ZhTwSpokenEvidenceEntries.map((entry) => [`${entry.label}\u0000${entry.firstSymbol}`, entry])
@@ -1387,7 +1392,7 @@ function zhTwSuggestionTiles(
 ) {
   const buffer = trailingZhuyinBuffer(message);
   const candidates = buffer
-    ? zhTwBufferedSuggestionTiles(buffer, columns, staticTiles)
+    ? zhTwBufferedSuggestionTiles(message, buffer, columns, staticTiles)
     : zhTwUnbufferedSuggestionTiles(message, dictionary);
 
   return candidatesWithoutSuppressedLabels(candidates);
@@ -1414,7 +1419,7 @@ function* zhTwSourceBackfillCandidates() {
   }
 }
 
-function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
+function zhTwBufferedSuggestionTiles(message, buffer, columns, staticTiles = ZhTwTiles) {
   const rankedCandidates = distinctBy(
     (ZhTwDictionaryByPrefix.get(buffer) ?? [])
       .map((entry) => zhTwCandidateForBuffer(entry, buffer))
@@ -1470,14 +1475,129 @@ function zhTwBufferedSuggestionTiles(buffer, columns, staticTiles = ZhTwTiles) {
     ...laterCandidates,
     ...overflowInitialNextSymbols
   ], buffer), buffer, columns, hasCompleteDirectBoard);
+  const intentOrderedCandidates = zhTwMergeBufferedIntentPredictions(
+    sourceOrderedCandidates,
+    zhTwBufferedIntentPredictionTiles(message, buffer),
+    buffer,
+    columns
+  );
   const orderedCandidates = hasCompleteDirectBoard
-    ? zhTwPromoteProtectedGlyphs(sourceOrderedCandidates, buffer, columns)
-    : sourceOrderedCandidates;
+    ? zhTwPromoteProtectedGlyphs(intentOrderedCandidates, buffer, columns)
+    : intentOrderedCandidates;
 
   return distinctBy(
     orderedCandidates,
     (candidate) => `${candidate.action}\u0000${candidate.label}\u0000${candidate.output}`
   );
+}
+
+function zhTwBufferedIntentPredictionTiles(message, buffer) {
+  if (!buffer || ZhuyinToneMarkSet.has(buffer.at(-1))) return [];
+  const stableMessage = Array.from(message).slice(0, -Array.from(buffer).length).join("");
+
+  for (const context of trailingHanContexts(stableMessage)) {
+    const candidates = (ZhTwBufferedIntentPredictionsByPrefix.get(context) ?? [])
+      .filter((prediction) => !ZhTwSuppressedSuggestionLabels.has(prediction.sourceLabel))
+      .map((prediction) => zhTwBufferedIntentPredictionTile(prediction, context, buffer))
+      .filter(Boolean);
+    if (candidates.length === 0) continue;
+    return distinctBy(
+      candidates.sort(zhTwBufferedIntentPredictionRank),
+      (candidate) => `${candidate.label}\u0000${candidate.output}`
+    ).slice(0, MaxZhTwBufferedIntentPredictions);
+  }
+  return [];
+}
+
+function zhTwBufferedIntentPredictionTile(prediction, context, buffer) {
+  const matchingKey = prediction.keys
+    .filter((key) => key.startsWith(buffer))
+    .sort((left, right) => right.length - left.length)[0];
+  if (!matchingKey) return null;
+  const outputLength = Array.from(prediction.output).length;
+  const untypedSymbolCount = Math.max(0, Array.from(matchingKey).length - Array.from(buffer).length);
+  const avoidedGlyphCommitCount = Math.max(0, outputLength - 1);
+  const coreEffortSavings = untypedSymbolCount + avoidedGlyphCommitCount * 2;
+  const evidenceWeight = Math.log2(1 + Math.max(0, Number(prediction.frequency ?? 0)));
+  // Extra phrase glyphs save selections, but they also represent stronger guesses.
+  // Keep the evidence term dominant so a short, well-supported continuation wins
+  // over a longer phrase merely because the latter could save more input steps.
+  const intentUtility = evidenceWeight * (1 + Array.from(context).length) +
+    Math.min(4, untypedSymbolCount) - avoidedGlyphCommitCount * 2;
+
+  return Object.freeze({
+    label: prediction.output,
+    output: prediction.output,
+    action: TileAction.CommitCandidate,
+    replaceLength: Array.from(buffer).length,
+    zhuyinKey: matchingKey,
+    matchType: "context-prefix",
+    sourceLabel: prediction.sourceLabel,
+    context,
+    contextLength: Array.from(context).length,
+    predictionKeys: prediction.keys,
+    frequencyRank: prediction.frequencyRank,
+    frequency: prediction.frequency,
+    coreEffortSavings,
+    intentUtility
+  });
+}
+
+function zhTwBufferedIntentPredictionRank(left, right) {
+  const leftIsDemoted = ZhTwWeakIntentSoftDemotionLabels.has(left.sourceLabel);
+  const rightIsDemoted = ZhTwWeakIntentSoftDemotionLabels.has(right.sourceLabel);
+  if (leftIsDemoted !== rightIsDemoted) return leftIsDemoted ? 1 : -1;
+  return right.intentUtility - left.intentUtility ||
+    right.contextLength - left.contextLength ||
+    left.frequencyRank - right.frequencyRank ||
+    Array.from(left.output).length - Array.from(right.output).length ||
+    left.output.localeCompare(right.output, "zh-Hant");
+}
+
+function zhTwMergeBufferedIntentPredictions(candidates, predictions, buffer, columns) {
+  if (predictions.length === 0) return candidates;
+  const exactCandidateLimit = Math.min(
+    MinZhTwExactCandidatesBeforeIntent,
+    Math.max(1, clampInt(columns, 2, 8) - 1)
+  );
+  const reservedExact = candidates
+    .filter((candidate) =>
+      candidate.action === TileAction.CommitCandidate &&
+      candidate.zhuyinKey?.length === buffer.length
+    )
+    .slice(0, exactCandidateLimit);
+  const reservedSet = new Set(reservedExact);
+  const reservedOutputs = new Set(reservedExact.map((candidate) => candidate.output));
+  const usablePredictions = predictions
+    .filter((candidate) => !reservedOutputs.has(candidate.output))
+    .map((prediction) => {
+      const sourceCandidate = candidates.find((candidate) =>
+        candidate.action === TileAction.CommitCandidate &&
+        candidate.output === prediction.output &&
+        candidate.zhuyinKey === prediction.zhuyinKey
+      );
+      return sourceCandidate
+        ? Object.freeze({ ...sourceCandidate, ...prediction })
+        : prediction;
+    });
+  const predictedOutputs = new Set(usablePredictions.map((candidate) => candidate.output));
+  const leadingContinuationSymbols = [];
+  for (const candidate of candidates) {
+    if (candidate.action !== TileAction.Append) break;
+    leadingContinuationSymbols.push(candidate);
+  }
+  const leadingSet = new Set(leadingContinuationSymbols);
+
+  return [
+    ...leadingContinuationSymbols,
+    ...reservedExact,
+    ...usablePredictions,
+    ...candidates.filter((candidate) =>
+      !leadingSet.has(candidate) &&
+      !reservedSet.has(candidate) &&
+      !predictedOutputs.has(candidate.output)
+    )
+  ];
 }
 
 function zhTwPromoteProtectedGlyphs(candidates, buffer, columns) {
@@ -1978,6 +2098,11 @@ function trailingHanContext(message) {
   return context;
 }
 
+function trailingHanContexts(message) {
+  const characters = Array.from(trailingHanContext(message));
+  return characters.map((_, index) => characters.slice(index).join(""));
+}
+
 function isHanCharacter(character) {
   return /^\p{Script=Han}$/u.test(character);
 }
@@ -2202,6 +2327,100 @@ function buildZhTwPhraseCompletionsByPrefix(dictionary) {
     }
   }
   return map;
+}
+
+function buildZhTwBufferedIntentPredictionsByPrefix(dictionary) {
+  const glyphReadingsByLabel = new Map();
+  for (const entry of dictionary) {
+    if (Array.from(entry.label).length !== 1 || !entry.key) continue;
+    if (!glyphReadingsByLabel.has(entry.label)) glyphReadingsByLabel.set(entry.label, new Set());
+    glyphReadingsByLabel.get(entry.label).add(entry.key);
+  }
+
+  const predictionsByContext = new Map();
+  for (const entry of dictionary) {
+    const characters = Array.from(entry.label);
+    if (characters.length <= 1) continue;
+    const syllables = alignZhTwPhraseKey(characters, entry.key, glyphReadingsByLabel) ??
+      (Array.from(entry.key).length === characters.length ? Array.from(entry.key) : null);
+    if (!syllables) continue;
+
+    for (
+      let contextLength = 1;
+      contextLength < Math.min(characters.length, MaxZhTwContextChars + 1);
+      contextLength += 1
+    ) {
+      const context = characters.slice(0, contextLength).join("");
+      const output = characters.slice(contextLength).join("");
+      const remainingSyllables = syllables.slice(contextLength);
+      const keys = [
+        remainingSyllables.join(""),
+        remainingSyllables.map((syllable) => syllable.at(0)).join("")
+      ].filter(Boolean);
+      if (keys.length === 0) continue;
+      if (!predictionsByContext.has(context)) predictionsByContext.set(context, new Map());
+      const predictionKey = `${entry.label}\u0000${output}`;
+      const contextPredictions = predictionsByContext.get(context);
+      const existing = contextPredictions.get(predictionKey);
+      if (!existing) {
+        contextPredictions.set(predictionKey, {
+          sourceLabel: entry.label,
+          output,
+          keys: new Set(keys),
+          frequencyRank: entry.frequencyRank,
+          frequency: entry.frequency
+        });
+      } else {
+        keys.forEach((key) => existing.keys.add(key));
+        if (entry.frequencyRank < existing.frequencyRank) {
+          existing.frequencyRank = entry.frequencyRank;
+          existing.frequency = entry.frequency;
+        }
+      }
+    }
+  }
+
+  return new Map([...predictionsByContext.entries()].map(([context, predictions]) => [
+    context,
+    [...predictions.values()]
+      .map((prediction) => Object.freeze({
+        ...prediction,
+        keys: Object.freeze([...prediction.keys])
+      }))
+      .sort((left, right) => left.frequencyRank - right.frequencyRank)
+  ]));
+}
+
+function alignZhTwPhraseKey(characters, key, glyphReadingsByLabel) {
+  const memo = new Map();
+  const align = (characterIndex, keyIndex) => {
+    const memoKey = `${characterIndex}:${keyIndex}`;
+    if (memo.has(memoKey)) return memo.get(memoKey);
+    if (characterIndex === characters.length) {
+      const result = keyIndex === key.length ? [] : null;
+      memo.set(memoKey, result);
+      return result;
+    }
+    const remainingCharacters = characters.length - characterIndex;
+    if (key.length - keyIndex < remainingCharacters) {
+      memo.set(memoKey, null);
+      return null;
+    }
+    const readings = [...(glyphReadingsByLabel.get(characters[characterIndex]) ?? [])]
+      .sort((left, right) => right.length - left.length || left.localeCompare(right));
+    for (const reading of readings) {
+      if (!key.startsWith(reading, keyIndex)) continue;
+      const remainder = align(characterIndex + 1, keyIndex + reading.length);
+      if (remainder) {
+        const result = [reading, ...remainder];
+        memo.set(memoKey, result);
+        return result;
+      }
+    }
+    memo.set(memoKey, null);
+    return null;
+  };
+  return align(0, 0);
 }
 
 function zhTwFirstSymbolAccessStats(symbol, dictionary, staticSet) {

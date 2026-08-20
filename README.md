@@ -71,6 +71,7 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - A progress hint embedded in the active row or symbol, so the timing cue follows the scanning cursor.
 - A blinking message cursor so trailing spaces are visible.
 - Two dynamic English suggestion rows for undo, space, and neutral frequency-ranked word predictions or completions; one-character predictions are excluded.
+- Taiwan Mandarin suggestions combine up to three recent committed Han glyphs with the active Zhuyin prefix, reserving ordinary candidates while promoting a bounded set of source-backed continuations.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
 - Voice feedback for row scanning, symbol scanning, and activated targets, configurable by a helper. Row-scan voice is off by default; symbol and activation voice remain on.

@@ -1132,6 +1132,109 @@ test("zh-TW committed Han text suggests dictionary-backed phrase continuations",
   assert.equal(applyTile("電", [], findActionTile(rows, "視", TileAction.CommitCandidate), config, {}).message, "電視");
 });
 
+test("zh-TW combines committed Han context with an incomplete Zhuyin buffer", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const firstPage = boardRows(config, "喝ㄕ", true, {}).slice(0, 4).flat();
+  const candidates = firstPage.filter((candidate) => candidate.action === TileAction.CommitCandidate);
+  const water = findActionTile(firstPage, "水", TileAction.CommitCandidate);
+
+  assert.deepEqual(candidates.slice(0, 3).map((candidate) => candidate.label), ["是", "試", "水"]);
+  assert.equal(water.matchType, "context-prefix");
+  assert.equal(water.context, "喝");
+  assert.equal(water.zhuyinKey, "ㄕㄨㄟ");
+  assert.equal(water.replaceLength, 1);
+  assert.equal(water.coreEffortSavings, 2);
+  assert.equal(applyTile("喝ㄕ", ["喝"], water, config, {}).message, "喝水");
+});
+
+test("zh-TW buffered intent prediction estimates saved core selections without timing", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const water = findActionTile(
+    boardRows(config, "喝ㄕ", true, {}).slice(0, 4),
+    "水",
+    TileAction.CommitCandidate
+  );
+  const ordinaryInputSelections = Array.from(water.zhuyinKey).length + 1;
+  const predictedInputSelections = water.replaceLength + 1;
+
+  assert.equal(ordinaryInputSelections, 4);
+  assert.equal(predictedInputSelections, 2);
+  assert.equal(ordinaryInputSelections - predictedInputSelections, water.coreEffortSavings);
+});
+
+test("zh-TW buffered predictions strengthen with continued input and disappear on contradiction", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const afterOneSymbol = findActionTile(
+    boardRows(config, "喝ㄕ", true, {}).slice(0, 4),
+    "水",
+    TileAction.CommitCandidate
+  );
+  const afterTwoSymbols = findActionTile(
+    boardRows(config, "喝ㄕㄨ", true, {}).slice(0, 4),
+    "水",
+    TileAction.CommitCandidate
+  );
+  const contradicted = boardRows(config, "喝ㄕㄚ", true, {}).slice(0, 4).flat();
+
+  assert.equal(afterOneSymbol.coreEffortSavings, 2);
+  assert.equal(afterTwoSymbols.coreEffortSavings, 1);
+  assert.equal(
+    contradicted.some((candidate) =>
+      candidate.action === TileAction.CommitCandidate &&
+      candidate.output === "水" &&
+      candidate.matchType === "context-prefix"
+    ),
+    false
+  );
+});
+
+test("zh-TW intent prediction prefers a short supported continuation over longer guesses", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const candidates = boardRows(config, "我ㄒ", true, {}).slice(0, 4).flat()
+    .filter((candidate) => candidate.action === TileAction.CommitCandidate);
+  const thought = candidates[0];
+
+  assert.equal(thought.label, "想");
+  assert.equal(thought.sourceLabel, "我想");
+  assert.equal(thought.matchType, "context-prefix");
+  assert.equal(applyTile("我ㄒ", ["我"], thought, config, {}).message, "我想");
+});
+
+test("zh-TW source-backed intent cases stay within the first four candidate choices", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const cases = [
+    ["我", "ㄒ", "想"],
+    ["喝", "ㄕ", "水"],
+    ["想", "ㄧ", "要"],
+    ["看", "ㄉ", "到"],
+    ["請", "ㄨ", "問"],
+    ["幫", "ㄇ", "忙"]
+  ];
+
+  for (const [context, buffer, expected] of cases) {
+    const candidates = boardRows(config, `${context}${buffer}`, true, {}).slice(0, 4).flat()
+      .filter((candidate) => candidate.action === TileAction.CommitCandidate);
+    const predictionIndex = candidates.findIndex((candidate) =>
+      candidate.output === expected && candidate.matchType === "context-prefix"
+    );
+    assert.ok(
+      predictionIndex >= 0 && predictionIndex < 4,
+      `${context} + ${buffer} should place ${expected} within the first four candidate choices`
+    );
+  }
+});
+
+test("zh-TW buffered Han context backs off to the newest useful suffix", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const rows = boardRows(config, "我喝ㄕ", true, {});
+  const water = findActionTile(rows, "水", TileAction.CommitCandidate);
+
+  assert.equal(water.sourceLabel, "喝水");
+  assert.equal(water.context, "喝");
+  assert.equal(water.replaceLength, 1);
+  assert.equal(applyTile("我喝ㄕ", ["我喝"], water, config, {}).message, "我喝水");
+});
+
 test("zh-TW direct first layer offers valid following Zhuyin symbols", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const rows = boardRows(config, "ㄅ", true, {});
