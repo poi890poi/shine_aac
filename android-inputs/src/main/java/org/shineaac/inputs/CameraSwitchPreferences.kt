@@ -18,7 +18,11 @@ object CameraSwitchPreferences {
         val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
         return CameraSwitchSettings(
             enabled = enabled,
-            longBlinkMs = clampLong(prefs.getLong("longBlinkMs", 800L), MinLongBlinkMs, MaxLongBlinkMs),
+            longBlinkMs = clampLong(
+                prefs.getLong("longBlinkMs", CameraSwitchSettings.DefaultLongBlinkMs),
+                MinLongBlinkMs,
+                MaxLongBlinkMs
+            ),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio),
             detectionParameters = readDetectionParameters(prefs),

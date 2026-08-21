@@ -30,6 +30,7 @@ import android.os.HandlerThread
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import android.util.Range
 import android.util.Size
 import android.view.Gravity
@@ -64,17 +65,18 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var zoomView: TextView? = null
     private var startButton: Button? = null
     private var testButton: Button? = null
-    private var cameraDevice: CameraDevice? = null
-    private var cameraOpening = false
-    private var cameraOpenGeneration = 0
-    private var session: CameraCaptureSession? = null
+    @Volatile private var cameraDevice: CameraDevice? = null
+    @Volatile private var cameraOpening = false
+    @Volatile private var cameraOpenGeneration = 0
+    @Volatile private var session: CameraCaptureSession? = null
+    private var previewSurface: Surface? = null
     private var repeatingRequestBuilder: CaptureRequest.Builder? = null
     private var activeArraySize: Rect? = null
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
-    private var cameraHandler: Handler? = null
+    @Volatile private var cameraHandler: Handler? = null
     private var mainHandler: Handler? = null
     private var detector: FaceDetector? = null
     private var tts: TextToSpeech? = null
@@ -89,7 +91,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var activeStepLabel = ""
     private var ttsVoiceLabel = "Voice pending"
     private var calibrationRunId = 0
-    private var mlKitInFlight = false
+    @Volatile private var mlKitInFlight = false
     private var lastFrameAt = 0L
     private val longBlinkDurations = mutableListOf<Long>()
     private val restClosedDurations = mutableListOf<Long>()
@@ -115,11 +117,12 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var previewLastDetectedDurationMs = 0L
     private var previewLastShortCueAtMs = 0L
     private var previewLastLongCueAtMs = 0L
-    private var calibratedLongBlinkHoldMs = 800L
+    private var calibratedLongBlinkHoldMs = CameraSwitchSettings.DefaultLongBlinkMs
     private var calibratedZoomRatio = 1.6f
     private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
     private var cameraPermissionRequested = false
+    @Volatile private var activityResumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,22 +137,56 @@ class CameraSwitchCalibrationActivity : Activity() {
         calibratedZoomRatio = savedSettings.zoomRatio
         detectionParameters = savedSettings.detectionParameters
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
-        detector = FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                .enableTracking()
-                .setMinFaceSize(0.12f)
-                .build()
-        )
-        tonePlayer = CameraSwitchTonePlayer()
-        tts = TextToSpeech(this) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) configureTtsVoice()
-        }
         setContentView(createInsetAwareContentHost(createContentView()))
         updateSavedCalibrationUi()
+        initializeOptionalServices()
+    }
+
+    private fun initializeOptionalServices() {
+        detector = try {
+            FaceDetection.getClient(
+                FaceDetectorOptions.Builder()
+                    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                    .enableTracking()
+                    .setMinFaceSize(0.12f)
+                    .build()
+            )
+        } catch (error: Exception) {
+            Log.w(Tag, "Face detector initialization failed", error)
+            statusView?.text = tr(
+                "Eye detection is unavailable on this device.",
+                "此裝置目前無法使用眼睛辨識。"
+            )
+            null
+        }
+        tonePlayer = try {
+            CameraSwitchTonePlayer()
+        } catch (error: Exception) {
+            Log.w(Tag, "Calibration tone initialization failed", error)
+            null
+        }
+        tts = try {
+            TextToSpeech(this) { status ->
+                if (isDestroyed) return@TextToSpeech
+                ttsReady = status == TextToSpeech.SUCCESS
+                if (ttsReady) {
+                    try {
+                        configureTtsVoice()
+                    } catch (error: Exception) {
+                        Log.w(Tag, "Calibration speech configuration failed", error)
+                        ttsReady = false
+                        ttsVoiceLabel = tr("Voice unavailable", "語音無法使用")
+                    }
+                }
+            }
+        } catch (error: Exception) {
+            Log.w(Tag, "Calibration speech initialization failed", error)
+            ttsReady = false
+            ttsVoiceLabel = tr("Voice unavailable", "語音無法使用")
+            null
+        }
     }
 
     private fun createInsetAwareContentHost(content: View): FrameLayout {
@@ -183,6 +220,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        activityResumed = true
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             restoreCameraPermissionActions()
             startCamera()
@@ -195,6 +233,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     override fun onPause() {
+        activityResumed = false
         stopCamera()
         super.onPause()
     }
@@ -327,7 +366,10 @@ class CameraSwitchCalibrationActivity : Activity() {
                 override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
                     updatePreviewTransform(width, height)
                 }
-                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean = true
+                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
+                    stopCamera()
+                    return true
+                }
                 override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
             }
         }
@@ -631,7 +673,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun calibratedLongBlinkMs(): Long {
         val measured = longBlinkDurations.filter { it in 450L..2500L }.sorted()
-        if (measured.isEmpty()) return 800L
+        if (measured.isEmpty()) return CameraSwitchSettings.DefaultLongBlinkMs
         return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
     }
 
@@ -768,7 +810,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         val utteranceId = "camera-switch-calibration-${System.currentTimeMillis()}"
         currentSpeechId = utteranceId
         currentSpeechDone = onDone
-        val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle.EMPTY, utteranceId)
+        val result = try {
+            engine.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle.EMPTY, utteranceId)
+        } catch (error: Exception) {
+            Log.w(Tag, "Calibration speech failed", error)
+            TextToSpeech.ERROR
+        }
         if (result == TextToSpeech.ERROR) finishSpeech(utteranceId)
     }
 
@@ -784,113 +831,176 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     @SuppressLint("MissingPermission")
     private fun startCamera() {
+        if (!activityResumed || isFinishing || isDestroyed) return
         if (cameraDevice != null || cameraOpening || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
         val texture = textureView?.surfaceTexture ?: return
-        texture.setDefaultBufferSize(PreviewBufferWidth, PreviewBufferHeight)
         val openGeneration = ++cameraOpenGeneration
         cameraOpening = true
-        cameraThread = HandlerThread("ShineCameraCalibration").also { it.start() }
-        cameraHandler = Handler(cameraThread!!.looper)
-        reader = ImageReader.newInstance(
-            analysisSize.width,
-            analysisSize.height,
-            android.graphics.ImageFormat.YUV_420_888,
-            2
-        ).apply {
-            setOnImageAvailableListener({ imageReader ->
-                val image = imageReader.acquireLatestImage() ?: return@setOnImageAvailableListener
-                analyze(image)
-            }, cameraHandler)
-        }
-
-        val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraId = manager.cameraIdList.firstOrNull { id ->
-            manager.getCameraCharacteristics(id)
-                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-        } ?: run {
-            cameraOpening = false
-            stopCamera()
-            runOnUiThread { statusView?.text = tr("Front camera unavailable.", "找不到前置相機。") }
-            return
-        }
-        val characteristics = manager.getCameraCharacteristics(cameraId)
-        val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-        analysisRotationDegrees = CameraRotation.compensationDegrees(
-            currentSurfaceRotation(),
-            sensorOrientation,
-            frontFacing = true
-        )
-        updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
-        activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
-        maxCameraZoomRatio = characteristics
-            .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
-            ?.coerceAtLeast(1.0f)
-            ?: 1.0f
-        calibratedZoomRatio = calibratedZoomRatio.coerceIn(1.0f, min(maxCameraZoomRatio, MaxSavedZoomRatio))
-        updateZoomUi()
-        val fpsRange = targetFpsRange(manager, cameraId)
         try {
+            val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val cameraId = manager.cameraIdList.firstOrNull { id ->
+                manager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+            } ?: run {
+                cameraOpening = false
+                statusView?.text = tr("Front camera unavailable.", "找不到前置相機。")
+                return
+            }
+            val characteristics = manager.getCameraCharacteristics(cameraId)
+            val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            analysisRotationDegrees = CameraRotation.compensationDegrees(
+                currentSurfaceRotation(),
+                sensorOrientation,
+                frontFacing = true
+            )
+            updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
+            activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+            maxCameraZoomRatio = characteristics
+                .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
+                ?.coerceAtLeast(1.0f)
+                ?: 1.0f
+            calibratedZoomRatio = calibratedZoomRatio.coerceIn(1.0f, min(maxCameraZoomRatio, MaxSavedZoomRatio))
+            updateZoomUi()
+            val fpsRange = targetFpsRange(manager, cameraId)
+
+            texture.setDefaultBufferSize(PreviewBufferWidth, PreviewBufferHeight)
+            val thread = HandlerThread("ShineCameraCalibration").also { it.start() }
+            cameraThread = thread
+            val handler = Handler(thread.looper)
+            cameraHandler = handler
+            val activeReader = ImageReader.newInstance(
+                analysisSize.width,
+                analysisSize.height,
+                android.graphics.ImageFormat.YUV_420_888,
+                2
+            )
+            reader = activeReader
+            val activePreviewSurface = Surface(texture)
+            previewSurface = activePreviewSurface
+            if (!activePreviewSurface.isValid) {
+                throw IllegalStateException("Camera preview surface is invalid")
+            }
+            activeReader.setOnImageAvailableListener({ imageReader ->
+                val image = try {
+                    imageReader.acquireLatestImage()
+                } catch (error: IllegalStateException) {
+                    Log.w(Tag, "Image arrived after calibration reader closed", error)
+                    null
+                } ?: return@setOnImageAvailableListener
+                if (!isCameraGenerationActive(openGeneration)) {
+                    image.close()
+                    return@setOnImageAvailableListener
+                }
+                analyze(image, openGeneration)
+            }, handler)
+
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    cameraOpening = false
-                    if (openGeneration != cameraOpenGeneration) {
+                    if (openGeneration == cameraOpenGeneration) cameraOpening = false
+                    if (!isCameraGenerationActive(openGeneration)) {
                         camera.close()
                         return
                     }
                     cameraDevice = camera
-                    createCameraSession(camera, Surface(texture), reader?.surface ?: return, fpsRange)
+                    createCameraSession(
+                        camera = camera,
+                        previewSurface = activePreviewSurface,
+                        imageSurface = activeReader.surface,
+                        fpsRange = fpsRange,
+                        openGeneration = openGeneration
+                    )
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
-                    cameraOpening = false
+                    if (openGeneration == cameraOpenGeneration) cameraOpening = false
                     camera.close()
-                    cameraDevice = null
+                    if (cameraDevice === camera) cameraDevice = null
+                    handleCameraFailure(openGeneration, "Camera disconnected")
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
-                    cameraOpening = false
+                    if (openGeneration == cameraOpenGeneration) cameraOpening = false
                     camera.close()
-                    cameraDevice = null
-                    runOnUiThread { statusView?.text = tr("Camera error $error", "相機錯誤 $error") }
+                    if (cameraDevice === camera) cameraDevice = null
+                    handleCameraFailure(openGeneration, "Camera error $error")
                 }
-            }, cameraHandler)
+            }, handler)
         } catch (error: Exception) {
-            cameraOpening = false
-            stopCamera()
-            runOnUiThread {
-                statusView?.text = tr(
-                    "Camera setup failed: ${error.javaClass.simpleName}",
-                    "相機設定失敗：${error.javaClass.simpleName}"
-                )
-            }
+            Log.w(Tag, "Camera setup failed", error)
+            if (openGeneration == cameraOpenGeneration) stopCamera()
+            statusView?.text = tr(
+                "Camera setup failed: ${error.javaClass.simpleName}",
+                "相機設定失敗：${error.javaClass.simpleName}"
+            )
         }
     }
 
-    private fun createCameraSession(camera: CameraDevice, previewSurface: Surface, imageSurface: Surface, fpsRange: Range<Int>?) {
-        val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-            addTarget(previewSurface)
-            addTarget(imageSurface)
-            set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-            if (fpsRange != null) {
-                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+    private fun createCameraSession(
+        camera: CameraDevice,
+        previewSurface: Surface,
+        imageSurface: Surface,
+        fpsRange: Range<Int>?,
+        openGeneration: Int
+    ) {
+        try {
+            if (!isCameraGenerationActive(openGeneration)) {
+                camera.close()
+                return
             }
-            set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
-        }
-        repeatingRequestBuilder = request
-        camera.createCaptureSession(listOf(previewSurface, imageSurface), object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(captureSession: CameraCaptureSession) {
-                if (cameraDevice == null) {
-                    captureSession.close()
-                    return
+            if (!previewSurface.isValid || !imageSurface.isValid) {
+                camera.close()
+                if (cameraDevice === camera) cameraDevice = null
+                handleCameraFailure(openGeneration, "Camera surface became invalid")
+                return
+            }
+            val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+                addTarget(previewSurface)
+                addTarget(imageSurface)
+                set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+                if (fpsRange != null) {
+                    set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
                 }
-                session = captureSession
-                captureSession.setRepeatingRequest(request.build(), null, cameraHandler)
+                set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
             }
+            repeatingRequestBuilder = request
+            camera.createCaptureSession(listOf(previewSurface, imageSurface), object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(captureSession: CameraCaptureSession) {
+                    if (!isCameraGenerationActive(openGeneration) || cameraDevice !== camera) {
+                        captureSession.close()
+                        return
+                    }
+                    try {
+                        session = captureSession
+                        captureSession.setRepeatingRequest(request.build(), null, cameraHandler)
+                    } catch (error: Exception) {
+                        captureSession.close()
+                        if (session === captureSession) session = null
+                        handleCameraFailure(openGeneration, "Starting camera preview failed", error)
+                    }
+                }
 
-            override fun onConfigureFailed(captureSession: CameraCaptureSession) {
-                runOnUiThread { statusView?.text = tr("Camera setup failed.", "相機設定失敗。") }
+                override fun onConfigureFailed(captureSession: CameraCaptureSession) {
+                    captureSession.close()
+                    handleCameraFailure(openGeneration, "Camera session configuration failed")
+                }
+            }, cameraHandler)
+        } catch (error: Exception) {
+            handleCameraFailure(openGeneration, "Creating camera session failed", error)
+        }
+    }
+
+    private fun isCameraGenerationActive(openGeneration: Int): Boolean =
+        openGeneration == cameraOpenGeneration && activityResumed && !isFinishing && !isDestroyed
+
+    private fun handleCameraFailure(openGeneration: Int, message: String, error: Exception? = null) {
+        if (error == null) Log.w(Tag, message) else Log.w(Tag, message, error)
+        runOnUiThread {
+            if (openGeneration != cameraOpenGeneration) return@runOnUiThread
+            stopCamera()
+            if (!isFinishing && !isDestroyed) {
+                statusView?.text = tr("Camera setup failed.", "相機設定失敗。")
             }
-        }, cameraHandler)
+        }
     }
 
     private fun stopCamera() {
@@ -898,12 +1008,14 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraOpening = false
         cameraHandler?.removeCallbacksAndMessages(null)
         repeatingRequestBuilder = null
-        session?.close()
+        runCatching { session?.close() }
         session = null
-        cameraDevice?.close()
+        runCatching { cameraDevice?.close() }
         cameraDevice = null
-        reader?.close()
+        runCatching { reader?.close() }
         reader = null
+        runCatching { previewSurface?.release() }
+        previewSurface = null
         cameraThread?.quitSafely()
         cameraThread = null
         cameraHandler = null
@@ -914,8 +1026,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val builder = repeatingRequestBuilder ?: return
         val captureSession = session ?: return
         val handler = cameraHandler ?: return
-        builder.set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
         try {
+            builder.set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
             captureSession.setRepeatingRequest(builder.build(), null, handler)
         } catch (_: Exception) {
             runOnUiThread { statusView?.text = tr("Camera zoom could not be applied.", "無法套用相機縮放。") }
@@ -943,9 +1055,9 @@ class CameraSwitchCalibrationActivity : Activity() {
             ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
-    private fun analyze(image: Image) {
+    private fun analyze(image: Image, analysisGeneration: Int) {
         val now = System.currentTimeMillis()
-        if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
+        if (!isCameraGenerationActive(analysisGeneration) || mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
             image.close()
             return
         }
@@ -958,14 +1070,24 @@ class CameraSwitchCalibrationActivity : Activity() {
         lastFrameAt = now
         val rotationDegrees = analysisRotationDegrees
         val imageSize = orientedImageSize(image, rotationDegrees)
-        activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
+        val task = try {
+            activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
+        } catch (error: Exception) {
+            Log.w(Tag, "Submitting calibration frame failed", error)
+            image.close()
+            if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
+            return
+        }
+        task
             .addOnSuccessListener { faces ->
+                if (!isCameraGenerationActive(analysisGeneration)) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val signal = face?.blinkEyeSignal(detectionParameters)
                 val score = signal?.closedScore
                 if (signal != null) collectCalibrationSample(signal, now)
                 val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
                 mainHandler?.post {
+                    if (!isCameraGenerationActive(analysisGeneration)) return@post
                     overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height, score != null)
                     when (previewBlink) {
                         PreviewBlink.Short -> {
@@ -981,8 +1103,10 @@ class CameraSwitchCalibrationActivity : Activity() {
                     updateMetrics(score)
                 }
             }
-            .addOnFailureListener {
+            .addOnFailureListener { error ->
+                Log.w(Tag, "Calibration frame analysis failed", error)
                 mainHandler?.post {
+                    if (!isCameraGenerationActive(analysisGeneration)) return@post
                     metricsView?.text = tr(
                         "ML Kit model unavailable or still downloading.",
                         "辨識模型尚未提供，或仍在下載。"
@@ -990,8 +1114,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                 }
             }
             .addOnCompleteListener {
-                image.close()
-                mlKitInFlight = false
+                runCatching { image.close() }
+                if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
             }
     }
 
@@ -1291,6 +1415,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
         const val MaxSavedZoomRatio = 4.0f
+        const val Tag = "ShineCameraCalibration"
 
         fun clampLong(value: Long, minValue: Long, maxValue: Long): Long =
             min(maxValue, max(minValue, value))

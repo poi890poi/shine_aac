@@ -3,10 +3,12 @@ package org.shineaac.inputs
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.util.Log
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.PI
 import kotlin.math.sin
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 
 class CameraSwitchTonePlayer {
     @Volatile
@@ -42,12 +44,18 @@ class CameraSwitchTonePlayer {
     private fun playSequence(tones: List<Tone>) {
         if (released) return
         if (!playing.compareAndSet(false, true)) return
-        executor.execute {
-            try {
-                if (!released) playTones(tones)
-            } finally {
-                playing.set(false)
+        try {
+            executor.execute {
+                try {
+                    if (!released) playTones(tones)
+                } catch (error: Exception) {
+                    Log.w(Tag, "Camera switch tone playback failed", error)
+                } finally {
+                    playing.set(false)
+                }
             }
+        } catch (_: RejectedExecutionException) {
+            playing.set(false)
         }
     }
 
@@ -106,5 +114,6 @@ class CameraSwitchTonePlayer {
         const val Volume = 0.18
         const val FadeMs = 18
         const val PaddingMs = 12
+        const val Tag = "ShineCameraSwitchTone"
     }
 }

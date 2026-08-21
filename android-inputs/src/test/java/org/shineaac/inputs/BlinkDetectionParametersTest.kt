@@ -6,6 +6,12 @@ import org.junit.Test
 
 class BlinkDetectionParametersTest {
     @Test
+    fun cameraSwitchDefaultsToTwelveHundredMillisecondLongBlink() {
+        assertEquals(1200L, CameraSwitchSettings().longBlinkMs)
+        assertEquals(1200L, CameraSwitchSettings.DefaultLongBlinkMs)
+    }
+
+    @Test
     fun asymmetricEyeProbabilitiesUseAverageForCloseAndMoreOpenEyeForReopen() {
         val signal = BlinkEyeSignal.fromOpenProbabilities(0.99, 0.47)!!
 
