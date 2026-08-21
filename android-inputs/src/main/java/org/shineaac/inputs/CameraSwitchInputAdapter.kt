@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.util.Range
 import android.util.Size
@@ -51,6 +52,7 @@ class CameraSwitchInputAdapter(
     private var lastStatusSentAt = 0L
     private var blinkClassifier = BlinkGestureClassifier()
     private var activeDetectionParameters = BlinkDetectionParameters()
+    @Volatile private var activeSettings = CameraSwitchSettings()
     private var holdEventActive = false
     private var lastActivationAt = 0L
     private var activeSource = "android-camera-long-blink"
@@ -65,11 +67,12 @@ class CameraSwitchInputAdapter(
         val startGeneration = generation
         val settings = settingsProvider()
         if (!settings.enabled) return
+        activeSettings = settings
         activeDetectionParameters = settings.detectionParameters.normalized()
         blinkClassifier = BlinkGestureClassifier(activeDetectionParameters.classifierConfig())
         activeSource = settings.source
         running = true
-        lastImageReceivedAt = System.currentTimeMillis()
+        lastImageReceivedAt = nowMs()
         lastAnalysisCompletedAt = lastImageReceivedAt
         sendStatus("starting", force = true)
 
@@ -134,6 +137,7 @@ class CameraSwitchInputAdapter(
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
+        activeSettings = CameraSwitchSettings()
         blinkClassifier.reset()
         holdEventActive = false
     }
@@ -172,7 +176,7 @@ class CameraSwitchInputAdapter(
                 CameraSelector.DEFAULT_FRONT_CAMERA,
                 analysis
             )
-            applyZoom(camera, settingsProvider().zoomRatio)
+            applyZoom(camera, activeSettings.zoomRatio)
             sendStatus("active", force = true)
         } catch (error: Exception) {
             Log.w(Tag, "CameraX bind failed", error)
@@ -211,13 +215,13 @@ class CameraSwitchInputAdapter(
             imageProxy.close()
             return
         }
-        lastImageReceivedAt = System.currentTimeMillis()
-        val settings = settingsProvider()
+        lastImageReceivedAt = nowMs()
+        val settings = activeSettings
         if (!settings.enabled) {
             imageProxy.close()
             return
         }
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
             imageProxy.close()
             return
@@ -248,7 +252,7 @@ class CameraSwitchInputAdapter(
                 Log.w(Tag, "ML Kit frame timeout; marking detector stale")
                 activeFrameId = NoFrame
                 mlKitInFlight = false
-                lastAnalysisCompletedAt = System.currentTimeMillis()
+                lastAnalysisCompletedAt = nowMs()
                 blinkClassifier.reset()
                 sendHoldEnd(activeSource, "reason=detectorTimeout")
                 sendStatus("detectorStale", force = true)
@@ -267,7 +271,7 @@ class CameraSwitchInputAdapter(
             }
             .addOnCompleteListener(callbackExecutor) {
                 if (analysisGeneration == generation && activeFrameId == frameId) {
-                    lastAnalysisCompletedAt = System.currentTimeMillis()
+                    lastAnalysisCompletedAt = nowMs()
                     mlKitInFlight = false
                     activeFrameId = NoFrame
                     sendStatus("analysis")
@@ -277,7 +281,7 @@ class CameraSwitchInputAdapter(
     }
 
     private fun updateBlinkState(score: Double?, reopenScore: Double?, settings: CameraSwitchSettings) {
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
             when (event) {
                 is BlinkGestureClassifier.Event.HoldStarted -> {
@@ -322,8 +326,8 @@ class CameraSwitchInputAdapter(
 
     private fun runWatchdog() {
         watchdogScheduled = false
-        if (!running || !settingsProvider().enabled) return
-        val now = System.currentTimeMillis()
+        if (!running || !activeSettings.enabled) return
+        val now = nowMs()
         val noImagesForMs = now - lastImageReceivedAt
         val noCompletedAnalysisForMs = now - lastAnalysisCompletedAt
         when {
@@ -331,11 +335,11 @@ class CameraSwitchInputAdapter(
             noCompletedAnalysisForMs >= AnalysisStallMs -> sendStatus("detectorStale", force = true)
             else -> scheduleWatchdog()
         }
-        if (running && settingsProvider().enabled) scheduleWatchdog()
+        if (running && activeSettings.enabled) scheduleWatchdog()
     }
 
     private fun sendStatus(state: String, force: Boolean = false) {
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         if (!force && now - lastStatusSentAt < StatusIntervalMs) return
         lastStatusSentAt = now
         sink.onInput(
@@ -355,9 +359,11 @@ class CameraSwitchInputAdapter(
         }
     }
 
+    private fun nowMs(): Long = SystemClock.elapsedRealtime()
+
     private companion object {
         const val NoFrame = -1L
-        const val MlKitFrameIntervalMs = 200L
+        const val MlKitFrameIntervalMs = 100L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5
         const val MaxCameraFps = 15
