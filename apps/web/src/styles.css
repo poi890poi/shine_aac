@@ -178,6 +178,7 @@ body.demo-active .phase::after {
 .camera-status-stale,
 .camera-status-detectorStale,
 .camera-status-cameraStale,
+.camera-status-cameraUnavailable,
 .camera-status-permissionDenied {
   border-color: #b77970;
   background: #f4e4e1;
@@ -186,6 +187,7 @@ body.demo-active .phase::after {
 .camera-status-stale::before,
 .camera-status-detectorStale::before,
 .camera-status-cameraStale::before,
+.camera-status-cameraUnavailable::before,
 .camera-status-permissionDenied::before {
   background: #c92a2a;
 }

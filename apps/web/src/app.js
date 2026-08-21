@@ -1011,6 +1011,8 @@ function cameraStatusLabel(state) {
       return zhTw ? "偵測中斷" : "Detect stale";
     case "cameraStale":
       return zhTw ? "相機中斷" : "Cam stale";
+    case "cameraUnavailable":
+      return zhTw ? "找不到相容相機" : "No camera";
     case "permissionDenied":
       return zhTw ? "需要相機權限" : "Camera permission";
     case "stale":

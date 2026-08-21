@@ -5,6 +5,8 @@ data class CameraSwitchSettings(
     val longBlinkMs: Long = DefaultLongBlinkMs,
     val cooldownMs: Long = 900,
     val zoomRatio: Float = 1.6f,
+    val cameraId: String? = null,
+    val cameraLensFacing: Int? = null,
     val detectionParameters: BlinkDetectionParameters = BlinkDetectionParameters(),
     val source: String = "android-camera-long-blink"
 ) {

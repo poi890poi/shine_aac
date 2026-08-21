@@ -13,6 +13,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.SurfaceTexture
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.hardware.camera2.CameraCaptureSession
@@ -51,20 +52,22 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
 
 class CameraSwitchCalibrationActivity : Activity() {
-    private val analysisSize = Size(480, 360)
     private var textureView: TextureView? = null
     private var overlayView: FaceOverlayView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
     private var holdView: TextView? = null
     private var zoomView: TextView? = null
+    private var cameraView: TextView? = null
     private var startButton: Button? = null
     private var testButton: Button? = null
+    private var changeCameraButton: Button? = null
     @Volatile private var cameraDevice: CameraDevice? = null
     @Volatile private var cameraOpening = false
     @Volatile private var cameraOpenGeneration = 0
@@ -74,6 +77,13 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var activeArraySize: Rect? = null
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
+    private var activeAnalysisSize = Size(480, 360)
+    private var activePreviewBufferSize = Size(640, 480)
+    private var mirrorFaceOverlay = true
+    private var availableCameras = emptyList<CameraSwitchCamera>()
+    private var selectedCamera: CameraSwitchCamera? = null
+    private var preferredCameraId: String? = null
+    private var preferredLensFacing: Int? = null
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
     @Volatile private var cameraHandler: Handler? = null
@@ -135,6 +145,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
         calibratedZoomRatio = savedSettings.zoomRatio
+        preferredCameraId = savedSettings.cameraId
+        preferredLensFacing = savedSettings.cameraLensFacing
         detectionParameters = savedSettings.detectionParameters
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         setContentView(createInsetAwareContentHost(createContentView()))
@@ -342,6 +354,13 @@ class CameraSwitchCalibrationActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, dp(4), 0, dp(4))
         }
+        cameraView = TextView(this).apply {
+            text = tr("Camera: finding available cameras", "相機：正在尋找可用相機")
+            setTextColor(Color.rgb(226, 234, 242))
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, dp(4))
+        }
         val feedbackView = TextView(this).apply {
             text = tr("Green: eyes. Amber: face.", "綠框：眼睛。黃框：臉部。")
             setTextColor(Color.rgb(183, 196, 210))
@@ -424,6 +443,10 @@ class CameraSwitchCalibrationActivity : Activity() {
             setOnClickListener { adjustZoomRatio(0.2f) }
         }, actionButtonParams(horizontal = true))
 
+        changeCameraButton = actionButton(tr("Change / refresh camera", "切換／重新整理相機"), primary = false) {
+            setOnClickListener { changeCamera() }
+        }
+
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(title)
@@ -434,6 +457,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(if (wideLayout) dp(12) else 0, dp(8), 0, dp(8))
+            addView(cameraView)
+            addView(changeCameraButton, actionButtonParams(horizontal = false))
             addView(holdView)
             addView(holdActions)
             addView(zoomView)
@@ -565,6 +590,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         activeStepLabel = ""
         startButton?.isEnabled = false
         testButton?.isEnabled = false
+        changeCameraButton?.isEnabled = false
         runStep(0, calibrationRunId)
     }
 
@@ -669,6 +695,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         speakThen(message) {}
         startButton?.isEnabled = true
         testButton?.isEnabled = true
+        changeCameraButton?.isEnabled = true
     }
 
     private fun calibratedLongBlinkMs(): Long {
@@ -749,6 +776,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         captureEndsAtMs = 0L
         startButton?.isEnabled = false
         testButton?.isEnabled = false
+        changeCameraButton?.isEnabled = false
         val runId = calibrationRunId
         val holdSeconds = max(1L, (calibratedLongBlinkHoldMs + 999L) / 1000L)
         val cue = tr(
@@ -799,6 +827,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         speakThen(result) {}
         startButton?.isEnabled = true
         testButton?.isEnabled = true
+        changeCameraButton?.isEnabled = true
     }
 
     private fun speakThen(text: String, onDone: () -> Unit) {
@@ -838,20 +867,33 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraOpening = true
         try {
             val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            val cameraId = manager.cameraIdList.firstOrNull { id ->
-                manager.getCameraCharacteristics(id)
-                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-            } ?: run {
+            val cameraChoice = refreshCameraSelection(manager) ?: run {
                 cameraOpening = false
-                statusView?.text = tr("Front camera unavailable.", "找不到前置相機。")
+                statusView?.text = tr("No compatible camera is available.", "找不到相容的相機。")
                 return
             }
+            val cameraId = cameraChoice.cameraId
             val characteristics = manager.getCameraCharacteristics(cameraId)
+            val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
+            mirrorFaceOverlay = lensFacing == CameraCharacteristics.LENS_FACING_FRONT
             val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
             analysisRotationDegrees = CameraRotation.compensationDegrees(
                 currentSurfaceRotation(),
                 sensorOrientation,
-                frontFacing = true
+                frontFacing = mirrorFaceOverlay
+            )
+            val streamMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?: error("Camera has no output stream configuration")
+            activeAnalysisSize = chooseOutputSize(
+                streamMap.getOutputSizes(android.graphics.ImageFormat.YUV_420_888),
+                targetWidth = AnalysisTargetWidth,
+                targetHeight = AnalysisTargetHeight
+            )
+            activePreviewBufferSize = chooseOutputSize(
+                streamMap.getOutputSizes(SurfaceTexture::class.java),
+                targetWidth = PreviewTargetWidth,
+                targetHeight = PreviewTargetHeight,
+                preferredAspect = activeAnalysisSize.width.toDouble() / activeAnalysisSize.height
             )
             updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
             activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
@@ -863,14 +905,14 @@ class CameraSwitchCalibrationActivity : Activity() {
             updateZoomUi()
             val fpsRange = targetFpsRange(manager, cameraId)
 
-            texture.setDefaultBufferSize(PreviewBufferWidth, PreviewBufferHeight)
+            texture.setDefaultBufferSize(activePreviewBufferSize.width, activePreviewBufferSize.height)
             val thread = HandlerThread("ShineCameraCalibration").also { it.start() }
             cameraThread = thread
             val handler = Handler(thread.looper)
             cameraHandler = handler
             val activeReader = ImageReader.newInstance(
-                analysisSize.width,
-                analysisSize.height,
+                activeAnalysisSize.width,
+                activeAnalysisSize.height,
                 android.graphics.ImageFormat.YUV_420_888,
                 2
             )
@@ -1020,6 +1062,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraThread = null
         cameraHandler = null
         mlKitInFlight = false
+        overlayView?.setFace(null, 0, 0, false, mirrorFaceOverlay)
     }
 
     private fun applyZoomToRepeatingRequest() {
@@ -1088,7 +1131,13 @@ class CameraSwitchCalibrationActivity : Activity() {
                 val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
                 mainHandler?.post {
                     if (!isCameraGenerationActive(analysisGeneration)) return@post
-                    overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height, score != null)
+                    overlayView?.setFace(
+                        face?.boundingBox,
+                        imageSize.width,
+                        imageSize.height,
+                        score != null,
+                        mirrorFaceOverlay
+                    )
                     when (previewBlink) {
                         PreviewBlink.Short -> {
                             playShortCue()
@@ -1287,8 +1336,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val scale = CameraPreviewGeometry.aspectFitScale(
             viewWidth = width,
             viewHeight = height,
-            bufferWidth = PreviewBufferWidth,
-            bufferHeight = PreviewBufferHeight,
+            bufferWidth = activePreviewBufferSize.width,
+            bufferHeight = activePreviewBufferSize.height,
             rotationDegrees = analysisRotationDegrees
         )
         texture.setTransform(
@@ -1296,6 +1345,101 @@ class CameraSwitchCalibrationActivity : Activity() {
                 setScale(scale.x, scale.y, width / 2f, height / 2f)
             }
         )
+    }
+
+    private fun chooseOutputSize(
+        sizes: Array<Size>?,
+        targetWidth: Int,
+        targetHeight: Int,
+        preferredAspect: Double = targetWidth.toDouble() / targetHeight
+    ): Size {
+        require(!sizes.isNullOrEmpty()) { "Camera has no compatible output size" }
+        val targetArea = targetWidth.toDouble() * targetHeight
+        return sizes.minByOrNull { size ->
+            val aspect = size.width.toDouble() / size.height
+            val area = size.width.toDouble() * size.height
+            abs(aspect - preferredAspect) * AspectRatioWeight + abs(area - targetArea) / targetArea
+        } ?: error("Camera has no compatible output size")
+    }
+
+    private fun changeCamera() {
+        if (!activityResumed || isFinishing || isDestroyed) return
+        val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val refreshed = runCatching {
+            CameraSwitchCameraSelection.availableCameras(manager)
+        }.getOrElse {
+            Log.w(Tag, "Refreshing camera list failed", it)
+            emptyList()
+        }
+        if (refreshed.isEmpty()) {
+            availableCameras = emptyList()
+            selectedCamera = null
+            updateCameraUi()
+            statusView?.text = tr("No compatible camera is available.", "找不到相容的相機。")
+            stopCamera()
+            return
+        }
+
+        val currentIndex = refreshed.indexOfFirst { it.cameraId == selectedCamera?.cameraId }
+        val nextIndex = if (currentIndex < 0) 0 else (currentIndex + 1) % refreshed.size
+        val next = refreshed[nextIndex]
+        stopCamera()
+        availableCameras = refreshed
+        selectedCamera = next
+        preferredCameraId = next.cameraId
+        preferredLensFacing = next.lensFacing
+        CameraSwitchPreferences.saveCameraSelection(this, next.cameraId, next.lensFacing)
+        updateCameraUi()
+        statusView?.text = tr(
+            "Camera changed. Center the face and run setup again.",
+            "已切換相機。請將臉置中並重新開始設定。"
+        )
+        startCamera()
+    }
+
+    private fun refreshCameraSelection(manager: CameraManager): CameraSwitchCamera? {
+        val refreshed = runCatching {
+            CameraSwitchCameraSelection.availableCameras(manager)
+        }.getOrElse {
+            Log.w(Tag, "Listing cameras failed", it)
+            emptyList()
+        }
+        availableCameras = refreshed
+        val currentId = selectedCamera?.cameraId?.takeIf { id -> refreshed.any { it.cameraId == id } }
+        selectedCamera = CameraSwitchCameraSelection.choose(
+            cameras = refreshed,
+            preferredCameraId = currentId ?: preferredCameraId,
+            preferredLensFacing = preferredLensFacing
+        )
+        updateCameraUi()
+        return selectedCamera
+    }
+
+    private fun updateCameraUi() {
+        val camera = selectedCamera
+        if (camera == null) {
+            cameraView?.text = tr("Camera: none available", "相機：沒有可用相機")
+            changeCameraButton?.text = tr("Refresh cameras", "重新整理相機")
+            return
+        }
+        val sameFacing = availableCameras.filter { it.lensFacing == camera.lensFacing }
+        val ordinal = sameFacing.indexOfFirst { it.cameraId == camera.cameraId }.coerceAtLeast(0) + 1
+        val kind = when (camera.lensFacing) {
+            CameraCharacteristics.LENS_FACING_FRONT -> tr("Front camera", "前置相機")
+            CameraCharacteristics.LENS_FACING_BACK -> tr("Rear camera", "後置相機")
+            CameraCharacteristics.LENS_FACING_EXTERNAL -> tr("USB / external camera", "USB／外接相機")
+            else -> tr("Camera", "相機")
+        }
+        val suffix = if (sameFacing.size > 1) " $ordinal" else ""
+        cameraView?.text = tr(
+            "Camera: $kind$suffix (${availableCameras.size} available)",
+            "相機：$kind$suffix（共 ${availableCameras.size} 個）"
+        )
+        changeCameraButton?.text = if (availableCameras.size > 1) {
+            tr("Next camera", "下一個相機")
+        } else {
+            tr("Refresh cameras", "重新整理相機")
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
@@ -1360,12 +1504,20 @@ class CameraSwitchCalibrationActivity : Activity() {
         private var frameWidth = 0
         private var frameHeight = 0
         private var hasEyeSignal = false
+        private var mirrorHorizontally = true
 
-        fun setFace(nextFace: Rect?, width: Int, height: Int, nextHasEyeSignal: Boolean) {
+        fun setFace(
+            nextFace: Rect?,
+            width: Int,
+            height: Int,
+            nextHasEyeSignal: Boolean,
+            mirrored: Boolean
+        ) {
             face = nextFace
             frameWidth = width
             frameHeight = height
             hasEyeSignal = nextHasEyeSignal
+            mirrorHorizontally = mirrored
             invalidate()
         }
 
@@ -1379,8 +1531,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             val leftOffset = (width - drawnWidth) / 2f
             val topOffset = (height - drawnHeight) / 2f
             paint.color = if (hasEyeSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
-            val mirroredLeft = frameWidth - box.right
-            val mirroredRight = frameWidth - box.left
+            val mirroredLeft = if (mirrorHorizontally) frameWidth - box.right else box.left
+            val mirroredRight = if (mirrorHorizontally) frameWidth - box.left else box.right
             val rect = RectF(
                 leftOffset + mirroredLeft * scale,
                 topOffset + box.top * scale,
@@ -1399,8 +1551,11 @@ class CameraSwitchCalibrationActivity : Activity() {
     private companion object {
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
-        const val PreviewBufferWidth = 640
-        const val PreviewBufferHeight = 480
+        const val AnalysisTargetWidth = 480
+        const val AnalysisTargetHeight = 360
+        const val PreviewTargetWidth = 640
+        const val PreviewTargetHeight = 480
+        const val AspectRatioWeight = 4.0
         const val MlKitFrameIntervalMs = 200L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5
