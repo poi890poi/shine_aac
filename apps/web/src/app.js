@@ -21,6 +21,7 @@ import {
   loadFirstCellPauseForConfig,
   parseDictionary,
   parseSymbols,
+  pauseSession,
   pressSwitch,
   scanDurationForStage,
   scanRowBlocks,
@@ -677,11 +678,23 @@ function handleInputEvent(inputEvent = {}) {
   }
   if (isHardwareInput(inputEvent.source) && !hardwareInputEnabled()) return false;
   if (isCameraInput(inputEvent.source) && !cameraInputEnabled()) return false;
+  if (intent === InputIntent.Pause) return pauseCommunication();
   if (intent === InputIntent.CameraStatus) return updateCameraStatus(inputEvent);
   if (intent === InputIntent.HoldStart) return startCameraHold(inputEvent);
   if (intent === InputIntent.HoldEnd) return endCameraHold(inputEvent);
   if (intent !== InputIntent.Activate) return false;
   activateSwitch(inputEvent);
+  return true;
+}
+
+function pauseCommunication() {
+  cancelScheduledScan();
+  cameraHoldActive = false;
+  cameraHoldProgress = 0;
+  reviewHoldActive = false;
+  session = pauseSession(session);
+  render();
+  resetClock();
   return true;
 }
 
