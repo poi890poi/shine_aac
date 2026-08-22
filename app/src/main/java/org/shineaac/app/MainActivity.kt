@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
     @Volatile private var cameraSwitchEnabled = false
     @Volatile private var switchInputProfile = SwitchInputHardware
     private var webBackNavigationPending = false
+    @Volatile private var webViewPageReady = false
+    private val pendingInputEvents = mutableListOf<Pair<InputEvent, Int?>>()
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
     private var pendingTextHistoryExport: String? = null
     private var pendingTextHistoryExportFileName: String? = null
@@ -117,7 +119,13 @@ class MainActivity : ComponentActivity() {
         }
 
         val shineWebView = WebView(this).apply {
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String?) {
+                    super.onPageFinished(view, url)
+                    webViewPageReady = true
+                    flushPendingInputEvents()
+                }
+            }
             webChromeClient = WebChromeClient()
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -290,23 +298,39 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sendInputEvent(event: InputEvent, keyCode: Int? = null) {
+        if (getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
+                .getBoolean("e2eEnabled", false)
+        ) {
+            val payload = JSONObject().put("intent", event.intent).put("source", event.source)
+            Log.i(E2ELogTag, "SHINE_AAC_E2E_INPUT $payload")
+        }
+        runOnUiThread {
+            if (!webViewPageReady) {
+                pendingInputEvents.add(event to keyCode)
+                return@runOnUiThread
+            }
+            evaluateInputEvent(event, keyCode)
+        }
+    }
+
+    private fun flushPendingInputEvents() {
+        if (pendingInputEvents.isEmpty()) return
+        val queued = pendingInputEvents.toList()
+        pendingInputEvents.clear()
+        queued.forEach { (event, keyCode) -> evaluateInputEvent(event, keyCode) }
+    }
+
+    private fun evaluateInputEvent(event: InputEvent, keyCode: Int?) {
         val payload = JSONObject()
             .put("intent", event.intent)
             .put("source", event.source)
         if (event.detail.isNotBlank()) payload.put("detail", event.detail)
         if (keyCode != null) payload.put("keyCode", keyCode)
-        if (getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
-                .getBoolean("e2eEnabled", false)
-        ) {
-            Log.i(E2ELogTag, "SHINE_AAC_E2E_INPUT $payload")
-        }
         val script = """
             window.ShineAacInput &&
             window.ShineAacInput.receive($payload);
         """.trimIndent()
-        runOnUiThread {
-            webView?.evaluateJavascript(script, null)
-        }
+        webView?.evaluateJavascript(script, null)
     }
 
     private fun sendCameraPermissionDenied() {
