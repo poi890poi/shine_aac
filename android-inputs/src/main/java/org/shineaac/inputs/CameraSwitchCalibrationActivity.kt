@@ -42,9 +42,12 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -67,6 +70,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraView: TextView? = null
     private var startButton: Button? = null
     private var changeCameraButton: Button? = null
+    private var gestureSpinner: Spinner? = null
+    private var updatingGestureSpinner = false
     @Volatile private var cameraDevice: CameraDevice? = null
     @Volatile private var cameraOpening = false
     @Volatile private var cameraOpenGeneration = 0
@@ -88,6 +93,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     @Volatile private var cameraHandler: Handler? = null
     private var mainHandler: Handler? = null
     private var detector: FaceDetector? = null
+    private var cheekAnalyzer: CheekFaceAnalyzer? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var tonePlayer: CameraSwitchTonePlayer? = null
@@ -123,6 +129,14 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var previewLastShortCueAtMs = 0L
     private var previewLastLongCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = CameraSwitchSettings.DefaultLongBlinkMs
+    private var calibratedCheekHoldMs = CameraSwitchSettings.DefaultCheekHoldMs
+    private var selectedGesture = OpticalSwitchGesture.LongBlink
+    private var cheekModel: CheekGestureModel? = null
+    private val cheekCalibrator = CheekGestureCalibrator()
+    private var activeCheekTrial = 0
+    private var cheekClassifier: BinarySwitchClassifier? = null
+    private var cheekTestActivations = 0
+    private var cheekPreviewActivations = 0
     private var calibratedZoomRatio = 1.6f
     private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
@@ -138,12 +152,15 @@ class CameraSwitchCalibrationActivity : Activity() {
         zhTwUi = profileId == "zh-TW"
         ttsVoiceLabel = tr("Voice pending", "語音準備中")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
+        selectedGesture = savedSettings.gesture
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
+        calibratedCheekHoldMs = savedSettings.cheekHoldMs
+        cheekModel = savedSettings.cheekModel
         calibratedZoomRatio = savedSettings.zoomRatio
         preferredCameraId = savedSettings.cameraId
         preferredLensFacing = savedSettings.cameraLensFacing
         detectionParameters = savedSettings.detectionParameters
-        savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
+        savedCalibrationRecord = calibrationRecordForSelectedGesture()
         setContentView(createInsetAwareContentHost(createContentView()))
         updateSavedCalibrationUi()
         initializeOptionalServices()
@@ -168,6 +185,13 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
             null
         }
+        cheekAnalyzer = try {
+            CheekFaceAnalyzer(this)
+        } catch (error: Exception) {
+            Log.w(Tag, "Cheek detector initialization failed", error)
+            null
+        }
+        resetCheekClassifier()
         tonePlayer = try {
             CameraSwitchTonePlayer()
         } catch (error: Exception) {
@@ -248,6 +272,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     override fun onDestroy() {
         detector?.close()
         detector = null
+        cheekAnalyzer?.close()
+        cheekAnalyzer = null
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -291,7 +317,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun restoreCameraPermissionActions() {
         startButton?.apply {
-            text = tr("Start setup", "開始")
+            text = tr("Start setup", "開始設定")
             setOnClickListener { startAutoCalibration() }
         }
     }
@@ -315,7 +341,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
         val title = TextView(this).apply {
-            text = tr("Camera setup", "相機設定")
+            text = tr("Optical switch setup", "光學開關設定")
             setTextColor(Color.WHITE)
             textSize = 22f
             typeface = Typeface.DEFAULT_BOLD
@@ -355,7 +381,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             setPadding(0, dp(4), 0, dp(4))
         }
         val feedbackView = TextView(this).apply {
-            text = tr("Green: eyes. Amber: face.", "綠框：眼睛。黃框：臉部。")
+            text = tr("Green: usable tracking. Amber: adjust your face position.", "綠框：追蹤良好。黃框：請調整臉部位置。")
             setTextColor(Color.rgb(183, 196, 210))
             textSize = 14f
             setPadding(0, 0, 0, dp(10))
@@ -436,6 +462,35 @@ class CameraSwitchCalibrationActivity : Activity() {
             setOnClickListener { changeCamera() }
         }
 
+        val gestureLabel = TextView(this).apply {
+            text = tr("Optical switch gesture", "光學開關動作")
+            setTextColor(Color.rgb(226, 234, 242))
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        val gestureItems = listOf(tr("Long blink", "長眨眼"), tr("Cheek twitch", "臉頰抽動"))
+        gestureSpinner = Spinner(this).apply {
+            adapter = object : ArrayAdapter<String>(this@CameraSwitchCalibrationActivity, android.R.layout.simple_spinner_item, gestureItems) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
+                    gestureOptionView(getItem(position).orEmpty(), dropdown = false)
+
+                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
+                    gestureOptionView(getItem(position).orEmpty(), dropdown = true)
+            }
+            minimumHeight = dp(48)
+            setPopupBackgroundDrawable(roundedBackground(Color.rgb(42, 52, 64), dp(8), Color.rgb(78, 92, 108)))
+            updatingGestureSpinner = true
+            setSelection(if (selectedGesture == OpticalSwitchGesture.LongBlink) 0 else 1, false)
+            updatingGestureSpinner = false
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (!updatingGestureSpinner) selectGesture(if (position == 0) OpticalSwitchGesture.LongBlink else OpticalSwitchGesture.CheekTwitch)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
+
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(title)
@@ -446,6 +501,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(if (wideLayout) dp(12) else 0, dp(8), 0, dp(8))
+            addView(gestureLabel)
+            addView(gestureSpinner, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             addView(cameraView)
             addView(changeCameraButton, actionButtonParams(horizontal = false))
             addView(holdView)
@@ -495,22 +552,76 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         updateHoldUi()
         updateZoomUi()
+        updateModeUi()
         return root
     }
 
+    private fun gestureOptionView(label: String, dropdown: Boolean): TextView = TextView(this).apply {
+        text = label
+        setTextColor(Color.WHITE)
+        textSize = 17f
+        gravity = Gravity.CENTER_VERTICAL
+        minHeight = dp(48)
+        setPadding(dp(16), dp(10), dp(16), dp(10))
+        if (dropdown) setBackgroundColor(Color.rgb(42, 52, 64))
+    }
+
     private fun updateSavedCalibrationUi() {
+        savedCalibrationRecord = calibrationRecordForSelectedGesture()
         val quality = savedCalibrationRecord?.qualityDetail
         if (quality != null) {
-            statusView?.text = tr(
-                "Ready. Long blink is calibrated; use Test blink after moving the phone.",
-                "設定完成。移動手機後，請使用「測試眨眼」確認。"
+            statusView?.text = if (selectedGesture == OpticalSwitchGesture.LongBlink) tr(
+                "Ready. Long blink is calibrated; use Test blink after moving the phone.", "設定完成。移動手機後，請使用「測試眨眼」確認。"
+            ) else tr(
+                "Ready. Your cheek movement is calibrated. Test it whenever the phone position changes.", "設定完成。已學會您的臉頰動作。手機位置改變時請再次測試。"
             )
             metricsView?.text = localizedQualityDetail(quality)
         } else {
-            statusView?.text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
-            metricsView?.text = tr("No saved setup yet.", "尚未儲存設定。")
+            statusView?.text = if (selectedGesture == OpticalSwitchGesture.LongBlink) tr(
+                "Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。"
+            ) else tr(
+                "Center your face. Setup will move slowly and give you time to rest between six cheek movements.", "將臉置於中央。設定會慢慢進行，六次臉頰動作之間都有休息時間。"
+            )
+            metricsView?.text = tr("No saved setup for this gesture yet.", "此動作尚未儲存設定。")
         }
         updateHoldUi()
+    }
+
+    private fun calibrationRecordForSelectedGesture(): CameraSwitchCalibrationRecord? =
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) CameraSwitchPreferences.readCheekCalibrationRecord(this)
+        else CameraSwitchPreferences.readCalibrationRecord(this)
+
+    private fun selectGesture(gesture: OpticalSwitchGesture) {
+        if (gesture == selectedGesture) return
+        calibrationRunId += 1
+        mainHandler?.removeCallbacksAndMessages(null)
+        currentSpeechId = null
+        currentSpeechDone = null
+        tts?.stop()
+        phase = Phase.Idle
+        captureEndsAtMs = 0L
+        selectedGesture = gesture
+        CameraSwitchPreferences.saveGesture(this, gesture)
+        resetCheekClassifier()
+        updateModeUi()
+        updateSavedCalibrationUi()
+        if (activityResumed && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            stopCamera()
+            startCamera()
+        }
+    }
+
+    private fun updateModeUi() {
+        testButton?.apply {
+            text = if (selectedGesture == OpticalSwitchGesture.LongBlink) tr("Test blink", "測試眨眼") else tr("Test cheek", "測試臉頰")
+            setOnClickListener { startSelectedGestureTest() }
+            isEnabled = selectedGesture == OpticalSwitchGesture.LongBlink || cheekModel != null
+        }
+        updateHoldUi()
+    }
+
+    private fun startSelectedGestureTest() {
+        if (selectedGesture == OpticalSwitchGesture.LongBlink) startLongBlinkTest() else startCheekTest()
     }
 
     private fun configureTtsVoice() {
@@ -571,6 +682,11 @@ class CameraSwitchCalibrationActivity : Activity() {
         previewLongBlinkCount = 0
         previewLastShortDurationMs = 0L
         previewLastDetectedDurationMs = 0L
+        cheekCalibrator.reset()
+        activeCheekTrial = 0
+        cheekTestActivations = 0
+        cheekPreviewActivations = 0
+        resetCheekClassifier()
         captureEndsAtMs = 0L
         activeStepLabel = ""
         startButton?.isEnabled = false
@@ -624,14 +740,53 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun calibrationSteps(): List<CalibrationStep> =
-        listOf(
-            CalibrationStep(Phase.Prepare, tr("Prepare", "準備"), cueSet.prepare, 0L),
-            CalibrationStep(Phase.Rest, tr("Rest", "放鬆"), cueSet.rest, 8000L),
-            CalibrationStep(Phase.LongBlink, tr("Slow blink trials", "慢眨眼測試"), cueSet.longBlink, 12000L)
-        )
+        if (selectedGesture == OpticalSwitchGesture.LongBlink) {
+            listOf(
+                CalibrationStep(Phase.Prepare, tr("Prepare", "準備"), cueSet.prepare, 0L),
+                CalibrationStep(Phase.Rest, tr("Rest", "放鬆"), cueSet.rest, 8000L),
+                CalibrationStep(Phase.LongBlink, tr("Slow blink trials", "慢眨眼測試"), cueSet.longBlink, 12000L)
+            )
+        } else {
+            buildList {
+                add(CalibrationStep(
+                    Phase.Prepare,
+                    tr("Introduction", "說明"),
+                    tr(
+                        "We will learn one comfortable cheek movement. There is no need to hurry. Use the same movement each time, and stop if you become tired.",
+                        "我們會學習一個舒服的臉頰動作。不需要趕時間。每次做相同的動作；如果疲累，請隨時停止。"
+                    ),
+                    0L
+                ))
+                add(CalibrationStep(
+                    Phase.CheekRest,
+                    tr("Relaxed face", "臉部放鬆"),
+                    tr("First, relax your face and breathe normally. Nothing else is required for eight seconds.", "首先請放鬆臉部並正常呼吸。接下來八秒不需要做任何動作。"),
+                    8000L
+                ))
+                for (trial in 1..CheekTrialCount) {
+                    add(CalibrationStep(
+                        Phase.CheekMovement,
+                        tr("Cheek movement $trial of $CheekTrialCount", "第 $trial 次臉頰動作，共 $CheekTrialCount 次"),
+                        tr(
+                            "Movement $trial of $CheekTrialCount. After the tone, make your cheek movement once, hold it briefly if comfortable, then relax. You have plenty of time.",
+                            "第 $trial 次，共 $CheekTrialCount 次。提示音後做一次臉頰動作；若舒服可短暫維持，然後放鬆。時間很充裕。"
+                        ),
+                        4000L,
+                        trial
+                    ))
+                    if (trial < CheekTrialCount) add(CalibrationStep(
+                        Phase.CheekRest,
+                        tr("Rest", "休息"),
+                        tr("Relax completely and breathe normally. We will wait before the next movement.", "請完全放鬆並正常呼吸。我們會等一會兒再做下一次。"),
+                        3000L
+                    ))
+                }
+            }
+        }
 
     private fun beginCapture(step: CalibrationStep) {
         phase = step.phase
+        activeCheekTrial = step.trial
         activeStepLabel = step.label
         captureEndsAtMs = System.currentTimeMillis() + step.durationMs
     }
@@ -642,6 +797,10 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun finishAutoCalibration() {
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            finishCheekCalibration()
+            return
+        }
         if (longBlinkClosed) {
             longBlinkDurations.add(System.currentTimeMillis() - longBlinkClosedStartedAt)
             longBlinkClosed = false
@@ -688,6 +847,14 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun adjustHoldMs(deltaMs: Long) {
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            calibratedCheekHoldMs = clampLong(calibratedCheekHoldMs + deltaMs, MinCheekHoldMs, MaxCheekHoldMs)
+            CameraSwitchPreferences.saveCheekHold(this, calibratedCheekHoldMs)
+            resetCheekClassifier()
+            updateHoldUi()
+            statusView?.text = tr("Cheek activation hold updated.", "已更新臉頰動作維持時間。")
+            return
+        }
         calibratedLongBlinkHoldMs = clampLong(calibratedLongBlinkHoldMs + deltaMs, MinLongBlinkMs, MaxLongBlinkMs)
         CameraSwitchPreferences.saveTiming(this, calibratedLongBlinkHoldMs, 900L)
         updateHoldUi()
@@ -696,10 +863,55 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun updateHoldUi() {
-        holdView?.text = tr(
-            "Long blink hold: ${calibratedLongBlinkHoldMs} ms",
-            "長眨眼時間：${calibratedLongBlinkHoldMs} 毫秒"
+        holdView?.text = if (selectedGesture == OpticalSwitchGesture.LongBlink) tr(
+            "Long blink hold: ${calibratedLongBlinkHoldMs} ms", "長眨眼時間：${calibratedLongBlinkHoldMs} 毫秒"
+        ) else tr(
+            "Cheek activation hold: ${calibratedCheekHoldMs} ms", "臉頰動作維持：${calibratedCheekHoldMs} 毫秒"
         )
+    }
+
+    private fun finishCheekCalibration() {
+        phase = Phase.Complete
+        captureEndsAtMs = 0L
+        when (val outcome = cheekCalibrator.build()) {
+            is CheekCalibrationOutcome.Success -> {
+                cheekModel = outcome.model
+                val quality = outcome.model.quality
+                val label = tr("Quality good", "品質良好")
+                val detail = tr(
+                    "${quality.message} ${quality.activeTrialCount} trials, ${quality.neutralFrameCount} relaxed frames. Learned ${outcome.model.summary()}.",
+                    "校正品質良好。偵測到 ${quality.activeTrialCount} 次動作及 ${quality.neutralFrameCount} 個放鬆畫面。"
+                )
+                CameraSwitchPreferences.saveCheekCalibration(
+                    this, outcome.model, calibratedCheekHoldMs, calibratedZoomRatio, label, detail
+                )
+                savedCalibrationRecord = CameraSwitchPreferences.readCheekCalibrationRecord(this)
+                resetCheekClassifier()
+                val message = tr(
+                    "Setup complete. Take a rest. Your cheek movement is ready when you want to test it.",
+                    "設定完成。請先休息。準備好時再測試臉頰動作。"
+                )
+                statusView?.text = message
+                metricsView?.text = detail
+                speakThen(message) {}
+            }
+            is CheekCalibrationOutcome.Failure -> {
+                val retained = cheekModel != null
+                val message = if (retained) tr(
+                    "This attempt was not clear enough, so your previous cheek setup was kept. Rest and retry whenever you are ready.",
+                    "這次動作不夠清楚，因此已保留先前的臉頰設定。休息後準備好再試即可。"
+                ) else tr(
+                    "This attempt was not clear enough. Nothing was saved. Please rest, improve the lighting, and retry when ready.",
+                    "這次動作不夠清楚，未儲存設定。請先休息、改善光線，準備好再試。"
+                )
+                statusView?.text = message
+                metricsView?.text = outcome.reason
+                speakThen(message) {}
+            }
+        }
+        startButton?.isEnabled = true
+        testButton?.isEnabled = cheekModel != null
+        changeCameraButton?.isEnabled = true
     }
 
     private fun adjustZoomRatio(delta: Float) {
@@ -1007,16 +1219,23 @@ class CameraSwitchCalibrationActivity : Activity() {
         val ranges = manager.getCameraCharacteristics(cameraId)
             .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
             ?: return null
+        val target = if (selectedGesture == OpticalSwitchGesture.CheekTwitch) CheekTargetCameraFps else BlinkTargetCameraFps
+        val maxFps = if (selectedGesture == OpticalSwitchGesture.CheekTwitch) CheekMaxCameraFps else BlinkMaxCameraFps
         return ranges
-            .filter { it.upper <= MaxCameraFps && it.upper >= MinCameraFps }
-            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - TargetCameraFps) }.thenBy { it.lower })
+            .filter { it.upper <= maxFps && it.upper >= MinCameraFps }
+            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - target) }.thenBy { it.lower })
             ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
     private fun analyze(image: Image, analysisGeneration: Int) {
         val now = System.currentTimeMillis()
-        if (!isCameraGenerationActive(analysisGeneration) || mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
+        val frameInterval = if (selectedGesture == OpticalSwitchGesture.CheekTwitch) CheekFrameIntervalMs else MlKitFrameIntervalMs
+        if (!isCameraGenerationActive(analysisGeneration) || mlKitInFlight || now - lastFrameAt < frameInterval) {
             image.close()
+            return
+        }
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            analyzeCheek(image, analysisGeneration, now)
             return
         }
         val activeDetector = detector
@@ -1081,6 +1300,90 @@ class CameraSwitchCalibrationActivity : Activity() {
                 runCatching { image.close() }
                 if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
             }
+    }
+
+    private fun analyzeCheek(image: Image, analysisGeneration: Int, now: Long) {
+        val analyzer = cheekAnalyzer
+        if (analyzer == null) {
+            image.close()
+            mainHandler?.post { metricsView?.text = tr("Cheek detection is unavailable on this device.", "此裝置無法使用臉頰偵測。") }
+            return
+        }
+        mlKitInFlight = true
+        lastFrameAt = now
+        try {
+            val observation = analyzer.analyze(image, analysisRotationDegrees, now)
+            if (!isCameraGenerationActive(analysisGeneration)) return
+            val score = observation?.takeIf { it.usable }?.let { cheekModel?.score(it.blendshapes) }
+            if (observation?.usable == true) collectCheekSample(observation.blendshapes)
+            val activation = processCheekScore(score, now)
+            val size = orientedImageSize(image, analysisRotationDegrees)
+            val box = observation?.normalizedBounds?.let {
+                Rect(
+                    (it.left * size.width).toInt(), (it.top * size.height).toInt(),
+                    (it.right * size.width).toInt(), (it.bottom * size.height).toInt()
+                )
+            }
+            mainHandler?.post {
+                if (!isCameraGenerationActive(analysisGeneration)) return@post
+                overlayView?.setFace(box, size.width, size.height, observation?.usable == true, mirrorFaceOverlay)
+                if (activation) {
+                    playLongAcceptedCue()
+                    statusView?.text = tr("Cheek movement accepted.", "已接受臉頰動作。")
+                }
+                updateCheekMetrics(score, observation?.qualityMessage)
+            }
+        } catch (error: Exception) {
+            Log.w(Tag, "Cheek calibration frame analysis failed", error)
+            mainHandler?.post { metricsView?.text = tr("Cheek analysis paused; keep your face centered.", "臉頰分析暫停；請保持臉部置中。") }
+        } finally {
+            runCatching { image.close() }
+            if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
+        }
+    }
+
+    private fun collectCheekSample(values: Map<String, Double>) {
+        when (phase) {
+            Phase.CheekRest -> cheekCalibrator.addNeutral(values)
+            Phase.CheekMovement -> cheekCalibrator.addActive(activeCheekTrial, values)
+            else -> Unit
+        }
+    }
+
+    private fun processCheekScore(score: Double?, now: Long): Boolean {
+        if (phase != Phase.TestCheek && !shouldPreviewMonitor()) return false
+        val classifier = cheekClassifier ?: return false
+        var activated = false
+        classifier.onScore(score, now).forEach { event ->
+            if (event is BinarySwitchClassifier.Event.Activated) {
+                activated = true
+                if (phase == Phase.TestCheek) cheekTestActivations += 1 else cheekPreviewActivations += 1
+            }
+        }
+        return activated
+    }
+
+    private fun updateCheekMetrics(score: Double?, qualityMessage: String?) {
+        if (shouldPreviewMonitor()) {
+            metricsView?.text = when {
+                qualityMessage != null && score == null -> qualityMessage
+                score == null && cheekModel == null -> tr("Face tracked; cheek setup is not saved yet.", "已追蹤臉部；尚未儲存臉頰設定。")
+                score == null -> tr("Face not detected", "未偵測到臉部")
+                else -> tr("Cheek ${"%.2f".format(score)} | accepted $cheekPreviewActivations", "臉頰 ${"%.2f".format(score)}｜接受 $cheekPreviewActivations 次")
+            }
+            return
+        }
+        if (phase != Phase.Complete) {
+            val remaining = max(0L, captureEndsAtMs - System.currentTimeMillis())
+            metricsView?.text = when {
+                qualityMessage != null && score == null -> qualityMessage
+                captureEndsAtMs > 0L -> tr(
+                    "$activeStepLabel ${((remaining + 999L) / 1000L)}s left | relaxed ${cheekCalibrator.neutralCount()} | movements ${cheekCalibrator.activeTrialCount()}",
+                    "$activeStepLabel 剩下 ${((remaining + 999L) / 1000L)} 秒｜放鬆 ${cheekCalibrator.neutralCount()}｜動作 ${cheekCalibrator.activeTrialCount()}"
+                )
+                else -> ttsVoiceLabel
+            }
+        }
     }
 
     private fun updateMetrics(score: Double?) {
@@ -1441,28 +1744,40 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
     }
 
-    private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
+    private data class CalibrationStep(
+        val phase: Phase,
+        val label: String,
+        val cue: String,
+        val durationMs: Long,
+        val trial: Int = 0
+    )
     private data class CalibrationQuality(val label: String, val detail: String)
-    private enum class Phase { Idle, Instruction, Prepare, Rest, LongBlink, Complete }
+    private enum class Phase { Idle, Instruction, Prepare, Rest, LongBlink, CheekRest, CheekMovement, Complete }
     private enum class PreviewBlink { None, Short, Long }
 
     private companion object {
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
-        const val AnalysisTargetWidth = 480
-        const val AnalysisTargetHeight = 360
+        const val AnalysisTargetWidth = 640
+        const val AnalysisTargetHeight = 480
         const val PreviewTargetWidth = 640
         const val PreviewTargetHeight = 480
         const val AspectRatioWeight = 4.0
         const val MlKitFrameIntervalMs = 200L
-        const val TargetCameraFps = 10
+        const val CheekFrameIntervalMs = 45L
+        const val BlinkTargetCameraFps = 10
+        const val CheekTargetCameraFps = 24
         const val MinCameraFps = 5
-        const val MaxCameraFps = 15
+        const val BlinkMaxCameraFps = 15
+        const val CheekMaxCameraFps = 30
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
+        const val CheekTrialCount = 6
         const val ShortBlinkMinMs = 80L
         const val MinLongBlinkMs = 550L
         const val MaxLongBlinkMs = 1600L
+        const val MinCheekHoldMs = 100L
+        const val MaxCheekHoldMs = 800L
         const val LongBlinkGuardMs = 150L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L

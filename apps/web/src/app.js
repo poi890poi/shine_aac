@@ -2718,6 +2718,7 @@ function inputSourceLabel(source) {
   if (/keyboard|key/i.test(value)) return "鍵盤";
   if (/volume/i.test(value)) return "音量鍵";
   if (/external|switch/i.test(value)) return "外接開關";
+  if (/cheek|臉頰/i.test(value)) return "相機臉頰抽動";
   if (/camera.*blink|blink/i.test(value)) return "相機長眨眼";
   if (/camera/i.test(value)) return "相機";
   if (/emg/i.test(value)) return "肌電感測器";
@@ -2794,7 +2795,7 @@ function switchInputProfileOptionsHtml(selectedProfile) {
   const options = [
     ["hardware-buttons", uiText("Buttons — keep volume control", "按鍵—保留音量控制")],
     ["volume-buttons", uiText("Buttons — volume activates", "按鍵—音量鍵啟動")],
-    ["camera-long-blink", uiText("Camera long blink", "相機長眨眼")],
+    ["camera-long-blink", uiText("Camera optical switch", "相機光學開關")],
     ["hardware-and-camera", uiText("Buttons + camera", "按鍵＋相機")],
     ["off", uiText("Off", "關閉")]
   ];

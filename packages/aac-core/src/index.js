@@ -70,7 +70,7 @@ export const ScanTimingPresets = Object.freeze({
   }),
   cameraLongBlink: Object.freeze({
     id: "cameraLongBlink",
-    label: "Camera long blink",
+    label: "Camera optical switch",
     scanIntervalMs: 2600,
     transitionPauseMs: 800,
     firstCellPauseMs: 3200,

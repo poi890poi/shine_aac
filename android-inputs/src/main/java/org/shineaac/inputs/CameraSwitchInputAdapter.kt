@@ -42,6 +42,7 @@ class CameraSwitchInputAdapter(
     private var imageAnalysis: ImageAnalysis? = null
     private var analysisExecutor: ExecutorService? = null
     private var detector: FaceDetector? = null
+    private var cheekAnalyzer: CheekFaceAnalyzer? = null
     private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(480, 360)
     @Volatile private var mlKitInFlight = false
@@ -52,6 +53,7 @@ class CameraSwitchInputAdapter(
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
     private var blinkClassifier = BlinkGestureClassifier()
+    private var cheekClassifier: BinarySwitchClassifier? = null
     private var activeDetectionParameters = BlinkDetectionParameters()
     @Volatile private var activeSettings = CameraSwitchSettings()
     private var holdEventActive = false
@@ -77,15 +79,37 @@ class CameraSwitchInputAdapter(
         lastAnalysisCompletedAt = lastImageReceivedAt
         sendStatus("starting", force = true)
 
-        detector = FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                .enableTracking()
-                .setMinFaceSize(0.12f)
-                .build()
-        )
+        if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+            val model = settings.cheekModel
+            if (model == null) {
+                sendStatus("needsCalibration", force = true)
+                running = false
+                return
+            }
+            cheekAnalyzer = try { CheekFaceAnalyzer(context) } catch (error: Exception) {
+                Log.w(Tag, "Cheek detector initialization failed", error)
+                sendStatus("detectorUnavailable", force = true)
+                running = false
+                return
+            }
+            cheekClassifier = BinarySwitchClassifier(
+                BinarySwitchClassifier.Config(
+                    enterThreshold = model.enterThreshold,
+                    exitThreshold = model.exitThreshold,
+                    minimumHoldMs = settings.cheekHoldMs
+                )
+            )
+        } else {
+            detector = FaceDetection.getClient(
+                FaceDetectorOptions.Builder()
+                    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                    .enableTracking()
+                    .setMinFaceSize(0.12f)
+                    .build()
+            )
+        }
         tonePlayer = CameraSwitchTonePlayer()
         analysisExecutor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "ShineCameraSwitchAnalysis").apply {
@@ -125,6 +149,9 @@ class CameraSwitchInputAdapter(
         cameraProvider = null
         detector?.close()
         detector = null
+        cheekAnalyzer?.close()
+        cheekAnalyzer = null
+        cheekClassifier = null
         if (holdEventActive) {
             sendHoldEnd(activeSource, "stop")
         }
@@ -164,6 +191,9 @@ class CameraSwitchInputAdapter(
                         .build()
                 )
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            if (activeSettings.gesture == OpticalSwitchGesture.CheekTwitch) {
+                builder.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            }
             targetFpsRange(selectedCamera.cameraId)?.let { range ->
                 Camera2Interop.Extender(builder)
                     .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
@@ -229,9 +259,11 @@ class CameraSwitchInputAdapter(
         val ranges = manager.getCameraCharacteristics(cameraId)
             .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
             ?: return null
+        val target = if (activeSettings.gesture == OpticalSwitchGesture.CheekTwitch) CheekTargetCameraFps else BlinkTargetCameraFps
+        val maxFps = if (activeSettings.gesture == OpticalSwitchGesture.CheekTwitch) CheekMaxCameraFps else BlinkMaxCameraFps
         return ranges
-            .filter { it.upper <= MaxCameraFps && it.upper >= MinCameraFps }
-            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - TargetCameraFps) }.thenBy { it.lower })
+            .filter { it.upper <= maxFps && it.upper >= MinCameraFps }
+            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - target) }.thenBy { it.lower })
             ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
@@ -245,6 +277,10 @@ class CameraSwitchInputAdapter(
         val settings = activeSettings
         if (!settings.enabled) {
             imageProxy.close()
+            return
+        }
+        if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+            analyzeCheek(imageProxy, imageGeneration, settings)
             return
         }
         val now = nowMs()
@@ -385,14 +421,70 @@ class CameraSwitchInputAdapter(
         }
     }
 
+    @androidx.annotation.OptIn(ExperimentalGetImage::class)
+    private fun analyzeCheek(imageProxy: ImageProxy, imageGeneration: Int, settings: CameraSwitchSettings) {
+        val now = nowMs()
+        if (now - lastFrameAt < CheekFrameIntervalMs) {
+            imageProxy.close()
+            return
+        }
+        val analyzer = cheekAnalyzer
+        val model = settings.cheekModel
+        if (analyzer == null || model == null) {
+            imageProxy.close()
+            return
+        }
+        lastFrameAt = now
+        try {
+            val observation = analyzer.analyzeRgba(
+                imageProxy.width,
+                imageProxy.height,
+                imageProxy.planes[0].buffer,
+                imageProxy.imageInfo.rotationDegrees,
+                now
+            )
+            val score = observation?.takeIf { it.usable }?.let { model.score(it.blendshapes) }
+            updateCheekState(score, settings, now)
+            lastAnalysisCompletedAt = nowMs()
+            sendStatus("analysis")
+        } catch (error: Exception) {
+            Log.w(Tag, "Cheek analysis failed", error)
+            cheekClassifier?.onScore(null, now)
+        } finally {
+            if (imageGeneration == generation) lastAnalysisCompletedAt = nowMs()
+            safeClose(imageProxy)
+        }
+    }
+
+    private fun updateCheekState(score: Double?, settings: CameraSwitchSettings, now: Long) {
+        val classifier = cheekClassifier ?: return
+        for (event in classifier.onScore(score, now)) {
+            when (event) {
+                BinarySwitchClassifier.Event.HoldStarted -> sendHoldStart(settings.source)
+                is BinarySwitchClassifier.Event.Activated -> {
+                    playHoldReachedCue()
+                    if (now - lastActivationAt >= settings.cooldownMs) {
+                        lastActivationAt = now
+                        holdEventActive = false
+                        sink.onInput(InputEvent("activate", settings.source, "cheekTwitchMs=${event.heldMs}"))
+                    }
+                }
+                is BinarySwitchClassifier.Event.HoldEnded -> sendHoldEnd(settings.source, "reason=${event.reason.name}")
+            }
+        }
+    }
+
     private fun nowMs(): Long = SystemClock.elapsedRealtime()
 
     private companion object {
         const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 100L
-        const val TargetCameraFps = 10
+        const val BlinkTargetCameraFps = 10
+        const val CheekTargetCameraFps = 24
         const val MinCameraFps = 5
-        const val MaxCameraFps = 15
+        const val BlinkMaxCameraFps = 15
+        const val CheekMaxCameraFps = 30
+        const val CheekFrameIntervalMs = 40L
         const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L
         const val FrameStallMs = 3500L

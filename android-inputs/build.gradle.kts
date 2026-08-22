@@ -25,5 +25,6 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("com.google.mediapipe:tasks-vision:1.0.0")
     testImplementation(libs.junit)
 }
