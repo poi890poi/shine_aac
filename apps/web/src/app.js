@@ -766,10 +766,19 @@ function handleInputEvent(inputEvent = {}) {
 }
 
 function pauseCommunication() {
+  // MainActivity.onStop() also runs when an in-app native Activity (notably
+  // CameraSwitchCalibrationActivity) covers the WebView. Settings already
+  // cancel scanning, so a lifecycle pause must not repaint the board behind
+  // that Activity. Doing so produces an impossible state: board DOM visible
+  // while configOpen remains true, which also makes activateSwitch() ignore
+  // every activation.
+  const page = currentAppPage();
   cancelScheduledScan();
   cameraHoldActive = false;
   cameraHoldProgress = 0;
   reviewHoldActive = false;
+  if (page !== "board") return true;
+
   session = pauseSession(session);
   render();
   resetClock();
