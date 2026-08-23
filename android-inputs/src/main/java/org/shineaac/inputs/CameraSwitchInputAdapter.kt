@@ -250,7 +250,11 @@ class CameraSwitchInputAdapter(
         }
 
         val now = System.currentTimeMillis()
-        if (now - lastFrameAt < MlKitFrameIntervalMs) {
+        val detectorIntervalMs = when (settings.gesture) {
+            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
+            OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
+        }
+        if (now - lastFrameAt < detectorIntervalMs) {
             imageProxy.close()
             return
         }
@@ -366,33 +370,14 @@ class CameraSwitchInputAdapter(
 
     private fun updateCheekState(score: Double?, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
-
         for (event in cheekClassifier.onScore(score, now)) {
             when (event) {
-                is BinarySwitchClassifier.Event.HoldStarted -> {
-                    sendHoldStart(settings.source, "cheekMotion")
-                }
-
-                is BinarySwitchClassifier.Event.Activated -> {
-                    if (now - lastActivationAt >= settings.cooldownMs) {
-                        lastActivationAt = now
-                        playHoldReachedCue()
-                        sink.onInput(
-                            InputEvent(
-                                intent = "activate",
-                                source = settings.source,
-                                detail = "cheekHoldMs=${event.heldMs}"
-                            )
-                        )
-                    }
-                }
-
-                is BinarySwitchClassifier.Event.HoldEnded -> {
-                    sendHoldEnd(
-                        settings.source,
-                        "reason=${event.reason.name}"
-                    )
-                }
+                is BinarySwitchClassifier.Event.HoldStarted ->
+                    onHoldStarted(settings, "cheekMotion")
+                is BinarySwitchClassifier.Event.Activated ->
+                    onActivated(settings, now, "cheekTwitchMs=${event.heldMs}")
+                is BinarySwitchClassifier.Event.HoldEnded ->
+                    onHoldEnded(settings, "reason=${event.reason.name}")
             }
         }
     }
@@ -401,22 +386,30 @@ class CameraSwitchInputAdapter(
         val now = System.currentTimeMillis()
         for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
             when (event) {
-                is BlinkGestureClassifier.Event.HoldStarted -> {
-                    sendHoldStart(settings.source, "eyesClosed")
-                }
-                is BlinkGestureClassifier.Event.Activated -> {
-                    playHoldReachedCue()
-                    if (now - lastActivationAt >= settings.cooldownMs) {
-                        lastActivationAt = now
-                        holdEventActive = false
-                        sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=${event.durationMs}"))
-                    }
-                }
-                is BlinkGestureClassifier.Event.HoldEnded -> {
-                    sendHoldEnd(settings.source, "closedMs=${event.durationMs};reason=${event.reason.name}")
-                }
+                is BlinkGestureClassifier.Event.HoldStarted ->
+                    onHoldStarted(settings, "eyesClosed")
+                is BlinkGestureClassifier.Event.Activated ->
+                    onActivated(settings, now, "longBlinkMs=${event.durationMs}")
+                is BlinkGestureClassifier.Event.HoldEnded ->
+                    onHoldEnded(settings, "closedMs=${event.durationMs};reason=${event.reason.name}")
             }
         }
+    }
+
+    private fun onHoldStarted(settings: CameraSwitchSettings, detail: String) {
+        sendHoldStart(settings.source, detail)
+    }
+
+    private fun onActivated(settings: CameraSwitchSettings, now: Long, detail: String) {
+        playHoldReachedCue()
+        if (now - lastActivationAt < settings.cooldownMs) return
+        lastActivationAt = now
+        holdEventActive = false
+        sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = detail))
+    }
+
+    private fun onHoldEnded(settings: CameraSwitchSettings, detail: String) {
+        sendHoldEnd(settings.source, detail)
     }
 
     private fun sendHoldStart(source: String, detail: String) {
@@ -479,6 +472,7 @@ class CameraSwitchInputAdapter(
     private companion object {
         const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 200L
+        const val CheekFrameIntervalMs = 66L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5
         const val MaxCameraFps = 15

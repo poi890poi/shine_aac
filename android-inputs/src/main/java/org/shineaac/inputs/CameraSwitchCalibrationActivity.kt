@@ -77,6 +77,16 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraHandler: Handler? = null
     private var mainHandler: Handler? = null
     private var detector: FaceDetector? = null
+    private var cheekAnalyzer: CheekFaceAnalyzer? = null
+    private var cheekDetector = CheekTwitchDetector()
+    private var cheekClassifier = BinarySwitchClassifier(
+        BinarySwitchClassifier.Config(
+            enterThreshold = CheekTwitchDetector.DefaultEnterThreshold,
+            exitThreshold = CheekTwitchDetector.DefaultExitThreshold,
+            minimumHoldMs = 180L
+        )
+    )
+    private var cheekPreviewActivations = 0
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var tonePlayer: CameraSwitchTonePlayer? = null
@@ -143,6 +153,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                 .setMinFaceSize(0.12f)
                 .build()
         )
+        cheekAnalyzer = runCatching { CheekFaceAnalyzer(this) }.getOrNull()
+        resetCheekClassifier()
         tonePlayer = CameraSwitchTonePlayer()
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
@@ -202,6 +214,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     override fun onDestroy() {
         detector?.close()
         detector = null
+        cheekAnalyzer?.close()
+        cheekAnalyzer = null
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -305,7 +319,10 @@ class CameraSwitchCalibrationActivity : Activity() {
             setPadding(0, dp(4), 0, dp(4))
         }
         val feedbackView = TextView(this).apply {
-            text = tr("Green: eyes. Amber: face.", "綠框：眼睛。黃框：臉部。")
+            text = tr(
+                "Face marks show tracking. Bottom bar is gesture strength; white line is activation threshold.",
+                "臉部標記顯示追蹤狀態。下方長條為動作強度；白線為啟動門檻。"
+            )
             setTextColor(Color.rgb(183, 196, 210))
             textSize = 14f
             setPadding(0, 0, 0, dp(10))
@@ -463,12 +480,12 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun updateSavedCalibrationUi() {
         if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
             statusView?.text = tr(
-                "Cheek twitch selected. No calibration is required. Center your face, then tap Done.",
-                "已選擇臉頰抽動。不需要校正。將臉置於中央，然後按「完成」。"
+                "Cheek twitch selected. Keep your face relaxed briefly, then twitch to test it here.",
+                "已選擇臉頰抽動。先短暫保持放鬆，再直接在此測試臉頰抽動。"
             )
             metricsView?.text = tr(
-                "Camera preview is for checking face position.",
-                "相機預覽用來確認臉部位置。"
+                "Learning resting face; keypoints and strength will appear automatically.",
+                "正在學習放鬆表情；關鍵點與強度會自動顯示。"
             )
             updateGestureUi()
             updateHoldUi()
@@ -671,6 +688,12 @@ class CameraSwitchCalibrationActivity : Activity() {
 
         selectedGesture = gesture
         CameraSwitchPreferences.saveGesture(this, gesture)
+        overlayView?.clearDetection()
+        if (gesture == OpticalSwitchGesture.CheekTwitch) {
+            cheekDetector.reset()
+            cheekPreviewActivations = 0
+            resetCheekClassifier()
+        }
         updateGestureUi()
         updateSavedCalibrationUi()
     }
@@ -704,6 +727,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                 MaxCheekHoldMs
             )
             CameraSwitchPreferences.saveCheekHold(this, cheekHoldMs)
+            resetCheekClassifier()
             statusView?.text = tr(
                 "Cheek hold updated.",
                 "已更新臉頰抽動維持時間。"
@@ -976,19 +1000,31 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun analyze(image: Image) {
         val now = System.currentTimeMillis()
-        if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
+        val detectorIntervalMs = when (selectedGesture) {
+            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
+            OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
+        }
+        if (mlKitInFlight || now - lastFrameAt < detectorIntervalMs) {
             image.close()
             return
         }
+
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            analyzeCheek(image, now)
+            return
+        }
+
         val activeDetector = detector
         if (activeDetector == null) {
             image.close()
             return
         }
+
         mlKitInFlight = true
         lastFrameAt = now
         val rotationDegrees = analysisRotationDegrees
         val imageSize = orientedImageSize(image, rotationDegrees)
+
         activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
             .addOnSuccessListener { faces ->
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
@@ -996,8 +1032,16 @@ class CameraSwitchCalibrationActivity : Activity() {
                 val score = signal?.closedScore
                 if (signal != null) collectCalibrationSample(signal, now)
                 val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
+
                 mainHandler?.post {
-                    overlayView?.setFace(face?.boundingBox, imageSize.width, imageSize.height, score != null)
+                    overlayView?.setPixelDetection(
+                        face = face?.boundingBox,
+                        frameWidth = imageSize.width,
+                        frameHeight = imageSize.height,
+                        score = score,
+                        threshold = detectionParameters.closeThreshold,
+                        hasSignal = score != null
+                    )
                     when (previewBlink) {
                         PreviewBlink.Short -> {
                             playShortCue()
@@ -1005,7 +1049,10 @@ class CameraSwitchCalibrationActivity : Activity() {
                         }
                         PreviewBlink.Long -> {
                             playLongAcceptedCue()
-                            statusView?.text = tr("Long blink accepted. Current position works.", "長眨眼已接受。目前位置合適。")
+                            statusView?.text = tr(
+                                "Long blink accepted. Current position works.",
+                                "長眨眼已接受。目前位置合適。"
+                            )
                         }
                         PreviewBlink.None -> Unit
                     }
@@ -1024,6 +1071,103 @@ class CameraSwitchCalibrationActivity : Activity() {
                 image.close()
                 mlKitInFlight = false
             }
+    }
+
+    private fun analyzeCheek(image: Image, now: Long) {
+        val analyzer = cheekAnalyzer
+        if (analyzer == null) {
+            image.close()
+            mainHandler?.post {
+                metricsView?.text = tr(
+                    "Cheek detector unavailable on this device.",
+                    "此裝置無法使用臉頰偵測器。"
+                )
+            }
+            return
+        }
+
+        mlKitInFlight = true
+        lastFrameAt = now
+        val rotationDegrees = analysisRotationDegrees
+        val imageSize = orientedImageSize(image, rotationDegrees)
+
+        try {
+            val observation = analyzer.analyze(image, rotationDegrees, now)
+            val values = observation?.takeIf { it.usable }?.blendshapes
+            val score = values?.let { cheekDetector.observe(it) }
+
+            var activated = false
+            cheekClassifier.onScore(score, now).forEach { event ->
+                if (event is BinarySwitchClassifier.Event.Activated) {
+                    activated = true
+                    cheekPreviewActivations += 1
+                }
+            }
+
+            val warmupPercent = (cheekDetector.warmupProgress * 100f).toInt()
+            val threshold = CheekTwitchDetector.DefaultEnterThreshold
+
+            mainHandler?.post {
+                overlayView?.setNormalizedDetection(
+                    face = observation?.normalizedBounds,
+                    landmarks = observation?.normalizedLandmarks,
+                    frameWidth = imageSize.width,
+                    frameHeight = imageSize.height,
+                    score = score,
+                    threshold = threshold,
+                    hasSignal = observation?.usable == true
+                )
+
+                if (activated) {
+                    playLongAcceptedCue()
+                    statusView?.text = tr(
+                        "Cheek twitch accepted. Current position works.",
+                        "臉頰抽動已接受。目前位置合適。"
+                    )
+                }
+
+                metricsView?.text = when {
+                    observation == null ->
+                        tr("Face not detected", "未偵測到臉部")
+                    !observation.usable ->
+                        if (zhTwUi) tr("Adjust face position", "請調整臉部位置")
+                        else observation.qualityMessage
+                    !cheekDetector.ready ->
+                        tr(
+                            "Learning resting face $warmupPercent%",
+                            "正在學習放鬆表情 $warmupPercent%"
+                        )
+                    score == null ->
+                        tr("Learning resting face", "正在學習放鬆表情")
+                    else ->
+                        tr(
+                            "Cheek ${"%.2f".format(score)} / ${"%.2f".format(threshold)} | accepted $cheekPreviewActivations",
+                            "臉頰 ${"%.2f".format(score)} / ${"%.2f".format(threshold)}｜已接受 $cheekPreviewActivations"
+                        )
+                }
+            }
+        } catch (_: Exception) {
+            cheekClassifier.onScore(null, now)
+            mainHandler?.post {
+                metricsView?.text = tr(
+                    "Cheek analysis paused; keep your face centered.",
+                    "臉頰分析暫停；請保持臉部置中。"
+                )
+            }
+        } finally {
+            image.close()
+            mlKitInFlight = false
+        }
+    }
+
+    private fun resetCheekClassifier() {
+        cheekClassifier = BinarySwitchClassifier(
+            BinarySwitchClassifier.Config(
+                enterThreshold = CheekTwitchDetector.DefaultEnterThreshold,
+                exitThreshold = CheekTwitchDetector.DefaultExitThreshold,
+                minimumHoldMs = cheekHoldMs
+            )
+        )
     }
 
     private fun updateMetrics(score: Double?) {
@@ -1241,43 +1385,180 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
     private class FaceOverlayView(context: Context) : View(context) {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(52, 211, 153)
             style = Paint.Style.STROKE
             strokeWidth = 5f
         }
-        private var face: Rect? = null
+        private val landmarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(96, 165, 250)
+            style = Paint.Style.FILL
+        }
+        private val meterBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(180, 15, 23, 42)
+            style = Paint.Style.FILL
+        }
+        private val meterFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(52, 211, 153)
+            style = Paint.Style.FILL
+        }
+        private val thresholdPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 3f
+        }
+
+        private var pixelFace: Rect? = null
+        private var normalizedFace: NormalizedFaceBounds? = null
+        private var landmarks: FloatArray? = null
         private var frameWidth = 0
         private var frameHeight = 0
-        private var hasEyeSignal = false
+        private var hasSignal = false
+        private var score: Double? = null
+        private var threshold = 1.0
 
-        fun setFace(nextFace: Rect?, width: Int, height: Int, nextHasEyeSignal: Boolean) {
-            face = nextFace
-            frameWidth = width
-            frameHeight = height
-            hasEyeSignal = nextHasEyeSignal
+        fun clearDetection() {
+            pixelFace = null
+            normalizedFace = null
+            landmarks = null
+            score = null
+            hasSignal = false
+            invalidate()
+        }
+
+        fun setPixelDetection(
+            face: Rect?,
+            frameWidth: Int,
+            frameHeight: Int,
+            score: Double?,
+            threshold: Double,
+            hasSignal: Boolean
+        ) {
+            pixelFace = face
+            normalizedFace = null
+            landmarks = null
+            this.frameWidth = frameWidth
+            this.frameHeight = frameHeight
+            this.score = score
+            this.threshold = threshold
+            this.hasSignal = hasSignal
+            invalidate()
+        }
+
+        fun setNormalizedDetection(
+            face: NormalizedFaceBounds?,
+            landmarks: FloatArray?,
+            frameWidth: Int,
+            frameHeight: Int,
+            score: Double?,
+            threshold: Double,
+            hasSignal: Boolean
+        ) {
+            pixelFace = null
+            normalizedFace = face
+            this.landmarks = landmarks
+            this.frameWidth = frameWidth
+            this.frameHeight = frameHeight
+            this.score = score
+            this.threshold = threshold
+            this.hasSignal = hasSignal
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val box = face ?: return
             if (frameWidth <= 0 || frameHeight <= 0) return
+
             val scale = min(width / frameWidth.toFloat(), height / frameHeight.toFloat())
             val drawnWidth = frameWidth * scale
             val drawnHeight = frameHeight * scale
             val leftOffset = (width - drawnWidth) / 2f
             val topOffset = (height - drawnHeight) / 2f
-            paint.color = if (hasEyeSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
-            val mirroredLeft = frameWidth - box.right
-            val mirroredRight = frameWidth - box.left
-            val rect = RectF(
-                leftOffset + mirroredLeft * scale,
-                topOffset + box.top * scale,
-                leftOffset + mirroredRight * scale,
-                topOffset + box.bottom * scale
+
+            boxPaint.color =
+                if (hasSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
+
+            pixelFace?.let { box ->
+                val mirroredLeft = frameWidth - box.right
+                val mirroredRight = frameWidth - box.left
+                canvas.drawRect(
+                    RectF(
+                        leftOffset + mirroredLeft * scale,
+                        topOffset + box.top * scale,
+                        leftOffset + mirroredRight * scale,
+                        topOffset + box.bottom * scale
+                    ),
+                    boxPaint
+                )
+            }
+
+            normalizedFace?.let { box ->
+                // Cheek detector coordinates are already upright + mirrored into preview space.
+                val left = box.left * frameWidth
+                val right = box.right * frameWidth
+                canvas.drawRect(
+                    RectF(
+                        leftOffset + left * scale,
+                        topOffset + box.top * frameHeight * scale,
+                        leftOffset + right * scale,
+                        topOffset + box.bottom * frameHeight * scale
+                    ),
+                    boxPaint
+                )
+            }
+
+            landmarks?.let { points ->
+                var index = 0
+                while (index + 1 < points.size) {
+                    // No second mirror: MediaPipe analysed the already-mirrored front-camera bitmap.
+                    val x = points[index] * frameWidth
+                    val y = points[index + 1] * frameHeight
+                    canvas.drawCircle(
+                        leftOffset + x * scale,
+                        topOffset + y * scale,
+                        2.2f,
+                        landmarkPaint
+                    )
+                    index += 2
+                }
+            }
+
+            drawStrengthMeter(canvas)
+        }
+
+        private fun drawStrengthMeter(canvas: Canvas) {
+            val meterLeft = width * 0.08f
+            val meterRight = width * 0.92f
+            val meterBottom = height - 18f
+            val meterTop = meterBottom - 20f
+            val meterWidth = meterRight - meterLeft
+            val maxScore = 1.0
+
+            canvas.drawRoundRect(
+                RectF(meterLeft, meterTop, meterRight, meterBottom),
+                8f,
+                8f,
+                meterBackgroundPaint
             )
-            canvas.drawRect(rect, paint)
+
+            val value = (score ?: 0.0).coerceIn(0.0, maxScore) / maxScore
+            if (value > 0.0) {
+                canvas.drawRoundRect(
+                    RectF(
+                        meterLeft,
+                        meterTop,
+                        meterLeft + meterWidth * value.toFloat(),
+                        meterBottom
+                    ),
+                    8f,
+                    8f,
+                    meterFillPaint
+                )
+            }
+
+            val thresholdX = meterLeft +
+                meterWidth * (threshold.coerceIn(0.0, maxScore) / maxScore).toFloat()
+            canvas.drawLine(thresholdX, meterTop - 4f, thresholdX, meterBottom + 4f, thresholdPaint)
         }
     }
 
@@ -1292,6 +1573,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val PreviewBufferWidth = 640
         const val PreviewBufferHeight = 480
         const val MlKitFrameIntervalMs = 200L
+        const val CheekFrameIntervalMs = 66L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5
         const val MaxCameraFps = 15

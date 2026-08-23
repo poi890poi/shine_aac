@@ -2,9 +2,9 @@ package org.shineaac.inputs
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.media.Image
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MediaImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
@@ -33,12 +33,36 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
 
     @Synchronized
     fun analyze(image: Image, rotationDegrees: Int, timestampMs: Long): CheekFaceObservation? {
-        val mpImage = MediaImageBuilder(image).build()
+        val decoded = YuvBitmaps.toBitmap(image)
+        val oriented = orientFrontCamera(decoded, rotationDegrees)
         return try {
-            analyzeMpImage(mpImage, rotationDegrees, timestampMs)
+            // MediaPipe now sees exactly the orientation/mirroring used by the front-camera preview.
+            // Its normalized landmark coordinates therefore need no downstream rotation or mirror.
+            analyzeBitmap(oriented, 0, timestampMs)
         } finally {
-            mpImage.close()
+            if (oriented !== decoded) oriented.recycle()
+            decoded.recycle()
         }
+    }
+
+    private fun orientFrontCamera(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
+        val normalizedRotation = ((rotationDegrees % 360) + 360) % 360
+        val transform = Matrix().apply {
+            if (normalizedRotation != 0) {
+                postRotate(normalizedRotation.toFloat())
+            }
+            // Front-camera preview convention: mirror horizontally after making the image upright.
+            postScale(-1f, 1f)
+        }
+        return Bitmap.createBitmap(
+            bitmap,
+            0,
+            0,
+            bitmap.width,
+            bitmap.height,
+            transform,
+            true
+        )
     }
 
     /**
