@@ -51,6 +51,30 @@ class BinarySwitchClassifierTest {
     }
 
     @Test
+    fun signalLossEndsAnActiveLatchedHold() {
+        val classifier = BinarySwitchClassifier(
+            config.copy(signalLostCancelMs = 100L)
+        )
+        classifier.onScore(0.1, 0)
+        classifier.onScore(0.1, 350)
+        classifier.onScore(0.8, 400)
+
+        val activation = classifier.onScore(0.8, 590)
+        assertEquals(
+            1,
+            activation.count { it is BinarySwitchClassifier.Event.Activated }
+        )
+
+        assertTrue(classifier.onScore(null, 600).isEmpty())
+        val ended = classifier.onScore(null, 701).single()
+        assertTrue(ended is BinarySwitchClassifier.Event.HoldEnded)
+        assertEquals(
+            BinarySwitchClassifier.EndReason.SignalLost,
+            (ended as BinarySwitchClassifier.Event.HoldEnded).reason
+        )
+    }
+
+    @Test
     fun shortMotionDoesNotActivate() {
         val classifier = BinarySwitchClassifier(config)
 

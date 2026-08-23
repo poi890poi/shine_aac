@@ -109,7 +109,16 @@ class CameraSwitchInputAdapter(
             cheekAnalyzer = null
         } else {
             detector = null
-            cheekAnalyzer = CheekFaceAnalyzer(context)
+            cheekAnalyzer = runCatching { CheekFaceAnalyzer(context) }
+                .onFailure { error ->
+                    Log.e(Tag, "Cheek detector initialization failed", error)
+                }
+                .getOrNull()
+            if (cheekAnalyzer == null) {
+                running = false
+                sendStatus("detectorUnavailable", force = true)
+                return
+            }
         }
         tonePlayer = CameraSwitchTonePlayer()
         analysisExecutor = Executors.newSingleThreadExecutor { runnable ->

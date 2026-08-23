@@ -705,16 +705,64 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun selectGesture(gesture: OpticalSwitchGesture) {
         if (selectedGesture == gesture) return
 
+        when (selectedGesture) {
+            OpticalSwitchGesture.LongBlink -> cancelLongBlinkCalibration()
+            OpticalSwitchGesture.CheekTwitch -> resetCheekCalibrationProgress()
+        }
+
         selectedGesture = gesture
         CameraSwitchPreferences.saveGesture(this, gesture)
         overlayView?.clearDetection()
+
         if (gesture == OpticalSwitchGesture.CheekTwitch) {
             cheekDetector.reset()
             cheekPreviewActivations = 0
             resetCheekClassifier()
         }
+
         updateGestureUi()
         updateSavedCalibrationUi()
+    }
+
+    private fun cancelLongBlinkCalibration() {
+        // Calibration callbacks capture calibrationRunId. Invalidating only
+        // that run is safer than clearing unrelated main-handler callbacks.
+        calibrationRunId += 1
+        tts?.stop()
+        currentSpeechId = null
+        currentSpeechDone = null
+        phase = Phase.Idle
+        captureEndsAtMs = 0L
+        activeStepLabel = ""
+
+        longBlinkDurations.clear()
+        restClosedDurations.clear()
+        restEyeSignals.clear()
+        slowBlinkEyeSignals.clear()
+        calibrationFrameIntervalsMs.clear()
+        lastCalibrationSignalAtMs = 0L
+
+        longBlinkClosed = false
+        longBlinkClosedStartedAt = 0L
+        calibrationHoldCuePlayed = false
+        restClosed = false
+        restClosedStartedAt = 0L
+        previewLongBlinkClosed = false
+        previewLongBlinkClosedStartedAt = 0L
+        previewHoldCuePlayed = false
+        startButton?.isEnabled = true
+    }
+
+    private fun resetCheekCalibrationProgress() {
+        cheekCalibrationStage = CheekCalibrationStage.Idle
+        cheekCalibrationTrial = 0
+        cheekCalibrationBuffer.clear()
+        cheekCalibrationPeak = 0.0
+        cheekCalibrator.reset()
+        cheekDetector.reset()
+        cheekPreviewActivations = 0
+        resetCheekClassifier()
+        startButton?.isEnabled = true
     }
 
     private fun updateGestureUi() {

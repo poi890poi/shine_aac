@@ -11,13 +11,12 @@ import android.media.Image
  */
 internal object YuvBitmaps {
     /**
-     * Converts a frame, writing into [reuse] when it is the right size.
+     * Converts a frame to an ARGB bitmap.
      *
-     * The preview now runs at its own rate rather than the detector's, so this happens often enough
-     * that allocating a fresh buffer every frame would be a needless megabyte of churn. Only the
-     * caller's oriented output is handed to a View; this buffer never is, so it is safe to reuse.
+     * This converter currently allocates both its pixel buffer and result bitmap.
+     * If profiling justifies reuse later, optimize both allocations together.
      */
-    fun toBitmap(image: Image, reuse: Bitmap? = null): Bitmap {
+    fun toBitmap(image: Image): Bitmap {
         val width = image.width
         val height = image.height
         val pixels = IntArray(width * height)
@@ -42,11 +41,6 @@ internal object YuvBitmaps {
                 val blue = (y + 1.772 * u).toInt().coerceIn(0, 255)
                 pixels[output++] = (0xff shl 24) or (red shl 16) or (green shl 8) or blue
             }
-        }
-        val target = reuse?.takeIf { !it.isRecycled && it.isMutable && it.width == width && it.height == height }
-        if (target != null) {
-            target.setPixels(pixels, 0, width, 0, 0, width, height)
-            return target
         }
         return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
     }

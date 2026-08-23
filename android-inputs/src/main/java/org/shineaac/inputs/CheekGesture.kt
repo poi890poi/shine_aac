@@ -187,9 +187,9 @@ class BinarySwitchClassifier(private val config: Config) {
         if (score == null) {
             if (lostSinceMs == NoTime) lostSinceMs = nowMs
             if (nowMs - lostSinceMs < config.signalLostCancelMs) return emptyList()
-            val holding = state == State.Holding
+            val holdActive = state == State.Latched
             reset()
-            return if (holding) listOf(Event.HoldEnded(EndReason.SignalLost)) else emptyList()
+            return if (holdActive) listOf(Event.HoldEnded(EndReason.SignalLost)) else emptyList()
         }
         lostSinceMs = NoTime
         return when (state) {
@@ -215,7 +215,6 @@ class BinarySwitchClassifier(private val config: Config) {
                     }
                 }
             }
-            State.Holding -> error("Holding state is no longer used")
             State.Latched -> if (score <= config.exitThreshold) {
                 reset(assumeNeutral = true); listOf(Event.HoldEnded(EndReason.Relaxed))
             } else emptyList()
@@ -225,6 +224,6 @@ class BinarySwitchClassifier(private val config: Config) {
     data class Config(val enterThreshold: Double, val exitThreshold: Double, val minimumHoldMs: Long = 180L, val requiredNeutralMs: Long = 300L, val signalLostCancelMs: Long = 650L)
     sealed class Event { data object HoldStarted : Event(); data class Activated(val heldMs: Long) : Event(); data class HoldEnded(val reason: EndReason) : Event() }
     enum class EndReason { Relaxed, SignalLost }
-    private enum class State { Neutral, Holding, Latched }
+    private enum class State { Neutral, Latched }
     private companion object { const val NoTime = -1L }
 }
