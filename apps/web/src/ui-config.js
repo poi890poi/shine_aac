@@ -12,8 +12,11 @@ export const defaultUiConfig = Object.freeze({
   verticalGroupProgress: false,
   hardwareButtons: true,
   cameraSwitch: false,
-  switchInputProfile: "hardware-buttons"
+  switchInputProfile: "hardware-buttons",
+  contrastTheme: "default"
 });
+
+export const ContrastThemes = Object.freeze(["default", "high-contrast", "high-contrast-dark"]);
 
 export function loadUiConfig(storageKey) {
   const nativeConfig = loadNativeUiConfig();
@@ -58,6 +61,9 @@ export function normalizeUiConfig(config) {
     ? config.speechVoiceName.slice(0, 200)
     : "";
   const speechVoiceName = requestedSpeechVoiceName || moeBopomofoVoiceName;
+  const contrastTheme = ContrastThemes.includes(config.contrastTheme)
+    ? config.contrastTheme
+    : defaultUiConfig.contrastTheme;
   const normalized = {
     ...defaultUiConfig,
     ...config,
@@ -66,6 +72,7 @@ export function normalizeUiConfig(config) {
     // lightweight Ministry of Education Bopomofo option.
     speechVoiceName,
     switchInputProfile: profile,
+    contrastTheme,
     hardwareButtons: profile === "hardware-buttons" ||
       profile === "volume-buttons" ||
       profile === "hardware-and-camera",

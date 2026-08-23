@@ -1,12 +1,130 @@
 :root {
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
-  background: #f6f4ee;
-  color: #172027;
   --app-viewport-height: 100vh;
   --minimum-function-label-size: 20px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+
+  --color-app-bg: #f6f4ee;
+  --color-text: #172027;
+  --color-text-muted: #4f5b66;
+  --color-panel-bg: #ffffff;
+  --color-panel-border: #ddded7;
+  --color-message-bg: #eef3f7;
+  --color-border: #9aa4ae;
+  --color-border-strong: #8c93a0;
+  --color-accent: #1f6f78;
+  --color-accent-on: #ffffff;
+  --color-accent-2: #6750a4;
+  --color-tile-bg: #ffffff;
+  --color-tile-border: #b8c1ca;
+  --color-tile-text: #162029;
+  --color-tile-command-bg: #f1f3f5;
+  --color-tile-command-border: #9aa4ae;
+  --color-tile-function-bg: #dfeaf2;
+  --color-tile-function-border: #40596d;
+  --color-tile-function-shadow: #91a9ba;
+  --color-tile-replacement-bg: #fff3bf;
+  --color-tile-replacement-border: #c47f17;
+  --color-tile-replacement-shadow: #f08c00;
+  --color-tile-active-block-bg: #ded5f2;
+  --color-tile-active-block-border: #6750a4;
+  --color-tile-active-row-bg: #9bc1bc;
+  --color-tile-active-row-border: #1f7a8c;
+  --color-tile-active-cell-bg: #f4d35e;
+  --color-tile-active-cell-border: #111111;
+  --color-camera-status-bg: #eef3f7;
+  --color-camera-status-border: #9aa4ae;
+  --color-camera-status-live: #2f9e44;
+  --color-camera-status-blink-bg: #d8f3f1;
+  --color-camera-status-blink-border: #1f6f78;
+  --color-camera-status-warn: #f08c00;
+  --color-camera-status-stale-bg: #f4e4e1;
+  --color-camera-status-stale-border: #b77970;
+  --color-camera-status-stale-dot: #c92a2a;
+  background: var(--color-app-bg);
+  color: var(--color-text);
+}
+
+[data-contrast="high-contrast"] {
+  --color-app-bg: #ffffff;
+  --color-text: #000000;
+  --color-text-muted: #26313a;
+  --color-panel-bg: #ffffff;
+  --color-panel-border: #000000;
+  --color-message-bg: #ffffff;
+  --color-border: #000000;
+  --color-border-strong: #000000;
+  --color-accent: #004d47;
+  --color-accent-on: #ffffff;
+  --color-accent-2: #3d1f8c;
+  --color-tile-bg: #ffffff;
+  --color-tile-border: #000000;
+  --color-tile-text: #000000;
+  --color-tile-command-bg: #e4e4e4;
+  --color-tile-command-border: #000000;
+  --color-tile-function-bg: #cfe8f7;
+  --color-tile-function-border: #003a52;
+  --color-tile-function-shadow: #003a52;
+  --color-tile-replacement-bg: #fff2a8;
+  --color-tile-replacement-border: #7a4a00;
+  --color-tile-replacement-shadow: #7a4a00;
+  --color-tile-active-block-bg: #d9c6ff;
+  --color-tile-active-block-border: #3d1f8c;
+  --color-tile-active-row-bg: #5fa89f;
+  --color-tile-active-row-border: #004d47;
+  --color-tile-active-cell-bg: #ffcc00;
+  --color-tile-active-cell-border: #000000;
+  --color-camera-status-bg: #ffffff;
+  --color-camera-status-border: #000000;
+  --color-camera-status-live: #0a6b2e;
+  --color-camera-status-blink-bg: #cdeeea;
+  --color-camera-status-blink-border: #004d47;
+  --color-camera-status-warn: #a35a00;
+  --color-camera-status-stale-bg: #ffe1db;
+  --color-camera-status-stale-border: #8c2f22;
+  --color-camera-status-stale-dot: #a10f0f;
+}
+
+[data-contrast="high-contrast-dark"] {
+  --color-app-bg: #000000;
+  --color-text: #ffffff;
+  --color-text-muted: #d8dee3;
+  --color-panel-bg: #0e1113;
+  --color-panel-border: #ffffff;
+  --color-message-bg: #14181b;
+  --color-border: #ffffff;
+  --color-border-strong: #ffffff;
+  --color-accent: #4fd6c8;
+  --color-accent-on: #00201d;
+  --color-accent-2: #c6b3ff;
+  --color-tile-bg: #14181b;
+  --color-tile-border: #ffffff;
+  --color-tile-text: #ffffff;
+  --color-tile-command-bg: #1f2529;
+  --color-tile-command-border: #ffffff;
+  --color-tile-function-bg: #0f3547;
+  --color-tile-function-border: #8fd6ff;
+  --color-tile-function-shadow: #8fd6ff;
+  --color-tile-replacement-bg: #4a3c00;
+  --color-tile-replacement-border: #ffd54a;
+  --color-tile-replacement-shadow: #ffd54a;
+  --color-tile-active-block-bg: #3d2e66;
+  --color-tile-active-block-border: #c6b3ff;
+  --color-tile-active-row-bg: #16504a;
+  --color-tile-active-row-border: #4fd6c8;
+  --color-tile-active-cell-bg: #7a5f00;
+  --color-tile-active-cell-border: #ffe066;
+  --color-camera-status-bg: #14181b;
+  --color-camera-status-border: #ffffff;
+  --color-camera-status-live: #4ade80;
+  --color-camera-status-blink-bg: #103a36;
+  --color-camera-status-blink-border: #4fd6c8;
+  --color-camera-status-warn: #ffb84d;
+  --color-camera-status-stale-bg: #3a1712;
+  --color-camera-status-stale-border: #ff9b8a;
+  --color-camera-status-stale-dot: #ff6b5b;
 }
 
 @supports (height: 100dvh) {
@@ -39,7 +157,8 @@ textarea {
 
 .app {
   min-height: var(--app-viewport-height);
-  background: #f6f4ee;
+  background: var(--color-app-bg);
+  color: var(--color-text);
 }
 
 .shell {
@@ -55,9 +174,9 @@ textarea {
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid #ddded7;
+  border: 1px solid var(--color-panel-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-panel-bg);
   box-shadow: 0 1px 4px rgba(30, 35, 40, 0.12);
 }
 
@@ -68,8 +187,8 @@ textarea {
   min-height: calc(1.35em + 24px);
   padding: 12px;
   border-radius: 6px;
-  background: #eef3f7;
-  color: #172027;
+  background: var(--color-message-bg);
+  color: var(--color-text);
   font-size: 28px;
   font-weight: 800;
   line-height: 1.35;
@@ -108,13 +227,20 @@ textarea {
 
 .status-row {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto;
   gap: 12px;
   align-items: center;
 }
 
+.status-secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .phase {
-  color: #4f5b66;
+  color: var(--color-text-muted);
   font-size: 17px;
   font-weight: 700;
   white-space: nowrap;
@@ -123,23 +249,26 @@ textarea {
 body.demo-active .phase::after {
   content: " Demo";
   margin-left: 8px;
-  color: #1f6f78;
+  color: var(--color-accent);
 }
 
 .voice {
-  color: #4f5b66;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
   font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .camera-status {
   min-width: 82px;
   padding: 6px 10px;
-  border: 1px solid #9aa4ae;
+  border: 1px solid var(--color-camera-status-border);
   border-radius: 999px;
-  background: #eef3f7;
-  color: #2b2f36;
+  background: var(--color-camera-status-bg);
+  color: var(--color-text);
   font-size: 13px;
   font-weight: 800;
   text-align: center;
@@ -153,26 +282,26 @@ body.demo-active .phase::after {
   height: 8px;
   margin-right: 6px;
   border-radius: 999px;
-  background: #9aa4ae;
+  background: var(--color-camera-status-border);
 }
 
 .camera-status-live::before,
 .camera-status-analysis::before {
-  background: #2f9e44;
+  background: var(--color-camera-status-live);
 }
 
 .camera-status-blink {
-  border-color: #1f6f78;
-  background: #d8f3f1;
+  border-color: var(--color-camera-status-blink-border);
+  background: var(--color-camera-status-blink-bg);
 }
 
 .camera-status-blink::before {
-  background: #1f6f78;
+  background: var(--color-camera-status-blink-border);
 }
 
 .camera-status-restarting::before,
 .camera-status-starting::before {
-  background: #f08c00;
+  background: var(--color-camera-status-warn);
 }
 
 .camera-status-stale,
@@ -180,8 +309,8 @@ body.demo-active .phase::after {
 .camera-status-cameraStale,
 .camera-status-cameraUnavailable,
 .camera-status-permissionDenied {
-  border-color: #b77970;
-  background: #f4e4e1;
+  border-color: var(--color-camera-status-stale-border);
+  background: var(--color-camera-status-stale-bg);
 }
 
 .camera-status-stale::before,
@@ -189,7 +318,7 @@ body.demo-active .phase::after {
 .camera-status-cameraStale::before,
 .camera-status-cameraUnavailable::before,
 .camera-status-permissionDenied::before {
-  background: #c92a2a;
+  background: var(--color-camera-status-stale-dot);
 }
 
 .config-button,
@@ -198,24 +327,24 @@ body.demo-active .phase::after {
   min-height: 42px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 1px solid #8c93a0;
-  background: #ffffff;
-  color: #2b2f36;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-panel-bg);
+  color: var(--color-text);
   font-weight: 800;
   cursor: pointer;
 }
 
 .primary-button {
-  border-color: #1f6f78;
-  background: #1f6f78;
-  color: #ffffff;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-on);
 }
 
 .config-button {
-  color: #6750a4;
-  border-color: #6750a4;
-  background: #f2edff;
-  box-shadow: 0 2px 0 #c9bce8;
+  color: var(--color-accent-2);
+  border-color: var(--color-accent-2);
+  background: var(--color-panel-bg);
+  box-shadow: 0 2px 0 var(--color-accent-2);
   white-space: nowrap;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -281,10 +410,10 @@ body.demo-active .phase::after {
   justify-content: center;
   min-width: 0;
   min-height: 0;
-  border: 1px solid #b8c1ca;
+  border: 1px solid var(--color-tile-border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #162029;
+  background: var(--color-tile-bg);
+  color: var(--color-tile-text);
   font-size: 28px;
   font-weight: 900;
   line-height: 1;
@@ -293,20 +422,20 @@ body.demo-active .phase::after {
 }
 
 .tile.command {
-  background: #f1f3f5;
-  border-color: #9aa4ae;
+  background: var(--color-tile-command-bg);
+  border-color: var(--color-tile-command-border);
 }
 
 .tile.function-key {
-  border-color: #40596d;
-  background: #dfeaf2;
-  box-shadow: inset 0 -4px 0 #91a9ba;
+  border-color: var(--color-tile-function-border);
+  background: var(--color-tile-function-bg);
+  box-shadow: inset 0 -4px 0 var(--color-tile-function-shadow);
 }
 
 .tile.replacement {
-  background: #fff3bf;
-  border-color: #c47f17;
-  box-shadow: inset 0 -5px 0 #f08c00;
+  background: var(--color-tile-replacement-bg);
+  border-color: var(--color-tile-replacement-border);
+  box-shadow: inset 0 -5px 0 var(--color-tile-replacement-shadow);
 }
 
 .tile.tone-fallback {
@@ -336,24 +465,24 @@ body.demo-active .phase::after {
 }
 
 .tile.active-block {
-  border-color: #6750a4;
-  outline: 2px solid #6750a4;
+  border-color: var(--color-tile-active-block-border);
+  outline: 2px solid var(--color-tile-active-block-border);
   outline-offset: -3px;
-  background: #ded5f2;
+  background: var(--color-tile-active-block-bg);
 }
 
 .tile.active-row {
-  border-color: #1f7a8c;
-  outline: 3px solid #1f7a8c;
+  border-color: var(--color-tile-active-row-border);
+  outline: 3px solid var(--color-tile-active-row-border);
   outline-offset: -4px;
-  background: #9bc1bc;
+  background: var(--color-tile-active-row-bg);
 }
 
 .tile.active-cell {
-  border-color: #111111;
-  outline: 3px solid #111111;
+  border-color: var(--color-tile-active-cell-border);
+  outline: 3px solid var(--color-tile-active-cell-border);
   outline-offset: -4px;
-  background: #f4d35e;
+  background: var(--color-tile-active-cell-bg);
 }
 
 .tile.scan-deferred {
@@ -465,7 +594,7 @@ body.demo-active .phase::after {
   padding: 18px;
   overflow: auto;
   overscroll-behavior: contain;
-  background: #f6f4ee;
+  background: var(--color-app-bg);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -475,7 +604,8 @@ body.demo-active .phase::after {
   overflow: auto;
   padding: 18px;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-panel-bg);
+  color: var(--color-text);
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.28);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -663,11 +793,11 @@ body.demo-active .phase::after {
 .field select,
 .field textarea {
   width: 100%;
-  border: 1px solid #9aa4ae;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 9px;
-  background: #ffffff;
-  color: #172027;
+  background: var(--color-panel-bg);
+  color: var(--color-text);
 }
 
 .field textarea {
@@ -1300,8 +1430,7 @@ body.demo-active .phase::after {
   .status-row {
     grid-template-areas:
       "phase config"
-      "voice config"
-      "camera camera";
+      "secondary config";
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px 8px;
   }
@@ -1310,13 +1439,13 @@ body.demo-active .phase::after {
     grid-area: phase;
   }
 
-  .voice {
-    grid-area: voice;
+  .status-secondary {
+    grid-area: secondary;
+    min-width: 0;
   }
 
   .camera-status {
-    grid-area: camera;
-    justify-self: start;
+    flex: 0 0 auto;
   }
 
   .config-button {
@@ -1350,7 +1479,7 @@ body.demo-active .phase::after {
     align-items: stretch;
   }
 
-  .camera-status,
+  .status-secondary,
   .config-button {
     width: 100%;
   }

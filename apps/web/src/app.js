@@ -39,6 +39,7 @@ import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
 import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
 import {
   androidSystemVoiceName,
+  ContrastThemes,
   defaultUiConfig,
   loadUiConfig,
   normalizeUiConfig,
@@ -53,6 +54,17 @@ const app = document.querySelector("#app");
 const uiStorageKey = "shine-aac-web-ui-v1";
 const textHistoryStorageKey = "shine-aac-text-history-v1";
 const sessionDraftStorageKey = "shine-aac-session-draft-v1";
+const pendingConfigDraftStorageKey = "shine-aac-pending-config-draft-v1";
+const PendingConfigDraftMaxAgeMs = 10 * 60 * 1000;
+const ConfigCheckboxFieldNames = [
+  "autoScanSuggestionPages",
+  "deferUnsupportedZhuyinOnFirstPass",
+  "rowScanVoice",
+  "scanVoice",
+  "activationVoice",
+  "restartScanFromTop",
+  "verticalGroupProgress"
+];
 const CameraStatusStaleMs = 2200;
 const TextHistoryVersion = 3;
 const TextHistoryMaxEntries = 1000;
@@ -96,13 +108,35 @@ function uiText(english, traditionalChinese) {
   return isZhTwUi() ? traditionalChinese : english;
 }
 
+function applyContrastTheme(theme) {
+  if (theme && theme !== "default") {
+    document.documentElement.dataset.contrast = theme;
+  } else {
+    delete document.documentElement.dataset.contrast;
+  }
+}
+
+function contrastThemeOptionsHtml(selected) {
+  const labels = {
+    default: uiText("Default", "預設"),
+    "high-contrast": uiText("High contrast (light)", "高對比（淺色）"),
+    "high-contrast-dark": uiText("High contrast (dark)", "高對比（深色）")
+  };
+  return ContrastThemes.map((theme) => {
+    const isSelected = theme === selected ? " selected" : "";
+    return `<option value="${theme}"${isSelected}>${escapeHtml(labels[theme])}</option>`;
+  }).join("");
+}
+
 const initialConfig = loadConfig();
 let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
 let uiConfig = loadUiConfig(uiStorageKey);
+applyContrastTheme(uiConfig.contrastTheme);
 let highlightStartedAt = performance.now();
 let highlightDeadlineAt = highlightStartedAt;
 let timerId = 0;
-let configOpen = false;
+let pendingConfigDraftFields = loadPendingConfigDraft();
+let configOpen = Boolean(pendingConfigDraftFields);
 let calibrationOpen = false;
 let appInfoOpen = false;
 let speechVoicesOpen = false;
@@ -392,6 +426,48 @@ function clearSessionDraft() {
     globalThis.ShineAacAndroid?.clearSessionDraft?.();
   } catch {
     // Native persistence is unavailable in a normal browser.
+  }
+}
+
+function savePendingConfigDraft(form) {
+  try {
+    const fields = Object.fromEntries(new FormData(form).entries());
+    localStorage.setItem(pendingConfigDraftStorageKey, JSON.stringify({
+      updatedAt: Date.now(),
+      fields
+    }));
+  } catch {
+    // Draft persistence is best effort; opening camera setup must still proceed.
+  }
+}
+
+function loadPendingConfigDraft() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(pendingConfigDraftStorageKey) ?? "null");
+    if (!stored || typeof stored.fields !== "object" || stored.fields === null) return null;
+    if (Date.now() - Number(stored.updatedAt ?? 0) > PendingConfigDraftMaxAgeMs) return null;
+    return stored.fields;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingConfigDraft() {
+  try {
+    localStorage.removeItem(pendingConfigDraftStorageKey);
+  } catch {
+    // Storage may be unavailable.
+  }
+}
+
+function applyPendingConfigDraftToForm(form, fields) {
+  for (const name of ConfigCheckboxFieldNames) {
+    if (form.elements[name]) form.elements[name].checked = fields[name] === "on";
+  }
+  for (const [name, value] of Object.entries(fields)) {
+    if (ConfigCheckboxFieldNames.includes(name)) continue;
+    const element = form.elements[name];
+    if (element) element.value = value;
   }
 }
 
@@ -900,26 +976,12 @@ function shouldHoldAfterStateChange(selection) {
 
 function effectiveTimingConfigForScan() {
   if (demoMode.isActive()) return demoTimingConfig(session.config);
-  return cameraInputEnabled()
-    ? timingProfileConfig(session.config, ScanTimingPresets.cameraLongBlink)
-    : session.config;
+  return session.config;
 }
 
 function effectiveTimingConfigForInput(source = "") {
   if (source === "demo-mode") return demoTimingConfig(session.config);
-  return isCameraInput(source)
-    ? timingProfileConfig(session.config, ScanTimingPresets.cameraLongBlink)
-    : session.config;
-}
-
-function timingProfileConfig(baseConfig, timingProfile) {
-  return {
-    ...baseConfig,
-    scanIntervalMs: timingProfile.scanIntervalMs,
-    transitionPauseMs: timingProfile.transitionPauseMs,
-    firstCellPauseMs: timingProfile.firstCellPauseMs,
-    inputLatencyCompensationMs: timingProfile.inputLatencyCompensationMs
-  };
+  return session.config;
 }
 
 function speak(text) {
@@ -1184,6 +1246,10 @@ function renderFull(board, boardKey) {
   cameraStatusElement.hidden = true;
   renderedCameraStatusElement = cameraStatusElement;
 
+  const statusSecondary = document.createElement("div");
+  statusSecondary.className = "status-secondary";
+  statusSecondary.append(voice, cameraStatusElement);
+
   const configButton = document.createElement("button");
   configButton.className = "config-button";
   configButton.type = "button";
@@ -1198,7 +1264,7 @@ function renderFull(board, boardKey) {
   });
   attachDemoLongPress(configButton);
 
-  status.append(phase, cameraStatusElement, voice, configButton);
+  status.append(phase, statusSecondary, configButton);
   topPanel.append(message, status);
 
   const boardElement = document.createElement("section");
@@ -1818,6 +1884,8 @@ function openConfig() {
 
 function closeConfig({ holdFirstRow = true } = {}) {
   closeTextExportResult();
+  clearPendingConfigDraft();
+  applyContrastTheme(uiConfig.contrastTheme);
   configOpen = false;
   calibrationOpen = false;
   appInfoOpen = false;
@@ -2070,6 +2138,11 @@ function renderConfig() {
           ${switchInputProfileOptionsHtml(uiConfig.switchInputProfile)}
         </select>
       </label>
+      <label class="field">${uiText("Display contrast", "顯示對比")}
+        <select name="contrastTheme">
+          ${contrastThemeOptionsHtml(uiConfig.contrastTheme)}
+        </select>
+      </label>
       <div class="field">
         <button class="secondary-button" type="button" data-action="camera-calibration">${uiText("Camera setup", "相機設定")}</button>
       </div>
@@ -2104,6 +2177,10 @@ function renderConfig() {
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
     form.elements.symbols.value = serializeSymbols(profile.symbols);
+  });
+
+  form.elements.contrastTheme.addEventListener("change", () => {
+    applyContrastTheme(form.elements.contrastTheme.value);
   });
 
   form.elements.scanTimingPreset.addEventListener("change", () => {
@@ -2148,6 +2225,7 @@ function renderConfig() {
     if (action === "app-info") openAppInfo();
     if (action === "calibrate") openCalibration();
     if (action === "camera-calibration") {
+      savePendingConfigDraft(form);
       openCameraSwitchCalibration(String(form.elements.profileId.value || session.config.profileId || "en-US"));
     }
     if (action === "speech-voices") openSpeechVoiceSettings();
@@ -2197,13 +2275,21 @@ function renderConfig() {
       speechVoiceName: String(data.get("speechVoiceName") ?? uiConfig.speechVoiceName ?? ""),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
       verticalGroupProgress: data.get("verticalGroupProgress") === "on",
-      switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons")
+      switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
+      contrastTheme: String(data.get("contrastTheme") ?? uiConfig.contrastTheme)
     });
+    applyContrastTheme(uiConfig.contrastTheme);
     saveUiConfig(uiStorageKey, uiConfig);
     session = createSession({ config });
     clearSessionDraft();
     closeConfig({ holdFirstRow: true });
   });
+
+  if (pendingConfigDraftFields) {
+    applyPendingConfigDraftToForm(form, pendingConfigDraftFields);
+    pendingConfigDraftFields = null;
+    clearPendingConfigDraft();
+  }
 
   panel.append(title, form);
   backdrop.append(panel);
@@ -3215,7 +3301,11 @@ document.addEventListener("keydown", (event) => {
   handleInputEvent({ intent: InputIntent.Activate, source: "keyboard", key: event.key });
 });
 
-render();
+if (configOpen) {
+  renderConfig();
+} else {
+  render();
+}
 resetClock();
 scheduleScan();
 syncNativeUiConfig(uiConfig);

@@ -49,7 +49,7 @@ test("the Web UI does not reserve native Android system insets a second time", (
 });
 
 test("compact phone status text remains grouped instead of wrapping per character", () => {
-  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?"phase config"[\s\S]*?"voice config"/);
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?"phase config"[\s\S]*?"secondary config"/);
   assert.match(styles, /\.config-button\s*\{[\s\S]*?white-space:\s*nowrap/);
 });
 
@@ -74,7 +74,8 @@ test("profile-optimized block scanning is an explicit optional mode with its own
   assert.match(appSource, /name="scanMode"/);
   assert.match(appSource, /ScanMode\.BlockRowColumn/);
   assert.match(appSource, /scanMode:\s*config\.scanMode/);
-  assert.match(styles, /\.tile\.active-block\s*\{[\s\S]*?border-color:\s*#6750a4/);
+  assert.match(styles, /\.tile\.active-block\s*\{[\s\S]*?border-color:\s*var\(--color-tile-active-block-border\)/);
+  assert.match(styles, /--color-tile-active-block-border:\s*#6750a4/);
   assert.match(appSource, /selected-block-row/);
   assert.match(styles, /\.row\.selected-block-row::before\s*\{[\s\S]*?border:\s*2px solid rgba\(103, 80, 164, 0\.72\)/);
 });
