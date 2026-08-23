@@ -353,22 +353,37 @@ class CameraSwitchInputAdapter(
         val now = nowMs()
         for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
             when (event) {
-                is BlinkGestureClassifier.Event.HoldStarted -> {
-                    sendHoldStart(settings.source)
-                }
-                is BlinkGestureClassifier.Event.Activated -> {
-                    playHoldReachedCue()
-                    if (now - lastActivationAt >= settings.cooldownMs) {
-                        lastActivationAt = now
-                        holdEventActive = false
-                        sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = "longBlinkMs=${event.durationMs}"))
-                    }
-                }
-                is BlinkGestureClassifier.Event.HoldEnded -> {
-                    sendHoldEnd(settings.source, "closedMs=${event.durationMs};reason=${event.reason.name}")
-                }
+                is BlinkGestureClassifier.Event.HoldStarted -> onHoldStarted(settings)
+                is BlinkGestureClassifier.Event.Activated ->
+                    onActivated(settings, now, "longBlinkMs=${event.durationMs}")
+                is BlinkGestureClassifier.Event.HoldEnded ->
+                    onHoldEnded(settings, "closedMs=${event.durationMs};reason=${event.reason.name}")
             }
         }
+    }
+
+    /**
+     * The single activation path, shared by every optical gesture.
+     *
+     * Blink and cheek each used to carry their own copy of this - the same hold, cooldown and reset
+     * sequence written twice - which meant the cheek gesture was running untested logic that the
+     * blink gesture had already proven on real hardware. The gesture backends now only decide *when*
+     * a hold starts, activates or ends; what happens next is one implementation.
+     */
+    private fun onHoldStarted(settings: CameraSwitchSettings) {
+        sendHoldStart(settings.source)
+    }
+
+    private fun onActivated(settings: CameraSwitchSettings, now: Long, detail: String) {
+        playHoldReachedCue()
+        if (now - lastActivationAt < settings.cooldownMs) return
+        lastActivationAt = now
+        holdEventActive = false
+        sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = detail))
+    }
+
+    private fun onHoldEnded(settings: CameraSwitchSettings, detail: String) {
+        sendHoldEnd(settings.source, detail)
     }
 
     private fun sendHoldStart(source: String) {
@@ -500,16 +515,11 @@ class CameraSwitchInputAdapter(
         val classifier = cheekClassifier ?: return
         for (event in classifier.onScore(score, now)) {
             when (event) {
-                BinarySwitchClassifier.Event.HoldStarted -> sendHoldStart(settings.source)
-                is BinarySwitchClassifier.Event.Activated -> {
-                    playHoldReachedCue()
-                    if (now - lastActivationAt >= settings.cooldownMs) {
-                        lastActivationAt = now
-                        holdEventActive = false
-                        sink.onInput(InputEvent("activate", settings.source, "cheekTwitchMs=${event.heldMs}"))
-                    }
-                }
-                is BinarySwitchClassifier.Event.HoldEnded -> sendHoldEnd(settings.source, "reason=${event.reason.name}")
+                BinarySwitchClassifier.Event.HoldStarted -> onHoldStarted(settings)
+                is BinarySwitchClassifier.Event.Activated ->
+                    onActivated(settings, now, "cheekTwitchMs=${event.heldMs}")
+                is BinarySwitchClassifier.Event.HoldEnded ->
+                    onHoldEnded(settings, "reason=${event.reason.name}")
             }
         }
     }

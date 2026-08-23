@@ -105,6 +105,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var calibrationRunId = 0
     @Volatile private var mlKitInFlight = false
     private var lastFrameAt = 0L
+    private var lastPreviewAt = 0L
+    private var decodeBuffer: Bitmap? = null
     private val longBlinkDurations = mutableListOf<Long>()
     private val restClosedDurations = mutableListOf<Long>()
     private val restEyeSignals = mutableListOf<BlinkEyeSignal>()
@@ -1271,36 +1273,53 @@ class CameraSwitchCalibrationActivity : Activity() {
             ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
     }
 
+    /**
+     * Decides what to do with one camera frame.
+     *
+     * Preview and detection are paced separately on purpose. Detection is expensive - a recorded
+     * session measured a 127 ms median - and driving the preview from it left the picture updating
+     * five to eight times a second, which reads as constant flicker. Frames are now shown at their
+     * own rate and only some of them are also analysed, so the preview stays smooth while detection
+     * runs as fast as it can.
+     */
     private fun analyze(image: Image, analysisGeneration: Int) {
         val now = System.currentTimeMillis()
         val frameInterval = if (selectedGesture == OpticalSwitchGesture.CheekTwitch) CheekFrameIntervalMs else MlKitFrameIntervalMs
-        if (!isCameraGenerationActive(analysisGeneration) || mlKitInFlight || now - lastFrameAt < frameInterval) {
+        if (!isCameraGenerationActive(analysisGeneration)) {
+            image.close()
+            return
+        }
+        val wantDetection = !mlKitInFlight && now - lastFrameAt >= frameInterval
+        val wantPreview = now - lastPreviewAt >= PreviewIntervalMs
+        if (!wantDetection && !wantPreview) {
             image.close()
             return
         }
         if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
-            analyzeCheek(image, analysisGeneration, now)
+            analyzeCheek(image, analysisGeneration, now, wantDetection, wantPreview)
             return
         }
         val activeDetector = detector
-        if (activeDetector == null) {
+        val rotationDegrees = analysisRotationDegrees
+        // Decode once, turn upright and mirror, then both show and analyse those same pixels.
+        val frameBitmap = try {
+            orientFrame(decodeInto(image), rotationDegrees, mirrorFaceOverlay)
+        } catch (error: Exception) {
+            Log.w(Tag, "Decoding calibration frame failed", error)
+            image.close()
+            return
+        }
+        if (wantPreview) {
+            lastPreviewAt = now
+            publishPreviewFrame(frameBitmap, analysisGeneration)
+        }
+        if (!wantDetection || activeDetector == null) {
             image.close()
             return
         }
         mlKitInFlight = true
         lastFrameAt = now
-        val rotationDegrees = analysisRotationDegrees
-        // Decode once, turn upright and mirror, then both show and analyse those same pixels.
-        val frameBitmap = try {
-            orientFrame(YuvBitmaps.toBitmap(image), rotationDegrees, mirrorFaceOverlay)
-        } catch (error: Exception) {
-            Log.w(Tag, "Decoding calibration frame failed", error)
-            image.close()
-            if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
-            return
-        }
         val imageSize = Size(frameBitmap.width, frameBitmap.height)
-        publishPreviewFrame(frameBitmap, analysisGeneration)
         val task = try {
             activeDetector.process(InputImage.fromBitmap(frameBitmap, 0))
         } catch (error: Exception) {
@@ -1354,19 +1373,32 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
     }
 
-    private fun analyzeCheek(image: Image, analysisGeneration: Int, now: Long) {
+    private fun analyzeCheek(
+        image: Image,
+        analysisGeneration: Int,
+        now: Long,
+        wantDetection: Boolean,
+        wantPreview: Boolean
+    ) {
         val analyzer = cheekAnalyzer
         if (analyzer == null) {
             image.close()
             mainHandler?.post { metricsView?.text = tr("Cheek detection is unavailable on this device.", "此裝置無法使用臉頰偵測。") }
             return
         }
-        mlKitInFlight = true
-        lastFrameAt = now
+        val runDetection = wantDetection
+        if (runDetection) {
+            mlKitInFlight = true
+            lastFrameAt = now
+        }
         try {
             val rotationDegrees = analysisRotationDegrees
-            val frameBitmap = orientFrame(YuvBitmaps.toBitmap(image), rotationDegrees, mirrorFaceOverlay)
-            publishPreviewFrame(frameBitmap, analysisGeneration)
+            val frameBitmap = orientFrame(decodeInto(image), rotationDegrees, mirrorFaceOverlay)
+            if (wantPreview) {
+                lastPreviewAt = now
+                publishPreviewFrame(frameBitmap, analysisGeneration)
+            }
+            if (!runDetection) return
             val observation = analyzer.analyzeBitmap(frameBitmap, 0, now)
             if (!isCameraGenerationActive(analysisGeneration)) return
             val values = observation?.takeIf { it.usable }?.blendshapes
@@ -1418,7 +1450,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             mainHandler?.post { metricsView?.text = tr("Cheek analysis paused; keep your face centered.", "臉頰分析暫停；請保持臉部置中。") }
         } finally {
             runCatching { image.close() }
-            if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
+            if (runDetection && analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
         }
     }
 
@@ -1677,15 +1709,21 @@ class CameraSwitchCalibrationActivity : Activity() {
      * it is why its mesh sits exactly on the face: the detector's normalized coordinates then refer
      * to the same pixels that get drawn, so nothing downstream has to agree about conventions.
      */
+    /** Decodes into the reusable buffer, keeping it for next time. */
+    private fun decodeInto(image: Image): Bitmap {
+        val decoded = YuvBitmaps.toBitmap(image, decodeBuffer)
+        decodeBuffer = decoded
+        return decoded
+    }
+
     private fun orientFrame(bitmap: Bitmap, rotationDegrees: Int, mirror: Boolean): Bitmap {
-        if (rotationDegrees % 360 == 0 && !mirror) return bitmap
+        // Copy even when no turn is needed: the source is the reusable decode buffer.
+        if (rotationDegrees % 360 == 0 && !mirror) return bitmap.copy(Bitmap.Config.ARGB_8888, false)
         val transform = Matrix().apply {
             postRotate(rotationDegrees.toFloat())
             if (mirror) postScale(-1f, 1f)
         }
-        val oriented = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, transform, true)
-        if (oriented !== bitmap) bitmap.recycle()
-        return oriented
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, transform, true)
     }
 
     private fun publishPreviewFrame(bitmap: Bitmap, analysisGeneration: Int) {
@@ -1702,6 +1740,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun releaseDisplayedFrame() {
         previewView?.clear()
         displayedFrame = null
+        decodeBuffer = null
     }
 
     private fun orientedImageSize(image: Image, rotation: Int): Size =
@@ -2014,14 +2053,15 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val AspectRatioWeight = 4.0
         const val MlKitFrameIntervalMs = 200L
         const val CheekFrameIntervalMs = 45L
-        const val BlinkTargetCameraFps = 10
+        const val BlinkTargetCameraFps = 20
         const val CheekTargetCameraFps = 24
         const val MinCameraFps = 5
-        const val BlinkMaxCameraFps = 15
+        const val BlinkMaxCameraFps = 30
         const val CheekMaxCameraFps = 30
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
         const val CueTickMs = 200L
+        const val PreviewIntervalMs = 66L
         const val CheekTrialCount = 6
         const val RestFramesNeeded = 45
         const val MinimumTwitchFrames = 3
