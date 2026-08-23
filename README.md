@@ -298,7 +298,7 @@ To test on a physical Android device instead:
 Enable Developer Options and USB debugging on the device first.
 
 # License
-SHINE AAC is free software, licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Any modified version, including one offered as a network service, must make its complete source code available under the same license.
+SHINE AAC is licensed under the [Apache License 2.0](LICENSE).
 
 # References
 - [Augmentative and alternative communication](https://en.wikipedia.org/wiki/Augmentative_and_alternative_communication)
