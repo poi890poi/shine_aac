@@ -64,6 +64,63 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertEqual(42700, samples[0]["max_us"])
         self.assertEqual("rgba-mediaimage", samples[0]["path"])
 
+    def test_e2e_demo_helpers_use_latest_state_and_physical_source(self):
+        log = "\n".join([
+            'I/ShineAacE2E: SHINE_AAC_E2E_STATE {"message":"","stage":"Rows","rowIndex":0}',
+            'I/ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"activate","source":"android-camera-long-blink"}',
+            'I/ShineAacE2E: SHINE_AAC_E2E_STATE {"message":"喝水","stage":"Rows","rowIndex":1}',
+        ])
+        self.assertEqual("喝水", RIG.latest_e2e_state(log)["message"])
+        self.assertEqual(
+            1,
+            RIG.e2e_input_count(
+                log, "activate", "android-camera-long-blink"
+            ),
+        )
+
+    def test_latest_e2e_state_preserves_log_epoch_for_fresh_target_waits(self):
+        log = (
+            '1787515415.700 14353 I ShineAacE2E: SHINE_AAC_E2E_STATE '
+            '{"message":"幫忙","stage":"FirstCell","rowIndex":1,"cellIndex":0}'
+        )
+        state = RIG.latest_e2e_state(log)
+        self.assertEqual("FirstCell", state["stage"])
+        self.assertEqual(1787515415.7, state["_logEpochS"])
+        self.assertEqual(
+            0,
+            RIG.e2e_input_count(
+                log, "activate", "android-camera-cheek-twitch"
+            ),
+        )
+
+    def test_blink_calibration_timeline_requires_five_long_closures(self):
+        events = []
+        for cycle in range(1, 6):
+            events.extend([
+                {
+                    "cycle": cycle, "pose": "open",
+                    "actual_presented_ms": 400,
+                    "presenter_acknowledged": True,
+                },
+                {
+                    "cycle": cycle, "pose": "long-closed",
+                    "actual_presented_ms": 900,
+                    "presenter_acknowledged": True,
+                },
+                {
+                    "cycle": cycle, "pose": "open",
+                    "actual_presented_ms": 400,
+                    "presenter_acknowledged": True,
+                },
+            ])
+        self.assertTrue(
+            RIG.blink_calibration_timeline_is_complete({"events": events})
+        )
+        events[7]["actual_presented_ms"] = 600
+        self.assertFalse(
+            RIG.blink_calibration_timeline_is_complete({"events": events})
+        )
+
     def test_blink_calibration_oracle_uses_durable_record(self):
         before = '<map><long name="calibratedAtMs" value="100" /></map>'
         after = (

@@ -312,7 +312,10 @@ class MainActivity : ComponentActivity() {
         if (getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
                 .getBoolean("e2eEnabled", false)
         ) {
-            val payload = JSONObject().put("intent", event.intent).put("source", event.source)
+            val payload = JSONObject()
+                .put("intent", event.intent)
+                .put("source", event.source)
+            if (event.detail.isNotBlank()) payload.put("detail", event.detail)
             Log.i(E2ELogTag, "SHINE_AAC_E2E_INPUT $payload")
         }
         runOnUiThread {

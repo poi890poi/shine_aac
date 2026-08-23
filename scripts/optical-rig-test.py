@@ -51,6 +51,7 @@ LOCAL_ROOT = ROOT / "testdata/optical-rig/local"
 SESSION_ROOT = ROOT / "testdata/optical-rig/session"
 APK = ROOT / "app/build/outputs/apk/debug/app-debug.apk"
 CAMERA_PREFS = "shared_prefs/shine_aac_camera_switch.xml"
+CONFIG_PREFS = "shared_prefs/shine_aac_config.xml"
 
 
 def board_phase_from_xml(xml_path):
@@ -540,6 +541,54 @@ def app_audio_playback_start_count(log_text, app_pid):
         r"u/pid:\d+/%s\s+state:started" % re.escape(str(app_pid))
     )
     return len(re.findall(pattern, log_text or "", re.S))
+
+
+def latest_e2e_state(log_text):
+    matches = list(re.finditer(
+        r"(?m)^([^\r\n]*?)SHINE_AAC_E2E_STATE\s+(\{[^\r\n]+\})",
+        log_text or "",
+    ))
+    if not matches:
+        return None
+    try:
+        state = json.loads(matches[-1].group(2))
+        epoch = re.match(r"\s*(\d+(?:\.\d+)?)\b", matches[-1].group(1))
+        if epoch:
+            state["_logEpochS"] = float(epoch.group(1))
+        return state
+    except json.JSONDecodeError:
+        return None
+
+
+def e2e_input_count(log_text, intent, source):
+    count = 0
+    for payload in re.findall(r"SHINE_AAC_E2E_INPUT\s+(\{[^\r\n]+\})", log_text or ""):
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if event.get("intent") == intent and event.get("source") == source:
+            count += 1
+    return count
+
+
+def blink_calibration_timeline_is_complete(timeline):
+    """Require five visible open/long-closed/open calibration cycles."""
+    events = (timeline or {}).get("events") or []
+    if len(events) != 15:
+        return False
+    for cycle in range(5):
+        group = events[cycle * 3:(cycle + 1) * 3]
+        if [event.get("pose") for event in group] != [
+            "open", "long-closed", "open"
+        ]:
+            return False
+        closed = group[1]
+        if float(closed.get("actual_presented_ms", 0)) < 850:
+            return False
+        if not all(event.get("presenter_acknowledged") for event in group):
+            return False
+    return True
 
 def _percentile(values, q):
     if not values:
@@ -1264,6 +1313,9 @@ class OpticalRig:
         self.findings = []
         self.results = []
         self.camera_pref_original = None
+        self.demo_config_original = None
+        self.demo_config_existed = False
+        self.demo_steps = []
         self.camera_pref_existed = False
         self.original_switch_input_label = None
         self.switch_input_changed = False
@@ -1331,6 +1383,83 @@ class OpticalRig:
                 check=False, timeout=30
             )
             self.device.shell("rm", "-f", camera_remote, check=False)
+
+    def install_demo_profile(self):
+        """Install a temporary zh-TW camera/E2E profile for physical demo timing."""
+        self.device.shell("am", "force-stop", PACKAGE, check=False)
+        original = self.device.shell(
+            "run-as", PACKAGE, "cat", CONFIG_PREFS, check=False
+        )
+        self.demo_config_existed = original.returncode == 0
+        self.demo_config_original = original.stdout or ""
+        profile = """<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <int name="columns" value="6" />
+    <int name="configVersion" value="24" />
+    <string name="profileId">zh-TW</string>
+    <boolean name="e2eEnabled" value="true" />
+    <boolean name="rowScanVoice" value="false" />
+    <boolean name="scanVoice" value="false" />
+    <boolean name="activationVoice" value="true" />
+    <boolean name="restartScanFromTop" value="true" />
+    <string name="switchInputProfile">camera-long-blink</string>
+    <boolean name="hardwareButtons" value="false" />
+    <boolean name="cameraSwitch" value="true" />
+    <float name="scanIntervalMs" value="4000.0" />
+    <float name="transitionPauseMs" value="0.0" />
+    <float name="firstCellPauseMs" value="4000.0" />
+    <float name="inputLatencyCompensationMs" value="250.0" />
+</map>
+"""
+        local_path = self.outdir / "demo-config.applied.xml"
+        local_path.write_text(profile, encoding="utf-8")
+        remote = "/data/local/tmp/shine-aac-demo-config.xml"
+        pushed = self.device.adb_cmd(
+            "push", str(local_path), remote, check=False, timeout=30
+        )
+        if pushed.returncode != 0:
+            self.add("P0", "Could not install demo profile", "ADB push failed.")
+            return False
+        created = self.device.shell(
+            "run-as", PACKAGE, "mkdir", "-p", "shared_prefs",
+            check=False, timeout=30,
+        )
+        copied = self.device.shell(
+            "run-as", PACKAGE, "cp", remote, CONFIG_PREFS,
+            check=False, timeout=30,
+        ) if created.returncode == 0 else created
+        self.device.shell("rm", "-f", remote, check=False)
+        if copied.returncode != 0:
+            self.add("P0", "Could not install demo profile", "run-as copy failed.")
+            return False
+        self.device.adb_cmd("logcat", "-c", check=False, timeout=15)
+        if not self.device.launch() or not self.device.ensure_board():
+            self.add("P0", "Demo board unavailable", "zh-TW demo profile did not launch.")
+            return False
+        self.pass_("temporary demo profile", "zh-TW camera input with E2E timing only")
+        return True
+
+    def restore_demo_profile(self):
+        if self.demo_config_original is None:
+            return
+        self.device.shell("am", "force-stop", PACKAGE, check=False)
+        if not self.demo_config_existed:
+            self.device.shell(
+                "run-as", PACKAGE, "rm", "-f", CONFIG_PREFS, check=False
+            )
+        else:
+            local_path = self.outdir / "shine_aac_config.original.xml"
+            local_path.write_text(self.demo_config_original, encoding="utf-8")
+            remote = "/data/local/tmp/shine-aac-config-original.xml"
+            self.device.adb_cmd(
+                "push", str(local_path), remote, check=False, timeout=30
+            )
+            self.device.shell(
+                "run-as", PACKAGE, "cp", remote, CONFIG_PREFS,
+                check=False, timeout=30,
+            )
+            self.device.shell("rm", "-f", remote, check=False)
+        self.demo_config_original = None
 
     def _install_camera_preferences(self, xml_text, local_name, gesture="blink"):
         """Install a rig-owned camera preference snapshot for this run only."""
@@ -2164,7 +2293,7 @@ class OpticalRig:
             start=float(at_s),
             center=self.stimulus_center,
         )
-        return self.ensure_stimulus_visible(token, label)
+        return token if self.ensure_stimulus_visible(token, label) else None
 
     def wait_setup_text(self, patterns, timeout, checkpoint):
         wanted = [p.casefold() for p in patterns]
@@ -2209,14 +2338,29 @@ class OpticalRig:
             app_pid, required, timeout, "blink-calibration-audio.log"
         )
 
-    def run_video_still_sequence(self, case, source):
+    def run_video_still_sequence(self, case, source, evidence_path=None):
+        timeline = {
+            "case": case["id"],
+            "source": source["id"],
+            "started_epoch_s": time.time(),
+            "events": [],
+        }
         for index, item in enumerate(case["stills"]):
-            if not self.show_video_still(
+            token = self.show_video_still(
                 source,
                 item["start"],
                 "%s %02d" % (case["id"], index + 1),
-            ):
+            )
+            if not token:
                 return False
+            applied = next(
+                (
+                    event for event in self.host.events
+                    if event.get("token") == token and
+                    event.get("type") == "state_applied"
+                ),
+                None,
+            )
             duration = max(0.03, float(item.get("ms", 100)) / 1000.0)
             traces = []
             if (
@@ -2237,7 +2381,69 @@ class OpticalRig:
             time.sleep(duration)
             for trace in traces:
                 trace.join(timeout=0.2)
+            ended_at = time.time()
+            applied_at = float((applied or {}).get("t", ended_at - duration))
+            timeline["events"].append({
+                "index": index + 1,
+                "cycle": int(item.get("cycle", index // 3 + 1)),
+                "pose": item.get("pose", "unspecified"),
+                "source_time_s": float(item["start"]),
+                "requested_ms": int(item.get("ms", 100)),
+                "presenter_token": token,
+                "presenter_acknowledged": bool(applied),
+                "presented_epoch_s": applied_at,
+                "ended_epoch_s": ended_at,
+                "actual_presented_ms": round((ended_at - applied_at) * 1000.0, 1),
+            })
+            if evidence_path:
+                evidence_path.write_text(
+                    json.dumps(timeline, indent=2), encoding="utf-8"
+                )
+        timeline["completed_epoch_s"] = time.time()
+        if evidence_path:
+            evidence_path.write_text(
+                json.dumps(timeline, indent=2), encoding="utf-8"
+            )
         return True
+
+    def start_device_screen_recording(self, label, limit=30):
+        safe_label = re.sub(r"[^A-Za-z0-9_-]", "_", label)
+        remote = "/sdcard/shine-rig-%s.mp4" % safe_label
+        self.device.shell("rm", remote, check=False)
+        process = subprocess.Popen(
+            [
+                self.adb, "shell", "screenrecord", "--time-limit",
+                str(int(limit)), remote,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.35)
+        if process.poll() is not None:
+            return None
+        return {
+            "process": process,
+            "remote": remote,
+            "path": self.outdir / (label + ".mp4"),
+            "limit": int(limit),
+        }
+
+    def finish_device_screen_recording(self, recording):
+        if not recording:
+            return None
+        process = recording["process"]
+        try:
+            process.wait(timeout=recording["limit"] + 5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        destination = recording["path"]
+        self.device.adb_cmd(
+            "pull", recording["remote"], str(destination),
+            check=False, timeout=60,
+        )
+        self.device.shell("rm", recording["remote"], check=False)
+        return destination if destination.exists() and destination.stat().st_size else None
 
     def calibrate_long_blink(self, source):
         """Exercise native blink calibration with real open/closed face frames."""
@@ -2297,13 +2503,41 @@ class OpticalRig:
         verified_closed_times = (0.00, 3.00)
         for cycle in range(5):
             calibration_case["stills"].extend([
-                {"start": 0.75, "ms": 400},
-                {"start": verified_closed_times[cycle % len(verified_closed_times)], "ms": 900},
-                {"start": 0.75, "ms": 400},
+                {"start": 0.75, "ms": 400, "pose": "open", "cycle": cycle + 1},
+                {
+                    "start": verified_closed_times[cycle % len(verified_closed_times)],
+                    "ms": 900,
+                    "pose": "long-closed",
+                    "cycle": cycle + 1,
+                },
+                {"start": 0.75, "ms": 400, "pose": "open", "cycle": cycle + 1},
             ])
-        if not self.run_video_still_sequence(calibration_case, source):
+        recording = self.start_device_screen_recording(
+            "blink-calibration-preview", limit=30
+        )
+        timeline_path = self.outdir / "blink-calibration-stimulus-timeline.json"
+        sequence_completed = self.run_video_still_sequence(
+            calibration_case, source, timeline_path
+        )
+        if not sequence_completed:
+            self.finish_device_screen_recording(recording)
             return False
         time.sleep(5.0)
+        preview_path = self.finish_device_screen_recording(recording)
+        try:
+            timeline = json.loads(timeline_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            timeline = None
+        if not blink_calibration_timeline_is_complete(timeline) or not preview_path:
+            self.add(
+                "P1", "Long-blink calibration evidence is incomplete",
+                "The rig did not preserve both the 15-step presenter timeline and the phone Camera Setup preview recording.",
+                [
+                    "blink-calibration-stimulus-timeline.json",
+                    "blink-calibration-preview.mp4",
+                ],
+            )
+            return False
         completed = self.wait_setup_text(
             ["camera thresholds updated", "門檻已更新"], 18,
             "rig_blink_calibration_complete"
@@ -2338,6 +2572,8 @@ class OpticalRig:
             "open_time_s": 0.75,
             "closed_times_s": list(verified_closed_times),
             "replay_cycles": 5,
+            "stimulus_timeline": "blink-calibration-stimulus-timeline.json",
+            "camera_preview_recording": "blink-calibration-preview.mp4",
             "saved_record": saved_record,
             "completion_text_observed": bool(completed),
         }
@@ -2582,6 +2818,308 @@ class OpticalRig:
         )
         return r.stdout or ""
 
+    def e2e_log(self):
+        result = self.device.adb_cmd(
+            "logcat", "-d", "-v", "epoch", "ShineAacE2E:I", "*:S",
+            check=False, timeout=30,
+        )
+        return result.stdout or ""
+
+    def wait_demo_state(
+        self, timeout=35.0, stage=None, row_index=None, cell_index=None,
+        message=None, not_before_epoch_s=None,
+    ):
+        deadline = time.time() + timeout
+        last_state = None
+        while time.time() < deadline:
+            last_state = latest_e2e_state(self.e2e_log())
+            if last_state:
+                matches = (
+                    (stage is None or last_state.get("stage") == stage) and
+                    (row_index is None or last_state.get("rowIndex") == row_index) and
+                    (cell_index is None or last_state.get("cellIndex") == cell_index) and
+                    (message is None or last_state.get("message") == message) and
+                    (
+                        not_before_epoch_s is None or
+                        float(last_state.get("_logEpochS", 0)) >= not_before_epoch_s
+                    )
+                )
+                if matches:
+                    return last_state
+            time.sleep(0.25)
+        return None
+
+    def demo_activate(self, case, source_by_id, step_label, report_miss=True):
+        """Perform one normal optical activation without resetting board state."""
+        gesture = case.get("gesture", "blink")
+        source_name = (
+            "android-camera-cheek-twitch"
+            if gesture == "cheek" else "android-camera-long-blink"
+        )
+        before = e2e_input_count(self.e2e_log(), "activate", source_name)
+        started_at = time.time()
+        if "frames" in case:
+            token = self.host.set_state(
+                mode="sequence", label="DEMO " + step_label,
+                frames=case["frames"], mirror=bool(case.get("mirror", False)),
+                center=self.stimulus_center,
+            )
+            nominal = sum(float(frame.get("ms", 100)) for frame in case["frames"]) / 1000.0
+        elif "stills" in case:
+            source = source_by_id[case["source"]]
+            nominal = sum(
+                float(item.get("ms", 100)) for item in case["stills"]
+            ) / 1000.0
+            if not self.run_video_still_sequence(case, source):
+                return False
+            token = None
+        else:
+            source = source_by_id[case["source"]]
+            start = float(case.get("start", 0.0))
+            end_at = case.get("end")
+            rate = float(case.get("rate", 1.0))
+            source_end = float(end_at) if end_at is not None else float(source["duration_s"])
+            nominal = max(0.0, source_end - start) / max(rate, 0.01)
+            token = self.host.set_state(
+                mode="video", label="DEMO " + step_label,
+                url="/media/" + source["filename"], rate=rate, loop=False,
+                start=start, end=end_at, center=self.stimulus_center,
+            )
+        if token:
+            if not self.ensure_stimulus_visible(token, "demo-" + step_label):
+                return False
+            self.host.wait_event(token, "ended", nominal + 6.0)
+        if not self.demo_show_rest(case, source_by_id, step_label):
+            return False
+        deadline = time.time() + 4.0
+        while time.time() < deadline:
+            after = e2e_input_count(self.e2e_log(), "activate", source_name)
+            if after > before:
+                self.demo_steps.append({
+                    "step": step_label,
+                    "gesture": case.get("gesture", "blink"),
+                    "case": case.get("id"),
+                    "started_epoch_s": started_at,
+                    "completed_epoch_s": time.time(),
+                    "activation_count_before": before,
+                    "activation_count_after": after,
+                    "result": "PASS",
+                })
+                (self.outdir / "demo-steps.json").write_text(
+                    json.dumps(self.demo_steps, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                time.sleep(0.35)
+                return True
+            time.sleep(0.15)
+        self.demo_steps.append({
+            "step": step_label,
+            "gesture": case.get("gesture", "blink"),
+            "case": case.get("id"),
+            "started_epoch_s": started_at,
+            "completed_epoch_s": time.time(),
+            "activation_count_before": before,
+            "activation_count_after": e2e_input_count(
+                self.e2e_log(), "activate", source_name
+            ),
+            "result": "MISS",
+        })
+        (self.outdir / "demo-steps.json").write_text(
+            json.dumps(self.demo_steps, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        if report_miss:
+            self.add(
+                "P1", "Physical demo activation missed", step_label,
+                ["demo-e2e.log", "demo-steps.json"],
+            )
+        return False
+
+    def demo_activate_with_retries(
+        self, case, source_by_id, step_label, target_wait=None, attempts=3
+    ):
+        for attempt in range(1, attempts + 1):
+            if target_wait and not target_wait():
+                self.demo_steps.append({
+                    "step": "%s ATTEMPT %d" % (step_label, attempt),
+                    "gesture": case.get("gesture", "blink"),
+                    "case": case.get("id"),
+                    "completed_epoch_s": time.time(),
+                    "result": "TARGET_TIMEOUT",
+                })
+                (self.outdir / "demo-steps.json").write_text(
+                    json.dumps(self.demo_steps, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                continue
+            if self.demo_activate(
+                case, source_by_id,
+                "%s ATTEMPT %d" % (step_label, attempt),
+                report_miss=False,
+            ):
+                if attempt > 1:
+                    self.add(
+                        "P2", "Physical demo required gesture retry",
+                        "%s succeeded on attempt %d." % (step_label, attempt),
+                        ["demo-steps.json", "demo-e2e.log"],
+                    )
+                return True
+        self.add(
+            "P1", "Physical demo activation missed after retries",
+            "%s failed after %d attempts." % (step_label, attempts),
+            ["demo-steps.json", "demo-e2e.log"],
+        )
+        return False
+
+    def demo_show_rest(self, case, source_by_id, step_label):
+        """Keep a real relaxed/open face visible between physical gestures."""
+        if "frames" in case:
+            rest = [
+                dict(frame) for frame in case["frames"]
+                if frame.get("phase") in ("Neutral", "Rest", "Idle")
+            ]
+            if not rest:
+                rest = [dict(case["frames"][0])]
+            token = self.host.set_state(
+                mode="sequence", label="DEMO REST " + step_label,
+                frames=rest, mirror=bool(case.get("mirror", False)), loop=True,
+                center=self.stimulus_center,
+            )
+            return self.ensure_stimulus_visible(token, "demo-rest-" + step_label)
+        source = source_by_id[case["source"]]
+        return bool(self.show_video_still(
+            source, 0.75, "DEMO REST " + step_label
+        ))
+
+    def demo_select_label(self, label, case, source_by_id):
+        state = latest_e2e_state(self.e2e_log())
+        if not state:
+            self.add("P0", "Demo render state unavailable", label)
+            return False
+        target = None
+        for row_index, row in enumerate(state.get("rows", [])):
+            for cell_index, value in enumerate(row):
+                if value == label:
+                    target = (row_index, cell_index)
+                    break
+            if target:
+                break
+        if target is None:
+            self.add("P0", "Demo label unavailable", label)
+            return False
+        row_index, cell_index = target
+        if not self.demo_show_rest(case, source_by_id, "WAIT ROW " + label):
+            return False
+        def wait_row():
+            return bool(self.wait_demo_state(
+                stage="Rows", row_index=row_index, timeout=70.0,
+                not_before_epoch_s=time.time(),
+            ))
+        if not self.demo_activate_with_retries(
+            case, source_by_id, "ROW " + label, target_wait=wait_row
+        ):
+            return False
+        def wait_cell():
+            if cell_index == 0:
+                return bool(self.wait_demo_state(
+                    row_index=row_index, cell_index=0, timeout=25.0,
+                    not_before_epoch_s=time.time(),
+                ))
+            return bool(self.wait_demo_state(
+                stage="Cells", row_index=row_index,
+                cell_index=cell_index, timeout=25.0,
+                not_before_epoch_s=time.time(),
+            ))
+        return self.demo_activate_with_retries(
+            case, source_by_id, "CELL " + label, target_wait=wait_cell
+        )
+
+    def run_physical_demo(self, gesture, manifest, source_by_id):
+        if gesture == "cheek":
+            cases = [
+                dict(case, gesture="cheek") for case in self.load_local_cheek_cases()
+                if case.get("expect") == "activate"
+            ]
+            case = cases[0] if cases else None
+            if case:
+                frames = case.get("frames") or []
+                active_index = next((
+                    index for index, frame in enumerate(frames)
+                    if frame.get("phase") == "Active"
+                ), 0)
+                prefix = []
+                prefix_ms = 0.0
+                for frame in reversed(frames[:active_index]):
+                    prefix.insert(0, dict(frame))
+                    prefix_ms += float(frame.get("ms", 100))
+                    if prefix_ms >= 250:
+                        break
+                case["frames"] = prefix + [
+                    dict(frame) for frame in frames[active_index:]
+                ]
+                case["id"] += "_demo_timed"
+        else:
+            case = next((
+                dict(item, gesture="blink")
+                for item in manifest.get("blink_cases", [])
+                if item.get("id") == "blink_long_positive_01"
+            ), None)
+            if case:
+                case["stills"] = [dict(item) for item in case["stills"]]
+                case["stills"][0]["ms"] = 250
+                case["id"] += "_demo_timed"
+        if not case:
+            self.add("P0", "No physical demo gesture", gesture)
+            return False
+        if not self.wait_demo_state(stage="Rows"):
+            self.add("P0", "Demo scanner did not start", gesture)
+            return False
+        if not self.demo_show_rest(case, source_by_id, "INITIAL"):
+            return False
+        if not self.demo_activate_with_retries(
+            case, source_by_id, "RELEASE REVIEW"
+        ):
+            return False
+        message = ""
+        for label in ("幫忙", "喝水"):
+            if not self.demo_select_label(label, case, source_by_id):
+                return False
+            message += label
+            if not self.wait_demo_state(message=message, timeout=8.0):
+                self.add("P1", "Demo message did not update", message)
+                return False
+            if not self.demo_activate_with_retries(
+                case, source_by_id, "RELEASE " + label
+            ):
+                return False
+        if not self.demo_select_label("朗讀", case, source_by_id):
+            return False
+        if not self.wait_demo_state(message=message, timeout=8.0):
+            self.add("P1", "Demo phrase was not retained", message)
+            return False
+        log = self.e2e_log()
+        (self.outdir / "demo-e2e.log").write_text(
+            log, encoding="utf-8", errors="replace"
+        )
+        self.device.screenshot("demo_%s_complete" % gesture)
+        result = {
+            "gesture": gesture,
+            "message": message,
+            "physical_activations": e2e_input_count(
+                log, "activate",
+                "android-camera-cheek-twitch"
+                if gesture == "cheek" else "android-camera-long-blink",
+            ),
+        }
+        (self.outdir / "physical-demo.json").write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        self.pass_(
+            "physical %s demo" % gesture,
+            "%s composed and Speak selected through real camera activations" % message,
+        )
+        return True
+
     def reset_board_for_case(self, label):
         """Recreate the normal board so every case starts at Review pause."""
         self.device.shell("am", "force-stop", PACKAGE, check=False)
@@ -2617,6 +3155,12 @@ class OpticalRig:
                 self.add("P0","Could not restore app after thermal cooldown",label)
                 return None
 
+        # A real user's relaxed face is already present while CameraX and the
+        # detector start. Starting every trial from the rig's black idle frame
+        # made the calibrated open-baseline requirement depend on cold ML Kit
+        # latency rather than on the gesture under test.
+        if not self.demo_show_rest(case, source_by_id, "PRE-ROLL " + label):
+            return None
         before_phase = self.reset_board_for_case(label)
         if before_phase is None:
             return None
@@ -2936,6 +3480,11 @@ class OpticalRig:
                 )
             else:
                 report.append("- Evidence: `calibration.json`, `atlas-calibration.json`, `camera-cycle.json`")
+                if (self.outdir / "blink-calibration-stimulus-timeline.json").exists():
+                    report.append(
+                        "- Blink stimulus evidence: `blink-calibration-stimulus-timeline.json`, "
+                        "`blink-calibration-preview.mp4`"
+                    )
         report += [
             "- Native long-blink calibration: `%s`" % (
                 "PASS" if (self.outdir / "blink-calibration.json").exists()
@@ -2952,6 +3501,18 @@ class OpticalRig:
             ),
         ]
         report += ["","## Stimulus results",""]
+        demo_path = self.outdir / "physical-demo.json"
+        if demo_path.exists():
+            try:
+                demo = json.loads(demo_path.read_text(encoding="utf-8"))
+                report += [
+                    "- Physical demo: `%s`" % demo.get("gesture", "unknown"),
+                    "- Composed message: `%s`" % demo.get("message", ""),
+                    "- Camera activations: `%s`" % demo.get("physical_activations", "unknown"),
+                    "",
+                ]
+            except (OSError, ValueError):
+                pass
         if not self.results:
             report.append("No stimulus cases completed.")
         else:
@@ -3145,6 +3706,30 @@ class OpticalRig:
                 if not self.prepare_runtime_from_session():
                     self.write_report(calibration)
                     return 2
+                if self.args.trace_hold:
+                    if not self.install_demo_profile():
+                        self.write_report(calibration)
+                        return 2
+                if self.args.demo_phrase:
+                    if not self.install_demo_profile():
+                        self.write_report(calibration)
+                        return 2
+                    if not self.verify_runtime_camera_selection():
+                        self.write_report(calibration)
+                        return 2
+                    if not self.run_physical_demo(
+                        session_gesture, manifest, source_by_id
+                    ):
+                        (self.outdir / "demo-e2e.log").write_text(
+                            self.e2e_log(), encoding="utf-8", errors="replace"
+                        )
+                        self.write_report(calibration)
+                        return 2
+                    self.write_report(calibration)
+                    return 1 if any(
+                        item["priority"] in ("P0", "P1")
+                        for item in self.findings
+                    ) else 0
                 if not self.verify_runtime_camera_selection():
                     self.write_report(calibration)
                     return 2
@@ -3316,6 +3901,10 @@ class OpticalRig:
                     print("WARNING could not restore the original Switch input profile")
             except Exception as error:
                 print("WARNING Switch input cleanup failed:", error)
+            try:
+                self.restore_demo_profile()
+            except Exception as error:
+                print("WARNING demo profile cleanup failed:", error)
             try: self.host.close()
             except Exception: pass
             try: self.restore_camera_preferences()
@@ -3342,6 +3931,8 @@ def main():
                     help="with --runtime-only, select the blink or cheek session fixture")
     ap.add_argument("--calibrate-cheek-session", action="store_true",
                     help="with --runtime-only, create a reusable cheek session from the imported pack")
+    ap.add_argument("--demo-phrase", action="store_true",
+                    help="with --runtime-only, compose 幫忙喝水 and select Speak using physical camera gestures")
     ap.add_argument("--case", action="append", default=[],
                     help="with --runtime-only, run only this case ID (repeatable)")
     ap.add_argument("--repeat", type=int, default=1,
@@ -3368,6 +3959,8 @@ def main():
         ap.error("--calibrate-cheek-session requires --runtime-only")
     if args.calibrate_cheek_session and args.session_gesture != "blink":
         ap.error("--calibrate-cheek-session starts from the reusable blink geometry fixture")
+    if args.demo_phrase and not args.runtime_only:
+        ap.error("--demo-phrase requires --runtime-only")
     if args.case and not args.runtime_only:
         ap.error("--case requires --runtime-only")
     if args.repeat < 1 or (args.repeat > 1 and not args.runtime_only):
@@ -3382,6 +3975,8 @@ def main():
         ap.error("--inspect-blink-poses requires the blink session fixture")
     if args.calibrate_cheek_session and (args.case or args.repeat != 1 or args.trace_hold or args.inspect_blink_poses):
         ap.error("--calibrate-cheek-session cannot be combined with focused case options")
+    if args.demo_phrase and (args.case or args.repeat != 1 or args.trace_hold or args.inspect_blink_poses or args.calibrate_cheek_session):
+        ap.error("--demo-phrase cannot be combined with focused case/calibration options")
 
     if not SOURCES_PATH.exists():
         raise SystemExit("Optical rig is not installed; run the repo installer.")
