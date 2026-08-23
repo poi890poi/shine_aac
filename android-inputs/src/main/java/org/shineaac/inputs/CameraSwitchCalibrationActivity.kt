@@ -588,17 +588,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun updateModeUi() {
-        testButton?.apply {
-            text = if (selectedGesture == OpticalSwitchGesture.LongBlink) tr("Test blink", "測試眨眼") else tr("Test cheek", "測試臉頰")
-            setOnClickListener { startSelectedGestureTest() }
-            isEnabled = true
-        }
         updateGestureSelectionUi()
         updateHoldUi()
-    }
-
-    private fun startSelectedGestureTest() {
-        if (selectedGesture == OpticalSwitchGesture.LongBlink) startLongBlinkTest() else startCheekTest()
     }
 
     private fun configureTtsVoice() {
@@ -965,7 +956,6 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
         }
         startButton?.isEnabled = true
-        testButton?.isEnabled = true
         changeCameraButton?.isEnabled = true
     }
 
@@ -1444,13 +1434,13 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun processCheekScore(score: Double?, now: Long): Boolean {
-        if (phase != Phase.TestCheek && !shouldPreviewMonitor()) return false
+        if (!shouldPreviewMonitor()) return false
         val classifier = cheekClassifier ?: return false
         var activated = false
         classifier.onScore(score, now).forEach { event ->
             if (event is BinarySwitchClassifier.Event.Activated) {
                 activated = true
-                if (phase == Phase.TestCheek) cheekTestActivations += 1 else cheekPreviewActivations += 1
+                cheekPreviewActivations += 1
             }
         }
         return activated
@@ -2031,6 +2021,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val CheekMaxCameraFps = 30
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
+        const val CueTickMs = 200L
         const val CheekTrialCount = 6
         const val RestFramesNeeded = 45
         const val MinimumTwitchFrames = 3
