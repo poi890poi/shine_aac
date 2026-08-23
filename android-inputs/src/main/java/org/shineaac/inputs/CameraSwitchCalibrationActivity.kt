@@ -60,6 +60,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var overlayView: FaceOverlayView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
+    private var gestureView: TextView? = null
     private var holdView: TextView? = null
     private var zoomView: TextView? = null
     private var startButton: Button? = null
@@ -111,6 +112,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var previewLastShortCueAtMs = 0L
     private var previewLastLongCueAtMs = 0L
     private var calibratedLongBlinkHoldMs = 800L
+    private var selectedGesture = OpticalSwitchGesture.LongBlink
+    private var cheekHoldMs = 180L
     private var calibratedZoomRatio = 1.6f
     private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
@@ -125,6 +128,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         zhTwUi = profileId == "zh-TW"
         ttsVoiceLabel = tr("Voice pending", "語音準備中")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
+        selectedGesture = savedSettings.gesture
+        cheekHoldMs = savedSettings.cheekHoldMs
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
         calibratedZoomRatio = savedSettings.zoomRatio
         detectionParameters = savedSettings.detectionParameters
@@ -239,10 +244,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun restoreCameraPermissionActions() {
-        startButton?.apply {
-            text = tr("Start setup", "開始")
-            setOnClickListener { startAutoCalibration() }
-        }
+        updateGestureUi()
     }
 
     private fun openAppSettings() {
@@ -283,6 +285,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             textSize = 14f
             setPadding(0, 0, 0, dp(8))
             maxLines = 2
+        }
+        gestureView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(12), 0, dp(4))
         }
         holdView = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -347,6 +355,24 @@ class CameraSwitchCalibrationActivity : Activity() {
         actions.addView(startButton, actionButtonParams(horizontal = true))
         actions.addView(closeButton, actionButtonParams(horizontal = true))
 
+        val gestureActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        }
+        gestureActions.addView(
+            actionButton(tr("Long blink", "長眨眼"), primary = false) {
+                setOnClickListener { selectGesture(OpticalSwitchGesture.LongBlink) }
+            },
+            actionButtonParams(horizontal = true)
+        )
+        gestureActions.addView(
+            actionButton(tr("Cheek twitch", "臉頰抽動"), primary = false) {
+                setOnClickListener { selectGesture(OpticalSwitchGesture.CheekTwitch) }
+            },
+            actionButtonParams(horizontal = true)
+        )
+
         val holdActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -381,6 +407,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(if (wideLayout) dp(12) else 0, dp(8), 0, dp(8))
+            addView(gestureView)
+            addView(gestureActions)
             addView(holdView)
             addView(holdActions)
             addView(zoomView)
@@ -426,12 +454,27 @@ class CameraSwitchCalibrationActivity : Activity() {
             root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f))
             root.addView(controlsArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f))
         }
+        updateGestureUi()
         updateHoldUi()
         updateZoomUi()
         return root
     }
 
     private fun updateSavedCalibrationUi() {
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            statusView?.text = tr(
+                "Cheek twitch selected. No calibration is required. Center your face, then tap Done.",
+                "已選擇臉頰抽動。不需要校正。將臉置於中央，然後按「完成」。"
+            )
+            metricsView?.text = tr(
+                "Camera preview is for checking face position.",
+                "相機預覽用來確認臉部位置。"
+            )
+            updateGestureUi()
+            updateHoldUi()
+            return
+        }
+
         val quality = savedCalibrationRecord?.qualityDetail
         if (quality != null) {
             statusView?.text = tr(
@@ -440,9 +483,13 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
             metricsView?.text = localizedQualityDetail(quality)
         } else {
-            statusView?.text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
+            statusView?.text = tr(
+                "Center your face, then tap Start setup.",
+                "將臉置於中央，再按「開始設定」。"
+            )
             metricsView?.text = tr("No saved setup yet.", "尚未儲存設定。")
         }
+        updateGestureUi()
         updateHoldUi()
     }
 
@@ -485,6 +532,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun startAutoCalibration() {
+        if (selectedGesture != OpticalSwitchGesture.LongBlink) return
         calibrationRunId += 1
         mainHandler?.removeCallbacksAndMessages(null)
         currentSpeechId = null
@@ -618,19 +666,85 @@ class CameraSwitchCalibrationActivity : Activity() {
         return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
     }
 
+    private fun selectGesture(gesture: OpticalSwitchGesture) {
+        if (selectedGesture == gesture) return
+
+        selectedGesture = gesture
+        CameraSwitchPreferences.saveGesture(this, gesture)
+        updateGestureUi()
+        updateSavedCalibrationUi()
+    }
+
+    private fun updateGestureUi() {
+        gestureView?.text = when (selectedGesture) {
+            OpticalSwitchGesture.LongBlink ->
+                tr("Input: Long blink", "輸入方式：長眨眼")
+            OpticalSwitchGesture.CheekTwitch ->
+                tr("Input: Cheek twitch", "輸入方式：臉頰抽動")
+        }
+
+        startButton?.apply {
+            if (selectedGesture == OpticalSwitchGesture.LongBlink) {
+                text = tr("Start setup", "開始")
+                isEnabled = true
+                setOnClickListener { startAutoCalibration() }
+            } else {
+                text = tr("No calibration needed", "不需校正")
+                isEnabled = false
+                setOnClickListener(null)
+            }
+        }
+    }
+
     private fun adjustHoldMs(deltaMs: Long) {
-        calibratedLongBlinkHoldMs = clampLong(calibratedLongBlinkHoldMs + deltaMs, MinLongBlinkMs, MaxLongBlinkMs)
-        CameraSwitchPreferences.saveTiming(this, calibratedLongBlinkHoldMs, 900L)
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            cheekHoldMs = clampLong(
+                cheekHoldMs + deltaMs,
+                MinCheekHoldMs,
+                MaxCheekHoldMs
+            )
+            CameraSwitchPreferences.saveCheekHold(this, cheekHoldMs)
+            statusView?.text = tr(
+                "Cheek hold updated.",
+                "已更新臉頰抽動維持時間。"
+            )
+        } else {
+            calibratedLongBlinkHoldMs = clampLong(
+                calibratedLongBlinkHoldMs + deltaMs,
+                MinLongBlinkMs,
+                MaxLongBlinkMs
+            )
+            CameraSwitchPreferences.saveTiming(
+                this,
+                calibratedLongBlinkHoldMs,
+                900L
+            )
+            statusView?.text = tr(
+                "Long blink hold updated.",
+                "已更新長眨眼時間。"
+            )
+            metricsView?.text = tr(
+                "Test blink to confirm the new hold time works.",
+                "請測試眨眼，確認新設定是否合適。"
+            )
+        }
+
         updateHoldUi()
-        statusView?.text = tr("Long blink hold updated.", "已更新長眨眼時間。")
-        metricsView?.text = tr("Test blink to confirm the new hold time works.", "請測試眨眼，確認新設定是否合適。")
     }
 
     private fun updateHoldUi() {
-        holdView?.text = tr(
-            "Long blink hold: ${calibratedLongBlinkHoldMs} ms",
-            "長眨眼時間：${calibratedLongBlinkHoldMs} 毫秒"
-        )
+        holdView?.text = when (selectedGesture) {
+            OpticalSwitchGesture.LongBlink ->
+                tr(
+                    "Long blink hold: ${calibratedLongBlinkHoldMs} ms",
+                    "長眨眼時間：${calibratedLongBlinkHoldMs} 毫秒"
+                )
+            OpticalSwitchGesture.CheekTwitch ->
+                tr(
+                    "Cheek hold: ${cheekHoldMs} ms",
+                    "臉頰抽動維持時間：${cheekHoldMs} 毫秒"
+                )
+        }
     }
 
     private fun adjustZoomRatio(delta: Float) {
@@ -1186,6 +1300,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val ShortBlinkMinMs = 80L
         const val MinLongBlinkMs = 550L
         const val MaxLongBlinkMs = 1600L
+        const val MinCheekHoldMs = 100L
+        const val MaxCheekHoldMs = 800L
         const val LongBlinkGuardMs = 150L
         const val ShortPreviewCueCooldownMs = 250L
         const val LongPreviewCueCooldownMs = 1500L
