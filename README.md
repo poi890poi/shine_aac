@@ -28,7 +28,7 @@ Useful docs:
 - [Architecture](docs/ARCHITECTURE.md)
 - [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
 - [Release Process](docs/RELEASE_PROCESS.md)
-- [v0.3.4 Release Notes](docs/releases/v0.3.4.md)
+- [v0.3.3 Release Notes](docs/releases/v0.3.3.md)
 - [AAC Core](packages/aac-core/README.md)
 - [Testing Report](docs/TESTING_REPORT.md)
 - [Text And Display Scaling Policy](docs/TEXT_SCALING_POLICY.md)

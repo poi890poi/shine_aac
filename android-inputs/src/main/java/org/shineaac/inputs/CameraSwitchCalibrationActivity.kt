@@ -7,13 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.SurfaceTexture
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.hardware.camera2.CameraCaptureSession
@@ -36,7 +36,6 @@ import android.util.Range
 import android.util.Size
 import android.view.Gravity
 import android.view.Surface
-import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -58,8 +57,7 @@ import kotlin.math.min
 import kotlin.math.roundToLong
 
 class CameraSwitchCalibrationActivity : Activity() {
-    private var textureView: TextureView? = null
-    private var overlayView: FaceOverlayView? = null
+    private var previewView: CalibrationPreviewView? = null
     private var cueView: CalibrationCueView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
@@ -70,21 +68,19 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var changeCameraButton: Button? = null
     private var blinkGestureButton: Button? = null
     private var cheekGestureButton: Button? = null
-    private var previewGeometryReady = false
-    private var appliedPreviewKey: String? = null
     private var countdownTicking = false
     @Volatile private var cameraDevice: CameraDevice? = null
     @Volatile private var cameraOpening = false
     @Volatile private var cameraOpenGeneration = 0
     @Volatile private var session: CameraCaptureSession? = null
-    private var previewSurface: Surface? = null
     private var repeatingRequestBuilder: CaptureRequest.Builder? = null
     private var activeArraySize: Rect? = null
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
     private var activeAnalysisSize = Size(480, 360)
-    private var activePreviewBufferSize = Size(640, 480)
     private var mirrorFaceOverlay = true
+    private var sensorOrientationDegrees = 0
+    private var displayedFrame: Bitmap? = null
     private var availableCameras = emptyList<CameraSwitchCamera>()
     private var selectedCamera: CameraSwitchCamera? = null
     private var preferredCameraId: String? = null
@@ -379,27 +375,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             background = roundedBackground(Color.BLACK, dp(8), Color.rgb(58, 70, 82))
         }
-        textureView = TextureView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
-                    updatePreviewTransform(width, height)
-                    startCamera()
-                }
-                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
-                    updatePreviewTransform(width, height)
-                }
-                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
-                    stopCamera()
-                    return true
-                }
-                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
-            }
-        }
-        overlayView = FaceOverlayView(this).apply {
+        previewView = CalibrationPreviewView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -411,8 +387,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        previewFrame.addView(textureView)
-        previewFrame.addView(overlayView)
+        previewFrame.addView(previewView)
         previewFrame.addView(cueView)
 
         val actions = LinearLayout(this).apply {
@@ -992,7 +967,6 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun startCamera() {
         if (!activityResumed || isFinishing || isDestroyed) return
         if (cameraDevice != null || cameraOpening || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
-        val texture = textureView?.surfaceTexture ?: return
         val openGeneration = ++cameraOpenGeneration
         cameraOpening = true
         try {
@@ -1006,7 +980,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             val characteristics = manager.getCameraCharacteristics(cameraId)
             val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
             mirrorFaceOverlay = lensFacing == CameraCharacteristics.LENS_FACING_FRONT
-            val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            sensorOrientationDegrees = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            val sensorOrientation = sensorOrientationDegrees
             analysisRotationDegrees = CameraRotation.compensationDegrees(
                 currentSurfaceRotation(),
                 sensorOrientation,
@@ -1019,12 +994,6 @@ class CameraSwitchCalibrationActivity : Activity() {
                 targetWidth = AnalysisTargetWidth,
                 targetHeight = AnalysisTargetHeight
             )
-            activePreviewBufferSize = choosePreviewSize(
-                streamMap.getOutputSizes(SurfaceTexture::class.java),
-                analysisAspect = activeAnalysisSize.width.toDouble() / activeAnalysisSize.height
-            )
-            previewGeometryReady = true
-            updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
             activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
             maxCameraZoomRatio = characteristics
                 .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
@@ -1034,7 +1003,6 @@ class CameraSwitchCalibrationActivity : Activity() {
             updateZoomUi()
             val fpsRange = targetFpsRange(manager, cameraId)
 
-            texture.setDefaultBufferSize(activePreviewBufferSize.width, activePreviewBufferSize.height)
             val thread = HandlerThread("ShineCameraCalibration").also { it.start() }
             cameraThread = thread
             val handler = Handler(thread.looper)
@@ -1046,11 +1014,6 @@ class CameraSwitchCalibrationActivity : Activity() {
                 2
             )
             reader = activeReader
-            val activePreviewSurface = Surface(texture)
-            previewSurface = activePreviewSurface
-            if (!activePreviewSurface.isValid) {
-                throw IllegalStateException("Camera preview surface is invalid")
-            }
             activeReader.setOnImageAvailableListener({ imageReader ->
                 val image = try {
                     imageReader.acquireLatestImage()
@@ -1075,7 +1038,6 @@ class CameraSwitchCalibrationActivity : Activity() {
                     cameraDevice = camera
                     createCameraSession(
                         camera = camera,
-                        previewSurface = activePreviewSurface,
                         imageSurface = activeReader.surface,
                         fpsRange = fpsRange,
                         openGeneration = openGeneration
@@ -1108,7 +1070,6 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun createCameraSession(
         camera: CameraDevice,
-        previewSurface: Surface,
         imageSurface: Surface,
         fpsRange: Range<Int>?,
         openGeneration: Int
@@ -1118,14 +1079,13 @@ class CameraSwitchCalibrationActivity : Activity() {
                 camera.close()
                 return
             }
-            if (!previewSurface.isValid || !imageSurface.isValid) {
+            if (!imageSurface.isValid) {
                 camera.close()
                 if (cameraDevice === camera) cameraDevice = null
                 handleCameraFailure(openGeneration, "Camera surface became invalid")
                 return
             }
             val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-                addTarget(previewSurface)
                 addTarget(imageSurface)
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
                 if (fpsRange != null) {
@@ -1134,7 +1094,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                 set(CaptureRequest.SCALER_CROP_REGION, zoomCropRegion())
             }
             repeatingRequestBuilder = request
-            camera.createCaptureSession(listOf(previewSurface, imageSurface), object : CameraCaptureSession.StateCallback() {
+            camera.createCaptureSession(listOf(imageSurface), object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(captureSession: CameraCaptureSession) {
                     if (!isCameraGenerationActive(openGeneration) || cameraDevice !== camera) {
                         captureSession.close()
@@ -1185,14 +1145,11 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraDevice = null
         runCatching { reader?.close() }
         reader = null
-        runCatching { previewSurface?.release() }
-        previewSurface = null
         cameraThread?.quitSafely()
         cameraThread = null
         cameraHandler = null
         mlKitInFlight = false
-        appliedPreviewKey = null
-        overlayView?.clear()
+        releaseDisplayedFrame()
     }
 
     private fun applyZoomToRepeatingRequest() {
@@ -1249,9 +1206,19 @@ class CameraSwitchCalibrationActivity : Activity() {
         mlKitInFlight = true
         lastFrameAt = now
         val rotationDegrees = analysisRotationDegrees
-        val imageSize = orientedImageSize(image, rotationDegrees)
+        // Decode once, turn upright and mirror, then both show and analyse those same pixels.
+        val frameBitmap = try {
+            orientFrame(YuvBitmaps.toBitmap(image), rotationDegrees, mirrorFaceOverlay)
+        } catch (error: Exception) {
+            Log.w(Tag, "Decoding calibration frame failed", error)
+            image.close()
+            if (analysisGeneration == cameraOpenGeneration) mlKitInFlight = false
+            return
+        }
+        val imageSize = Size(frameBitmap.width, frameBitmap.height)
+        publishPreviewFrame(frameBitmap, analysisGeneration)
         val task = try {
-            activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
+            activeDetector.process(InputImage.fromBitmap(frameBitmap, 0))
         } catch (error: Exception) {
             Log.w(Tag, "Submitting calibration frame failed", error)
             image.close()
@@ -1268,7 +1235,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                 val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
                 mainHandler?.post {
                     if (!isCameraGenerationActive(analysisGeneration)) return@post
-                    overlayView?.setDetection(
+                    previewView?.setDetection(
                         face?.boundingBox?.let { normalizedRect(it, imageSize) },
                         null,
                         score != null
@@ -1313,7 +1280,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         mlKitInFlight = true
         lastFrameAt = now
         try {
-            val observation = analyzer.analyze(image, analysisRotationDegrees, now)
+            val rotationDegrees = analysisRotationDegrees
+            val frameBitmap = orientFrame(YuvBitmaps.toBitmap(image), rotationDegrees, mirrorFaceOverlay)
+            publishPreviewFrame(frameBitmap, analysisGeneration)
+            val observation = analyzer.analyzeBitmap(frameBitmap, 0, now)
             if (!isCameraGenerationActive(analysisGeneration)) return
             val score = observation?.takeIf { it.usable }?.let { cheekModel?.score(it.blendshapes) }
             if (observation?.usable == true) collectCheekSample(observation.blendshapes)
@@ -1323,7 +1293,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             val landmarks = observation?.normalizedLandmarks
             mainHandler?.post {
                 if (!isCameraGenerationActive(analysisGeneration)) return@post
-                overlayView?.setDetection(box, landmarks, observation?.usable == true)
+                previewView?.setDetection(box, landmarks, observation?.usable == true)
                 if (activation) {
                     playLongAcceptedCue()
                     statusView?.text = tr("Cheek movement accepted.", "已接受臉頰動作。")
@@ -1565,6 +1535,49 @@ class CameraSwitchCalibrationActivity : Activity() {
         return PreviewBlink.None
     }
 
+    /**
+     * Hands the decoded frame to the preview, recycling the frame it replaces.
+     *
+     * The bitmap is drawn on the UI thread, so the previous one can only be freed once it is no
+     * longer the displayed frame.
+     */
+    /**
+     * Turns a sensor-oriented frame upright and mirrors it for a front camera.
+     *
+     * Baking the orientation in before detection is what the cheek-switch proof of concept does, and
+     * it is why its mesh sits exactly on the face: the detector's normalized coordinates then refer
+     * to the same pixels that get drawn, so nothing downstream has to agree about conventions.
+     */
+    private fun orientFrame(bitmap: Bitmap, rotationDegrees: Int, mirror: Boolean): Bitmap {
+        if (rotationDegrees % 360 == 0 && !mirror) return bitmap
+        val transform = Matrix().apply {
+            postRotate(rotationDegrees.toFloat())
+            if (mirror) postScale(-1f, 1f)
+        }
+        val oriented = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, transform, true)
+        if (oriented !== bitmap) bitmap.recycle()
+        return oriented
+    }
+
+    private fun publishPreviewFrame(bitmap: Bitmap, analysisGeneration: Int) {
+        mainHandler?.post {
+            if (!isCameraGenerationActive(analysisGeneration)) {
+                bitmap.recycle()
+                return@post
+            }
+            val previous = displayedFrame
+            displayedFrame = bitmap
+            previewView?.setFrame(bitmap)
+            if (previous !== bitmap) previous?.recycle()
+        } ?: bitmap.recycle()
+    }
+
+    private fun releaseDisplayedFrame() {
+        previewView?.clear()
+        displayedFrame?.recycle()
+        displayedFrame = null
+    }
+
     private fun orientedImageSize(image: Image, rotation: Int): Size =
         if (rotation == 90 || rotation == 270) Size(image.height, image.width) else Size(image.width, image.height)
 
@@ -1585,71 +1598,6 @@ class CameraSwitchCalibrationActivity : Activity() {
             @Suppress("DEPRECATION")
             windowManager.defaultDisplay.rotation
         }
-
-    /**
-     * Places the camera image on screen and tells the overlay to use the same placement.
-     *
-     * The camera writes both the preview surface and the analysis reader in sensor orientation, so
-     * the preview is rotated by the same compensation handed to the detector and mirrored the same
-     * way the overlay mirrors. Without the rotation the detector worked upright while the preview
-     * stayed sideways, so pitching the head moved the box sideways and yawing it moved the box
-     * vertically. Deciding both here is what keeps the tracking marks locked to the face.
-     */
-    private fun updatePreviewTransform(width: Int, height: Int) {
-        val texture = textureView ?: return
-        if (width <= 0 || height <= 0) return
-        // Until the camera reports its real buffer size and rotation, keep whatever is on screen.
-        // Applying a placeholder transform first was what made the preview visibly resize on entry.
-        if (!previewGeometryReady) return
-
-        val bufferWidth = activePreviewBufferSize.width
-        val bufferHeight = activePreviewBufferSize.height
-        val key = "$width|$height|$bufferWidth|$bufferHeight|$analysisRotationDegrees|$mirrorFaceOverlay"
-        if (key == appliedPreviewKey) return
-        appliedPreviewKey = key
-
-        val scale = CameraPreviewGeometry.textureScale(
-            viewWidth = width,
-            viewHeight = height,
-            bufferWidth = bufferWidth,
-            bufferHeight = bufferHeight,
-            rotationDegrees = analysisRotationDegrees
-        )
-        val centerX = width / 2f
-        val centerY = height / 2f
-        texture.setTransform(
-            Matrix().apply {
-                setScale(scale.x, scale.y, centerX, centerY)
-                postRotate(analysisRotationDegrees.toFloat(), centerX, centerY)
-                if (mirrorFaceOverlay) postScale(-1f, 1f, centerX, centerY)
-            }
-        )
-        overlayView?.setPreviewGeometry(
-            CameraPreviewGeometry.orientedWidth(bufferWidth, bufferHeight, analysisRotationDegrees),
-            CameraPreviewGeometry.orientedHeight(bufferWidth, bufferHeight, analysisRotationDegrees),
-            mirrorFaceOverlay
-        )
-    }
-
-    /**
-     * Picks a preview size that shares the analysis stream's aspect ratio.
-     *
-     * The overlay maps detections from the analysis frame onto the rectangle the preview occupies,
-     * and the shared zoom crop region is fitted to each output's own aspect, so a preview with a
-     * different shape would show a different field of view and pull the tracking marks off the face.
-     * Only if no size matches do we fall back to the nearest-area choice.
-     */
-    private fun choosePreviewSize(sizes: Array<Size>?, analysisAspect: Double): Size {
-        require(!sizes.isNullOrEmpty()) { "Camera has no compatible output size" }
-        val matching = sizes.filter { abs(it.width.toDouble() / it.height - analysisAspect) <= PreviewAspectTolerance }
-        val candidates = if (matching.isNotEmpty()) matching.toTypedArray() else sizes
-        return chooseOutputSize(
-            sizes = candidates,
-            targetWidth = PreviewTargetWidth,
-            targetHeight = PreviewTargetHeight,
-            preferredAspect = analysisAspect
-        )
-    }
 
     private fun chooseOutputSize(
         sizes: Array<Size>?,
@@ -1804,90 +1752,6 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
     /**
-     * Draws the tracking marks on top of the preview.
-     *
-     * Detections arrive normalized to the rotated analysis frame, so the overlay only needs the
-     * aspect of what the preview is drawing. That keeps it correct even when the analysis stream
-     * and the preview stream run at different resolutions.
-     */
-    private class FaceOverlayView(context: Context) : View(context) {
-        private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 5f
-        }
-        private val landmarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-        }
-        private var bounds: RectF? = null
-        private var landmarks: FloatArray? = null
-        private var orientedWidth = 0
-        private var orientedHeight = 0
-        private var tracking = false
-        private var mirrorHorizontally = true
-
-        fun setPreviewGeometry(width: Int, height: Int, mirrored: Boolean) {
-            orientedWidth = width
-            orientedHeight = height
-            mirrorHorizontally = mirrored
-            invalidate()
-        }
-
-        /** [nextBounds] and [nextLandmarks] are normalized to 0..1 in the rotated analysis frame. */
-        fun setDetection(nextBounds: RectF?, nextLandmarks: FloatArray?, nextTracking: Boolean) {
-            bounds = nextBounds
-            landmarks = nextLandmarks
-            tracking = nextTracking
-            invalidate()
-        }
-
-        fun clear() {
-            bounds = null
-            landmarks = null
-            tracking = false
-            invalidate()
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            val box = bounds ?: return
-            if (orientedWidth <= 0 || orientedHeight <= 0) return
-            val content = CameraPreviewGeometry.contentRect(width, height, orientedWidth, orientedHeight)
-            val color = if (tracking) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
-            boxPaint.color = color
-            landmarkPaint.color = color
-
-            val left = mapX(box.left, content)
-            val right = mapX(box.right, content)
-            canvas.drawRect(
-                min(left, right),
-                content.top + box.top * content.height,
-                max(left, right),
-                content.top + box.bottom * content.height,
-                boxPaint
-            )
-
-            val points = landmarks ?: return
-            val radius = max(1.5f, min(content.width, content.height) / 260f)
-            var index = 0
-            while (index + 1 < points.size) {
-                canvas.drawCircle(
-                    mapX(points[index], content),
-                    content.top + points[index + 1] * content.height,
-                    radius,
-                    landmarkPaint
-                )
-                index += 2
-            }
-        }
-
-        /** Mirrors about the view centre, matching the preview's own mirror transform. */
-        private fun mapX(normalizedX: Float, content: PreviewContentRect): Float {
-            val x = content.left + normalizedX * content.width
-            return if (mirrorHorizontally) width - x else x
-        }
-    }
-
-    /**
      * The visible half of every calibration cue.
      *
      * Spoken instructions and tones are useless to a user who cannot hear them, and a tone is easy
@@ -2016,10 +1880,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val CameraPermissionRequestCode = 2504
         const val AnalysisTargetWidth = 640
         const val AnalysisTargetHeight = 480
-        const val PreviewTargetWidth = 640
-        const val PreviewTargetHeight = 480
         const val AspectRatioWeight = 4.0
-        const val PreviewAspectTolerance = 0.02
         const val MlKitFrameIntervalMs = 200L
         const val CheekFrameIntervalMs = 45L
         const val BlinkTargetCameraFps = 10

@@ -32,13 +32,25 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
 
     @Synchronized
     fun analyze(image: Image, rotationDegrees: Int, timestampMs: Long): CheekFaceObservation? {
-        val bitmap = yuv420ToBitmap(image)
+        val bitmap = YuvBitmaps.toBitmap(image)
+        return try {
+            analyzeBitmap(bitmap, rotationDegrees, timestampMs)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * Analyses a bitmap the caller keeps ownership of, so the calibration screen can display the very
+     * frame it analysed instead of a separate preview stream.
+     */
+    @Synchronized
+    fun analyzeBitmap(bitmap: Bitmap, rotationDegrees: Int, timestampMs: Long): CheekFaceObservation? {
         val mpImage = BitmapImageBuilder(bitmap).build()
         return try {
             analyzeMpImage(mpImage, rotationDegrees, timestampMs)
         } finally {
             mpImage.close()
-            bitmap.recycle()
         }
     }
 
@@ -84,34 +96,6 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
             normalizedBounds = NormalizedFaceBounds(minX, minY, maxX, maxY),
             normalizedLandmarks = landmarks
         )
-    }
-
-    private fun yuv420ToBitmap(image: Image): Bitmap {
-        val width = image.width
-        val height = image.height
-        val pixels = IntArray(width * height)
-        val yPlane = image.planes[0]
-        val uPlane = image.planes[1]
-        val vPlane = image.planes[2]
-        val yBuffer = yPlane.buffer.duplicate()
-        val uBuffer = uPlane.buffer.duplicate()
-        val vBuffer = vPlane.buffer.duplicate()
-        var output = 0
-        for (row in 0 until height) {
-            val yRow = row * yPlane.rowStride
-            val uvRow = (row / 2) * uPlane.rowStride
-            for (column in 0 until width) {
-                val y = yBuffer.get(yRow + column * yPlane.pixelStride).toInt() and 0xff
-                val uvColumn = (column / 2) * uPlane.pixelStride
-                val u = (uBuffer.get(uvRow + uvColumn).toInt() and 0xff) - 128
-                val v = (vBuffer.get((row / 2) * vPlane.rowStride + (column / 2) * vPlane.pixelStride).toInt() and 0xff) - 128
-                val red = (y + 1.402 * v).toInt().coerceIn(0, 255)
-                val green = (y - 0.344136 * u - 0.714136 * v).toInt().coerceIn(0, 255)
-                val blue = (y + 1.772 * u).toInt().coerceIn(0, 255)
-                pixels[output++] = (0xff shl 24) or (red shl 16) or (green shl 8) or blue
-            }
-        }
-        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
     }
 
     private fun faceQuality(
