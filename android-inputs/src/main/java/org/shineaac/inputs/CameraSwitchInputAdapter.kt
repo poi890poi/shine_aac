@@ -40,6 +40,14 @@ class CameraSwitchInputAdapter(
     private var imageAnalysis: ImageAnalysis? = null
     private var analysisExecutor: ExecutorService? = null
     private var detector: FaceDetector? = null
+    private var cheekAnalyzer: CheekFaceAnalyzer? = null
+    private var cheekDetector = CheekTwitchDetector()
+    private var cheekClassifier = BinarySwitchClassifier(
+        BinarySwitchClassifier.Config(
+            enterThreshold = CheekTwitchDetector.DefaultEnterThreshold,
+            exitThreshold = CheekTwitchDetector.DefaultExitThreshold
+        )
+    )
     private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(480, 360)
     @Volatile private var mlKitInFlight = false
@@ -67,21 +75,40 @@ class CameraSwitchInputAdapter(
         if (!settings.enabled) return
         activeDetectionParameters = settings.detectionParameters.normalized()
         blinkClassifier = BlinkGestureClassifier(activeDetectionParameters.classifierConfig())
+
+        cheekDetector = CheekTwitchDetector()
+        val cheekModel = settings.cheekModel
+        cheekClassifier = BinarySwitchClassifier(
+            BinarySwitchClassifier.Config(
+                enterThreshold = cheekModel?.enterThreshold
+                    ?: CheekTwitchDetector.DefaultEnterThreshold,
+                exitThreshold = cheekModel?.exitThreshold
+                    ?: CheekTwitchDetector.DefaultExitThreshold,
+                minimumHoldMs = settings.cheekHoldMs
+            )
+        )
+
         activeSource = settings.source
         running = true
         lastImageReceivedAt = System.currentTimeMillis()
         lastAnalysisCompletedAt = lastImageReceivedAt
         sendStatus("starting", force = true)
 
-        detector = FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                .enableTracking()
-                .setMinFaceSize(0.12f)
-                .build()
-        )
+        if (settings.gesture == OpticalSwitchGesture.LongBlink) {
+            detector = FaceDetection.getClient(
+                FaceDetectorOptions.Builder()
+                    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                    .enableTracking()
+                    .setMinFaceSize(0.12f)
+                    .build()
+            )
+            cheekAnalyzer = null
+        } else {
+            detector = null
+            cheekAnalyzer = CheekFaceAnalyzer(context)
+        }
         tonePlayer = CameraSwitchTonePlayer()
         analysisExecutor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "ShineCameraSwitchAnalysis").apply {
@@ -121,6 +148,8 @@ class CameraSwitchInputAdapter(
         cameraProvider = null
         detector?.close()
         detector = null
+        cheekAnalyzer?.close()
+        cheekAnalyzer = null
         if (holdEventActive) {
             sendHoldEnd(activeSource, "stop")
         }
@@ -135,6 +164,8 @@ class CameraSwitchInputAdapter(
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
         blinkClassifier.reset()
+        cheekDetector.reset()
+        cheekClassifier.reset()
         holdEventActive = false
     }
 
@@ -217,8 +248,19 @@ class CameraSwitchInputAdapter(
             imageProxy.close()
             return
         }
+
         val now = System.currentTimeMillis()
-        if (mlKitInFlight || now - lastFrameAt < MlKitFrameIntervalMs) {
+        if (now - lastFrameAt < MlKitFrameIntervalMs) {
+            imageProxy.close()
+            return
+        }
+
+        if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+            analyzeCheek(imageProxy, settings, imageGeneration, now)
+            return
+        }
+
+        if (mlKitInFlight) {
             imageProxy.close()
             return
         }
@@ -276,12 +318,91 @@ class CameraSwitchInputAdapter(
             }
     }
 
+    @androidx.annotation.OptIn(ExperimentalGetImage::class)
+    private fun analyzeCheek(
+        imageProxy: ImageProxy,
+        settings: CameraSwitchSettings,
+        imageGeneration: Int,
+        now: Long
+    ) {
+        val analyzer = cheekAnalyzer
+        val mediaImage = imageProxy.image
+
+        if (analyzer == null || mediaImage == null) {
+            imageProxy.close()
+            return
+        }
+
+        lastFrameAt = now
+
+        try {
+            val observation = analyzer.analyze(
+                mediaImage,
+                imageProxy.imageInfo.rotationDegrees,
+                now
+            )
+
+            if (imageGeneration != generation || !running) return
+
+            val score = if (observation?.usable == true) {
+                settings.cheekModel?.score(observation.blendshapes)
+                    ?: cheekDetector.observe(observation.blendshapes)
+            } else {
+                null
+            }
+
+            updateCheekState(score, settings)
+        } catch (error: Exception) {
+            Log.w(Tag, "Cheek analysis failed", error)
+            updateCheekState(null, settings)
+        } finally {
+            if (imageGeneration == generation) {
+                lastAnalysisCompletedAt = System.currentTimeMillis()
+                sendStatus("analysis")
+            }
+            safeClose(imageProxy)
+        }
+    }
+
+    private fun updateCheekState(score: Double?, settings: CameraSwitchSettings) {
+        val now = System.currentTimeMillis()
+
+        for (event in cheekClassifier.onScore(score, now)) {
+            when (event) {
+                is BinarySwitchClassifier.Event.HoldStarted -> {
+                    sendHoldStart(settings.source, "cheekMotion")
+                }
+
+                is BinarySwitchClassifier.Event.Activated -> {
+                    if (now - lastActivationAt >= settings.cooldownMs) {
+                        lastActivationAt = now
+                        playHoldReachedCue()
+                        sink.onInput(
+                            InputEvent(
+                                intent = "activate",
+                                source = settings.source,
+                                detail = "cheekHoldMs=${event.heldMs}"
+                            )
+                        )
+                    }
+                }
+
+                is BinarySwitchClassifier.Event.HoldEnded -> {
+                    sendHoldEnd(
+                        settings.source,
+                        "reason=${event.reason.name}"
+                    )
+                }
+            }
+        }
+    }
+
     private fun updateBlinkState(score: Double?, reopenScore: Double?, settings: CameraSwitchSettings) {
         val now = System.currentTimeMillis()
         for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
             when (event) {
                 is BlinkGestureClassifier.Event.HoldStarted -> {
-                    sendHoldStart(settings.source)
+                    sendHoldStart(settings.source, "eyesClosed")
                 }
                 is BlinkGestureClassifier.Event.Activated -> {
                     playHoldReachedCue()
@@ -298,10 +419,10 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private fun sendHoldStart(source: String) {
+    private fun sendHoldStart(source: String, detail: String) {
         if (holdEventActive) return
         holdEventActive = true
-        sink.onInput(InputEvent(intent = "holdStart", source = source, detail = "eyesClosed"))
+        sink.onInput(InputEvent(intent = "holdStart", source = source, detail = detail))
     }
 
     private fun sendHoldEnd(source: String, detail: String) {
