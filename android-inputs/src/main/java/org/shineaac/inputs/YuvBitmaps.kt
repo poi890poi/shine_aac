@@ -4,10 +4,11 @@ import android.graphics.Bitmap
 import android.media.Image
 
 /**
- * Converts camera YUV_420_888 frames to bitmaps.
+ * Camera Setup-only YUV_420_888 to Bitmap conversion.
  *
- * The calibration screen draws the very frame it analysed, so the pixels on screen and the detector's
- * coordinates come from one image and cannot disagree about rotation or mirroring.
+ * The continuous AAC cheek-switch runtime does not call this converter:
+ * CameraX supplies RGBA_8888 to MediaImageBuilder instead. Camera Setup stays
+ * on this temporary path because its Camera2 geometry has already been physically verified.
  */
 internal object YuvBitmaps {
     /**

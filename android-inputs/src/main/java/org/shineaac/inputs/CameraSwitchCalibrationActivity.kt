@@ -1253,7 +1253,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         val imageSize = orientedImageSize(image, rotationDegrees)
 
         try {
-            val observation = analyzer.analyze(image, rotationDegrees, now)
+            val observation = analyzer.analyzeYuvForSetup(image, rotationDegrees, now)
             val values = observation?.takeIf { it.usable }?.blendshapes
             val defaultScore = values?.let { cheekDetector.observe(it) }
             val score = values?.let { cheekModel?.score(it) } ?: defaultScore

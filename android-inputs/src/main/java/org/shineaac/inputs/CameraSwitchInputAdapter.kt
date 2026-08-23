@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.util.Range
 import android.util.Size
@@ -57,6 +58,9 @@ class CameraSwitchInputAdapter(
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
+    private var cheekPerfFrames = 0
+    private var cheekPerfTotalNs = 0L
+    private var cheekPerfMaxNs = 0L
     private var lastReportedScore: Double? = null
     private var activeEnterThreshold = CheekTwitchDetector.DefaultEnterThreshold
     private var blinkClassifier = BlinkGestureClassifier()
@@ -174,6 +178,9 @@ class CameraSwitchInputAdapter(
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
+        cheekPerfFrames = 0
+        cheekPerfTotalNs = 0L
+        cheekPerfMaxNs = 0L
         blinkClassifier.reset()
         cheekDetector.reset()
         cheekClassifier.reset()
@@ -186,6 +193,12 @@ class CameraSwitchInputAdapter(
         val executor = analysisExecutor ?: return
         try {
             val builder = ImageAnalysis.Builder()
+            if (cheekAnalyzer != null) {
+                // CameraX performs RGBA conversion in its optimized pipeline;
+                // SHINE no longer loops over YUV pixels in Kotlin at runtime.
+                builder.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            }
+            builder
                 .setResolutionSelector(
                     ResolutionSelector.Builder()
                         .setResolutionStrategy(
@@ -349,9 +362,10 @@ class CameraSwitchInputAdapter(
         }
 
         lastFrameAt = now
+        val analysisStartedNs = SystemClock.elapsedRealtimeNanos()
 
         try {
-            val observation = analyzer.analyze(
+            val observation = analyzer.analyzeRgbaForRuntime(
                 mediaImage,
                 imageProxy.imageInfo.rotationDegrees,
                 now
@@ -371,12 +385,34 @@ class CameraSwitchInputAdapter(
             Log.w(Tag, "Cheek analysis failed", error)
             updateCheekState(null, settings)
         } finally {
+            recordCheekPerformance(
+                SystemClock.elapsedRealtimeNanos() - analysisStartedNs
+            )
             if (imageGeneration == generation) {
                 lastAnalysisCompletedAt = System.currentTimeMillis()
                 sendStatus("analysis")
             }
             safeClose(imageProxy)
         }
+    }
+
+    private fun recordCheekPerformance(durationNs: Long) {
+        if (durationNs <= 0L) return
+        cheekPerfFrames += 1
+        cheekPerfTotalNs += durationNs
+        cheekPerfMaxNs = maxOf(cheekPerfMaxNs, durationNs)
+        if (cheekPerfFrames < CheekPerfLogFrames) return
+
+        val averageUs = (cheekPerfTotalNs / cheekPerfFrames) / 1_000L
+        val maxUs = cheekPerfMaxNs / 1_000L
+        Log.i(
+            Tag,
+            "CHEEK_PERF path=rgba-mediaimage frames=$cheekPerfFrames " +
+                "avgUs=$averageUs maxUs=$maxUs size=${analysisSize.width}x${analysisSize.height}"
+        )
+        cheekPerfFrames = 0
+        cheekPerfTotalNs = 0L
+        cheekPerfMaxNs = 0L
     }
 
     private fun updateCheekState(score: Double?, settings: CameraSwitchSettings) {
@@ -500,6 +536,7 @@ class CameraSwitchInputAdapter(
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
+        const val CheekPerfLogFrames = 50
         const val Tag = "ShineCameraSwitch"
     }
 }
