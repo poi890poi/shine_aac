@@ -77,6 +77,36 @@ class OpticalOracleTest(unittest.TestCase):
         record = RIG.new_blink_calibration_record(before, after)
         self.assertEqual("200", record["calibratedAtMs"])
         self.assertEqual("550", record["longBlinkMs"])
+        self.assertTrue(RIG.blink_calibration_quality_is_good(record))
+
+    def test_weak_blink_calibration_is_not_a_rig_pass(self):
+        self.assertFalse(RIG.blink_calibration_quality_is_good({"qualityLabel": "品質偏低"}))
+        self.assertFalse(RIG.blink_calibration_quality_is_good({"qualityLabel": "Quality needs retry"}))
+
+    def test_cheek_calibration_oracle_requires_new_complete_model(self):
+        before = '<map><long name="cheekCalibratedAtMs" value="100" /></map>'
+        after = (
+            '<map><long name="cheekCalibratedAtMs" value="200" />'
+            '<string name="cheekModel">model-json</string>'
+            '<long name="cheekHoldMs" value="500" />'
+            '<float name="zoomRatio" value="4.0" />'
+            '<string name="cheekQualityLabel">品質良好</string>'
+            '<string name="cheekQualityDetail">6/6</string></map>'
+        )
+        record = RIG.new_cheek_calibration_record(before, after)
+        self.assertEqual("200", record["cheekCalibratedAtMs"])
+        self.assertEqual("model-json", record["cheekModel"])
+
+    def test_cheek_calibration_oracle_rejects_unchanged_timestamp(self):
+        xml = (
+            '<map><long name="cheekCalibratedAtMs" value="100" />'
+            '<string name="cheekModel">model-json</string>'
+            '<long name="cheekHoldMs" value="500" />'
+            '<float name="zoomRatio" value="4.0" />'
+            '<string name="cheekQualityLabel">品質良好</string>'
+            '<string name="cheekQualityDetail">6/6</string></map>'
+        )
+        self.assertIsNone(RIG.new_cheek_calibration_record(xml, xml))
 
     def test_visible_board_oracle_counts_row_column_stages(self):
         self.assertEqual(0, RIG.visible_activation_count("review", "review", "row-column"))
@@ -225,6 +255,10 @@ class OpenCvFramebufferTest(unittest.TestCase):
                 for index in range(1, 4)
             ],
         )
+        continuous = cases["blink_slow_continuous_02"]
+        self.assertEqual((1.4, 2.1, 0.15), (
+            continuous["start"], continuous["end"], continuous["rate"],
+        ))
 
     def test_blank_framebuffer_is_exact_black(self):
         _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
@@ -242,6 +276,15 @@ class OpenCvFramebufferTest(unittest.TestCase):
         # 864 is not divisible by the 128px tag size. The former browser
         # renderer left rows 768..863 entirely black.
         self.assertGreater(int(numpy.count_nonzero(atlas[768:864])), 0)
+
+    def test_calibration_audio_oracle_counts_only_shine_owned_starts(self):
+        log = "\n".join([
+            "AudioPlaybackConfiguration piid:1 deviceId:0 u/pid:10313/4535 state:started",
+            "AudioPlaybackConfiguration piid:2 deviceId:0 u/pid:10313/9957 state:started",
+            "AudioPlaybackConfiguration piid:3 deviceId:0 u/pid:10313/4535 state:stopped",
+            "AudioPlaybackConfiguration piid:4 deviceId:0 u/pid:10313/4535 state:started",
+        ])
+        self.assertEqual(2, RIG.app_audio_playback_start_count(log, "4535"))
 
 
 if __name__ == "__main__":

@@ -327,7 +327,15 @@ class OpenCvStimulus:
             start = max(0.0, float(state.get("start", 0.0)))
             capture.set(self.cv2.CAP_PROP_POS_MSEC, start * 1000.0)
             fps = capture.get(self.cv2.CAP_PROP_FPS) or 30.0
-            return {"capture": capture, "fps": fps, "next": time.perf_counter(), "frame": None, "ended": False}
+            end = state.get("end")
+            return {
+                "capture": capture,
+                "fps": fps,
+                "next": time.perf_counter(),
+                "frame": None,
+                "ended": False,
+                "end": max(start, float(end)) if end is not None else None,
+            }
         return {}
 
     def _render_state(self, state, prepared):
@@ -343,7 +351,11 @@ class OpenCvStimulus:
             items = state.get("frames") or []
             now = time.perf_counter()
             if prepared["index"] >= len(items):
-                return canvas, True
+                if state.get("loop") and items:
+                    prepared["index"] = 0
+                    prepared["deadline"] = now
+                else:
+                    return canvas, True
             if now >= prepared["deadline"]:
                 item = items[prepared["index"]]
                 prepared["frame"] = self.cv2.imread(str(self._resolve(item.get("url"))), self.cv2.IMREAD_COLOR)
@@ -357,12 +369,19 @@ class OpenCvStimulus:
         if mode == "video":
             now = time.perf_counter()
             if now >= prepared["next"] and not prepared["ended"]:
-                ok, frame = prepared["capture"].read()
+                if (
+                    prepared.get("end") is not None and
+                    prepared["capture"].get(self.cv2.CAP_PROP_POS_MSEC) / 1000.0 >= prepared["end"]
+                ):
+                    prepared["ended"] = True
+                    ok, frame = False, None
+                else:
+                    ok, frame = prepared["capture"].read()
                 if ok:
                     prepared["frame"] = frame
                     rate = max(0.01, float(state.get("rate", 1.0)))
                     prepared["next"] = now + 1.0 / (prepared["fps"] * rate)
-                elif state.get("loop"):
+                elif state.get("loop") and prepared.get("end") is None:
                     prepared["capture"].set(self.cv2.CAP_PROP_POS_FRAMES, 0)
                 else:
                     prepared["ended"] = True

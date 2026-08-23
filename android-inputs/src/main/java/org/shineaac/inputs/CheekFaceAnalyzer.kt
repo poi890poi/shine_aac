@@ -6,7 +6,6 @@ import android.graphics.Matrix
 import android.media.Image
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
-import com.google.mediapipe.framework.image.MediaImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
@@ -89,14 +88,11 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
      * Continuous runtime path.
      *
      * CameraSwitchInputAdapter configures CameraX ImageAnalysis for RGBA_8888.
-     * MediaImageBuilder wraps the android.media.Image directly; SHINE performs
-     * no per-pixel Kotlin YUV conversion and allocates no full-frame Bitmap here.
-     *
-     * Rotation is delegated to MediaPipe. The historical detector contract is a
-     * mirrored front-camera image, so for front lenses the small result is mirrored instead:
-     * normalized landmark x is flipped and Left/Right blendshape names are
-     * swapped. That keeps personalized models learned by the setup path in the
-     * same feature-key space.
+     * CameraX supplies an RGBA_8888 plane. Follow MediaPipe's Android Face
+     * Landmarker contract: copy that plane into an ARGB_8888 Bitmap, make the
+     * camera image upright/mirrored, then build the MPImage from the Bitmap.
+     * This preserves the same feature coordinate space used by setup models
+     * without the slower Kotlin YUV conversion in the continuous path.
      */
     fun analyzeRgbaForRuntime(
         image: Image,
@@ -104,16 +100,30 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         timestampMs: Long,
         mirrorCameraOutput: Boolean = true
     ): CheekFaceObservation? {
-        val mpImage = MediaImageBuilder(image).build()
+        val decoded = Bitmap.createBitmap(
+            image.width,
+            image.height,
+            Bitmap.Config.ARGB_8888
+        )
+        decoded.copyPixelsFromBuffer(image.planes[0].buffer.duplicate().apply { rewind() })
+        val oriented = orientCamera(
+            decoded, rotationDegrees, mirrorCameraOutput
+        )
         return try {
-            analyzeMpImage(
-                mpImage = mpImage,
-                rotationDegrees = rotationDegrees,
-                timestampMs = timestampMs,
-                mirrorFrontCameraOutput = mirrorCameraOutput
-            )
+            val mpImage = BitmapImageBuilder(oriented).build()
+            try {
+                analyzeMpImage(
+                    mpImage = mpImage,
+                    rotationDegrees = 0,
+                    timestampMs = timestampMs,
+                    mirrorFrontCameraOutput = false
+                )
+            } finally {
+                mpImage.close()
+            }
         } finally {
-            mpImage.close()
+            if (oriented !== decoded) oriented.recycle()
+            decoded.recycle()
         }
     }
 

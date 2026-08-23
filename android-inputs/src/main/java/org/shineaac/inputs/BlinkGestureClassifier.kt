@@ -96,11 +96,15 @@ class BlinkGestureClassifier(
         }
         if (closedScore >= config.closeThreshold) {
             openCandidateStartedAtMs = NoTime
-            if (nowMs - closedStartedAtMs >= longBlinkMs) {
-                state = State.ActivatedWaitOpen
-                signalLostStartedAtMs = NoTime
-                return listOf(Event.Activated(nowMs - closedStartedAtMs))
-            }
+        }
+        // After a stable close has started, the band between the reopen and
+        // close thresholds retains the closed state. Requiring every later
+        // sample to cross the close threshold again defeats hysteresis and can
+        // suppress an otherwise valid long blink indefinitely.
+        if (nowMs - closedStartedAtMs >= longBlinkMs) {
+            state = State.ActivatedWaitOpen
+            signalLostStartedAtMs = NoTime
+            return listOf(Event.Activated(nowMs - closedStartedAtMs))
         }
         return emptyList()
     }

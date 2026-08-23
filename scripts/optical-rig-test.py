@@ -142,6 +142,26 @@ def new_blink_calibration_record(before_xml, after_xml):
         return None
     return {name: after.get(name) for name in required + ("qualityLabel", "qualityDetail")}
 
+
+def blink_calibration_quality_is_good(record):
+    label = str((record or {}).get("qualityLabel", "")).strip().casefold()
+    return label in {"quality good", "品質良好"}
+
+
+def new_cheek_calibration_record(before_xml, after_xml):
+    before = android_preference_values(before_xml)
+    after = android_preference_values(after_xml)
+    calibrated_at = after.get("cheekCalibratedAtMs")
+    if not calibrated_at or calibrated_at == before.get("cheekCalibratedAtMs"):
+        return None
+    required = (
+        "cheekCalibratedAtMs", "cheekModel", "cheekHoldMs", "zoomRatio",
+        "cheekQualityLabel", "cheekQualityDetail",
+    )
+    if any(name not in after for name in required):
+        return None
+    return {name: after.get(name) for name in required}
+
 def run(cmd, check=True, timeout=60, cwd=None):
     try:
         r = subprocess.run(
@@ -512,6 +532,14 @@ def decode_png_rgb(path):
         rows.append(bytes(cur))
         prev = cur
     return width, height, bpp, rows
+
+
+def app_audio_playback_start_count(log_text, app_pid):
+    pattern = (
+        r"AudioPlaybackConfiguration(?:(?!AudioPlaybackConfiguration).)*?"
+        r"u/pid:\d+/%s\s+state:started" % re.escape(str(app_pid))
+    )
+    return len(re.findall(pattern, log_text or "", re.S))
 
 def _percentile(values, q):
     if not values:
@@ -1232,6 +1260,7 @@ class OpticalRig:
         )
         self.stimulus_center = None
         self.selected_setup_camera_id = None
+        self.camera_setup_ui_path = None
         self.findings = []
         self.results = []
         self.camera_pref_original = None
@@ -1303,16 +1332,22 @@ class OpticalRig:
             )
             self.device.shell("rm", "-f", camera_remote, check=False)
 
-    def _install_camera_preferences(self, xml_text, local_name):
+    def _install_camera_preferences(self, xml_text, local_name, gesture="blink"):
         """Install a rig-owned camera preference snapshot for this run only."""
         try:
             values = android_preference_values(xml_text)
         except ET.ParseError as error:
             raise ValueError("invalid camera preference fixture: %s" % error)
-        required = {
-            "cameraId", "cameraLensFacing", "zoomRatio", "calibratedAtMs",
-            "longBlinkMs", "blinkCloseThreshold", "blinkReopenThreshold",
-        }
+        required = {"cameraId", "cameraLensFacing", "zoomRatio"}
+        if gesture == "cheek":
+            required.update({
+                "gesture", "cheekCalibratedAtMs", "cheekModel", "cheekHoldMs",
+            })
+        else:
+            required.update({
+                "calibratedAtMs", "longBlinkMs", "blinkCloseThreshold",
+                "blinkReopenThreshold",
+            })
         missing = sorted(required.difference(values))
         if missing:
             raise ValueError("camera preference fixture is missing: %s" % ", ".join(missing))
@@ -1364,14 +1399,46 @@ class OpticalRig:
             "later focused runs can reuse it without changing app defaults"
         )
 
-    def apply_session_calibration(self):
+    def save_cheek_session_calibration(self, calibration, preferences_xml):
+        """Cache a personalized cheek model outside product defaults/state."""
+        values = android_preference_values(preferences_xml)
+        if not values.get("cheekCalibratedAtMs") or not values.get("cheekModel"):
+            raise ValueError("completed cheek calibration record is required")
+        SESSION_ROOT.mkdir(parents=True, exist_ok=True)
+        (SESSION_ROOT / "cheek-preferences.xml").write_text(
+            preferences_xml, encoding="utf-8"
+        )
+        fixture = {
+            "schema": 1,
+            "purpose": "rig-session-only",
+            "gesture": "cheek",
+            "created_at_ms": int(time.time() * 1000),
+            "selected_camera_id": str(calibration["selected_camera_id"]),
+            "desktop_stimulus_center": calibration["desktop_stimulus_center"],
+            "estimated_visible_size": calibration["estimated_visible_size"],
+            "desktop_rect": list(virtual_desktop_rect()),
+            "zoom_ratio": float(values["zoomRatio"]),
+            "quality_label": values.get("cheekQualityLabel", "unknown"),
+            "quality_detail": values.get("cheekQualityDetail", ""),
+            "source": "private-test-video-calibration",
+        }
+        (SESSION_ROOT / "cheek-fixture.json").write_text(
+            json.dumps(fixture, indent=2), encoding="utf-8"
+        )
+        self.pass_(
+            "cheek rig session cached",
+            "focused cheek runtime/demo runs can reuse it without changing app defaults"
+        )
+
+    def apply_session_calibration(self, gesture="blink"):
         """Apply the ignored session fixture after user preferences were saved."""
-        fixture_path = SESSION_ROOT / "blink-fixture.json"
-        preference_path = SESSION_ROOT / "blink-preferences.xml"
+        prefix = "cheek" if gesture == "cheek" else "blink"
+        fixture_path = SESSION_ROOT / (prefix + "-fixture.json")
+        preference_path = SESSION_ROOT / (prefix + "-preferences.xml")
         if not fixture_path.exists() or not preference_path.exists():
             self.add(
                 "P0", "No reusable rig calibration session",
-                "Run optical-rig-test.bat --calibration-only once before --runtime-only."
+                "Create the %s session fixture before focused runtime replay." % prefix
             )
             return None
         try:
@@ -1386,13 +1453,15 @@ class OpticalRig:
                 )
             values = self._install_camera_preferences(
                 preference_path.read_text(encoding="utf-8"),
-                "blink-session-preferences.applied.xml",
+                "%s-session-preferences.applied.xml" % prefix,
+                gesture=gesture,
             )
+            quality_prefix = "cheekQuality" if gesture == "cheek" else "quality"
             fixture["quality_label"] = values.get(
-                "qualityLabel", fixture.get("quality_label", "unknown")
+                quality_prefix + "Label", fixture.get("quality_label", "unknown")
             )
             fixture["quality_detail"] = values.get(
-                "qualityDetail", fixture.get("quality_detail", "")
+                quality_prefix + "Detail", fixture.get("quality_detail", "")
             )
             vx, vy, _, _ = current_rect
             center = fixture["desktop_stimulus_center"]
@@ -2110,6 +2179,36 @@ class OpticalRig:
             time.sleep(0.35)
         return None
 
+    def wait_for_app_audio_playback_starts(
+        self, app_pid, required, timeout, log_name
+    ):
+        """Wait for a count of SHINE-owned AudioTrack playback starts."""
+        deadline = time.time() + timeout
+        last_log = ""
+        while time.time() < deadline:
+            result = self.device.adb_cmd(
+                "logcat", "-d", "-v", "epoch",
+                "AudioPlayerStateMonitor:D", "*:S",
+                check=False, timeout=15
+            )
+            last_log = result.stdout or ""
+            if app_audio_playback_start_count(last_log, app_pid) >= required:
+                (self.outdir / log_name).write_text(
+                    last_log, encoding="utf-8", errors="replace"
+                )
+                return True
+            time.sleep(0.18)
+        (self.outdir / log_name).write_text(
+            last_log, encoding="utf-8", errors="replace"
+        )
+        return False
+
+    def wait_for_calibration_start_tones(self, app_pid, required=2, timeout=45.0):
+        """Wait for SHINE-owned start tones; tone two begins slow-blink capture."""
+        return self.wait_for_app_audio_playback_starts(
+            app_pid, required, timeout, "blink-calibration-audio.log"
+        )
+
     def run_video_still_sequence(self, case, source):
         for index, item in enumerate(case["stills"]):
             if not self.show_video_still(
@@ -2142,40 +2241,65 @@ class OpticalRig:
 
     def calibrate_long_blink(self, source):
         """Exercise native blink calibration with real open/closed face frames."""
-        started = time.time()
+        calibration_started_at = time.time()
         if not self.show_video_still(source, 0.75, "BLINK CALIBRATION OPEN"):
             return False
         before_preferences = self.device.shell(
             "run-as", PACKAGE, "cat", CAMERA_PREFS, check=False
         ).stdout or ""
-        if not self.device.find_tap(
-            ["Start setup", "開始設定"], "rig_blink_calibration_start", swipes=2
-        ):
+        setup_started = False
+        app_pid = None
+        for attempt in range(3):
+            xml = self.camera_setup_ui_path if attempt == 0 else self.device.ui_dump(
+                "rig_blink_calibration_start_%02d" % attempt
+            )
+            self.device.screenshot("rig_blink_calibration_start_%02d" % attempt)
+            node = self.device.find_node(
+                xml, ["Start setup", "開始設定"], visible_only=True
+            )
+            if node:
+                pid_result = self.device.shell("pidof", PACKAGE, check=False)
+                app_pids = (pid_result.stdout or "").strip().split()
+                app_pid = app_pids[0] if app_pids else None
+                self.device.adb_cmd("logcat", "-c", check=False, timeout=15)
+                setup_started = bool(app_pid) and self.device.tap_node(node)
+                if setup_started:
+                    time.sleep(0.2)
+                    break
+            if attempt < 2:
+                self.device.scroll_forward(xml)
+        if not setup_started:
             self.add(
                 "P1", "Long-blink calibration could not start",
                 "The photographed Camera Setup layout exposed no usable Start setup control."
             )
             return False
 
-        # Camera Setup deliberately speaks each instruction before starting its
-        # fixed 8s rest and 12s trial captures. UIAutomator waits for an idle
-        # hierarchy and can starve while live camera metrics update, so it is
-        # not a phase clock. Keep a verified open face up long enough to cover
-        # both spoken preparation cues and the complete rest capture.
-        time.sleep(20.0)
+        # Keep the verified open pose through preparation and rest. TTS runs in
+        # its engine process, while both native start tones are AudioTracks owned
+        # by SHINE. The second SHINE-owned playback begins the 12-second slow-
+        # blink capture, independent of speech duration or UIAutomator idleness.
+        if not self.wait_for_calibration_start_tones(app_pid):
+            self.add(
+                "P1", "Long-blink calibration phase was not observed",
+                "The second SHINE-owned calibration start tone was not observed.",
+                ["blink-calibration-audio.log"]
+            )
+            return False
 
         calibration_case = {
             "id": "blink_calibration_trials",
             "stills": [],
         }
-        # Replay beyond the 12s native trial window so TTS duration does not
-        # determine whether the detector sees enough complete slow blinks.
+        # Five complete 0.9s closures fit within the remaining native capture
+        # window even when hierarchy observation consumed part of its first
+        # second. Alternate verified closed poses to avoid one-pose overfit.
         verified_closed_times = (0.00, 3.00)
-        for cycle in range(12):
+        for cycle in range(5):
             calibration_case["stills"].extend([
-                {"start": 0.75, "ms": 650},
-                {"start": verified_closed_times[cycle % len(verified_closed_times)], "ms": 1200},
-                {"start": 0.75, "ms": 650},
+                {"start": 0.75, "ms": 400},
+                {"start": verified_closed_times[cycle % len(verified_closed_times)], "ms": 900},
+                {"start": 0.75, "ms": 400},
             ])
         if not self.run_video_still_sequence(calibration_case, source):
             return False
@@ -2209,20 +2333,27 @@ class OpticalRig:
             return False
         result = {
             "gesture": "long-blink",
-            "elapsed_s": round(time.time() - started, 3),
+            "elapsed_s": round(time.time() - calibration_started_at, 3),
             "source": source["id"],
             "open_time_s": 0.75,
             "closed_times_s": list(verified_closed_times),
-            "replay_cycles": 12,
+            "replay_cycles": 5,
             "saved_record": saved_record,
             "completion_text_observed": bool(completed),
         }
         (self.outdir / "blink-calibration.json").write_text(
             json.dumps(result, indent=2), encoding="utf-8"
         )
+        if not blink_calibration_quality_is_good(saved_record):
+            self.add(
+                "P1", "Native long-blink calibration quality is not good",
+                saved_record.get("qualityDetail") or saved_record.get("qualityLabel") or "unknown",
+                ["blink-calibration.json", "blink-calibration-preferences.xml"]
+            )
+            return False
         self.pass_(
             "native long-blink calibration",
-            "real-face rest/trial capture saved in %.1fs" % result["elapsed_s"]
+            "good-quality real-face rest/trial capture saved in %.1fs" % result["elapsed_s"]
         )
         return True
 
@@ -2236,13 +2367,21 @@ class OpticalRig:
                 "Calibration needs one neutral sequence and six twitch trials."
             )
             return False
+        before_preferences = self.device.shell(
+            "run-as", PACKAGE, "cat", CAMERA_PREFS, check=False
+        ).stdout or ""
         token = self.host.set_state(
             mode="sequence", label="CHEEK CALIBRATION NEUTRAL",
             frames=neutral["frames"], mirror=bool(neutral.get("mirror", False)),
+            loop=True,
             center=self.stimulus_center,
         )
         if not self.ensure_stimulus_visible(token, "cheek calibration neutral"):
             return False
+        pid_result = self.device.shell("pidof", PACKAGE, check=False)
+        app_pids = (pid_result.stdout or "").strip().split()
+        app_pid = app_pids[0] if app_pids else None
+        self.device.adb_cmd("logcat", "-c", check=False, timeout=15)
         if not self.device.find_tap(
             ["Start setup", "開始設定"], "rig_cheek_calibration_start", swipes=2
         ):
@@ -2251,15 +2390,18 @@ class OpticalRig:
                 "Camera Setup exposed no usable Start setup control in cheek mode."
             )
             return False
-        if not self.wait_setup_text(
-            ["six cheek twitches", "六次臉頰抽動"], 16,
-            "rig_cheek_calibration_ready"
-        ):
+        if not app_pid or not self.device.wait_activity(CAMERA_ACTIVITY_FRAGMENT, 3.0):
             self.add(
-                "P1", "Cheek neutral calibration did not complete",
-                "Camera Setup did not collect enough usable resting frames."
+                "P1", "Cheek calibration did not remain active",
+                "The normal Start setup tap did not leave Camera Setup top-resumed."
             )
             return False
+
+        # Camera Setup needs 36 successfully analyzed relaxed frames. Keep the
+        # natural neutral sequence looping for a conservative interval; unlike
+        # UIAutomator hierarchy polling this never stalls the live camera page.
+        time.sleep(8.0)
+        self.device.screenshot("rig_cheek_calibration_rest_complete")
 
         started = time.time()
         for trial, case in enumerate(positives, 1):
@@ -2277,26 +2419,50 @@ class OpticalRig:
                     "Imported trial %d did not finish in the OpenCV presenter." % trial
                 )
                 return False
-            if trial < 6 and not self.wait_setup_text(
-                ["Accepted movements %d / 6" % trial, "已接受動作 %d / 6" % trial],
-                5, "rig_cheek_calibration_trial_%02d" % trial
+            if not self.wait_for_app_audio_playback_starts(
+                app_pid, trial, 5.0, "cheek-calibration-audio.log"
             ):
+                self.device.screenshot(
+                    "rig_cheek_calibration_trial_%02d_missed" % trial
+                )
                 self.add(
                     "P1", "Cheek calibration missed a real twitch",
-                    "Native calibration did not accept imported trial %d." % trial
+                    "Native calibration emitted no SHINE-owned acceptance cue for imported trial %d."
+                    % trial,
+                    [
+                        "cheek-calibration-audio.log",
+                        "device/screenshots/rig_cheek_calibration_trial_%02d_missed.png"
+                        % trial,
+                    ],
                 )
                 return False
+            self.device.screenshot("rig_cheek_calibration_trial_%02d" % trial)
 
-        completed = self.wait_setup_text(
-            ["Cheek calibration saved", "臉頰校正已儲存"], 8,
-            "rig_cheek_calibration_complete"
-        )
+        # The durable newer model below is the completion oracle. A screenshot
+        # records the normal user-visible result without asking UIAutomator to
+        # idle against continuously changing preview metrics.
+        time.sleep(1.0)
         self.device.screenshot("rig_cheek_calibration_complete")
-        if not completed:
+        after_preferences = self.device.shell(
+            "run-as", PACKAGE, "cat", CAMERA_PREFS, check=False
+        ).stdout or ""
+        (self.outdir / "cheek-calibration-preferences.xml").write_text(
+            after_preferences, encoding="utf-8"
+        )
+        try:
+            saved_record = new_cheek_calibration_record(
+                before_preferences, after_preferences
+            )
+        except (ET.ParseError, ValueError):
+            saved_record = None
+        if not saved_record:
             self.add(
                 "P1", "Cheek calibration did not save",
-                "Six real twitch sequences were replayed, but no personalized model was saved.",
-                ["device/screenshots/rig_cheek_calibration_complete.png"]
+                "Six real twitch sequences were replayed, but no newer durable personalized model was saved.",
+                [
+                    "device/screenshots/rig_cheek_calibration_complete.png",
+                    "cheek-calibration-preferences.xml",
+                ]
             )
             return False
         result = {
@@ -2304,6 +2470,7 @@ class OpticalRig:
             "elapsed_s": round(time.time() - started, 3),
             "neutral_case": neutral["id"],
             "trial_cases": [case["id"] for case in positives],
+            "saved_record": saved_record,
         }
         (self.outdir / "cheek-calibration.json").write_text(
             json.dumps(result, indent=2), encoding="utf-8"
@@ -2362,6 +2529,7 @@ class OpticalRig:
 
         vx, vy, vw, vh = virtual_desktop_rect()
         final_ui = self.device.ui_dump("rig_final_atlas_geometry")
+        self.camera_setup_ui_path = final_ui
         try:
             final_geometry = camera_setup_geometry(final_ui)
             cx, cy = desktop_aim_from_atlas(
@@ -2409,7 +2577,7 @@ class OpticalRig:
     def runtime_log(self):
         r = self.device.adb_cmd(
             "logcat", "-d", "-v", "epoch",
-            "ShineCameraSwitch:I", "*:S",
+            "ShineCameraSwitch:I", "ShineAacE2E:I", "*:S",
             check=False,timeout=30
         )
         return r.stdout or ""
@@ -2470,11 +2638,15 @@ class OpticalRig:
             source = source_by_id[case["source"]]
             url = "/media/" + source["filename"]
             rate = float(case.get("rate",1.0))
+            start = float(case.get("start", 0.0))
+            end_at = case.get("end")
             token = self.host.set_state(
-                mode="video",label=label,url=url,rate=rate,loop=False,start=0,
+                mode="video", label=label, url=url, rate=rate, loop=False,
+                start=start, end=end_at,
                 center=self.stimulus_center,
             )
-            nominal = float(source["duration_s"]) / max(rate,0.01)
+            source_end = float(end_at) if end_at is not None else float(source["duration_s"])
+            nominal = max(0.0, source_end - start) / max(rate,0.01)
 
         if "stills" in case:
             if not self.run_video_still_sequence(case, source):
@@ -2697,9 +2869,16 @@ class OpticalRig:
         else:
             source = source_by_id[case["source"]]
             rate=float(case.get("rate",1.0))
-            nominal=float(source["duration_s"])/max(rate,.01)
+            start=float(case.get("start",0.0))
+            end_at=case.get("end")
+            source_end=(
+                float(end_at) if end_at is not None
+                else float(source["duration_s"])
+            )
+            nominal=max(0.0,source_end-start)/max(rate,.01)
             token=self.host.set_state(mode="video",label="PREVIEW "+label,
-                                      url="/media/"+source["filename"],rate=rate,loop=False,start=0,
+                                      url="/media/"+source["filename"],rate=rate,
+                                      loop=False,start=start,end=end_at,
                                       center=self.stimulus_center)
         if not self.ensure_stimulus_visible(token, "preview-" + label):
             return None
@@ -2745,6 +2924,13 @@ class OpticalRig:
             if calibration["discovery"] == "reused-rig-session":
                 report.append("- Evidence: ignored rig-session fixture plus per-case before/after screenshots")
                 report.append(
+                    "- Session gesture: `%s`" % (
+                        "cheek-calibration"
+                        if self.args.calibrate_cheek_session
+                        else ("cheek" if self.args.session_gesture == "cheek" else "blink")
+                    )
+                )
+                report.append(
                     "- Session calibration quality: `%s`" %
                     calibration.get("quality_label", "unknown")
                 )
@@ -2758,7 +2944,11 @@ class OpticalRig:
             ),
             "- Native cheek calibration: `%s`" % (
                 "PASS" if (self.outdir / "cheek-calibration.json").exists()
-                else ("NOT RUN" if not self.args.with_local_cheek else "FAIL")
+                else (
+                    "REUSED SESSION FIXTURE"
+                    if self.args.runtime_only and self.args.session_gesture == "cheek"
+                    else ("NOT RUN" if not self.args.with_local_cheek else "FAIL")
+                )
             ),
         ]
         report += ["","## Stimulus results",""]
@@ -2851,7 +3041,10 @@ class OpticalRig:
                 self.write_report(None)
                 return 2
             if self.args.runtime_only:
-                fixture = self.apply_session_calibration()
+                session_gesture = self.args.session_gesture
+                fixture = self.apply_session_calibration(
+                    "blink" if self.args.calibrate_cheek_session else session_gesture
+                )
                 if not fixture:
                     self.write_report(None)
                     return 2
@@ -2862,6 +3055,92 @@ class OpticalRig:
                     "desktop_stimulus_center": fixture["desktop_stimulus_center"],
                     "quality_label": fixture.get("quality_label", "unknown"),
                 }
+                if self.args.calibrate_cheek_session:
+                    local_cases = self.load_local_cheek_cases()
+                    if not local_cases:
+                        self.add(
+                            "P0", "No local cheek calibration stimulus",
+                            "Run scripts/import-cheek-calibration.py <zip> first."
+                        )
+                        self.write_report(calibration)
+                        return 2
+                    self.guard("before-cheek-session-calibration")
+                    if not self.open_camera_setup("cheek"):
+                        self.add(
+                            "P0", "Could not open cheek Camera Setup",
+                            "The native setup page did not expose Cheek twitch."
+                        )
+                        self.write_report(calibration)
+                        return 2
+                    positive = next(
+                        (case for case in local_cases if case.get("expect") == "activate"),
+                        None,
+                    )
+                    if positive:
+                        self.record_setup_evidence(positive)
+                    if not self.calibrate_cheek(local_cases):
+                        self.write_report(calibration)
+                        return 2
+                    try:
+                        cheek_preferences = (
+                            self.outdir / "cheek-calibration-preferences.xml"
+                        ).read_text(encoding="utf-8")
+                        self.save_cheek_session_calibration(
+                            calibration, cheek_preferences
+                        )
+                    except (ET.ParseError, OSError, ValueError) as error:
+                        self.add(
+                            "P1", "Could not cache cheek rig session", str(error),
+                            [
+                                "cheek-calibration-preferences.xml",
+                                "cheek-calibration.json",
+                            ],
+                        )
+                    self.write_report(calibration)
+                    return 1 if any(
+                        item["priority"] in ("P0", "P1")
+                        for item in self.findings
+                    ) else 0
+                if self.args.inspect_blink_poses:
+                    self.clear_optical_camera_log()
+                    if not self.open_camera_setup("blink"):
+                        self.add(
+                            "P0", "Could not inspect blink poses",
+                            "Camera Setup could not be opened with the reusable session fixture."
+                        )
+                        self.write_report(calibration)
+                        return 2
+                    source = source_by_id["commons_blinking"]
+                    for label, position in (
+                        ("open", 0.75),
+                        ("closed_01", 0.25),
+                        ("closed_02", 2.00),
+                        ("closed_03", 3.00),
+                    ):
+                        if not self.show_video_still(
+                            source, position, "INSPECT BLINK POSE " + label
+                        ):
+                            self.write_report(calibration)
+                            return 2
+                        time.sleep(2.0)
+                        self.device.screenshot("inspect_blink_pose_" + label)
+                    continuous = next(
+                        (
+                            case for case in manifest.get("blink_cases", [])
+                            if case.get("id") == "blink_slow_continuous_02"
+                        ),
+                        None,
+                    )
+                    if continuous:
+                        self.record_setup_evidence(continuous, source_by_id)
+                    self.pass_(
+                        "blink pose inspection",
+                        "captured normal Camera Setup metrics for poses and the continuous blink"
+                    )
+                    self.write_report(calibration)
+                    return 1 if any(
+                        item["priority"] in ("P0", "P1") for item in self.findings
+                    ) else 0
                 self.clear_optical_camera_log()
                 if not self.prepare_runtime_from_session():
                     self.write_report(calibration)
@@ -2870,10 +3149,26 @@ class OpticalRig:
                     self.write_report(calibration)
                     return 2
                 available_cases = []
-                for case in manifest.get("blink_cases", []) + manifest.get("negative_cases", []):
-                    item = dict(case)
-                    item["gesture"] = "blink"
-                    available_cases.append(item)
+                if session_gesture == "cheek":
+                    for case in self.load_local_cheek_cases():
+                        item = dict(case)
+                        item["gesture"] = "cheek"
+                        available_cases.append(item)
+                    if not available_cases:
+                        self.add(
+                            "P0", "No local cheek runtime stimulus",
+                            "Import the private cheek sequence pack before focused replay."
+                        )
+                        self.write_report(calibration)
+                        return 2
+                else:
+                    for case in (
+                        manifest.get("blink_cases", []) +
+                        manifest.get("negative_cases", [])
+                    ):
+                        item = dict(case)
+                        item["gesture"] = "blink"
+                        available_cases.append(item)
                 if self.args.case:
                     wanted = set(self.args.case)
                     known = {case["id"] for case in available_cases}
@@ -2898,7 +3193,9 @@ class OpticalRig:
                             repeated_cases.append(repeated)
                     available_cases = repeated_cases
                 for case in available_cases:
-                    self.play_case(case, source_by_id)
+                    self.play_case(
+                        case, source_by_id if session_gesture == "blink" else None
+                    )
                 self.write_report(calibration)
                 blocking = [
                     finding for finding in self.findings
@@ -2973,7 +3270,24 @@ class OpticalRig:
                         positive=next((c for c in local_cases if c.get("expect")=="activate"),None)
                         if positive:
                             self.record_setup_evidence(positive)
-                        self.calibrate_cheek(local_cases)
+                        if not self.calibrate_cheek(local_cases):
+                            self.write_report(calibration)
+                            return 2
+                        try:
+                            cheek_preferences = (
+                                self.outdir / "cheek-calibration-preferences.xml"
+                            ).read_text(encoding="utf-8")
+                            self.save_cheek_session_calibration(
+                                calibration, cheek_preferences
+                            )
+                        except (ET.ParseError, OSError, ValueError) as error:
+                            self.add(
+                                "P1", "Could not cache cheek rig session", str(error),
+                                [
+                                    "cheek-calibration-preferences.xml",
+                                    "cheek-calibration.json",
+                                ],
+                            )
                         if self.camera_setup_to_board():
                             runtime_cases = list(local_cases)
                             neutral = next(
@@ -3024,12 +3338,18 @@ def main():
                     help="verify geometry and native long-blink calibration, then stop")
     ap.add_argument("--runtime-only", action="store_true",
                     help="reuse the ignored test-session calibration and skip native calibration")
+    ap.add_argument("--session-gesture", choices=("blink", "cheek"), default="blink",
+                    help="with --runtime-only, select the blink or cheek session fixture")
+    ap.add_argument("--calibrate-cheek-session", action="store_true",
+                    help="with --runtime-only, create a reusable cheek session from the imported pack")
     ap.add_argument("--case", action="append", default=[],
                     help="with --runtime-only, run only this case ID (repeatable)")
     ap.add_argument("--repeat", type=int, default=1,
                     help="repeat each selected --runtime-only case this many times")
     ap.add_argument("--trace-hold", action="store_true",
                     help="capture timed UI screenshots during deterministic closed holds")
+    ap.add_argument("--inspect-blink-poses", action="store_true",
+                    help="with --runtime-only, capture Camera Setup metrics for verified blink poses")
     ap.add_argument("--no-build",action="store_true")
     ap.add_argument("--no-install",action="store_true")
     ap.add_argument("--calibration-timeout",type=int,default=120)
@@ -3042,12 +3362,26 @@ def main():
     args=ap.parse_args()
     if args.runtime_only and (args.geometry_only or args.calibration_only or args.with_local_cheek):
         ap.error("--runtime-only cannot be combined with calibration/geometry/cheek modes")
+    if args.session_gesture != "blink" and not args.runtime_only:
+        ap.error("--session-gesture requires --runtime-only")
+    if args.calibrate_cheek_session and not args.runtime_only:
+        ap.error("--calibrate-cheek-session requires --runtime-only")
+    if args.calibrate_cheek_session and args.session_gesture != "blink":
+        ap.error("--calibrate-cheek-session starts from the reusable blink geometry fixture")
     if args.case and not args.runtime_only:
         ap.error("--case requires --runtime-only")
     if args.repeat < 1 or (args.repeat > 1 and not args.runtime_only):
         ap.error("--repeat must be >= 1 and values above 1 require --runtime-only")
     if args.trace_hold and not args.runtime_only:
         ap.error("--trace-hold requires --runtime-only")
+    if args.inspect_blink_poses and not args.runtime_only:
+        ap.error("--inspect-blink-poses requires --runtime-only")
+    if args.inspect_blink_poses and (args.case or args.repeat != 1 or args.trace_hold):
+        ap.error("--inspect-blink-poses cannot be combined with cases, repeats, or trace hold")
+    if args.inspect_blink_poses and args.session_gesture != "blink":
+        ap.error("--inspect-blink-poses requires the blink session fixture")
+    if args.calibrate_cheek_session and (args.case or args.repeat != 1 or args.trace_hold or args.inspect_blink_poses):
+        ap.error("--calibrate-cheek-session cannot be combined with focused case options")
 
     if not SOURCES_PATH.exists():
         raise SystemExit("Optical rig is not installed; run the repo installer.")

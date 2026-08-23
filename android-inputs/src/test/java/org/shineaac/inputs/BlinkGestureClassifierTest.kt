@@ -141,6 +141,23 @@ class BlinkGestureClassifierTest {
     }
 
     @Test
+    fun hysteresisBandRetainsConfirmedClosedHold() {
+        val classifier = BlinkGestureClassifier(config)
+        val events = mutableListOf<BlinkGestureClassifier.Event>()
+
+        events += armOpen(classifier, 0)
+        events += classifier.onSignal(0.9, 500, LongBlinkMs)
+        events += classifier.onSignal(0.9, 640, LongBlinkMs)
+        events += classifier.onSignal(0.45, 1000, LongBlinkMs)
+        events += classifier.onSignal(0.45, 1450, LongBlinkMs)
+
+        assertEquals(
+            listOf("HoldStarted", "Activated"),
+            events.map { it.nameForTest() }
+        )
+    }
+
+    @Test
     fun longSignalLossCancelsHoldWithoutActivation() {
         val classifier = BlinkGestureClassifier(config)
         val events = mutableListOf<BlinkGestureClassifier.Event>()

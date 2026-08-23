@@ -77,6 +77,16 @@
       ]
     },
     {
+      "id": "blink_slow_continuous_02",
+      "source": "commons_blinking",
+        "start": 1.4,
+        "end": 2.1,
+        "rate": 0.15,
+        "expect": "activate",
+      "severity": "P1",
+        "purpose": "one continuous real open-close-open blink slowed to provide a calibrated long-blink hold margin without still-frame seeking"
+    },
+    {
       "id": "blink_long_positive_03",
       "source": "commons_blinking",
       "expect": "activate",

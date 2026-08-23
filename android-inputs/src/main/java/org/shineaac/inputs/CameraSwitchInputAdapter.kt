@@ -480,7 +480,7 @@ class CameraSwitchInputAdapter(
         val maxUs = cheekPerfMaxNs / 1_000L
         Log.i(
             Tag,
-            "CHEEK_PERF path=rgba-mediaimage frames=$cheekPerfFrames " +
+            "CHEEK_PERF path=rgba-bitmap frames=$cheekPerfFrames " +
                 "avgUs=$averageUs maxUs=$maxUs size=${analysisSize.width}x${analysisSize.height}"
         )
         cheekPerfFrames = 0
