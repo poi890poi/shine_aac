@@ -256,6 +256,17 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    override fun onStop() {
+        sendInputEvent(
+            InputEvent(
+                intent = "pause",
+                source = "android-lifecycle",
+                detail = "reason=background"
+            )
+        )
+        super.onStop()
+    }
+
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val source = hardwareActivationSource(event.keyCode, volumeButtonsEnabled)

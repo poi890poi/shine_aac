@@ -1,6 +1,8 @@
 package org.shineaac.inputs
 
 import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.max
 import kotlin.math.min
 
@@ -22,11 +24,12 @@ object CameraSwitchPreferences {
         return CameraSwitchSettings(
             enabled = enabled,
             gesture = gesture,
-            longBlinkMs = clampLong(prefs.getLong("longBlinkMs", 800L), MinLongBlinkMs, MaxLongBlinkMs),
-            cheekHoldMs = clampLong(prefs.getLong("cheekHoldMs", 180L), MinCheekHoldMs, MaxCheekHoldMs),
+            longBlinkMs = clampLong(prefs.getLong("longBlinkMs", CameraSwitchSettings.DefaultLongBlinkMs), MinLongBlinkMs, MaxLongBlinkMs),
+            cheekHoldMs = clampLong(prefs.getLong("cheekHoldMs", CameraSwitchSettings.DefaultCheekHoldMs), MinCheekHoldMs, MaxCheekHoldMs),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio),
             detectionParameters = readDetectionParameters(prefs),
+            cheekModel = prefs.getString("cheekModel", null)?.let(::decodeCheekModel),
             source = if (prefs.contains("gesture")) gesture.inputSource else source
         )
     }
@@ -35,6 +38,25 @@ object CameraSwitchPreferences {
         context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
             .edit()
             .putString("gesture", gesture.storedValue)
+            .apply()
+    }
+
+    fun saveCheekCalibration(
+        context: Context,
+        model: CheekGestureModel,
+        cheekHoldMs: Long,
+        zoomRatio: Float,
+        qualityLabel: String,
+        qualityDetail: String
+    ) {
+        context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE).edit()
+            .putString("gesture", OpticalSwitchGesture.CheekTwitch.storedValue)
+            .putString("cheekModel", encodeCheekModel(model))
+            .putLong("cheekHoldMs", clampLong(cheekHoldMs, MinCheekHoldMs, MaxCheekHoldMs))
+            .putFloat("zoomRatio", clampFloat(zoomRatio, MinZoomRatio, MaxZoomRatio))
+            .putLong("cheekCalibratedAtMs", System.currentTimeMillis())
+            .putString("cheekQualityLabel", qualityLabel)
+            .putString("cheekQualityDetail", qualityDetail)
             .apply()
     }
 
@@ -92,6 +114,62 @@ object CameraSwitchPreferences {
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio)
         )
     }
+
+    fun readCheekCalibrationRecord(context: Context): CameraSwitchCalibrationRecord? {
+        val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+        val calibratedAtMs = prefs.getLong("cheekCalibratedAtMs", 0L)
+        if (calibratedAtMs <= 0L) return null
+        return CameraSwitchCalibrationRecord(
+            calibratedAtMs = calibratedAtMs,
+            qualityLabel = prefs.getString("cheekQualityLabel", null),
+            qualityDetail = prefs.getString("cheekQualityDetail", null),
+            zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio)
+        )
+    }
+
+    private fun encodeCheekModel(model: CheekGestureModel): String = JSONObject().apply {
+        put("featureNames", JSONArray(model.featureNames))
+        put("baselines", JSONArray(model.baselines))
+        put("scales", JSONArray(model.scales))
+        put("weights", JSONArray(model.weights))
+        put("neutralReference", model.neutralReference)
+        put("activeReference", model.activeReference)
+        put("enterThreshold", model.enterThreshold)
+        put("exitThreshold", model.exitThreshold)
+        put("inferredSide", model.inferredSide.name)
+        put("separation", model.quality.separation)
+        put("trialDetectionRate", model.quality.trialDetectionRate)
+        put("neutralFalsePositiveRate", model.quality.neutralFalsePositiveRate)
+        put("neutralFrameCount", model.quality.neutralFrameCount)
+        put("activeTrialCount", model.quality.activeTrialCount)
+        put("qualityMessage", model.quality.message)
+    }.toString()
+
+    private fun decodeCheekModel(raw: String): CheekGestureModel? = runCatching {
+        val json = JSONObject(raw)
+        fun strings(key: String) = json.getJSONArray(key).let { a -> List(a.length()) { a.getString(it) } }
+        fun doubles(key: String) = json.getJSONArray(key).let { a -> List(a.length()) { a.getDouble(it) } }
+        CheekGestureModel(
+            featureNames = strings("featureNames"),
+            baselines = doubles("baselines"),
+            scales = doubles("scales"),
+            weights = doubles("weights"),
+            neutralReference = json.getDouble("neutralReference"),
+            activeReference = json.getDouble("activeReference"),
+            enterThreshold = json.getDouble("enterThreshold"),
+            exitThreshold = json.getDouble("exitThreshold"),
+            inferredSide = CheekSide.valueOf(json.optString("inferredSide", CheekSide.BothOrCenter.name)),
+            quality = CheekCalibrationQuality(
+                accepted = true,
+                separation = json.optDouble("separation", 0.0),
+                trialDetectionRate = json.optDouble("trialDetectionRate", 0.0),
+                neutralFalsePositiveRate = json.optDouble("neutralFalsePositiveRate", 0.0),
+                neutralFrameCount = json.optInt("neutralFrameCount", 0),
+                activeTrialCount = json.optInt("activeTrialCount", 0),
+                message = json.optString("qualityMessage", "Saved cheek calibration")
+            )
+        )
+    }.getOrNull()
 
     private fun readDetectionParameters(prefs: android.content.SharedPreferences): BlinkDetectionParameters =
         BlinkDetectionParameters(

@@ -57,6 +57,8 @@ class CameraSwitchInputAdapter(
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
+    private var lastReportedScore: Double? = null
+    private var activeEnterThreshold = CheekTwitchDetector.DefaultEnterThreshold
     private var blinkClassifier = BlinkGestureClassifier()
     private var activeDetectionParameters = BlinkDetectionParameters()
     private var holdEventActive = false
@@ -369,6 +371,8 @@ class CameraSwitchInputAdapter(
     }
 
     private fun updateCheekState(score: Double?, settings: CameraSwitchSettings) {
+        lastReportedScore = score
+        activeEnterThreshold = settings.cheekModel?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
         val now = System.currentTimeMillis()
         for (event in cheekClassifier.onScore(score, now)) {
             when (event) {
@@ -383,6 +387,8 @@ class CameraSwitchInputAdapter(
     }
 
     private fun updateBlinkState(score: Double?, reopenScore: Double?, settings: CameraSwitchSettings) {
+        lastReportedScore = score
+        activeEnterThreshold = activeDetectionParameters.closeThreshold
         val now = System.currentTimeMillis()
         for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
             when (event) {
@@ -456,7 +462,11 @@ class CameraSwitchInputAdapter(
             InputEvent(
                 intent = "cameraStatus",
                 source = activeSource,
-                detail = "state=$state"
+                detail = buildString {
+                    append("state=").append(state)
+                    lastReportedScore?.let { append(";score=").append("%.4f".format(it)) }
+                    append(";threshold=").append("%.4f".format(activeEnterThreshold))
+                }
             )
         )
     }

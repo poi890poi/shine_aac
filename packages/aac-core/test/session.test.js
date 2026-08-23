@@ -7,6 +7,7 @@ import {
   createBoardConfig,
   createScannerState,
   createSession,
+  pauseSession,
   pressSwitch,
   tile,
   visibleBoard
@@ -268,6 +269,51 @@ test("two missed board passes stop and the next activation only resumes", () => 
   assert.equal(session.scannerState.rowIndex, 0);
   assert.equal(session.lastSelection, null);
   assert.equal(session.message, "");
+});
+
+test("lifecycle pause stops scanning and the next activation only resumes", () => {
+  const active = {
+    ...createSession({ message: "I need " }),
+    scannerState: createScannerState({
+      stage: ScanStage.Cells,
+      rowIndex: 1,
+      cellIndex: 2,
+      passIndex: 2
+    }),
+    lastSelection: { effect: "message" }
+  };
+
+  const paused = pauseSession(active);
+
+  assert.equal(paused.scannerState.stage, ScanStage.Stopped);
+  assert.equal(paused.message, "I need ");
+  assert.equal(paused.lockedRow, null);
+  assert.equal(paused.lastSelection, null);
+
+  const resumed = pressSwitch(paused, 0);
+  assert.equal(resumed.scannerState.stage, ScanStage.Rows);
+  assert.equal(resumed.scannerState.rowIndex, 0);
+  assert.equal(resumed.message, "I need ");
+  assert.equal(resumed.lastSelection, null);
+});
+
+test("lifecycle pause preserves the current suggestion page for resume", () => {
+  const active = {
+    ...createSession({
+      config: createBoardConfig({ profileId: "zh-TW", autoScanSuggestionPages: true })
+    }),
+    suggestionPage: 2,
+    scannerState: createScannerState({ stage: ScanStage.SuggestionPages })
+  };
+
+  const paused = pauseSession(active);
+  assert.equal(paused.scannerState.stage, ScanStage.Stopped);
+  assert.equal(paused.scannerState.stoppedFromSuggestionPages, true);
+
+  const resumed = pressSwitch(paused, 0);
+  assert.equal(resumed.scannerState.stage, ScanStage.Rows);
+  assert.equal(resumed.suggestionPage, 2);
+  assert.equal(resumed.lastSelection, null);
 });
 
 test("a temporary pass limit can drive a demo without changing saved session configuration", () => {

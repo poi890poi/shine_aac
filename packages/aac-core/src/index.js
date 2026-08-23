@@ -3639,6 +3639,20 @@ export function advanceSession(session, scanPassLimit = session.config.scanPassL
   };
 }
 
+export function pauseSession(session) {
+  if (session.scannerState.stage === ScanStage.Stopped) return session;
+  return {
+    ...session,
+    scannerState: {
+      ...session.scannerState,
+      stage: ScanStage.Stopped,
+      stoppedFromSuggestionPages: session.scannerState.stage === ScanStage.SuggestionPages
+    },
+    lockedRow: null,
+    lastSelection: null
+  };
+}
+
 export function pressSwitch(session, elapsedInHighlightMs) {
   if (
     session.scannerState.stage === ScanStage.SuggestionPages ||

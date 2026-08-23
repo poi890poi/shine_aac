@@ -89,9 +89,14 @@ class CheekTwitchDetector(
         const val DefaultBaselineWindow = 120
         const val DefaultWarmupFrames = 24
 
-        /** Conservative defaults: an uncalibrated switch should under-fire rather than misfire. */
-        const val DefaultEnterThreshold = 0.62
-        const val DefaultExitThreshold = 0.30
+        /**
+         * Defaults derived from the 2026-08-22 Pixel 4a 5G calibration capture
+         * (159 frames, 100% practice-movement detection), replayed through THIS
+         * uncalibrated robust-deviation score. The calibrated model's
+         * 0.433726/0.225537 thresholds are in a different score space.
+         */
+        const val DefaultEnterThreshold = 0.61
+        const val DefaultExitThreshold = 0.32
 
         private const val MinimumScale = 0.015
         private const val MadToSigma = 1.4826
