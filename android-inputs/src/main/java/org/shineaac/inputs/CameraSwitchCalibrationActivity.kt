@@ -44,6 +44,11 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.CameraSelector
+import androidx.camera.lifecycle.ProcessCameraProvider
+import java.util.concurrent.Executor
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
@@ -998,6 +1003,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     @SuppressLint("MissingPermission")
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     private fun startCamera() {
         if (!activityResumed) return
         if (cameraDevice != null || cameraOpening || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
@@ -1020,66 +1026,104 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
         val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraId = manager.cameraIdList.firstOrNull { id ->
-            manager.getCameraCharacteristics(id)
-                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-        } ?: run {
-            cameraOpening = false
-            stopCamera()
-            runOnUiThread { statusView?.text = tr("Front camera unavailable.", "找不到前置相機。") }
-            return
-        }
-        val characteristics = manager.getCameraCharacteristics(cameraId)
-        val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-        analysisRotationDegrees = CameraRotation.compensationDegrees(
-            currentSurfaceRotation(),
-            sensorOrientation,
-            frontFacing = true
-        )
-        updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
-        activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
-        maxCameraZoomRatio = characteristics
-            .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
-            ?.coerceAtLeast(1.0f)
-            ?: 1.0f
-        calibratedZoomRatio = calibratedZoomRatio.coerceIn(1.0f, min(maxCameraZoomRatio, MaxSavedZoomRatio))
-        updateZoomUi()
-        val fpsRange = targetFpsRange(manager, cameraId)
-        try {
-            manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    cameraOpening = false
-                    if (openGeneration != cameraOpenGeneration) {
-                        camera.close()
-                        return
+        val providerFuture = ProcessCameraProvider.getInstance(this)
+        providerFuture.addListener({
+            if (!activityResumed || openGeneration != cameraOpenGeneration) {
+                return@addListener
+            }
+
+            val cameraId = runCatching {
+                val provider = providerFuture.get()
+                val cameraInfo = CameraSelector.DEFAULT_FRONT_CAMERA
+                    .filter(provider.availableCameraInfos)
+                    .firstOrNull()
+                cameraInfo?.let { Camera2CameraInfo.from(it).cameraId }
+            }.getOrNull()
+
+            if (cameraId == null) {
+                cameraOpening = false
+                stopCamera()
+                statusView?.text = tr(
+                    "Front camera unavailable.",
+                    "找不到前置相機。"
+                )
+                return@addListener
+            }
+
+            android.util.Log.i(
+                CameraSetupLogTag,
+                "OPTICAL_CAMERA setupId=$cameraId facing=front selector=CameraXDefaultFront"
+            )
+
+            val characteristics = manager.getCameraCharacteristics(cameraId)
+            val sensorOrientation =
+                characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            analysisRotationDegrees = CameraRotation.compensationDegrees(
+                currentSurfaceRotation(),
+                sensorOrientation,
+                frontFacing = true
+            )
+            updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
+            activeArraySize =
+                characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+            maxCameraZoomRatio = characteristics
+                .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
+                ?.coerceAtLeast(1.0f)
+                ?: 1.0f
+            calibratedZoomRatio = calibratedZoomRatio.coerceIn(
+                1.0f,
+                min(maxCameraZoomRatio, MaxSavedZoomRatio)
+            )
+            updateZoomUi()
+            val fpsRange = targetFpsRange(manager, cameraId)
+
+            try {
+                manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
+                    override fun onOpened(camera: CameraDevice) {
+                        cameraOpening = false
+                        if (openGeneration != cameraOpenGeneration) {
+                            camera.close()
+                            return
+                        }
+                        cameraDevice = camera
+                        val analysisSurface = reader?.surface
+                        if (analysisSurface == null) {
+                            camera.close()
+                            return
+                        }
+                        createCameraSession(
+                            camera,
+                            Surface(texture),
+                            analysisSurface,
+                            fpsRange
+                        )
                     }
-                    cameraDevice = camera
-                    createCameraSession(camera, Surface(texture), reader?.surface ?: return, fpsRange)
-                }
 
-                override fun onDisconnected(camera: CameraDevice) {
-                    cameraOpening = false
-                    camera.close()
-                    cameraDevice = null
-                }
+                    override fun onDisconnected(camera: CameraDevice) {
+                        cameraOpening = false
+                        camera.close()
+                        cameraDevice = null
+                    }
 
-                override fun onError(camera: CameraDevice, error: Int) {
-                    cameraOpening = false
-                    camera.close()
-                    cameraDevice = null
-                    runOnUiThread { statusView?.text = tr("Camera error $error", "相機錯誤 $error") }
-                }
-            }, cameraHandler)
-        } catch (error: Exception) {
-            cameraOpening = false
-            stopCamera()
-            runOnUiThread {
+                    override fun onError(camera: CameraDevice, error: Int) {
+                        cameraOpening = false
+                        camera.close()
+                        cameraDevice = null
+                        statusView?.text = tr(
+                            "Camera error $error",
+                            "相機錯誤 $error"
+                        )
+                    }
+                }, cameraHandler)
+            } catch (error: Exception) {
+                cameraOpening = false
+                stopCamera()
                 statusView?.text = tr(
                     "Camera setup failed: ${error.javaClass.simpleName}",
                     "相機設定失敗：${error.javaClass.simpleName}"
                 )
             }
-        }
+        }, Executor { command -> runOnUiThread(command) })
     }
 
     private fun createCameraSession(camera: CameraDevice, previewSurface: Surface, imageSurface: Surface, fpsRange: Range<Int>?) {
@@ -1732,6 +1776,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private enum class PreviewBlink { None, Short, Long }
 
     private companion object {
+        const val CameraSetupLogTag = "ShineCameraSetup"
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
         const val PreviewBufferWidth = 640
