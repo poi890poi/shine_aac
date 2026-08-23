@@ -10,20 +10,39 @@ object CameraSwitchPreferences {
     private const val MaxLongBlinkMs = 1600L
     private const val MinCooldownMs = 300L
     private const val MaxCooldownMs = 2500L
+    private const val MinCheekHoldMs = 100L
+    private const val MaxCheekHoldMs = 800L
     private const val DefaultZoomRatio = 1.6f
     private const val MinZoomRatio = 1.0f
     private const val MaxZoomRatio = 4.0f
 
     fun read(context: Context, enabled: Boolean, source: String = "android-camera-long-blink"): CameraSwitchSettings {
         val prefs = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+        val gesture = OpticalSwitchGesture.fromStored(prefs.getString("gesture", null))
         return CameraSwitchSettings(
             enabled = enabled,
+            gesture = gesture,
             longBlinkMs = clampLong(prefs.getLong("longBlinkMs", 800L), MinLongBlinkMs, MaxLongBlinkMs),
+            cheekHoldMs = clampLong(prefs.getLong("cheekHoldMs", 180L), MinCheekHoldMs, MaxCheekHoldMs),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio),
             detectionParameters = readDetectionParameters(prefs),
-            source = source
+            source = if (prefs.contains("gesture")) gesture.inputSource else source
         )
+    }
+
+    fun saveGesture(context: Context, gesture: OpticalSwitchGesture) {
+        context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+            .edit()
+            .putString("gesture", gesture.storedValue)
+            .apply()
+    }
+
+    fun saveCheekHold(context: Context, cheekHoldMs: Long) {
+        context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
+            .edit()
+            .putLong("cheekHoldMs", clampLong(cheekHoldMs, MinCheekHoldMs, MaxCheekHoldMs))
+            .apply()
     }
 
     fun saveCalibration(
