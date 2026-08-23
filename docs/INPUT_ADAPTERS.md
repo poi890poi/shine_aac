@@ -66,6 +66,23 @@ the selected camera actually supports. USB support depends on the Android device
 and firmware exposing the webcam through Camera2; direct USB-video access is not
 used.
 
+`Camera setup` presents one page with no scrolling: the gesture choice is a two-button segmented
+control, and camera, activation hold and zoom are each a single row of label plus buttons. The
+preview takes the remaining height and keeps a fixed size, because the status and metric lines above
+it are pinned to a fixed number of lines.
+
+The preview and the tracking overlay are placed by one shared geometry function, so they always
+agree on rotation, aspect ratio and mirroring. The camera writes the preview surface in sensor
+orientation, exactly as it writes the analysis reader, so both receive the same rotation
+compensation. When only the detector compensated, the overlay worked in an upright frame while the
+preview stayed sideways: on an upright phone, pitching the head moved the tracking box sideways and
+yawing the head moved it vertically. In cheek twitch mode the overlay draws the face landmarks as
+well as the bounding box.
+
+Calibration cues are always issued as a pair. Every tone is emitted together with an on-screen
+signal, so each step shows a coloured border, a headline naming the step and the seconds remaining.
+A tone on its own is easy to miss in a noisy room, and useless to a user who cannot hear it.
+
 `Config` also includes `Input test`, a helper-facing calibration mode. It pauses normal scanning and records activation events without editing the message. The page has two source categories:
 
 - Reliable switch: for touch, keyboard, volume keys, and external switches that should produce one clean activation per intentional action.

@@ -187,6 +187,13 @@ Required compatibility checks:
 - Orientation restrictions are treated as temporary phone behavior only; tablet and future large-screen readiness must be reviewed as resizable/adaptive behavior.
 - Critical actions remain visible without scrolling. Secondary controls may scroll only when their scrollbar or another persistent cue makes that behavior discoverable.
 - Camera preview and overlay alignment are verified in portrait and landscape on phone/tablet-sized windows before camera switch support is claimed on those form factors.
+- Camera preview rotation, mirroring and overlay alignment must be verified on a physical device. The
+  Android emulator's virtual camera renders its scene aligned to the display, so it never exposes
+  sensor orientation and will show an unrotated preview as correct. Emulator runs may be used for
+  layout, control reachability and text only.
+- A useful device-report shortcut: transposed overlay motion, where pitching the head moves the box
+  sideways and yawing moves it vertically, indicates a rotation mismatch, while a box that tracks
+  vertically but moves the wrong way horizontally indicates a mirroring mismatch.
 - Text, controls, and scan targets remain readable and tappable at 200% font scale, one-step-larger display size, and their combination. Function-key metrics must equal word-key metrics, and function labels must remain unclipped at the accepted size floor.
 
 Required evidence before closed/open testing:

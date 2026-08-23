@@ -42,12 +42,9 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Spinner
 import android.widget.TextView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -63,6 +60,7 @@ import kotlin.math.roundToLong
 class CameraSwitchCalibrationActivity : Activity() {
     private var textureView: TextureView? = null
     private var overlayView: FaceOverlayView? = null
+    private var cueView: CalibrationCueView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
     private var holdView: TextView? = null
@@ -70,8 +68,11 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraView: TextView? = null
     private var startButton: Button? = null
     private var changeCameraButton: Button? = null
-    private var gestureSpinner: Spinner? = null
-    private var updatingGestureSpinner = false
+    private var blinkGestureButton: Button? = null
+    private var cheekGestureButton: Button? = null
+    private var previewGeometryReady = false
+    private var appliedPreviewKey: String? = null
+    private var countdownTicking = false
     @Volatile private var cameraDevice: CameraDevice? = null
     @Volatile private var cameraOpening = false
     @Volatile private var cameraOpenGeneration = 0
@@ -282,7 +283,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         currentSpeechDone = null
         tonePlayer?.release()
         tonePlayer = null
-        mainHandler?.removeCallbacksAndMessages(null)
+        cancelScheduledWork()
         mainHandler = null
         super.onDestroy()
     }
@@ -343,48 +344,35 @@ class CameraSwitchCalibrationActivity : Activity() {
         val title = TextView(this).apply {
             text = tr("Optical switch setup", "光學開關設定")
             setTextColor(Color.WHITE)
-            textSize = 22f
+            textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
-            maxLines = 2
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
+        // The status and metric lines change on almost every frame. Their height is pinned so the
+        // preview pane below them never grows or shrinks as the wording changes.
         statusView = TextView(this).apply {
             text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
             setTextColor(Color.rgb(220, 227, 235))
-            textSize = 16f
-            setPadding(0, dp(8), 0, dp(8))
-            maxLines = 3
+            textSize = 15f
+            setPadding(0, dp(4), 0, dp(2))
+            minLines = 2
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         metricsView = TextView(this).apply {
             text = tr("Waiting for camera", "等待相機")
             setTextColor(Color.rgb(159, 173, 188))
-            textSize = 14f
-            setPadding(0, 0, 0, dp(8))
+            textSize = 13f
+            setPadding(0, 0, 0, dp(4))
+            minLines = 2
             maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
-        holdView = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(12), 0, dp(4))
-        }
-        zoomView = TextView(this).apply {
-            setTextColor(Color.rgb(226, 234, 242))
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, dp(4))
-        }
-        cameraView = TextView(this).apply {
+        holdView = compactValueLabel()
+        zoomView = compactValueLabel()
+        cameraView = compactValueLabel().apply {
             text = tr("Camera: finding available cameras", "相機：正在尋找可用相機")
-            setTextColor(Color.rgb(226, 234, 242))
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, dp(4))
-        }
-        val feedbackView = TextView(this).apply {
-            text = tr("Green: usable tracking. Amber: adjust your face position.", "綠框：追蹤良好。黃框：請調整臉部位置。")
-            setTextColor(Color.rgb(183, 196, 210))
-            textSize = 14f
-            setPadding(0, 0, 0, dp(10))
         }
 
         val previewFrame = FrameLayout(this).apply {
@@ -417,13 +405,20 @@ class CameraSwitchCalibrationActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
+        cueView = CalibrationCueView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
         previewFrame.addView(textureView)
         previewFrame.addView(overlayView)
+        previewFrame.addView(cueView)
 
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(if (wideLayout) dp(12) else 0, dp(4), 0, 0)
+            setPadding(if (wideLayout) dp(12) else 0, dp(2), 0, 0)
         }
         startButton = actionButton(tr("Start setup", "開始"), primary = true) {
             setOnClickListener { startAutoCalibration() }
@@ -434,62 +429,45 @@ class CameraSwitchCalibrationActivity : Activity() {
         actions.addView(startButton, actionButtonParams(horizontal = true))
         actions.addView(closeButton, actionButtonParams(horizontal = true))
 
-        val holdActions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
-        }
-        holdActions.addView(actionButton(tr("-100 ms", "-100 毫秒"), primary = false) {
-            setOnClickListener { adjustHoldMs(-100L) }
-        }, actionButtonParams(horizontal = true))
-        holdActions.addView(actionButton(tr("+100 ms", "+100 毫秒"), primary = false) {
-            setOnClickListener { adjustHoldMs(100L) }
-        }, actionButtonParams(horizontal = true))
-
-        val zoomActions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
-        }
-        zoomActions.addView(actionButton(tr("Zoom -", "縮小"), primary = false) {
-            setOnClickListener { adjustZoomRatio(-0.2f) }
-        }, actionButtonParams(horizontal = true))
-        zoomActions.addView(actionButton(tr("Zoom +", "放大"), primary = false) {
-            setOnClickListener { adjustZoomRatio(0.2f) }
-        }, actionButtonParams(horizontal = true))
-
-        changeCameraButton = actionButton(tr("Change / refresh camera", "切換／重新整理相機"), primary = false) {
+        changeCameraButton = actionButton(tr("Next camera", "下一個相機"), primary = false) {
             setOnClickListener { changeCamera() }
         }
-
-        val gestureLabel = TextView(this).apply {
-            text = tr("Optical switch gesture", "光學開關動作")
-            setTextColor(Color.rgb(226, 234, 242))
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, dp(4))
+        blinkGestureButton = actionButton(tr("Long blink", "長眨眼"), primary = false) {
+            setOnClickListener { selectGesture(OpticalSwitchGesture.LongBlink) }
         }
-        val gestureItems = listOf(tr("Long blink", "長眨眼"), tr("Cheek twitch", "臉頰抽動"))
-        gestureSpinner = Spinner(this).apply {
-            adapter = object : ArrayAdapter<String>(this@CameraSwitchCalibrationActivity, android.R.layout.simple_spinner_item, gestureItems) {
-                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    gestureOptionView(getItem(position).orEmpty(), dropdown = false)
-
-                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    gestureOptionView(getItem(position).orEmpty(), dropdown = true)
-            }
-            minimumHeight = dp(48)
-            setPopupBackgroundDrawable(roundedBackground(Color.rgb(42, 52, 64), dp(8), Color.rgb(78, 92, 108)))
-            updatingGestureSpinner = true
-            setSelection(if (selectedGesture == OpticalSwitchGesture.LongBlink) 0 else 1, false)
-            updatingGestureSpinner = false
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    if (!updatingGestureSpinner) selectGesture(if (position == 0) OpticalSwitchGesture.LongBlink else OpticalSwitchGesture.CheekTwitch)
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            }
+        cheekGestureButton = actionButton(tr("Cheek twitch", "臉頰抽動"), primary = false) {
+            setOnClickListener { selectGesture(OpticalSwitchGesture.CheekTwitch) }
         }
+
+        // Four fixed-height rows, each "label + control", so the whole screen fits without scrolling.
+        val gestureRow = controlRow(
+            label = TextView(this).apply {
+                text = tr("Gesture", "動作")
+                setTextColor(Color.rgb(226, 234, 242))
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL
+            },
+            buttons = listOf(blinkGestureButton, cheekGestureButton),
+            labelWeight = 0.8f
+        )
+        val cameraRow = controlRow(cameraView, listOf(changeCameraButton), labelWeight = 1.4f)
+        val holdRow = controlRow(
+            holdView,
+            listOf(
+                actionButton(tr("-100", "-100"), primary = false) { setOnClickListener { adjustHoldMs(-100L) } },
+                actionButton(tr("+100", "+100"), primary = false) { setOnClickListener { adjustHoldMs(100L) } }
+            ),
+            labelWeight = 1.4f
+        )
+        val zoomRow = controlRow(
+            zoomView,
+            listOf(
+                actionButton(tr("Zoom -", "縮小"), primary = false) { setOnClickListener { adjustZoomRatio(-0.2f) } },
+                actionButton(tr("Zoom +", "放大"), primary = false) { setOnClickListener { adjustZoomRatio(0.2f) } }
+            ),
+            labelWeight = 1.4f
+        )
 
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -498,42 +476,13 @@ class CameraSwitchCalibrationActivity : Activity() {
             addView(metricsView)
             addView(previewFrame)
         }
-        val controls = LinearLayout(this).apply {
+        val controlsColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(if (wideLayout) dp(12) else 0, dp(8), 0, dp(8))
-            addView(gestureLabel)
-            addView(gestureSpinner, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-            addView(cameraView)
-            addView(changeCameraButton, actionButtonParams(horizontal = false))
-            addView(holdView)
-            addView(holdActions)
-            addView(zoomView)
-            addView(zoomActions)
-            addView(feedbackView)
-        }
-        val controlsScroll = ScrollView(this).apply {
-            isFillViewport = true
-            clipToPadding = false
-            isVerticalScrollBarEnabled = true
-            isScrollbarFadingEnabled = false
-            addView(
-                controls,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-        }
-        val controlsArea = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(
-                controlsScroll,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
-            )
+            setPadding(if (wideLayout) dp(12) else 0, dp(4), 0, 0)
+            addView(gestureRow)
+            addView(cameraRow)
+            addView(holdRow)
+            addView(zoomRow)
             addView(
                 actions,
                 LinearLayout.LayoutParams(
@@ -542,13 +491,34 @@ class CameraSwitchCalibrationActivity : Activity() {
                 )
             )
         }
+        // At normal text sizes the rows fit and this never scrolls. It exists only so that a very
+        // large system font scale pushes the controls into a scroll instead of clipping the buttons.
+        val controlsArea = ScrollView(this).apply {
+            isFillViewport = false
+            clipToPadding = false
+            addView(
+                controlsColumn,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
 
         if (wideLayout) {
             root.addView(previewPane, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 3f))
             root.addView(controlsArea, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2f))
         } else {
-            root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f))
-            root.addView(controlsArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f))
+            // The controls take exactly the height they need and the preview absorbs the rest, so
+            // nothing is ever pushed off-screen and nothing has to scroll.
+            root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            root.addView(
+                controlsArea,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
         }
         updateHoldUi()
         updateZoomUi()
@@ -556,14 +526,40 @@ class CameraSwitchCalibrationActivity : Activity() {
         return root
     }
 
-    private fun gestureOptionView(label: String, dropdown: Boolean): TextView = TextView(this).apply {
-        text = label
-        setTextColor(Color.WHITE)
-        textSize = 17f
+    private fun compactValueLabel(): TextView = TextView(this).apply {
+        setTextColor(Color.rgb(226, 234, 242))
+        textSize = 15f
+        typeface = Typeface.DEFAULT_BOLD
         gravity = Gravity.CENTER_VERTICAL
-        minHeight = dp(48)
-        setPadding(dp(16), dp(10), dp(16), dp(10))
-        if (dropdown) setBackgroundColor(Color.rgb(42, 52, 64))
+        maxLines = 2
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
+
+    private fun controlRow(label: View?, buttons: List<Button?>, labelWeight: Float): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            if (label != null) {
+                addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, labelWeight))
+            }
+            buttons.filterNotNull().forEach { addView(it, actionButtonParams(horizontal = true)) }
+        }
+
+    private fun updateGestureSelectionUi() {
+        applyGestureButtonStyle(blinkGestureButton, selectedGesture == OpticalSwitchGesture.LongBlink)
+        applyGestureButtonStyle(cheekGestureButton, selectedGesture == OpticalSwitchGesture.CheekTwitch)
+    }
+
+    private fun applyGestureButtonStyle(button: Button?, selected: Boolean) {
+        button ?: return
+        button.setTextColor(if (selected) Color.WHITE else Color.rgb(226, 234, 242))
+        button.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+        button.background = roundedBackground(
+            if (selected) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64),
+            dp(8),
+            if (selected) Color.rgb(52, 211, 153) else Color.rgb(78, 92, 108),
+            strokeWidthDp = if (selected) 2 else 1
+        )
     }
 
     private fun updateSavedCalibrationUi() {
@@ -594,7 +590,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun selectGesture(gesture: OpticalSwitchGesture) {
         if (gesture == selectedGesture) return
         calibrationRunId += 1
-        mainHandler?.removeCallbacksAndMessages(null)
+        cancelScheduledWork()
         currentSpeechId = null
         currentSpeechDone = null
         tts?.stop()
@@ -617,6 +613,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             setOnClickListener { startSelectedGestureTest() }
             isEnabled = selectedGesture == OpticalSwitchGesture.LongBlink || cheekModel != null
         }
+        updateGestureSelectionUi()
         updateHoldUi()
     }
 
@@ -664,7 +661,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun startAutoCalibration() {
         calibrationRunId += 1
-        mainHandler?.removeCallbacksAndMessages(null)
+        cancelScheduledWork()
         currentSpeechId = null
         currentSpeechDone = null
         longBlinkDurations.clear()
@@ -705,6 +702,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         phase = Phase.Instruction
         activeStepLabel = step.label
         captureEndsAtMs = 0L
+        updateCueOverlay()
         statusView?.text = step.cue
         metricsView?.text = tr(
             "$ttsVoiceLabel | ${step.label} starts after the start tone",
@@ -789,11 +787,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         activeCheekTrial = step.trial
         activeStepLabel = step.label
         captureEndsAtMs = System.currentTimeMillis() + step.durationMs
+        updateCueOverlay()
     }
 
     private fun endCapture() {
         phase = Phase.Instruction
         captureEndsAtMs = 0L
+        updateCueOverlay()
     }
 
     private fun finishAutoCalibration() {
@@ -810,6 +810,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             restClosed = false
         }
         phase = Phase.Complete
+        captureEndsAtMs = 0L
+        updateCueOverlay()
         calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
         detectionParameters = BlinkParameterAutoCalibrator.tune(
             restSignals = restEyeSignals,
@@ -873,6 +875,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun finishCheekCalibration() {
         phase = Phase.Complete
         captureEndsAtMs = 0L
+        updateCueOverlay()
         when (val outcome = cheekCalibrator.build()) {
             is CheekCalibrationOutcome.Success -> {
                 cheekModel = outcome.model
@@ -1016,12 +1019,11 @@ class CameraSwitchCalibrationActivity : Activity() {
                 targetWidth = AnalysisTargetWidth,
                 targetHeight = AnalysisTargetHeight
             )
-            activePreviewBufferSize = chooseOutputSize(
+            activePreviewBufferSize = choosePreviewSize(
                 streamMap.getOutputSizes(SurfaceTexture::class.java),
-                targetWidth = PreviewTargetWidth,
-                targetHeight = PreviewTargetHeight,
-                preferredAspect = activeAnalysisSize.width.toDouble() / activeAnalysisSize.height
+                analysisAspect = activeAnalysisSize.width.toDouble() / activeAnalysisSize.height
             )
+            previewGeometryReady = true
             updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
             activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
             maxCameraZoomRatio = characteristics
@@ -1189,7 +1191,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraThread = null
         cameraHandler = null
         mlKitInFlight = false
-        overlayView?.setFace(null, 0, 0, false, mirrorFaceOverlay)
+        appliedPreviewKey = null
+        overlayView?.clear()
     }
 
     private fun applyZoomToRepeatingRequest() {
@@ -1265,12 +1268,10 @@ class CameraSwitchCalibrationActivity : Activity() {
                 val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
                 mainHandler?.post {
                     if (!isCameraGenerationActive(analysisGeneration)) return@post
-                    overlayView?.setFace(
-                        face?.boundingBox,
-                        imageSize.width,
-                        imageSize.height,
-                        score != null,
-                        mirrorFaceOverlay
+                    overlayView?.setDetection(
+                        face?.boundingBox?.let { normalizedRect(it, imageSize) },
+                        null,
+                        score != null
                     )
                     when (previewBlink) {
                         PreviewBlink.Short -> {
@@ -1317,16 +1318,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             val score = observation?.takeIf { it.usable }?.let { cheekModel?.score(it.blendshapes) }
             if (observation?.usable == true) collectCheekSample(observation.blendshapes)
             val activation = processCheekScore(score, now)
-            val size = orientedImageSize(image, analysisRotationDegrees)
-            val box = observation?.normalizedBounds?.let {
-                Rect(
-                    (it.left * size.width).toInt(), (it.top * size.height).toInt(),
-                    (it.right * size.width).toInt(), (it.bottom * size.height).toInt()
-                )
-            }
+            // MediaPipe already reports normalized coordinates in the rotated frame.
+            val box = observation?.normalizedBounds?.let { RectF(it.left, it.top, it.right, it.bottom) }
+            val landmarks = observation?.normalizedLandmarks
             mainHandler?.post {
                 if (!isCameraGenerationActive(analysisGeneration)) return@post
-                overlayView?.setFace(box, size.width, size.height, observation?.usable == true, mirrorFaceOverlay)
+                overlayView?.setDetection(box, landmarks, observation?.usable == true)
                 if (activation) {
                     playLongAcceptedCue()
                     statusView?.text = tr("Cheek movement accepted.", "已接受臉頰動作。")
@@ -1419,20 +1416,67 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun shouldPreviewMonitor(): Boolean =
         (phase == Phase.Idle || phase == Phase.Complete) && currentSpeechId == null
 
+    /**
+     * Every cue is emitted through here so the tone and the on-screen signal are always issued
+     * together. A helper watching the screen and a user listening for the tone get the same
+     * information at the same moment.
+     */
     private fun playStartCue() {
         tonePlayer?.playStart()
+        cueView?.flash(CalibrationCueView.Tone.Go)
     }
 
     private fun playShortCue() {
         tonePlayer?.playSetupShortBlink()
+        cueView?.flash(CalibrationCueView.Tone.Neutral)
     }
 
     private fun playHoldReachedCue() {
         tonePlayer?.playHoldReached()
+        cueView?.flash(CalibrationCueView.Tone.Hold)
     }
 
     private fun playLongAcceptedCue() {
         tonePlayer?.playLongAccepted()
+        cueView?.flash(CalibrationCueView.Tone.Accepted)
+    }
+
+    /** Redraws the headline and countdown, and keeps ticking while a timed step is running. */
+    private fun updateCueOverlay() {
+        val overlay = cueView ?: return
+        val remainingMs = if (captureEndsAtMs > 0L) max(0L, captureEndsAtMs - System.currentTimeMillis()) else 0L
+        val capturing = captureEndsAtMs > 0L
+        when {
+            capturing -> overlay.show(
+                activeStepLabel.ifEmpty { tr("Recording", "記錄中") },
+                ((remainingMs + 999L) / 1000L).toInt(),
+                CalibrationCueView.Tone.Go
+            )
+            phase == Phase.Instruction -> overlay.show(
+                activeStepLabel.ifEmpty { tr("Get ready", "請準備") },
+                null,
+                CalibrationCueView.Tone.Hold
+            )
+            else -> overlay.clear()
+        }
+        if (capturing && !countdownTicking) {
+            countdownTicking = true
+            scheduleCueTick()
+        }
+    }
+
+    /** Cancels queued speech follow-ups and cue ticks together, so no tick is left orphaned. */
+    private fun cancelScheduledWork() {
+        mainHandler?.removeCallbacksAndMessages(null)
+        countdownTicking = false
+    }
+
+    private fun scheduleCueTick() {
+        mainHandler?.postDelayed({
+            countdownTicking = false
+            if (isFinishing || isDestroyed) return@postDelayed
+            updateCueOverlay()
+        }, CueTickMs)
     }
 
     private fun collectCalibrationSample(signal: BlinkEyeSignal, now: Long) {
@@ -1524,6 +1568,16 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun orientedImageSize(image: Image, rotation: Int): Size =
         if (rotation == 90 || rotation == 270) Size(image.height, image.width) else Size(image.width, image.height)
 
+    private fun normalizedRect(box: Rect, imageSize: Size): RectF? {
+        if (imageSize.width <= 0 || imageSize.height <= 0) return null
+        return RectF(
+            box.left.toFloat() / imageSize.width,
+            box.top.toFloat() / imageSize.height,
+            box.right.toFloat() / imageSize.width,
+            box.bottom.toFloat() / imageSize.height
+        )
+    }
+
     private fun currentSurfaceRotation(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             display?.rotation ?: Surface.ROTATION_0
@@ -1532,19 +1586,68 @@ class CameraSwitchCalibrationActivity : Activity() {
             windowManager.defaultDisplay.rotation
         }
 
+    /**
+     * Places the camera image on screen and tells the overlay to use the same placement.
+     *
+     * The camera writes both the preview surface and the analysis reader in sensor orientation, so
+     * the preview is rotated by the same compensation handed to the detector and mirrored the same
+     * way the overlay mirrors. Without the rotation the detector worked upright while the preview
+     * stayed sideways, so pitching the head moved the box sideways and yawing it moved the box
+     * vertically. Deciding both here is what keeps the tracking marks locked to the face.
+     */
     private fun updatePreviewTransform(width: Int, height: Int) {
         val texture = textureView ?: return
-        val scale = CameraPreviewGeometry.aspectFitScale(
+        if (width <= 0 || height <= 0) return
+        // Until the camera reports its real buffer size and rotation, keep whatever is on screen.
+        // Applying a placeholder transform first was what made the preview visibly resize on entry.
+        if (!previewGeometryReady) return
+
+        val bufferWidth = activePreviewBufferSize.width
+        val bufferHeight = activePreviewBufferSize.height
+        val key = "$width|$height|$bufferWidth|$bufferHeight|$analysisRotationDegrees|$mirrorFaceOverlay"
+        if (key == appliedPreviewKey) return
+        appliedPreviewKey = key
+
+        val scale = CameraPreviewGeometry.textureScale(
             viewWidth = width,
             viewHeight = height,
-            bufferWidth = activePreviewBufferSize.width,
-            bufferHeight = activePreviewBufferSize.height,
+            bufferWidth = bufferWidth,
+            bufferHeight = bufferHeight,
             rotationDegrees = analysisRotationDegrees
         )
+        val centerX = width / 2f
+        val centerY = height / 2f
         texture.setTransform(
             Matrix().apply {
-                setScale(scale.x, scale.y, width / 2f, height / 2f)
+                setScale(scale.x, scale.y, centerX, centerY)
+                postRotate(analysisRotationDegrees.toFloat(), centerX, centerY)
+                if (mirrorFaceOverlay) postScale(-1f, 1f, centerX, centerY)
             }
+        )
+        overlayView?.setPreviewGeometry(
+            CameraPreviewGeometry.orientedWidth(bufferWidth, bufferHeight, analysisRotationDegrees),
+            CameraPreviewGeometry.orientedHeight(bufferWidth, bufferHeight, analysisRotationDegrees),
+            mirrorFaceOverlay
+        )
+    }
+
+    /**
+     * Picks a preview size that shares the analysis stream's aspect ratio.
+     *
+     * The overlay maps detections from the analysis frame onto the rectangle the preview occupies,
+     * and the shared zoom crop region is fitted to each output's own aspect, so a preview with a
+     * different shape would show a different field of view and pull the tracking marks off the face.
+     * Only if no size matches do we fall back to the nearest-area choice.
+     */
+    private fun choosePreviewSize(sizes: Array<Size>?, analysisAspect: Double): Size {
+        require(!sizes.isNullOrEmpty()) { "Camera has no compatible output size" }
+        val matching = sizes.filter { abs(it.width.toDouble() / it.height - analysisAspect) <= PreviewAspectTolerance }
+        val candidates = if (matching.isNotEmpty()) matching.toTypedArray() else sizes
+        return chooseOutputSize(
+            sizes = candidates,
+            targetWidth = PreviewTargetWidth,
+            targetHeight = PreviewTargetHeight,
+            preferredAspect = analysisAspect
         )
     }
 
@@ -1688,59 +1791,212 @@ class CameraSwitchCalibrationActivity : Activity() {
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
 
-    private fun roundedBackground(color: Int, radius: Int, strokeColor: Int? = null): GradientDrawable =
+    private fun roundedBackground(
+        color: Int,
+        radius: Int,
+        strokeColor: Int? = null,
+        strokeWidthDp: Int = 1
+    ): GradientDrawable =
         GradientDrawable().apply {
             setColor(color)
             cornerRadius = radius.toFloat()
-            if (strokeColor != null) setStroke(dp(1), strokeColor)
+            if (strokeColor != null) setStroke(dp(strokeWidthDp), strokeColor)
         }
 
+    /**
+     * Draws the tracking marks on top of the preview.
+     *
+     * Detections arrive normalized to the rotated analysis frame, so the overlay only needs the
+     * aspect of what the preview is drawing. That keeps it correct even when the analysis stream
+     * and the preview stream run at different resolutions.
+     */
     private class FaceOverlayView(context: Context) : View(context) {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(52, 211, 153)
+        private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 5f
         }
-        private var face: Rect? = null
-        private var frameWidth = 0
-        private var frameHeight = 0
-        private var hasEyeSignal = false
+        private val landmarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+        private var bounds: RectF? = null
+        private var landmarks: FloatArray? = null
+        private var orientedWidth = 0
+        private var orientedHeight = 0
+        private var tracking = false
         private var mirrorHorizontally = true
 
-        fun setFace(
-            nextFace: Rect?,
-            width: Int,
-            height: Int,
-            nextHasEyeSignal: Boolean,
-            mirrored: Boolean
-        ) {
-            face = nextFace
-            frameWidth = width
-            frameHeight = height
-            hasEyeSignal = nextHasEyeSignal
+        fun setPreviewGeometry(width: Int, height: Int, mirrored: Boolean) {
+            orientedWidth = width
+            orientedHeight = height
             mirrorHorizontally = mirrored
+            invalidate()
+        }
+
+        /** [nextBounds] and [nextLandmarks] are normalized to 0..1 in the rotated analysis frame. */
+        fun setDetection(nextBounds: RectF?, nextLandmarks: FloatArray?, nextTracking: Boolean) {
+            bounds = nextBounds
+            landmarks = nextLandmarks
+            tracking = nextTracking
+            invalidate()
+        }
+
+        fun clear() {
+            bounds = null
+            landmarks = null
+            tracking = false
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val box = face ?: return
-            if (frameWidth <= 0 || frameHeight <= 0) return
-            val scale = min(width / frameWidth.toFloat(), height / frameHeight.toFloat())
-            val drawnWidth = frameWidth * scale
-            val drawnHeight = frameHeight * scale
-            val leftOffset = (width - drawnWidth) / 2f
-            val topOffset = (height - drawnHeight) / 2f
-            paint.color = if (hasEyeSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
-            val mirroredLeft = if (mirrorHorizontally) frameWidth - box.right else box.left
-            val mirroredRight = if (mirrorHorizontally) frameWidth - box.left else box.right
-            val rect = RectF(
-                leftOffset + mirroredLeft * scale,
-                topOffset + box.top * scale,
-                leftOffset + mirroredRight * scale,
-                topOffset + box.bottom * scale
+            val box = bounds ?: return
+            if (orientedWidth <= 0 || orientedHeight <= 0) return
+            val content = CameraPreviewGeometry.contentRect(width, height, orientedWidth, orientedHeight)
+            val color = if (tracking) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
+            boxPaint.color = color
+            landmarkPaint.color = color
+
+            val left = mapX(box.left, content)
+            val right = mapX(box.right, content)
+            canvas.drawRect(
+                min(left, right),
+                content.top + box.top * content.height,
+                max(left, right),
+                content.top + box.bottom * content.height,
+                boxPaint
             )
-            canvas.drawRect(rect, paint)
+
+            val points = landmarks ?: return
+            val radius = max(1.5f, min(content.width, content.height) / 260f)
+            var index = 0
+            while (index + 1 < points.size) {
+                canvas.drawCircle(
+                    mapX(points[index], content),
+                    content.top + points[index + 1] * content.height,
+                    radius,
+                    landmarkPaint
+                )
+                index += 2
+            }
+        }
+
+        /** Mirrors about the view centre, matching the preview's own mirror transform. */
+        private fun mapX(normalizedX: Float, content: PreviewContentRect): Float {
+            val x = content.left + normalizedX * content.width
+            return if (mirrorHorizontally) width - x else x
+        }
+    }
+
+    /**
+     * The visible half of every calibration cue.
+     *
+     * Spoken instructions and tones are useless to a user who cannot hear them, and a tone is easy
+     * to miss in a noisy room, so each cue is also drawn over the preview: a coloured border, a
+     * headline, and the seconds left in the current step.
+     */
+    private class CalibrationCueView(context: Context) : View(context) {
+        enum class Tone { Neutral, Go, Hold, Accepted }
+
+        private val density = resources.displayMetrics.density
+        private val headlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            textSize = 17f * density
+        }
+        private val countdownPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            textSize = 52f * density
+        }
+        private val backdropPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+
+        private var headline = ""
+        private var secondsRemaining: Int? = null
+        private var tone = Tone.Neutral
+        private var flashUntilMs = 0L
+
+        fun show(nextHeadline: String, nextSecondsRemaining: Int?, nextTone: Tone) {
+            headline = nextHeadline
+            secondsRemaining = nextSecondsRemaining
+            tone = nextTone
+            invalidate()
+        }
+
+        fun flash(nextTone: Tone) {
+            tone = nextTone
+            flashUntilMs = System.currentTimeMillis() + FlashMs
+            invalidate()
+        }
+
+        fun clear() {
+            headline = ""
+            secondsRemaining = null
+            tone = Tone.Neutral
+            flashUntilMs = 0L
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val flashing = System.currentTimeMillis() < flashUntilMs
+            val accent = accentColor(tone)
+            if (headline.isEmpty() && secondsRemaining == null && !flashing) return
+
+            if (flashing) {
+                backdropPaint.color = withAlpha(accent, 70)
+                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backdropPaint)
+            }
+            if (tone != Tone.Neutral || flashing) {
+                borderPaint.color = accent
+                borderPaint.strokeWidth = (if (flashing) 8f else 4f) * density
+                val inset = borderPaint.strokeWidth / 2f
+                canvas.drawRect(inset, inset, width - inset, height - inset, borderPaint)
+            }
+            if (headline.isNotEmpty()) {
+                val bandHeight = 40f * density
+                backdropPaint.color = withAlpha(Color.BLACK, 150)
+                canvas.drawRect(0f, 0f, width.toFloat(), bandHeight, backdropPaint)
+                headlinePaint.color = accent
+                canvas.drawText(
+                    ellipsized(headline, width - 16f * density),
+                    width / 2f,
+                    bandHeight * 0.66f,
+                    headlinePaint
+                )
+            }
+            secondsRemaining?.let { seconds ->
+                val text = seconds.toString()
+                val centerY = height / 2f - (countdownPaint.descent() + countdownPaint.ascent()) / 2f
+                countdownPaint.color = withAlpha(Color.BLACK, 170)
+                canvas.drawText(text, width / 2f + 2f * density, centerY + 2f * density, countdownPaint)
+                countdownPaint.color = accent
+                canvas.drawText(text, width / 2f, centerY, countdownPaint)
+            }
+            if (flashing) postInvalidateOnAnimation()
+        }
+
+        private fun ellipsized(text: String, maxWidth: Float): String {
+            if (headlinePaint.measureText(text) <= maxWidth) return text
+            var end = text.length
+            while (end > 1 && headlinePaint.measureText(text.substring(0, end) + "…") > maxWidth) end -= 1
+            return text.substring(0, end) + "…"
+        }
+
+        private fun accentColor(value: Tone): Int = when (value) {
+            Tone.Neutral -> Color.rgb(203, 213, 225)
+            Tone.Go -> Color.rgb(52, 211, 153)
+            Tone.Hold -> Color.rgb(245, 158, 11)
+            Tone.Accepted -> Color.rgb(125, 211, 252)
+        }
+
+        private fun withAlpha(color: Int, alpha: Int): Int =
+            Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+
+        private companion object {
+            const val FlashMs = 600L
         }
     }
 
@@ -1763,6 +2019,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val PreviewTargetWidth = 640
         const val PreviewTargetHeight = 480
         const val AspectRatioWeight = 4.0
+        const val PreviewAspectTolerance = 0.02
         const val MlKitFrameIntervalMs = 200L
         const val CheekFrameIntervalMs = 45L
         const val BlinkTargetCameraFps = 10

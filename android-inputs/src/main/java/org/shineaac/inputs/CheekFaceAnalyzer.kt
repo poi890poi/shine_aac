@@ -63,13 +63,26 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         val points = result.faceLandmarks().firstOrNull() ?: return null
         val blendshapes = result.faceBlendshapes().orElse(emptyList()).firstOrNull()
             ?.associate { it.categoryName() to it.score().toDouble() }.orEmpty()
-        val xs = points.map { it.x() }; val ys = points.map { it.y() }
-        val quality = faceQuality(points.map { it.x() to it.y() })
+        // One flat x,y array instead of a list of pairs: this runs on every analysed frame.
+        val landmarks = FloatArray(points.size * 2)
+        var minX = Float.MAX_VALUE; var minY = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE; var maxY = -Float.MAX_VALUE
+        points.forEachIndexed { index, point ->
+            val x = point.x(); val y = point.y()
+            landmarks[index * 2] = x
+            landmarks[index * 2 + 1] = y
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+        val quality = faceQuality(landmarks, minX, minY, maxX, maxY)
         return CheekFaceObservation(
             blendshapes = blendshapes,
             qualityMessage = quality.second,
             usable = quality.first,
-            normalizedBounds = NormalizedFaceBounds(xs.min(), ys.min(), xs.max(), ys.max())
+            normalizedBounds = NormalizedFaceBounds(minX, minY, maxX, maxY),
+            normalizedLandmarks = landmarks
         )
     }
 
@@ -101,17 +114,22 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
     }
 
-    private fun faceQuality(points: List<Pair<Float, Float>>): Pair<Boolean, String> {
-        if (points.size < 468) return false to "Face landmarks unavailable"
-        val minX = points.minOf { it.first }; val maxX = points.maxOf { it.first }
-        val minY = points.minOf { it.second }; val maxY = points.maxOf { it.second }
+    private fun faceQuality(
+        landmarks: FloatArray,
+        minX: Float,
+        minY: Float,
+        maxX: Float,
+        maxY: Float
+    ): Pair<Boolean, String> {
+        if (landmarks.size < 468 * 2) return false to "Face landmarks unavailable"
         if (maxX - minX < 0.22f || maxY - minY < 0.28f) return false to "Move the camera closer"
         if (minX < -0.02f || maxX > 1.02f || minY < -0.02f || maxY > 1.02f) return false to "Center the whole face"
-        val eyeA = points[33]; val eyeB = points[263]
-        val roll = abs(atan2((eyeB.second - eyeA.second).toDouble(), (eyeB.first - eyeA.first).toDouble()) * 180.0 / PI)
+        val eyeAx = landmarks[33 * 2]; val eyeAy = landmarks[33 * 2 + 1]
+        val eyeBx = landmarks[263 * 2]; val eyeBy = landmarks[263 * 2 + 1]
+        val roll = abs(atan2((eyeBy - eyeAy).toDouble(), (eyeBx - eyeAx).toDouble()) * 180.0 / PI)
         if (roll > 20.0) return false to "Keep the head more upright"
-        val span = abs(eyeB.first - eyeA.first).coerceAtLeast(0.001f)
-        val ratio = abs(points[1].first - eyeA.first) / span
+        val span = abs(eyeBx - eyeAx).coerceAtLeast(0.001f)
+        val ratio = abs(landmarks[1 * 2] - eyeAx) / span
         if (ratio !in 0.22f..0.78f) return false to "Face the camera more directly"
         return true to "Face tracking good"
     }
@@ -124,7 +142,9 @@ data class CheekFaceObservation(
     val blendshapes: Map<String, Double>,
     val qualityMessage: String,
     val usable: Boolean,
-    val normalizedBounds: NormalizedFaceBounds
+    val normalizedBounds: NormalizedFaceBounds,
+    /** Flat `x, y` pairs in normalized image space, used to draw tracking marks on the preview. */
+    val normalizedLandmarks: FloatArray = FloatArray(0)
 )
 
 data class NormalizedFaceBounds(val left: Float, val top: Float, val right: Float, val bottom: Float)
