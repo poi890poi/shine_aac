@@ -762,10 +762,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         twitchBuffer.clear()
         twitchPeak = 0.0
         if (tooBrief) {
-            statusView?.text = tr(
-                "That movement was very brief. Hold it for a moment longer.",
-                "那次動作太短，請多維持一下下。"
-            )
+            mainHandler?.post {
+                statusView?.text = tr(
+                    "That movement was very brief. Hold it for a moment longer.",
+                    "那次動作太短，請多維持一下下。"
+                )
+            }
         }
         if (accepted && collectedTwitches >= CheekTrialCount && runId == calibrationRunId) {
             phase = Phase.Instruction
@@ -1411,9 +1413,13 @@ class CameraSwitchCalibrationActivity : Activity() {
                     activation || (score ?: 0.0) >= cheekEnterThreshold(),
                     cheekMeterLabel(score)
                 )
+                if (phase == Phase.CheekRest || phase == Phase.CheekMovement) updateCueOverlay()
                 if (activation) {
                     playLongAcceptedCue()
-                    statusView?.text = tr("Cheek movement accepted.", "已接受臉頰動作。")
+                    statusView?.text = if (phase == Phase.CheekMovement) tr(
+                        "Movement $collectedTwitches of $CheekTrialCount recorded.",
+                        "已記錄第 $collectedTwitches 次，共 $CheekTrialCount 次。"
+                    ) else tr("Cheek movement accepted.", "已接受臉頰動作。")
                 }
                 updateCheekMetrics(score, observation?.qualityMessage)
             }
