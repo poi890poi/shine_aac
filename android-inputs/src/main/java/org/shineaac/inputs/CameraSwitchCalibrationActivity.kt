@@ -86,6 +86,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var preferredLensFacing: Int? = null
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
+    private var activeCameraMirrored = true
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
@@ -306,60 +307,35 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
 
         val title = TextView(this).apply {
-            text = tr("Camera setup", "相機設定")
+            text = tr("Optical switch setup", "光學開關設定")
             setTextColor(Color.WHITE)
-            textSize = 22f
+            textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
-            maxLines = 2
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         statusView = TextView(this).apply {
             text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
             setTextColor(Color.rgb(220, 227, 235))
-            textSize = 16f
-            setPadding(0, dp(8), 0, dp(8))
-            maxLines = 3
+            textSize = 15f
+            setPadding(0, dp(4), 0, dp(2))
+            minLines = 2
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         metricsView = TextView(this).apply {
             text = tr("Waiting for camera", "等待相機")
             setTextColor(Color.rgb(159, 173, 188))
-            textSize = 14f
-            setPadding(0, 0, 0, dp(8))
+            textSize = 13f
+            setPadding(0, 0, 0, dp(4))
+            minLines = 2
             maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
-        gestureView = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(12), 0, dp(4))
-        }
-        holdView = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(12), 0, dp(4))
-        }
-        zoomView = TextView(this).apply {
-            setTextColor(Color.rgb(226, 234, 242))
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, dp(4))
-        }
-        cameraView = TextView(this).apply {
-            text = tr("Camera: finding available front cameras", "\u76f8\u6a5f\uff1a\u6b63\u5728\u5c0b\u627e\u53ef\u7528\u524d\u7f6e\u76f8\u6a5f")
-            setTextColor(Color.rgb(226, 234, 242))
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, dp(4))
-            maxLines = 2
-        }
-        val feedbackView = TextView(this).apply {
-            text = tr(
-                "Face marks show tracking. Bottom bar is gesture strength; white line is activation threshold.",
-                "臉部標記顯示追蹤狀態。下方長條為動作強度；白線為啟動門檻。"
-            )
-            setTextColor(Color.rgb(183, 196, 210))
-            textSize = 14f
-            setPadding(0, 0, 0, dp(10))
+        holdView = compactValueLabel()
+        zoomView = compactValueLabel()
+        cameraView = compactValueLabel().apply {
+            text = tr("Camera: finding available cameras", "相機：正在尋找可用相機")
         }
 
         val previewFrame = FrameLayout(this).apply {
@@ -398,7 +374,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(if (wideLayout) dp(12) else 0, dp(4), 0, 0)
+            setPadding(if (wideLayout) dp(12) else 0, dp(2), 0, 0)
         }
         startButton = actionButton(tr("Start setup", "開始"), primary = true) {
             setOnClickListener { startAutoCalibration() }
@@ -409,53 +385,56 @@ class CameraSwitchCalibrationActivity : Activity() {
         actions.addView(startButton, actionButtonParams(horizontal = true))
         actions.addView(closeButton, actionButtonParams(horizontal = true))
 
-        val gestureActions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
-        }
         blinkGestureButton = actionButton(tr("Long blink", "長眨眼"), primary = false) {
             setOnClickListener { selectGesture(OpticalSwitchGesture.LongBlink) }
         }
         cheekGestureButton = actionButton(tr("Cheek twitch", "臉頰抽動"), primary = false) {
             setOnClickListener { selectGesture(OpticalSwitchGesture.CheekTwitch) }
         }
-        gestureActions.addView(blinkGestureButton, actionButtonParams(horizontal = true))
-        gestureActions.addView(cheekGestureButton, actionButtonParams(horizontal = true))
-
-        val holdActions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
-        }
-        holdActions.addView(actionButton(tr("-100 ms", "-100 毫秒"), primary = false) {
-            setOnClickListener { adjustHoldMs(-100L) }
-        }, actionButtonParams(horizontal = true))
-        holdActions.addView(actionButton(tr("+100 ms", "+100 毫秒"), primary = false) {
-            setOnClickListener { adjustHoldMs(100L) }
-        }, actionButtonParams(horizontal = true))
-
-        val zoomActions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
-        }
-        zoomActions.addView(actionButton(tr("Zoom -", "縮小"), primary = false) {
-            setOnClickListener { adjustZoomRatio(-0.2f) }
-        }, actionButtonParams(horizontal = true))
-        zoomActions.addView(actionButton(tr("Zoom +", "放大"), primary = false) {
-            setOnClickListener { adjustZoomRatio(0.2f) }
-        }, actionButtonParams(horizontal = true))
-
-        val cameraActions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
-        }
-        changeCameraButton = actionButton(tr("Next front camera", "\u4e0b\u4e00\u500b\u524d\u7f6e\u76f8\u6a5f"), primary = false) {
+        changeCameraButton = actionButton(tr("Next camera", "下一個相機"), primary = false) {
             setOnClickListener { changeCamera() }
         }
-        cameraActions.addView(changeCameraButton, actionButtonParams(horizontal = true))
+
+        val gestureRow = controlRow(
+            label = TextView(this).apply {
+                text = tr("Gesture", "動作")
+                setTextColor(Color.rgb(226, 234, 242))
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL
+            },
+            buttons = listOf(blinkGestureButton, cheekGestureButton),
+            labelWeight = 0.8f
+        )
+        val cameraRow = controlRow(
+            cameraView,
+            listOf(changeCameraButton),
+            labelWeight = 1.4f
+        )
+        val holdRow = controlRow(
+            holdView,
+            listOf(
+                actionButton(tr("-100", "-100"), primary = false) {
+                    setOnClickListener { adjustHoldMs(-100L) }
+                },
+                actionButton(tr("+100", "+100"), primary = false) {
+                    setOnClickListener { adjustHoldMs(100L) }
+                }
+            ),
+            labelWeight = 1.4f
+        )
+        val zoomRow = controlRow(
+            zoomView,
+            listOf(
+                actionButton(tr("Zoom -", "縮小"), primary = false) {
+                    setOnClickListener { adjustZoomRatio(-0.2f) }
+                },
+                actionButton(tr("Zoom +", "放大"), primary = false) {
+                    setOnClickListener { adjustZoomRatio(0.2f) }
+                }
+            ),
+            labelWeight = 1.4f
+        )
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(title)
@@ -463,45 +442,27 @@ class CameraSwitchCalibrationActivity : Activity() {
             addView(metricsView)
             addView(previewFrame)
         }
-        val controls = LinearLayout(this).apply {
+        val controlsColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(if (wideLayout) dp(12) else 0, dp(8), 0, dp(8))
-            addView(gestureView)
-            addView(gestureActions)
-            addView(holdView)
-            addView(holdActions)
-            addView(zoomView)
-            addView(zoomActions)
-            addView(cameraView)
-            addView(cameraActions)
-            addView(feedbackView)
-        }
-        val controlsScroll = ScrollView(this).apply {
-            isFillViewport = true
-            clipToPadding = false
-            isVerticalScrollBarEnabled = true
-            isScrollbarFadingEnabled = false
+            setPadding(if (wideLayout) dp(12) else 0, dp(4), 0, 0)
+            addView(gestureRow)
+            addView(cameraRow)
+            addView(holdRow)
+            addView(zoomRow)
             addView(
-                controls,
-                FrameLayout.LayoutParams(
+                actions,
+                LinearLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT
                 )
             )
         }
-        val controlsArea = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        val controlsArea = ScrollView(this).apply {
+            isFillViewport = false
+            clipToPadding = false
             addView(
-                controlsScroll,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
-            )
-            addView(
-                actions,
-                LinearLayout.LayoutParams(
+                controlsColumn,
+                FrameLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
@@ -512,13 +473,50 @@ class CameraSwitchCalibrationActivity : Activity() {
             root.addView(previewPane, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 3f))
             root.addView(controlsArea, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2f))
         } else {
-            root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f))
-            root.addView(controlsArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f))
+            root.addView(previewPane, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            root.addView(
+                controlsArea,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
         }
         updateGestureUi()
         updateHoldUi()
         updateZoomUi()
         return root
+    }
+
+    private fun compactValueLabel(): TextView = TextView(this).apply {
+        setTextColor(Color.rgb(226, 234, 242))
+        textSize = 15f
+        typeface = Typeface.DEFAULT_BOLD
+        gravity = Gravity.CENTER_VERTICAL
+        maxLines = 2
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
+
+    private fun controlRow(
+        label: View?,
+        buttons: List<Button?>,
+        labelWeight: Float
+    ): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        if (label != null) {
+            addView(
+                label,
+                LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    labelWeight
+                )
+            )
+        }
+        buttons.filterNotNull().forEach {
+            addView(it, actionButtonParams(horizontal = true))
+        }
     }
 
     private fun updateSavedCalibrationUi() {
@@ -808,10 +806,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         startButton?.apply {
             isEnabled = true
             if (selectedGesture == OpticalSwitchGesture.LongBlink) {
-                text = tr("Start setup", "開始")
+                text = tr("Start setup", "開始設定")
                 setOnClickListener { startAutoCalibration() }
             } else {
-                text = tr("Calibrate (optional)", "校正（選用）")
+                text = tr("Start setup", "開始設定")
                 setOnClickListener { startCheekCalibration() }
             }
         }
@@ -1088,11 +1086,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
                 val refreshed =
                     CameraSwitchCameraSelection.availableCameras(manager)
-                        .filter {
-                            it.lensFacing ==
-                                CameraCharacteristics.LENS_FACING_FRONT &&
-                                it.cameraId in cameraXIds
-                        }
+                        .filter { it.cameraId in cameraXIds }
                 availableCameras = refreshed
                 selectedCamera = CameraSwitchCameraSelection.choose(
                     cameras = refreshed,
@@ -1101,7 +1095,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                             ?: preferredCameraId
                             ?: defaultFrontId,
                     preferredLensFacing =
-                        CameraCharacteristics.LENS_FACING_FRONT
+                        preferredLensFacing
+                            ?: CameraCharacteristics.LENS_FACING_FRONT
                 )
                 updateCameraUi()
                 selectedCamera?.cameraId
@@ -1111,24 +1106,24 @@ class CameraSwitchCalibrationActivity : Activity() {
                 cameraOpening = false
                 stopCamera()
                 statusView?.text = tr(
-                    "Front camera unavailable.",
-                    "找不到前置相機。"
+                    "Compatible camera unavailable.",
+                    "找不到相容的相機。"
                 )
                 return@addListener
             }
 
+            val lensFacing = selectedCamera?.lensFacing
             preferredCameraId = cameraId
-            preferredLensFacing =
-                CameraCharacteristics.LENS_FACING_FRONT
+            preferredLensFacing = lensFacing
             CameraSwitchPreferences.saveCameraSelection(
                 this,
                 cameraId,
-                CameraCharacteristics.LENS_FACING_FRONT
+                lensFacing
             )
             Log.i(
                 CameraSetupLogTag,
                 "OPTICAL_CAMERA setupId=$cameraId " +
-                    "facing=front selector=saved-or-default"
+                    "facing=${cameraFacingLogName(lensFacing)} selector=saved-or-default"
             )
 
             val characteristics =
@@ -1137,11 +1132,13 @@ class CameraSwitchCalibrationActivity : Activity() {
                 characteristics.get(
                     CameraCharacteristics.SENSOR_ORIENTATION
                 ) ?: 0
+            activeCameraMirrored =
+                lensFacing == CameraCharacteristics.LENS_FACING_FRONT
             analysisRotationDegrees =
                 CameraRotation.compensationDegrees(
                     currentSurfaceRotation(),
                     sensorOrientation,
-                    frontFacing = true
+                    frontFacing = activeCameraMirrored
                 )
             updatePreviewTransform(
                 textureView?.width ?: 0,
@@ -1343,7 +1340,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                         frameHeight = imageSize.height,
                         score = score,
                         threshold = detectionParameters.closeThreshold,
-                        hasSignal = score != null
+                        hasSignal = score != null,
+                        mirrorHorizontally = activeCameraMirrored
                     )
                     when (previewBlink) {
                         PreviewBlink.Short -> {
@@ -1395,7 +1393,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         val imageSize = orientedImageSize(image, rotationDegrees)
 
         try {
-            val observation = analyzer.analyzeYuvForSetup(image, rotationDegrees, now)
+            val observation = analyzer.analyzeYuvForSetup(
+                image,
+                rotationDegrees,
+                now,
+                mirrorCameraOutput = activeCameraMirrored
+            )
             val values = observation?.takeIf { it.usable }?.blendshapes
             val defaultScore = values?.let { cheekDetector.observe(it) }
             val score = values?.let { cheekModel?.score(it) } ?: defaultScore
@@ -1662,8 +1665,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         )
         updateCameraUi()
         statusView?.text = tr(
-            "Front camera changed. Center your face and test again.",
-            "已切換前置相機。請將臉置中並重新測試。"
+            "Camera changed. Center your face and test again.",
+            "已切換相機。請將臉置中並重新測試。"
         )
         stopCamera()
         startCamera()
@@ -1673,8 +1676,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val camera = selectedCamera
         if (camera == null) {
             cameraView?.text = tr(
-                "Camera: no compatible front camera",
-                "相機：沒有相容的前置相機"
+                "Camera: none available",
+                "相機：沒有可用相機"
             )
             changeCameraButton?.text = tr(
                 "Refresh cameras",
@@ -1682,22 +1685,41 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
             return
         }
-        val ordinal = availableCameras.indexOfFirst {
+        val sameFacing = availableCameras.filter {
+            it.lensFacing == camera.lensFacing
+        }
+        val ordinal = sameFacing.indexOfFirst {
             it.cameraId == camera.cameraId
         }.coerceAtLeast(0) + 1
+        val kind = when (camera.lensFacing) {
+            CameraCharacteristics.LENS_FACING_FRONT ->
+                tr("Front camera", "前置相機")
+            CameraCharacteristics.LENS_FACING_BACK ->
+                tr("Rear camera", "後置相機")
+            CameraCharacteristics.LENS_FACING_EXTERNAL ->
+                tr("USB / external camera", "USB／外接相機")
+            else -> tr("Camera", "相機")
+        }
+        val suffix = if (sameFacing.size > 1) " $ordinal" else ""
         cameraView?.text = tr(
-            "Camera: Front $ordinal/${availableCameras.size} " +
-                "(ID ${camera.cameraId})",
-            "相機：前置 $ordinal/${availableCameras.size}" +
-                "（ID ${camera.cameraId}）"
+            "Camera: $kind$suffix (${availableCameras.size} available)",
+            "相機：$kind$suffix（共 ${availableCameras.size} 個）"
         )
         changeCameraButton?.text =
             if (availableCameras.size > 1) {
-                tr("Next front camera", "下一個前置相機")
+                tr("Next camera", "下一個相機")
             } else {
                 tr("Refresh cameras", "重新整理相機")
             }
     }
+
+    private fun cameraFacingLogName(lensFacing: Int?): String =
+        when (lensFacing) {
+            CameraCharacteristics.LENS_FACING_FRONT -> "front"
+            CameraCharacteristics.LENS_FACING_BACK -> "rear"
+            CameraCharacteristics.LENS_FACING_EXTERNAL -> "external"
+            else -> "unknown"
+        }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
 
@@ -1783,6 +1805,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         private var hasSignal = false
         private var score: Double? = null
         private var threshold = 1.0
+        private var mirrorPixelFace = true
 
         fun clearDetection() {
             pixelFace = null
@@ -1790,6 +1813,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             landmarks = null
             score = null
             hasSignal = false
+            mirrorPixelFace = true
             invalidate()
         }
 
@@ -1799,7 +1823,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             frameHeight: Int,
             score: Double?,
             threshold: Double,
-            hasSignal: Boolean
+            hasSignal: Boolean,
+            mirrorHorizontally: Boolean
         ) {
             pixelFace = face
             normalizedFace = null
@@ -1809,6 +1834,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             this.score = score
             this.threshold = threshold
             this.hasSignal = hasSignal
+            mirrorPixelFace = mirrorHorizontally
             invalidate()
         }
 
@@ -1846,13 +1872,15 @@ class CameraSwitchCalibrationActivity : Activity() {
                 if (hasSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
 
             pixelFace?.let { box ->
-                val mirroredLeft = frameWidth - box.right
-                val mirroredRight = frameWidth - box.left
+                val displayLeft =
+                    if (mirrorPixelFace) frameWidth - box.right else box.left
+                val displayRight =
+                    if (mirrorPixelFace) frameWidth - box.left else box.right
                 canvas.drawRect(
                     RectF(
-                        leftOffset + mirroredLeft * scale,
+                        leftOffset + displayLeft * scale,
                         topOffset + box.top * scale,
-                        leftOffset + mirroredRight * scale,
+                        leftOffset + displayRight * scale,
                         topOffset + box.bottom * scale
                     ),
                     boxPaint

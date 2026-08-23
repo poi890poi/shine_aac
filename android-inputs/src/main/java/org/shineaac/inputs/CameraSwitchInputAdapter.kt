@@ -69,6 +69,7 @@ class CameraSwitchInputAdapter(
     private var holdEventActive = false
     private var lastActivationAt = 0L
     private var activeSource = "android-camera-long-blink"
+    private var activeCameraMirrored = true
     private var generation = 0
     private var watchdogScheduled = false
     private var running = false
@@ -200,6 +201,9 @@ class CameraSwitchInputAdapter(
                 sendStatus("cameraUnavailable", force = true)
                 return
             }
+            activeCameraMirrored =
+                selectedCamera.lensFacing ==
+                    CameraCharacteristics.LENS_FACING_FRONT
             val builder = ImageAnalysis.Builder()
             if (cheekAnalyzer != null) {
                 builder.setOutputImageFormat(
@@ -241,7 +245,8 @@ class CameraSwitchInputAdapter(
             Log.i(
                 Tag,
                 "OPTICAL_CAMERA runtimeId=${selectedCamera.cameraId} " +
-                    "facing=front selector=saved-or-default"
+                    "facing=${cameraFacingLogName(selectedCamera.lensFacing)} " +
+                    "selector=saved-or-default"
             )
             sendStatus("active", force = true)
         } catch (error: Exception) {
@@ -271,10 +276,9 @@ class CameraSwitchInputAdapter(
                 Camera2CameraInfo.from(cameraInfo).cameraId
             }.getOrNull()
         }.toSet()
-        val frontCameras =
+        val compatibleCameras =
             CameraSwitchCameraSelection.availableCameras(manager).filter {
-                it.lensFacing == CameraCharacteristics.LENS_FACING_FRONT &&
-                    it.cameraId in cameraXIds
+                it.cameraId in cameraXIds
             }
         val defaultFrontId = runCatching {
             CameraSelector.DEFAULT_FRONT_CAMERA
@@ -284,9 +288,10 @@ class CameraSwitchInputAdapter(
         }.getOrNull()
         val settings = settingsProvider()
         val selected = CameraSwitchCameraSelection.choose(
-            cameras = frontCameras,
+            cameras = compatibleCameras,
             preferredCameraId = settings.cameraId ?: defaultFrontId,
-            preferredLensFacing = CameraCharacteristics.LENS_FACING_FRONT
+            preferredLensFacing = settings.cameraLensFacing
+                ?: CameraCharacteristics.LENS_FACING_FRONT
         ) ?: return null
         val selector = CameraSelector.Builder()
             .addCameraFilter { cameraInfos ->
@@ -298,7 +303,11 @@ class CameraSwitchInputAdapter(
                 }
             }
             .build()
-        return SelectedCamera(selected.cameraId, selector)
+        return SelectedCamera(
+            selected.cameraId,
+            selected.lensFacing,
+            selector
+        )
     }
 
     private fun targetFpsRange(cameraId: String): Range<Int>? {
@@ -355,12 +364,7 @@ class CameraSwitchInputAdapter(
             return
         }
         val activeDetector = detector
-        val callbackExecutor = analysisExecutor
         if (activeDetector == null) {
-            imageProxy.close()
-            return
-        }
-        if (callbackExecutor == null) {
             imageProxy.close()
             return
         }
@@ -388,16 +392,22 @@ class CameraSwitchInputAdapter(
             }
         }, MlKitTimeoutMs)
         activeDetector.process(InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees))
-            .addOnSuccessListener(callbackExecutor) { faces ->
+            // ML Kit may complete after stop() has shut down the per-run
+            // analysis executor. Dispatch Task completions through the stable
+            // main executor so teardown cannot trigger RejectedExecutionException;
+            // generation/frame checks below still discard stale results.
+            .addOnSuccessListener(mainExecutor) { faces ->
                 if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val signal = face?.blinkEyeSignal(activeDetectionParameters)
                 updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
             }
-            .addOnFailureListener(callbackExecutor) { error ->
-                Log.w(Tag, "ML Kit analysis failed", error)
+            .addOnFailureListener(mainExecutor) { error ->
+                if (analysisGeneration == generation) {
+                    Log.w(Tag, "ML Kit analysis failed", error)
+                }
             }
-            .addOnCompleteListener(callbackExecutor) {
+            .addOnCompleteListener(mainExecutor) {
                 if (analysisGeneration == generation && activeFrameId == frameId) {
                     lastAnalysisCompletedAt = System.currentTimeMillis()
                     mlKitInFlight = false
@@ -430,7 +440,8 @@ class CameraSwitchInputAdapter(
             val observation = analyzer.analyzeRgbaForRuntime(
                 mediaImage,
                 imageProxy.imageInfo.rotationDegrees,
-                now
+                now,
+                mirrorCameraOutput = activeCameraMirrored
             )
 
             if (imageGeneration != generation || !running) return
@@ -586,7 +597,19 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private data class SelectedCamera(val cameraId: String, val selector: CameraSelector)
+    private fun cameraFacingLogName(lensFacing: Int?): String =
+        when (lensFacing) {
+            CameraCharacteristics.LENS_FACING_FRONT -> "front"
+            CameraCharacteristics.LENS_FACING_BACK -> "rear"
+            CameraCharacteristics.LENS_FACING_EXTERNAL -> "external"
+            else -> "unknown"
+        }
+
+    private data class SelectedCamera(
+        val cameraId: String,
+        val lensFacing: Int?,
+        val selector: CameraSelector
+    )
     private companion object {
         const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 200L

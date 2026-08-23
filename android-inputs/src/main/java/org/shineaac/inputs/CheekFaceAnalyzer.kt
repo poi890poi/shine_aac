@@ -53,16 +53,20 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
      * Setup/calibration path.
      *
      * CameraSwitchCalibrationActivity uses a Camera2 YUV_420_888 ImageReader.
-     * Keep its already device-verified rotate+mirror preprocessing unchanged.
+     * Preserve the device-verified front-camera rotate+mirror preprocessing;
+     * rear/external cameras use the same path without the selfie mirror.
      * This path is temporary; it is not used by the continuous AAC switch.
      */
     fun analyzeYuvForSetup(
         image: Image,
         rotationDegrees: Int,
-        timestampMs: Long
+        timestampMs: Long,
+        mirrorCameraOutput: Boolean = true
     ): CheekFaceObservation? {
         val decoded = YuvBitmaps.toBitmap(image)
-        val oriented = orientFrontCamera(decoded, rotationDegrees)
+        val oriented = orientCamera(
+            decoded, rotationDegrees, mirrorCameraOutput
+        )
         return try {
             val mpImage = BitmapImageBuilder(oriented).build()
             try {
@@ -89,7 +93,7 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
      * no per-pixel Kotlin YUV conversion and allocates no full-frame Bitmap here.
      *
      * Rotation is delegated to MediaPipe. The historical detector contract is a
-     * mirrored front-camera image, so the small result is mirrored instead:
+     * mirrored front-camera image, so for front lenses the small result is mirrored instead:
      * normalized landmark x is flipped and Left/Right blendshape names are
      * swapped. That keeps personalized models learned by the setup path in the
      * same feature-key space.
@@ -97,7 +101,8 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
     fun analyzeRgbaForRuntime(
         image: Image,
         rotationDegrees: Int,
-        timestampMs: Long
+        timestampMs: Long,
+        mirrorCameraOutput: Boolean = true
     ): CheekFaceObservation? {
         val mpImage = MediaImageBuilder(image).build()
         return try {
@@ -105,20 +110,26 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
                 mpImage = mpImage,
                 rotationDegrees = rotationDegrees,
                 timestampMs = timestampMs,
-                mirrorFrontCameraOutput = true
+                mirrorFrontCameraOutput = mirrorCameraOutput
             )
         } finally {
             mpImage.close()
         }
     }
 
-    private fun orientFrontCamera(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
+    private fun orientCamera(
+        bitmap: Bitmap,
+        rotationDegrees: Int,
+        mirrorCameraOutput: Boolean
+    ): Bitmap {
         val normalizedRotation = ((rotationDegrees % 360) + 360) % 360
         val transform = Matrix().apply {
             if (normalizedRotation != 0) {
                 postRotate(normalizedRotation.toFloat())
             }
-            postScale(-1f, 1f)
+            if (mirrorCameraOutput) {
+                postScale(-1f, 1f)
+            }
         }
         return Bitmap.createBitmap(
             bitmap,
