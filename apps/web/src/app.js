@@ -175,6 +175,8 @@ let animationFrameId = 0;
 let scanScheduleToken = 0;
 let cameraStatus = { state: "off", label: "Camera off", updatedAt: 0 };
 let cameraStatusTimerId = 0;
+let opticalScore = null;
+let opticalThreshold = null;
 let calibrationState = createCalibrationState();
 const demoMode = createDemoMode({
   getHighlightStartedAt: () => highlightStartedAt,
@@ -1025,8 +1027,17 @@ function updateCameraStatus(inputEvent = {}) {
   const label = isZhTwUi()
     ? cameraStatusLabel(state)
     : String(inputEvent.label ?? cameraStatusLabel(state));
+  opticalScore = numericDetail(inputEvent, "score");
+  opticalThreshold = numericDetail(inputEvent, "threshold");
   setCameraStatus(state, label, state === "live" || state === "analysis");
   return true;
+}
+
+function numericDetail(inputEvent = {}, key = "") {
+  const raw = inputEvent[key] ?? detailValue(inputEvent.detail, key);
+  if (raw === undefined || raw === null || raw === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
 }
 
 function setCameraStatus(state, label, monitorStale) {
@@ -1054,6 +1065,29 @@ function updateCameraStatusPresentation() {
   element.hidden = !visible;
   element.className = `camera-status camera-status-${cameraStatus.state}`;
   element.textContent = visible ? (isZhTwUi() ? cameraStatusLabel(cameraStatus.state) : cameraStatus.label) : "";
+  paintOpticalScore(element, visible);
+}
+
+/**
+ * Shows how close the eye or cheek signal is to firing, by filling the camera status pill itself.
+ *
+ * The board otherwise gives no clue why nothing is happening, so a user cannot tell a movement that
+ * nearly worked from a camera that is not seeing them at all. Painting the pill that is already in
+ * the top panel keeps the board layout untouched: no extra row, no reflow, no new scan target.
+ */
+function paintOpticalScore(element, visible) {
+  const score = visible ? opticalScore : null;
+  if (score === null) {
+    element.style.removeProperty("--optical-score");
+    element.style.removeProperty("--optical-threshold");
+    element.removeAttribute("data-optical");
+    return;
+  }
+  const threshold = opticalThreshold === null ? 1 : clamp(opticalThreshold, 0.01, 1);
+  const filled = clamp(score, 0, 1);
+  element.style.setProperty("--optical-score", `${(filled * 100).toFixed(1)}%`);
+  element.style.setProperty("--optical-threshold", `${(threshold * 100).toFixed(1)}%`);
+  element.setAttribute("data-optical", filled >= threshold ? "firing" : "below");
 }
 
 function cameraStatusLabel(state) {

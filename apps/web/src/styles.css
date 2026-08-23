@@ -275,6 +275,35 @@ body.demo-active .phase::after {
   white-space: nowrap;
 }
 
+/*
+ * The camera status pill doubles as the optical signal meter: the fill shows current eye or cheek
+ * strength and the notch marks the level that fires the switch. It reuses the pill already present
+ * in the top panel, so the board gains a hint without gaining a row or shifting any scan target.
+ */
+.camera-status[data-optical] {
+  background-image:
+    linear-gradient(
+      to right,
+      var(--optical-fill, #9fd8cf) 0,
+      var(--optical-fill, #9fd8cf) var(--optical-score, 0%),
+      transparent var(--optical-score, 0%)
+    ),
+    linear-gradient(
+      to right,
+      transparent calc(var(--optical-threshold, 100%) - 2px),
+      #2b2f36 calc(var(--optical-threshold, 100%) - 2px),
+      #2b2f36 var(--optical-threshold, 100%),
+      transparent var(--optical-threshold, 100%)
+    );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.camera-status[data-optical="firing"] {
+  --optical-fill: #52d3a8;
+  border-color: #1f6f78;
+}
+
 .camera-status::before {
   content: "";
   display: inline-block;

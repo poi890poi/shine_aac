@@ -1672,10 +1672,13 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     /**
-     * Hands the decoded frame to the preview, recycling the frame it replaces.
+     * Hands the decoded frame to the preview.
      *
-     * The bitmap is drawn on the UI thread, so the previous one can only be freed once it is no
-     * longer the displayed frame.
+     * The replaced bitmap is deliberately not recycled. Handing a bitmap to a View and freeing it on
+     * the next frame is a use-after-free in disguise: the renderer still reads the previous display
+     * list after onDraw returns, so recycling there drops frames and the preview flickers. The same
+     * applies to the blink path, where ML Kit is still holding the frame asynchronously. Letting the
+     * collector take them costs a little churn and is correct.
      */
     /**
      * Turns a sensor-oriented frame upright and mirrors it for a front camera.
@@ -1701,16 +1704,13 @@ class CameraSwitchCalibrationActivity : Activity() {
                 bitmap.recycle()
                 return@post
             }
-            val previous = displayedFrame
             displayedFrame = bitmap
             previewView?.setFrame(bitmap)
-            if (previous !== bitmap) previous?.recycle()
         } ?: bitmap.recycle()
     }
 
     private fun releaseDisplayedFrame() {
         previewView?.clear()
-        displayedFrame?.recycle()
         displayedFrame = null
     }
 

@@ -52,9 +52,12 @@ class CameraSwitchInputAdapter(
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
+    private var lastScoreSentAt = 0L
+    private var lastReportedScore: Double? = null
     private var blinkClassifier = BlinkGestureClassifier()
     private var cheekClassifier: BinarySwitchClassifier? = null
     private val twitchDetector = CheekTwitchDetector()
+    private var activeEnterThreshold = CheekTwitchDetector.DefaultEnterThreshold
     private var activeDetectionParameters = BlinkDetectionParameters()
     @Volatile private var activeSettings = CameraSwitchSettings()
     private var holdEventActive = false
@@ -98,6 +101,7 @@ class CameraSwitchInputAdapter(
                     minimumHoldMs = settings.cheekHoldMs
                 )
             )
+            activeEnterThreshold = model?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
             if (model == null) sendStatus("uncalibrated", force = true)
         } else {
             detector = FaceDetection.getClient(
@@ -327,6 +331,8 @@ class CameraSwitchInputAdapter(
                 if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
                 val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
                 val signal = face?.blinkEyeSignal(activeDetectionParameters)
+                activeEnterThreshold = activeDetectionParameters.closeThreshold
+                lastReportedScore = signal?.closedScore
                 updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
             }
             .addOnFailureListener(callbackExecutor) { error ->
@@ -337,7 +343,7 @@ class CameraSwitchInputAdapter(
                     lastAnalysisCompletedAt = nowMs()
                     mlKitInFlight = false
                     activeFrameId = NoFrame
-                    sendStatus("analysis")
+                    reportScore(lastReportedScore, "analysis")
                 }
                 safeClose(imageProxy)
             }
@@ -409,9 +415,38 @@ class CameraSwitchInputAdapter(
             InputEvent(
                 intent = "cameraStatus",
                 source = activeSource,
-                detail = "state=$state"
+                detail = "state=$state" + scoreDetail()
             )
         )
+    }
+
+    /**
+     * Publishes how close the current face is to firing the switch.
+     *
+     * Without this the board gives no clue why nothing is happening: a user cannot tell a movement
+     * that nearly worked from a camera that is not seeing them at all. It rides on the existing
+     * status event so the board needs no new element for it.
+     */
+    private fun reportScore(score: Double?, state: String) {
+        val now = nowMs()
+        lastReportedScore = score
+        if (now - lastScoreSentAt < ScoreIntervalMs) return
+        lastScoreSentAt = now
+        lastStatusSentAt = now
+        sink.onInput(
+            InputEvent(
+                intent = "cameraStatus",
+                source = activeSource,
+                detail = "state=$state" + scoreDetail()
+            )
+        )
+    }
+
+    private fun scoreDetail(): String {
+        val score = lastReportedScore ?: return ""
+        val threshold = activeEnterThreshold
+        return ";score=" + String.format("%.3f", score.coerceIn(0.0, 1.5)) +
+            ";threshold=" + String.format("%.3f", threshold)
     }
 
     private fun safeClose(imageProxy: ImageProxy) {
@@ -451,7 +486,7 @@ class CameraSwitchInputAdapter(
             val score = values?.let { frame -> model?.score(frame) } ?: fallback
             updateCheekState(score, settings, now)
             lastAnalysisCompletedAt = nowMs()
-            sendStatus("analysis")
+            reportScore(score, "analysis")
         } catch (error: Exception) {
             Log.w(Tag, "Cheek analysis failed", error)
             cheekClassifier?.onScore(null, now)
@@ -495,6 +530,7 @@ class CameraSwitchInputAdapter(
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
+        const val ScoreIntervalMs = 180L
         const val Tag = "ShineCameraSwitch"
     }
 

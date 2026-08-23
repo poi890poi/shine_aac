@@ -1,19 +1,18 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-22T03:20:09.240Z
+Generated: 2026-08-23T00:56:23.257Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| packaged-webview-build | PASS | built Android WebView assets with esbuild |
-| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
+| server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":53.30000001192093,"resetTargetToProgressMs":49.59999996423721,"rowDeadlineDriftMs":-44.19999998807907,"nextRowTargetToProgressMs":26.600000023841858,"activationToTargetMs":1.399999976158142,"activationTargetToProgressMs":31.600000023841858,"firstDeadlineDriftMs":-30.30000001192093,"secondTargetToProgressMs":30.30000001192093,"laterDeadlineDriftMs":-20.19999998807907,"thirdTargetToProgressMs":20.69999998807907,"selectionToHoldMs":4.600000023841858,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":21.30000001192093} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":68,"resetTargetToProgressMs":30.899999976158142,"rowDeadlineDriftMs":-24,"nextRowTargetToProgressMs":23,"activationToTargetMs":2.5,"activationTargetToProgressMs":19.100000023841858,"firstDeadlineDriftMs":-16.300000071525574,"secondTargetToProgressMs":32.200000047683716,"laterDeadlineDriftMs":-31.5,"thirdTargetToProgressMs":31.399999976158142,"selectionToHoldMs":4.100000023841858,"holdReleaseToTargetMs":0.6999999284744263,"selectionTargetToProgressMs":32.40000009536743} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
