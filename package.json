@@ -24,7 +24,9 @@
     "baseline:communication": "node scripts/report-communication-benchmarks.mjs --update-baseline",
     "report:efficiency": "npm run report:zhtw:inventory && npm run report:zhtw:phonetic && npm run report:communication",
     "test:web:e2e": "node scripts/e2e-web.mjs",
-    "test:web:packaged": "node scripts/e2e-web.mjs --packaged-webview"
+    "test:web:packaged": "node scripts/e2e-web.mjs --packaged-webview",
+    "test:device": "python scripts/device-acceptance-test.py",
+    "test:device:optical": "python scripts/optical-rig-test.py"
   },
   "workspaces": [
     "packages/*"

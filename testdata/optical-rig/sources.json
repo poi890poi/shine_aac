@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "id": "commons_blinking",
+      "filename": "commons-blinking.webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/9c/20140529_-_Blinking.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:20140529_-_Blinking.webm",
+      "sha1": "faab2e7a395c4113876f984549312abe3e3c39c9",
+      "duration_s": 5.833,
+      "license": "CC BY-SA 3.0",
+      "author": "Cl\u00e9ment Bucco-Lechat",
+      "purpose": "natural blink negative control and source frames for deterministic short/long blink timing"
+    },
+    {
+      "id": "commons_smiling",
+      "filename": "commons-smiling.webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/b9/20140529_-_Smiling.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:20140529_-_Smiling.webm",
+      "sha1": "7189d1550bd079a6c992f50722c5437edfdc3292",
+      "duration_s": 3.333,
+      "license": "CC BY-SA 3.0",
+      "author": "Cl\u00e9ment Bucco-Lechat",
+      "purpose": "non-blink/non-cheek negative facial-motion control"
+    },
+    {
+      "id": "commons_surprised",
+      "filename": "commons-surprised.webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/57/20140529_-_Surprised.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:20140529_-_Surprised.webm",
+      "sha1": "860007b1f271e8eff559fe22f2521cc3c34fc9fb",
+      "duration_s": 3.033,
+      "license": "CC BY-SA 3.0",
+      "author": "Cl\u00e9ment Bucco-Lechat",
+      "purpose": "negative facial-motion/control stimulus"
+    }
+  ],
+  "blink_cases": [
+    {
+      "id": "blink_natural_1x",
+      "source": "commons_blinking",
+      "rate": 1.0,
+      "expect": "no_activate",
+      "severity": "P1"
+    },
+    {
+      "id": "blink_short_control",
+      "source": "commons_blinking",
+      "expect": "no_activate",
+      "severity": "P1",
+      "stills": [
+        { "start": 0.75, "ms": 1000 },
+        { "start": 0.25, "ms": 350 },
+        { "start": 0.75, "ms": 900 }
+      ]
+    },
+    {
+      "id": "blink_long_positive_01",
+      "source": "commons_blinking",
+      "expect": "activate",
+      "severity": "P1",
+      "stills": [
+        { "start": 0.75, "ms": 1000 },
+        { "start": 0.25, "ms": 1600 },
+        { "start": 0.75, "ms": 900 }
+      ]
+    },
+    {
+      "id": "blink_long_positive_02",
+      "source": "commons_blinking",
+      "expect": "activate",
+      "severity": "P1",
+      "stills": [
+        { "start": 0.75, "ms": 1000 },
+        { "start": 2.00, "ms": 1600 },
+        { "start": 0.75, "ms": 900 }
+      ]
+    },
+    {
+      "id": "blink_long_positive_03",
+      "source": "commons_blinking",
+      "expect": "activate",
+      "severity": "P1",
+      "stills": [
+        { "start": 0.75, "ms": 1000 },
+        { "start": 3.00, "ms": 1600 },
+        { "start": 0.75, "ms": 900 }
+      ]
+    },
+    {
+      "id": "blink_two_gestures_recovery",
+      "source": "commons_blinking",
+      "expect": "activate",
+      "severity": "P1",
+      "min_activations": 2,
+      "max_activations": 2,
+      "stills": [
+        { "start": 0.75, "ms": 1000 },
+        { "start": 0.25, "ms": 1600 },
+        { "start": 0.75, "ms": 1800 },
+        { "start": 2.00, "ms": 1600 },
+        { "start": 0.75, "ms": 900 }
+      ]
+    }
+  ],
+  "negative_cases": [
+    {
+      "id": "smile_negative",
+      "source": "commons_smiling",
+      "rate": 1.0,
+      "expect": "no_activate",
+      "severity": "P1"
+    },
+    {
+      "id": "surprise_negative",
+      "source": "commons_surprised",
+      "rate": 1.0,
+      "expect": "no_activate",
+      "severity": "P1"
+    }
+  ]
+}

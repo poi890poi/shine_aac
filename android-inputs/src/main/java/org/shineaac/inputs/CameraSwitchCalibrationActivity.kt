@@ -983,24 +983,30 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun calibrationQuality(): CalibrationQuality {
-        val slowBlinkOk = longBlinkDurations.any { it in 450L..2500L }
-        val falseLongBlinks = restClosedDurations.count { it >= calibratedLongBlinkHoldMs }
-        val restOk = falseLongBlinks == 0
-        val label = when {
-            slowBlinkOk && restOk -> tr("Quality good", "品質良好")
-            slowBlinkOk -> tr("Quality weak", "品質偏低")
-            else -> tr("Quality needs retry", "請重新設定")
+        val assessment = BlinkCalibrationQualityPolicy.assess(
+            longBlinkDurations,
+            restClosedDurations,
+            calibratedLongBlinkHoldMs
+        )
+        val label = when (assessment.level) {
+            BlinkCalibrationQualityPolicy.Level.Good -> tr("Quality good", "品質良好")
+            BlinkCalibrationQualityPolicy.Level.Weak -> tr("Quality weak", "品質偏低")
+            BlinkCalibrationQualityPolicy.Level.Retry -> tr("Quality needs retry", "請重新設定")
         }
         val detail = buildString {
             append(label)
-            append(tr(" | slow blinks ", "｜慢眨眼 ")).append(longBlinkDurations.size)
-            append(tr(", rest false ", "，放鬆時誤判 ")).append(falseLongBlinks)
+            append(tr(" | slow blinks ", "｜慢眨眼 ")).append(assessment.validSlowBlinkCount)
+            append(tr(", rest false ", "，放鬆時誤判 ")).append(assessment.falseLongBlinkCount)
             append(tr(", hold ", "，維持 ")).append(calibratedLongBlinkHoldMs).append(tr("ms", " 毫秒"))
             append(tr(", zoom ", "，縮放 ")).append("%.1f".format(calibratedZoomRatio)).append(tr("x", " 倍"))
             append(tr(", close ", "，閉眼門檻 ")).append("%.2f".format(detectionParameters.closeThreshold))
             append(tr(", reopen ", "，張眼門檻 ")).append("%.2f".format(detectionParameters.reopenThreshold))
             append(tr(", stability ", "，穩定時間 ")).append(detectionParameters.reopenStableMs).append(tr("ms", " 毫秒"))
-            if (!slowBlinkOk) append(tr(" | no measured slow blink; default hold used", "｜未測得慢眨眼，使用預設時間"))
+            if (assessment.validSlowBlinkCount == 0) {
+                append(tr(" | no measured slow blink; default hold used", "｜未測得慢眨眼，使用預設時間"))
+            } else if (assessment.validSlowBlinkCount < BlinkCalibrationQualityPolicy.MinimumGoodSlowBlinks) {
+                append(tr(" | repeat setup for a more reliable calibration", "｜建議重新設定以提升可靠度"))
+            }
         }
         return CalibrationQuality(label, detail)
     }

@@ -312,3 +312,44 @@ Enable Developer Options and USB debugging on the device first.
 - [Android Voice Access](https://support.google.com/accessibility/android/answer/6151848)
 - [Fast and flexible selection with a single switch](https://arxiv.org/abs/0909.2450)
 - [A Performance Evaluation of Nomon: A Flexible Interface for Noisy Single-Switch Users](https://arxiv.org/abs/2204.01619)
+
+## Physical-device acceptance
+
+With one authorized Android device connected:
+
+```bat
+device-test.bat
+```
+
+The standard physical test includes automatic thermal cooldown/resume and writes
+ranked evidence to `test-results/device-*`.
+
+For camera-switch changes, use the monitor-to-camera regression rig:
+
+```bat
+optical-rig-test.bat
+```
+
+After one successful rig calibration, reuse its ignored session fixture for
+focused cases without repeating the native calibration flow:
+
+```bat
+optical-rig-test.bat --runtime-only --case blink_long_positive_02 --repeat 5
+```
+
+The fixture is test-session state only. The runner restores the phone's original
+camera/calibration preferences and Switch input selection after every run.
+When the rig is idle, keep the monitor unobtrusive with:
+
+```bat
+optical-rig-idle.bat
+```
+
+To replay a real SHINE cheek calibration session:
+
+```bat
+python scripts\import-cheek-calibration.py path\to\cheek-calibration-....zip
+optical-rig-test.bat --with-local-cheek
+```
+
+See `docs/DEVICE_ACCEPTANCE_TEST.md` and `docs/OPTICAL_RIG_TEST.md`.

@@ -100,3 +100,13 @@ git push origin v0.3.3
 The tagged GitHub workflow publishes the versioned debug APK, its checksum,
 and a ZIP containing the APK, checksum, and release notes. Verify the release
 page and direct asset URLs after the workflow completes.
+
+## Physical-device release gates
+
+Before release, run `device-test.bat` on a physical Android device and review its
+`FINDINGS.md`. Unresolved P0/P1 findings block release.
+
+If the release changes camera-switch acquisition, blink/cheek detection, calibration,
+classifier timing, optical indication, lifecycle behavior, or activation routing, also
+run `optical-rig-test.bat`. If a local cheek calibration regression pack is available,
+run it with `--with-local-cheek`.

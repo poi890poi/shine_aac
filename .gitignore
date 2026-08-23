@@ -21,6 +21,7 @@ node_modules/
 /.artifacts/
 /blinktest/data/
 /.tmp/
+/tmp/
 /.codex-remote-attachments/
 /keystore.properties
 /*.jks
@@ -28,3 +29,11 @@ node_modules/
 /releases/**/*.apk
 /releases/**/*.aab
 /releases/**/*.zip
+test-results/
+testdata/optical-rig/downloaded/
+testdata/optical-rig/local/
+testdata/optical-rig/session/
+
+/.claude/
+/scripts/__pycache__/
+/.optical-rig-python/

@@ -1,0 +1,248 @@
+import importlib.util
+import json
+import struct
+import sys
+import tempfile
+import unittest
+import zlib
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
+import optical_stimulus
+SPEC = importlib.util.spec_from_file_location(
+    "shine_optical_rig", SCRIPT_DIR / "optical-rig-test.py"
+)
+RIG = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(RIG)
+
+
+def write_rgb_png(path, width, height, pixel):
+    raw = bytearray()
+    for y in range(height):
+        raw.append(0)
+        for x in range(width):
+            raw.extend(pixel(x, y))
+
+    def chunk(kind, payload):
+        return (
+            struct.pack(">I", len(payload)) + kind + payload +
+            struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+        )
+
+    data = b"\x89PNG\r\n\x1a\n"
+    data += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+    data += chunk(b"IDAT", zlib.compress(bytes(raw)))
+    data += chunk(b"IEND", b"")
+    path.write_bytes(data)
+
+
+class CameraIdentityTest(unittest.TestCase):
+    def test_latest_camera_telemetry_wins(self):
+        text = "\n".join([
+            "I/ShineCameraSetup: OPTICAL_CAMERA setupId=1 facing=front",
+            "I/ShineCameraSetup: OPTICAL_CAMERA setupId=3 facing=front",
+        ])
+        self.assertEqual("3", RIG.latest_optical_camera_id(text, "setupId"))
+        self.assertIsNone(RIG.latest_optical_camera_id(text, "runtimeId"))
+
+    def test_camera_label_is_a_telemetry_fallback(self):
+        strings = ["Gesture", "Camera: Front 2/3 (ID front-wide)"]
+        self.assertEqual(
+            "front-wide", RIG.camera_id_from_visible_strings(strings)
+        )
+
+
+class OpticalOracleTest(unittest.TestCase):
+    def test_cheek_performance_telemetry_is_structured(self):
+        samples = RIG.cheek_performance_samples(
+            "I/ShineCameraSwitch: CHEEK_PERF path=rgba-mediaimage "
+            "frames=50 avgUs=18500 maxUs=42700 size=480x360"
+        )
+        self.assertEqual(1, len(samples))
+        self.assertEqual(18500, samples[0]["avg_us"])
+        self.assertEqual(42700, samples[0]["max_us"])
+        self.assertEqual("rgba-mediaimage", samples[0]["path"])
+
+    def test_blink_calibration_oracle_uses_durable_record(self):
+        before = '<map><long name="calibratedAtMs" value="100" /></map>'
+        after = (
+            '<map><long name="calibratedAtMs" value="200" />'
+            '<long name="longBlinkMs" value="550" />'
+            '<float name="zoomRatio" value="4.0" />'
+            '<float name="blinkCloseThreshold" value="0.7" />'
+            '<float name="blinkReopenThreshold" value="0.4" />'
+            '<string name="qualityLabel">品質良好</string></map>'
+        )
+        record = RIG.new_blink_calibration_record(before, after)
+        self.assertEqual("200", record["calibratedAtMs"])
+        self.assertEqual("550", record["longBlinkMs"])
+
+    def test_visible_board_oracle_counts_row_column_stages(self):
+        self.assertEqual(0, RIG.visible_activation_count("review", "review", "row-column"))
+        self.assertEqual(1, RIG.visible_activation_count("review", "rows", "row-column"))
+        self.assertEqual(2, RIG.visible_activation_count("review", "cells", "row-column"))
+
+    def test_visible_board_oracle_counts_block_row_column_stages(self):
+        self.assertEqual(1, RIG.visible_activation_count("review", "blocks", "block-row-column"))
+        self.assertEqual(2, RIG.visible_activation_count("review", "rows", "block-row-column"))
+
+    def test_reads_visible_zh_tw_board_phase(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "board.xml"
+            path.write_text(
+                '<hierarchy><node text="選格中 · 第 1 / 2 次" /></hierarchy>',
+                encoding="utf-8",
+            )
+            self.assertEqual("cells", RIG.board_phase_from_xml(path))
+
+
+class CoordinateAtlasDecoderTest(unittest.TestCase):
+    def _decode(self, pixel, size=(512, 384)):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "atlas.png"
+            write_rgb_png(path, size[0], size[1], pixel)
+            return RIG.decode_coordinate_atlas_from_png(
+                path, (0, 0, 512, 384)
+            )
+
+    def _atlas_pixel(self, coordinate_for_position=lambda column, row: (column, row)):
+        def pixel(x, y):
+            tag = 128
+            column, row = x // tag, y // tag
+            local_x, local_y = x % tag, y % tag
+            gutter, frame, quiet = 6, 8, 8
+            outer = tag - gutter * 2
+            if not (gutter <= local_x < gutter + outer and gutter <= local_y < gutter + outer):
+                return (0, 0, 0)
+            if (
+                local_x < gutter + frame or local_x >= gutter + outer - frame or
+                local_y < gutter + frame or local_y >= gutter + outer - frame
+            ):
+                return (245, 245, 245)
+            start = gutter + frame + quiet
+            payload_size = tag - start * 2
+            if not (start <= local_x < start + payload_size and start <= local_y < start + payload_size):
+                return (0, 0, 0)
+            matrix_x = int((local_x - start) * 5 / payload_size)
+            matrix_y = int((local_y - start) * 5 / payload_size)
+            cell = payload_size / 5.0
+            in_cell_x = (local_x - start) - matrix_x * cell
+            in_cell_y = (local_y - start) - matrix_y * cell
+            inset = max(1.0, cell * 0.12)
+            encoded_column, encoded_row = coordinate_for_position(column, row)
+            bit = RIG._binary_tag_bits(encoded_column, encoded_row)[matrix_y][matrix_x]
+            if bit and inset <= in_cell_x < cell - inset and inset <= in_cell_y < cell - inset:
+                return (245, 245, 245)
+            return (0, 0, 0)
+        return pixel
+
+    def test_binary_payload_survives_rotation_mirror_and_bit_error(self):
+        matrix = RIG._binary_tag_bits(9, 5)
+        matrix[2][2] ^= 1
+        transformed = RIG._rotate_binary_matrix(
+            [list(reversed(row)) for row in matrix]
+        )
+        decoded = RIG._decode_binary_tag(transformed, 12, 7)
+        self.assertEqual((9, 5), (decoded["column"], decoded["row"]))
+
+    def test_decodes_monochrome_coordinate_tags(self):
+        decoded = self._decode(self._atlas_pixel())
+        self.assertGreaterEqual(decoded["binary_tags"], 10)
+        self.assertAlmostEqual(256, decoded["desktop_center"][0], delta=10)
+        self.assertAlmostEqual(192, decoded["desktop_center"][1], delta=10)
+        self.assertGreater(decoded["spatial_fit"]["inlier_fraction"], 0.9)
+
+    def test_rejects_spatially_shuffled_valid_tags(self):
+        def shuffled(column, row):
+            return ((column * 3 + row) % 4, (row * 2 + column) % 3)
+
+        with self.assertRaisesRegex(ValueError, "spatially incoherent|singular"):
+            self._decode(self._atlas_pixel(shuffled))
+
+
+class CameraZoomGeometryTest(unittest.TestCase):
+    def test_inverse_homography_projects_desktop_to_phone(self):
+        point = RIG.atlas_point_to_phone(
+            [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            0.25,
+            0.75,
+            (1000, 2000),
+        )
+        self.assertAlmostEqual(250.0, point[0])
+        self.assertAlmostEqual(1500.0, point[1])
+        atlas = RIG.phone_point_to_atlas(
+            [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            point[0], point[1], (1000, 2000),
+        )
+        self.assertAlmostEqual(0.25, atlas[0])
+        self.assertAlmostEqual(0.75, atlas[1])
+
+    def test_calculates_center_crop_needed_to_cover_preview(self):
+        monitor = [(25, 25), (75, 25), (75, 75), (25, 75)]
+        multiplier = RIG.required_zoom_multiplier(monitor, (0, 0, 100, 100))
+        self.assertAlmostEqual(2.0, multiplier, places=5)
+        self.assertEqual(3.4, RIG.round_camera_zoom_up(3.21))
+        self.assertEqual(4.0, RIG.round_camera_zoom_up(5.0))
+
+    def test_rejects_zoom_only_solution_when_monitor_misses_center(self):
+        monitor = [(0, 0), (20, 0), (20, 20), (0, 20)]
+        self.assertIsNone(
+            RIG.required_zoom_multiplier(monitor, (40, 40, 100, 100))
+        )
+
+    def test_reads_real_setup_preview_and_zoom(self):
+        xml = """<hierarchy><node class="android.widget.FrameLayout" bounds="[0,0][1080,2168]">
+          <node class="android.widget.TextView" text="未偵測到臉部" bounds="[36,340][1044,456]" />
+          <node class="android.widget.ScrollView" bounds="[36,1362][1044,2168]">
+            <node class="android.widget.TextView" text="相機縮放：1.6 倍" bounds="[36,1929][431,1995]" />
+          </node>
+        </node></hierarchy>"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "setup.xml"
+            path.write_text(xml, encoding="utf-8")
+            geometry = RIG.camera_setup_geometry(path)
+        self.assertEqual((36, 456, 1044, 1362), geometry["preview_rect"])
+        self.assertEqual(1.6, geometry["zoom_ratio"])
+
+
+class OpenCvFramebufferTest(unittest.TestCase):
+    def test_manifest_uses_visually_verified_closed_eye_frames(self):
+        manifest = json.loads(
+            (SCRIPT_DIR.parent / "testdata/optical-rig/sources.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        cases = {case["id"]: case for case in manifest["blink_cases"]}
+        self.assertEqual(
+            [0.75, 0.25, 0.75, 2.0, 0.75],
+            [item["start"] for item in cases["blink_two_gestures_recovery"]["stills"]],
+        )
+        self.assertEqual(
+            [0.25, 2.0, 3.0],
+            [
+                cases["blink_long_positive_%02d" % index]["stills"][1]["start"]
+                for index in range(1, 4)
+            ],
+        )
+
+    def test_blank_framebuffer_is_exact_black(self):
+        _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.numpy = numpy
+        presenter.desktop_rect = (0, 0, 32, 24)
+        blank = presenter._background({})
+        self.assertEqual((24, 32, 3), blank.shape)
+        self.assertEqual(0, int(numpy.count_nonzero(blank)))
+
+    def test_atlas_covers_partial_bottom_tile_without_browser_gap(self):
+        _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
+        atlas = optical_stimulus.render_atlas(numpy, 1536, 864)
+        self.assertEqual((864, 1536, 3), atlas.shape)
+        # 864 is not divisible by the 128px tag size. The former browser
+        # renderer left rows 768..863 entirely black.
+        self.assertGreater(int(numpy.count_nonzero(atlas[768:864])), 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
