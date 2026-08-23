@@ -131,6 +131,11 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cheekModel: CheekGestureModel? = null
     private val cheekCalibrator = CheekGestureCalibrator()
     private var activeCheekTrial = 0
+    private val twitchDetector = CheekTwitchDetector()
+    private var collectedTwitches = 0
+    private val twitchBuffer = mutableListOf<Map<String, Double>>()
+    private var twitchPeak = 0.0
+    private var lastCheekScore: Double? = null
     private var cheekClassifier: BinarySwitchClassifier? = null
     private var cheekTestActivations = 0
     private var cheekPreviewActivations = 0
@@ -586,7 +591,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         testButton?.apply {
             text = if (selectedGesture == OpticalSwitchGesture.LongBlink) tr("Test blink", "測試眨眼") else tr("Test cheek", "測試臉頰")
             setOnClickListener { startSelectedGestureTest() }
-            isEnabled = selectedGesture == OpticalSwitchGesture.LongBlink || cheekModel != null
+            isEnabled = true
         }
         updateGestureSelectionUi()
         updateHoldUi()
@@ -663,8 +668,117 @@ class CameraSwitchCalibrationActivity : Activity() {
         activeStepLabel = ""
         startButton?.isEnabled = false
         changeCameraButton?.isEnabled = false
-        runStep(0, calibrationRunId)
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            startSelfPacedCheekCalibration(calibrationRunId)
+        } else {
+            runStep(0, calibrationRunId)
+        }
     }
+
+    /**
+     * Self-paced cheek calibration: one relaxed phase, then free movements.
+     *
+     * The previous flow ran six separately timed trials, each with its own countdown. That asked the
+     * user to synchronise a small facial movement to a clock and gave no sign that any single
+     * movement had been accepted, so there was no way to tell a missed cue from a movement the
+     * detector could not see. Enrolment interfaces that work well - Face ID, Windows Hello, voice
+     * training - instead collect until they have enough, show progress, and confirm each accepted
+     * sample. This does the same: relax until the resting face is learned, then move whenever you
+     * like, with a tone, a flash and a counter for every movement that registers.
+     */
+    private fun startSelfPacedCheekCalibration(runId: Int) {
+        cheekCalibrator.reset()
+        twitchDetector.reset()
+        twitchBuffer.clear()
+        twitchPeak = 0.0
+        collectedTwitches = 0
+        activeCheekTrial = 0
+        captureEndsAtMs = 0L
+        val cue = tr(
+            "First relax your face and breathe normally. There is no timer; we will tell you when to move.",
+            "首先請放鬆臉部並正常呼吸。沒有計時，準備好時我們會通知您。"
+        )
+        activeStepLabel = tr("Relax", "放鬆")
+        statusView?.text = cue
+        phase = Phase.Instruction
+        updateCueOverlay()
+        speakThen(cue) {
+            if (runId != calibrationRunId) return@speakThen
+            phase = Phase.CheekRest
+            activeStepLabel = tr("Relax", "放鬆")
+            playStartCue()
+            updateCueOverlay()
+        }
+    }
+
+    private fun restProgressPercent(): Int {
+        val frames = min(cheekCalibrator.neutralCount(), RestFramesNeeded)
+        return (frames * 100 / max(1, RestFramesNeeded)).coerceIn(0, 100)
+    }
+
+    private fun beginTwitchPhase(runId: Int) {
+        if (runId != calibrationRunId) return
+        phase = Phase.Instruction
+        activeStepLabel = tr("Move your cheek", "做臉頰動作")
+        updateCueOverlay()
+        val cue = tr(
+            "Good. Now make your cheek movement whenever you are ready, and relax between each one. We need $CheekTrialCount, and each one that registers will beep.",
+            "很好。準備好時就做臉頰動作，每次之間放鬆。共需 $CheekTrialCount 次，每次成功都會有提示音。"
+        )
+        statusView?.text = cue
+        speakThen(cue) {
+            if (runId != calibrationRunId) return@speakThen
+            phase = Phase.CheekMovement
+            playStartCue()
+            updateCueOverlay()
+            // Nobody should be trapped in this phase. If the movements are not registering, stop and
+            // say so rather than waiting silently for a sixth one that may never come.
+            mainHandler?.postDelayed({
+                if (runId == calibrationRunId && phase == Phase.CheekMovement) finishCheekCalibration()
+            }, TwitchPhaseTimeoutMs)
+        }
+    }
+
+    /**
+     * Segments one free movement out of the live score.
+     *
+     * Frames are buffered from well below the firing threshold so the run-up is included, and the
+     * movement is only accepted once it has both peaked above the threshold and lasted long enough
+     * to give the calibrator something to fit.
+     */
+    private fun collectFreeTwitch(values: Map<String, Double>, score: Double?, runId: Int): Boolean {
+        if (score == null) return false
+        if (score >= cheekExitThreshold() * 0.5) {
+            twitchBuffer += values
+            twitchPeak = max(twitchPeak, score)
+            return false
+        }
+        val accepted = twitchPeak >= cheekEnterThreshold() && twitchBuffer.size >= MinimumTwitchFrames
+        val tooBrief = twitchPeak >= cheekEnterThreshold() && twitchBuffer.size < MinimumTwitchFrames
+        if (accepted) {
+            collectedTwitches += 1
+            twitchBuffer.forEach { cheekCalibrator.addActive(collectedTwitches, it) }
+        }
+        twitchBuffer.clear()
+        twitchPeak = 0.0
+        if (tooBrief) {
+            statusView?.text = tr(
+                "That movement was very brief. Hold it for a moment longer.",
+                "那次動作太短，請多維持一下下。"
+            )
+        }
+        if (accepted && collectedTwitches >= CheekTrialCount && runId == calibrationRunId) {
+            phase = Phase.Instruction
+            mainHandler?.post { finishCheekCalibration() }
+        }
+        return accepted
+    }
+
+    private fun cheekEnterThreshold(): Double =
+        cheekModel?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
+
+    private fun cheekExitThreshold(): Double =
+        cheekModel?.exitThreshold ?: CheekTwitchDetector.DefaultExitThreshold
 
     private fun runStep(index: Int, runId: Int) {
         if (runId != calibrationRunId) return
@@ -712,50 +826,11 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
     }
 
-    private fun calibrationSteps(): List<CalibrationStep> =
-        if (selectedGesture == OpticalSwitchGesture.LongBlink) {
-            listOf(
-                CalibrationStep(Phase.Prepare, tr("Prepare", "準備"), cueSet.prepare, 0L),
-                CalibrationStep(Phase.Rest, tr("Rest", "放鬆"), cueSet.rest, 8000L),
-                CalibrationStep(Phase.LongBlink, tr("Slow blink trials", "慢眨眼測試"), cueSet.longBlink, 12000L)
-            )
-        } else {
-            buildList {
-                add(CalibrationStep(
-                    Phase.Prepare,
-                    tr("Introduction", "說明"),
-                    tr(
-                        "We will learn one comfortable cheek movement. There is no need to hurry. Use the same movement each time, and stop if you become tired.",
-                        "我們會學習一個舒服的臉頰動作。不需要趕時間。每次做相同的動作；如果疲累，請隨時停止。"
-                    ),
-                    0L
-                ))
-                add(CalibrationStep(
-                    Phase.CheekRest,
-                    tr("Relaxed face", "臉部放鬆"),
-                    tr("First, relax your face and breathe normally. Nothing else is required for eight seconds.", "首先請放鬆臉部並正常呼吸。接下來八秒不需要做任何動作。"),
-                    8000L
-                ))
-                for (trial in 1..CheekTrialCount) {
-                    add(CalibrationStep(
-                        Phase.CheekMovement,
-                        tr("Cheek movement $trial of $CheekTrialCount", "第 $trial 次臉頰動作，共 $CheekTrialCount 次"),
-                        tr(
-                            "Movement $trial of $CheekTrialCount. After the tone, make your cheek movement once, hold it briefly if comfortable, then relax. You have plenty of time.",
-                            "第 $trial 次，共 $CheekTrialCount 次。提示音後做一次臉頰動作；若舒服可短暫維持，然後放鬆。時間很充裕。"
-                        ),
-                        4000L,
-                        trial
-                    ))
-                    if (trial < CheekTrialCount) add(CalibrationStep(
-                        Phase.CheekRest,
-                        tr("Rest", "休息"),
-                        tr("Relax completely and breathe normally. We will wait before the next movement.", "請完全放鬆並正常呼吸。我們會等一會兒再做下一次。"),
-                        3000L
-                    ))
-                }
-            }
-        }
+    private fun calibrationSteps(): List<CalibrationStep> = listOf(
+        CalibrationStep(Phase.Prepare, tr("Prepare", "準備"), cueSet.prepare, 0L),
+        CalibrationStep(Phase.Rest, tr("Rest", "放鬆"), cueSet.rest, 8000L),
+        CalibrationStep(Phase.LongBlink, tr("Slow blink trials", "慢眨眼測試"), cueSet.longBlink, 12000L)
+    )
 
     private fun beginCapture(step: CalibrationStep) {
         phase = step.phase
@@ -888,7 +963,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             }
         }
         startButton?.isEnabled = true
-        testButton?.isEnabled = cheekModel != null
+        testButton?.isEnabled = true
         changeCameraButton?.isEnabled = true
     }
 
@@ -935,6 +1010,23 @@ class CameraSwitchCalibrationActivity : Activity() {
         return CalibrationQuality(label, detail)
     }
 
+    /**
+     * Rebuilds the switch classifier, falling back to the uncalibrated thresholds.
+     *
+     * With no saved model the cheek switch used to do nothing at all, so there was no way to try the
+     * gesture before committing to a setup run. It now works out of the box and calibration tightens
+     * it, which is how the long blink gesture has always behaved.
+     */
+    private fun resetCheekClassifier() {
+        val model = cheekModel
+        cheekClassifier = BinarySwitchClassifier(
+            BinarySwitchClassifier.Config(
+                enterThreshold = model?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold,
+                exitThreshold = model?.exitThreshold ?: CheekTwitchDetector.DefaultExitThreshold,
+                minimumHoldMs = calibratedCheekHoldMs
+            )
+        )
+    }
     private fun speakThen(text: String, onDone: () -> Unit) {
         val engine = tts
         if (!ttsReady || engine == null) {
@@ -1285,15 +1377,40 @@ class CameraSwitchCalibrationActivity : Activity() {
             publishPreviewFrame(frameBitmap, analysisGeneration)
             val observation = analyzer.analyzeBitmap(frameBitmap, 0, now)
             if (!isCameraGenerationActive(analysisGeneration)) return
-            val score = observation?.takeIf { it.usable }?.let { cheekModel?.score(it.blendshapes) }
-            if (observation?.usable == true) collectCheekSample(observation.blendshapes)
-            val activation = processCheekScore(score, now)
+            val values = observation?.takeIf { it.usable }?.blendshapes
+            // The detector is fed once per usable frame so its resting baseline stays current, and it
+            // supplies the score whenever no calibrated model exists yet.
+            val detectorScore = values?.let { twitchDetector.observe(it) }
+            val score = values?.let { cheekModel?.score(it) } ?: detectorScore
+            lastCheekScore = score
+            var accepted = false
+            if (values != null) {
+                when (phase) {
+                    Phase.CheekRest -> {
+                        cheekCalibrator.addNeutral(values)
+                        if (cheekCalibrator.neutralCount() >= RestFramesNeeded && twitchDetector.ready) {
+                            val runId = calibrationRunId
+                            phase = Phase.Instruction
+                            mainHandler?.post { beginTwitchPhase(runId) }
+                        }
+                    }
+                    Phase.CheekMovement -> accepted = collectFreeTwitch(values, score, calibrationRunId)
+                    else -> Unit
+                }
+            }
+            val activation = accepted || processCheekScore(score, now)
             // MediaPipe already reports normalized coordinates in the rotated frame.
             val box = observation?.normalizedBounds?.let { RectF(it.left, it.top, it.right, it.bottom) }
             val landmarks = observation?.normalizedLandmarks
             mainHandler?.post {
                 if (!isCameraGenerationActive(analysisGeneration)) return@post
                 previewView?.setDetection(box, landmarks, observation?.usable == true)
+                previewView?.setMeter(
+                    score,
+                    cheekEnterThreshold(),
+                    activation || (score ?: 0.0) >= cheekEnterThreshold(),
+                    cheekMeterLabel(score)
+                )
                 if (activation) {
                     playLongAcceptedCue()
                     statusView?.text = tr("Cheek movement accepted.", "已接受臉頰動作。")
@@ -1309,12 +1426,15 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
     }
 
-    private fun collectCheekSample(values: Map<String, Double>) {
-        when (phase) {
-            Phase.CheekRest -> cheekCalibrator.addNeutral(values)
-            Phase.CheekMovement -> cheekCalibrator.addActive(activeCheekTrial, values)
-            else -> Unit
-        }
+    private fun cheekMeterLabel(score: Double?): String = when {
+        score == null && !twitchDetector.ready -> tr("Learning your resting face", "正在學習您的放鬆表情")
+        score == null -> tr("Face not detected", "未偵測到臉部")
+        phase == Phase.CheekMovement -> tr(
+            "Movement $collectedTwitches of $CheekTrialCount",
+            "第 $collectedTwitches 次，共 $CheekTrialCount 次"
+        )
+        cheekModel == null -> tr("Uncalibrated - set up to improve", "未校正，設定後更準確")
+        else -> tr("Move cheek to pass the line", "臉頰動作超過白線即可")
     }
 
     private fun processCheekScore(score: Double?, now: Long): Boolean {
@@ -1417,9 +1537,19 @@ class CameraSwitchCalibrationActivity : Activity() {
         val remainingMs = if (captureEndsAtMs > 0L) max(0L, captureEndsAtMs - System.currentTimeMillis()) else 0L
         val capturing = captureEndsAtMs > 0L
         when {
+            phase == Phase.CheekRest -> overlay.show(
+                tr("Relax your face", "請放鬆臉部"),
+                "" + (restProgressPercent()) + "%",
+                CalibrationCueView.Tone.Hold
+            )
+            phase == Phase.CheekMovement -> overlay.show(
+                tr("Move your cheek", "做臉頰動作"),
+                collectedTwitches.toString() + " / " + CheekTrialCount,
+                if (collectedTwitches > 0) CalibrationCueView.Tone.Go else CalibrationCueView.Tone.Hold
+            )
             capturing -> overlay.show(
                 activeStepLabel.ifEmpty { tr("Recording", "記錄中") },
-                ((remainingMs + 999L) / 1000L).toInt(),
+                ((remainingMs + 999L) / 1000L).toString(),
                 CalibrationCueView.Tone.Go
             )
             phase == Phase.Instruction -> overlay.show(
@@ -1778,13 +1908,14 @@ class CameraSwitchCalibrationActivity : Activity() {
         private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
         private var headline = ""
-        private var secondsRemaining: Int? = null
+        private var caption: String? = null
         private var tone = Tone.Neutral
         private var flashUntilMs = 0L
 
-        fun show(nextHeadline: String, nextSecondsRemaining: Int?, nextTone: Tone) {
+        /** [nextCaption] is the large centred text: a countdown, a progress count, or nothing. */
+        fun show(nextHeadline: String, nextCaption: String?, nextTone: Tone) {
             headline = nextHeadline
-            secondsRemaining = nextSecondsRemaining
+            caption = nextCaption
             tone = nextTone
             invalidate()
         }
@@ -1797,7 +1928,7 @@ class CameraSwitchCalibrationActivity : Activity() {
 
         fun clear() {
             headline = ""
-            secondsRemaining = null
+            caption = null
             tone = Tone.Neutral
             flashUntilMs = 0L
             invalidate()
@@ -1807,7 +1938,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             super.onDraw(canvas)
             val flashing = System.currentTimeMillis() < flashUntilMs
             val accent = accentColor(tone)
-            if (headline.isEmpty() && secondsRemaining == null && !flashing) return
+            if (headline.isEmpty() && caption == null && !flashing) return
 
             if (flashing) {
                 backdropPaint.color = withAlpha(accent, 70)
@@ -1831,8 +1962,12 @@ class CameraSwitchCalibrationActivity : Activity() {
                     headlinePaint
                 )
             }
-            secondsRemaining?.let { seconds ->
-                val text = seconds.toString()
+            caption?.let { text ->
+                countdownPaint.textSize = 52f * density
+                val maxWidth = width - 32f * density
+                if (countdownPaint.measureText(text) > maxWidth && maxWidth > 0f) {
+                    countdownPaint.textSize *= maxWidth / countdownPaint.measureText(text)
+                }
                 val centerY = height / 2f - (countdownPaint.descent() + countdownPaint.ascent()) / 2f
                 countdownPaint.color = withAlpha(Color.BLACK, 170)
                 canvas.drawText(text, width / 2f + 2f * density, centerY + 2f * density, countdownPaint)
@@ -1891,6 +2026,9 @@ class CameraSwitchCalibrationActivity : Activity() {
         const val AfterSpeechPauseMs = 700L
         const val BeepLeadMs = 260L
         const val CheekTrialCount = 6
+        const val RestFramesNeeded = 45
+        const val MinimumTwitchFrames = 3
+        const val TwitchPhaseTimeoutMs = 90000L
         const val ShortBlinkMinMs = 80L
         const val MinLongBlinkMs = 550L
         const val MaxLongBlinkMs = 1600L

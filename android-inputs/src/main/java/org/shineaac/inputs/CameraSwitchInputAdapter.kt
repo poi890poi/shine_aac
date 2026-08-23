@@ -54,6 +54,7 @@ class CameraSwitchInputAdapter(
     private var lastStatusSentAt = 0L
     private var blinkClassifier = BlinkGestureClassifier()
     private var cheekClassifier: BinarySwitchClassifier? = null
+    private val twitchDetector = CheekTwitchDetector()
     private var activeDetectionParameters = BlinkDetectionParameters()
     @Volatile private var activeSettings = CameraSwitchSettings()
     private var holdEventActive = false
@@ -80,12 +81,10 @@ class CameraSwitchInputAdapter(
         sendStatus("starting", force = true)
 
         if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+            // No saved model is no longer a refusal. The detector compares the face against its own
+            // recent resting state, so the switch works immediately and calibration sharpens it.
             val model = settings.cheekModel
-            if (model == null) {
-                sendStatus("needsCalibration", force = true)
-                running = false
-                return
-            }
+            twitchDetector.reset()
             cheekAnalyzer = try { CheekFaceAnalyzer(context) } catch (error: Exception) {
                 Log.w(Tag, "Cheek detector initialization failed", error)
                 sendStatus("detectorUnavailable", force = true)
@@ -94,11 +93,12 @@ class CameraSwitchInputAdapter(
             }
             cheekClassifier = BinarySwitchClassifier(
                 BinarySwitchClassifier.Config(
-                    enterThreshold = model.enterThreshold,
-                    exitThreshold = model.exitThreshold,
+                    enterThreshold = model?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold,
+                    exitThreshold = model?.exitThreshold ?: CheekTwitchDetector.DefaultExitThreshold,
                     minimumHoldMs = settings.cheekHoldMs
                 )
             )
+            if (model == null) sendStatus("uncalibrated", force = true)
         } else {
             detector = FaceDetection.getClient(
                 FaceDetectorOptions.Builder()
@@ -152,6 +152,7 @@ class CameraSwitchInputAdapter(
         cheekAnalyzer?.close()
         cheekAnalyzer = null
         cheekClassifier = null
+        twitchDetector.reset()
         if (holdEventActive) {
             sendHoldEnd(activeSource, "stop")
         }
@@ -429,11 +430,11 @@ class CameraSwitchInputAdapter(
             return
         }
         val analyzer = cheekAnalyzer
-        val model = settings.cheekModel
-        if (analyzer == null || model == null) {
+        if (analyzer == null) {
             imageProxy.close()
             return
         }
+        val model = settings.cheekModel
         lastFrameAt = now
         try {
             val observation = analyzer.analyzeRgba(
@@ -443,7 +444,11 @@ class CameraSwitchInputAdapter(
                 imageProxy.imageInfo.rotationDegrees,
                 now
             )
-            val score = observation?.takeIf { it.usable }?.let { model.score(it.blendshapes) }
+            val values = observation?.takeIf { it.usable }?.blendshapes
+            // Feed the detector every usable frame so its resting baseline tracks the current face,
+            // and use its score whenever no calibrated model is stored.
+            val fallback = values?.let { twitchDetector.observe(it) }
+            val score = values?.let { frame -> model?.score(frame) } ?: fallback
             updateCheekState(score, settings, now)
             lastAnalysisCompletedAt = nowMs()
             sendStatus("analysis")
