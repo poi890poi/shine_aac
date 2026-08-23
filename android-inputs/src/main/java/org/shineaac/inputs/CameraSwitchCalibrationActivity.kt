@@ -30,6 +30,7 @@ import android.os.HandlerThread
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import android.util.Range
 import android.util.Size
 import android.view.Gravity
@@ -68,7 +69,9 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var gestureView: TextView? = null
     private var holdView: TextView? = null
     private var zoomView: TextView? = null
+    private var cameraView: TextView? = null
     private var startButton: Button? = null
+    private var changeCameraButton: Button? = null
     private var blinkGestureButton: Button? = null
     private var cheekGestureButton: Button? = null
     private var cameraDevice: CameraDevice? = null
@@ -77,6 +80,10 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var session: CameraCaptureSession? = null
     private var repeatingRequestBuilder: CaptureRequest.Builder? = null
     private var activeArraySize: Rect? = null
+    private var availableCameras = emptyList<CameraSwitchCamera>()
+    private var selectedCamera: CameraSwitchCamera? = null
+    private var preferredCameraId: String? = null
+    private var preferredLensFacing: Int? = null
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
     private var reader: ImageReader? = null
@@ -157,6 +164,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         cheekModel = savedSettings.cheekModel
         calibratedLongBlinkHoldMs = savedSettings.longBlinkMs
         calibratedZoomRatio = savedSettings.zoomRatio
+        preferredCameraId = savedSettings.cameraId
+        preferredLensFacing = savedSettings.cameraLensFacing
         detectionParameters = savedSettings.detectionParameters
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         detector = FaceDetection.getClient(
@@ -335,6 +344,14 @@ class CameraSwitchCalibrationActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, dp(4), 0, dp(4))
         }
+        cameraView = TextView(this).apply {
+            text = tr("Camera: finding available front cameras", "\u76f8\u6a5f\uff1a\u6b63\u5728\u5c0b\u627e\u53ef\u7528\u524d\u7f6e\u76f8\u6a5f")
+            setTextColor(Color.rgb(226, 234, 242))
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, dp(4))
+            maxLines = 2
+        }
         val feedbackView = TextView(this).apply {
             text = tr(
                 "Face marks show tracking. Bottom bar is gesture strength; white line is activation threshold.",
@@ -430,6 +447,15 @@ class CameraSwitchCalibrationActivity : Activity() {
             setOnClickListener { adjustZoomRatio(0.2f) }
         }, actionButtonParams(horizontal = true))
 
+        val cameraActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        }
+        changeCameraButton = actionButton(tr("Next front camera", "\u4e0b\u4e00\u500b\u524d\u7f6e\u76f8\u6a5f"), primary = false) {
+            setOnClickListener { changeCamera() }
+        }
+        cameraActions.addView(changeCameraButton, actionButtonParams(horizontal = true))
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(title)
@@ -446,6 +472,8 @@ class CameraSwitchCalibrationActivity : Activity() {
             addView(holdActions)
             addView(zoomView)
             addView(zoomActions)
+            addView(cameraView)
+            addView(cameraActions)
             addView(feedbackView)
         }
         val controlsScroll = ScrollView(this).apply {
@@ -1006,12 +1034,19 @@ class CameraSwitchCalibrationActivity : Activity() {
     @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     private fun startCamera() {
         if (!activityResumed) return
-        if (cameraDevice != null || cameraOpening || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
+        if (
+            cameraDevice != null ||
+            cameraOpening ||
+            checkSelfPermission(Manifest.permission.CAMERA) !=
+                PackageManager.PERMISSION_GRANTED
+        ) return
+
         val texture = textureView?.surfaceTexture ?: return
         texture.setDefaultBufferSize(PreviewBufferWidth, PreviewBufferHeight)
         val openGeneration = ++cameraOpenGeneration
         cameraOpening = true
-        cameraThread = HandlerThread("ShineCameraCalibration").also { it.start() }
+        cameraThread =
+            HandlerThread("ShineCameraCalibration").also { it.start() }
         cameraHandler = Handler(cameraThread!!.looper)
         reader = ImageReader.newInstance(
             analysisSize.width,
@@ -1020,24 +1055,56 @@ class CameraSwitchCalibrationActivity : Activity() {
             2
         ).apply {
             setOnImageAvailableListener({ imageReader ->
-                val image = imageReader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                val image = imageReader.acquireLatestImage()
+                    ?: return@setOnImageAvailableListener
                 analyze(image)
             }, cameraHandler)
         }
 
-        val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val manager =
+            getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
-            if (!activityResumed || openGeneration != cameraOpenGeneration) {
+            if (
+                !activityResumed ||
+                openGeneration != cameraOpenGeneration
+            ) {
                 return@addListener
             }
 
             val cameraId = runCatching {
                 val provider = providerFuture.get()
-                val cameraInfo = CameraSelector.DEFAULT_FRONT_CAMERA
-                    .filter(provider.availableCameraInfos)
-                    .firstOrNull()
-                cameraInfo?.let { Camera2CameraInfo.from(it).cameraId }
+                val cameraXIds =
+                    provider.availableCameraInfos.mapNotNull { cameraInfo ->
+                        runCatching {
+                            Camera2CameraInfo.from(cameraInfo).cameraId
+                        }.getOrNull()
+                    }.toSet()
+                val defaultFrontId =
+                    CameraSelector.DEFAULT_FRONT_CAMERA
+                        .filter(provider.availableCameraInfos)
+                        .firstOrNull()
+                        ?.let { Camera2CameraInfo.from(it).cameraId }
+
+                val refreshed =
+                    CameraSwitchCameraSelection.availableCameras(manager)
+                        .filter {
+                            it.lensFacing ==
+                                CameraCharacteristics.LENS_FACING_FRONT &&
+                                it.cameraId in cameraXIds
+                        }
+                availableCameras = refreshed
+                selectedCamera = CameraSwitchCameraSelection.choose(
+                    cameras = refreshed,
+                    preferredCameraId =
+                        selectedCamera?.cameraId
+                            ?: preferredCameraId
+                            ?: defaultFrontId,
+                    preferredLensFacing =
+                        CameraCharacteristics.LENS_FACING_FRONT
+                )
+                updateCameraUi()
+                selectedCamera?.cameraId
             }.getOrNull()
 
             if (cameraId == null) {
@@ -1050,26 +1117,44 @@ class CameraSwitchCalibrationActivity : Activity() {
                 return@addListener
             }
 
-            android.util.Log.i(
+            preferredCameraId = cameraId
+            preferredLensFacing =
+                CameraCharacteristics.LENS_FACING_FRONT
+            CameraSwitchPreferences.saveCameraSelection(
+                this,
+                cameraId,
+                CameraCharacteristics.LENS_FACING_FRONT
+            )
+            Log.i(
                 CameraSetupLogTag,
-                "OPTICAL_CAMERA setupId=$cameraId facing=front selector=CameraXDefaultFront"
+                "OPTICAL_CAMERA setupId=$cameraId " +
+                    "facing=front selector=saved-or-default"
             )
 
-            val characteristics = manager.getCameraCharacteristics(cameraId)
+            val characteristics =
+                manager.getCameraCharacteristics(cameraId)
             val sensorOrientation =
-                characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            analysisRotationDegrees = CameraRotation.compensationDegrees(
-                currentSurfaceRotation(),
-                sensorOrientation,
-                frontFacing = true
+                characteristics.get(
+                    CameraCharacteristics.SENSOR_ORIENTATION
+                ) ?: 0
+            analysisRotationDegrees =
+                CameraRotation.compensationDegrees(
+                    currentSurfaceRotation(),
+                    sensorOrientation,
+                    frontFacing = true
+                )
+            updatePreviewTransform(
+                textureView?.width ?: 0,
+                textureView?.height ?: 0
             )
-            updatePreviewTransform(textureView?.width ?: 0, textureView?.height ?: 0)
             activeArraySize =
-                characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
-            maxCameraZoomRatio = characteristics
-                .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
-                ?.coerceAtLeast(1.0f)
-                ?: 1.0f
+                characteristics.get(
+                    CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE
+                )
+            maxCameraZoomRatio =
+                characteristics.get(
+                    CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM
+                )?.coerceAtLeast(1.0f) ?: 1.0f
             calibratedZoomRatio = calibratedZoomRatio.coerceIn(
                 1.0f,
                 min(maxCameraZoomRatio, MaxSavedZoomRatio)
@@ -1078,49 +1163,62 @@ class CameraSwitchCalibrationActivity : Activity() {
             val fpsRange = targetFpsRange(manager, cameraId)
 
             try {
-                manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                    override fun onOpened(camera: CameraDevice) {
-                        cameraOpening = false
-                        if (openGeneration != cameraOpenGeneration) {
-                            camera.close()
-                            return
+                manager.openCamera(
+                    cameraId,
+                    object : CameraDevice.StateCallback() {
+                        override fun onOpened(camera: CameraDevice) {
+                            cameraOpening = false
+                            if (
+                                openGeneration != cameraOpenGeneration
+                            ) {
+                                camera.close()
+                                return
+                            }
+                            cameraDevice = camera
+                            val analysisSurface = reader?.surface
+                            if (analysisSurface == null) {
+                                camera.close()
+                                return
+                            }
+                            createCameraSession(
+                                camera,
+                                Surface(texture),
+                                analysisSurface,
+                                fpsRange
+                            )
                         }
-                        cameraDevice = camera
-                        val analysisSurface = reader?.surface
-                        if (analysisSurface == null) {
+
+                        override fun onDisconnected(
+                            camera: CameraDevice
+                        ) {
+                            cameraOpening = false
                             camera.close()
-                            return
+                            cameraDevice = null
                         }
-                        createCameraSession(
-                            camera,
-                            Surface(texture),
-                            analysisSurface,
-                            fpsRange
-                        )
-                    }
 
-                    override fun onDisconnected(camera: CameraDevice) {
-                        cameraOpening = false
-                        camera.close()
-                        cameraDevice = null
-                    }
-
-                    override fun onError(camera: CameraDevice, error: Int) {
-                        cameraOpening = false
-                        camera.close()
-                        cameraDevice = null
-                        statusView?.text = tr(
-                            "Camera error $error",
-                            "相機錯誤 $error"
-                        )
-                    }
-                }, cameraHandler)
+                        override fun onError(
+                            camera: CameraDevice,
+                            error: Int
+                        ) {
+                            cameraOpening = false
+                            camera.close()
+                            cameraDevice = null
+                            statusView?.text = tr(
+                                "Camera error $error",
+                                "相機錯誤 $error"
+                            )
+                        }
+                    },
+                    cameraHandler
+                )
             } catch (error: Exception) {
                 cameraOpening = false
                 stopCamera()
                 statusView?.text = tr(
-                    "Camera setup failed: ${error.javaClass.simpleName}",
-                    "相機設定失敗：${error.javaClass.simpleName}"
+                    "Camera setup failed: " +
+                        error.javaClass.simpleName,
+                    "相機設定失敗：" +
+                        error.javaClass.simpleName
                 )
             }
         }, Executor { command -> runOnUiThread(command) })
@@ -1537,6 +1635,68 @@ class CameraSwitchCalibrationActivity : Activity() {
                 setScale(scale.x, scale.y, width / 2f, height / 2f)
             }
         )
+    }
+
+    private fun changeCamera() {
+        if (!activityResumed || isFinishing || isDestroyed) return
+        val cameras = availableCameras
+        if (cameras.isEmpty()) {
+            stopCamera()
+            startCamera()
+            return
+        }
+        val currentIndex = cameras.indexOfFirst {
+            it.cameraId == selectedCamera?.cameraId
+        }
+        val nextIndex =
+            if (currentIndex < 0) 0
+            else (currentIndex + 1) % cameras.size
+        val next = cameras[nextIndex]
+        preferredCameraId = next.cameraId
+        preferredLensFacing = next.lensFacing
+        selectedCamera = next
+        CameraSwitchPreferences.saveCameraSelection(
+            this,
+            next.cameraId,
+            next.lensFacing
+        )
+        updateCameraUi()
+        statusView?.text = tr(
+            "Front camera changed. Center your face and test again.",
+            "已切換前置相機。請將臉置中並重新測試。"
+        )
+        stopCamera()
+        startCamera()
+    }
+
+    private fun updateCameraUi() {
+        val camera = selectedCamera
+        if (camera == null) {
+            cameraView?.text = tr(
+                "Camera: no compatible front camera",
+                "相機：沒有相容的前置相機"
+            )
+            changeCameraButton?.text = tr(
+                "Refresh cameras",
+                "重新整理相機"
+            )
+            return
+        }
+        val ordinal = availableCameras.indexOfFirst {
+            it.cameraId == camera.cameraId
+        }.coerceAtLeast(0) + 1
+        cameraView?.text = tr(
+            "Camera: Front $ordinal/${availableCameras.size} " +
+                "(ID ${camera.cameraId})",
+            "相機：前置 $ordinal/${availableCameras.size}" +
+                "（ID ${camera.cameraId}）"
+        )
+        changeCameraButton?.text =
+            if (availableCameras.size > 1) {
+                tr("Next front camera", "下一個前置相機")
+            } else {
+                tr("Refresh cameras", "重新整理相機")
+            }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()

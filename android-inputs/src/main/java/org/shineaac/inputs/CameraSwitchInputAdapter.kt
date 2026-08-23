@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.util.Range
 import android.util.Size
+import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
@@ -189,14 +190,21 @@ class CameraSwitchInputAdapter(
 
     @SuppressLint("MissingPermission")
     @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
-    private fun bindAnalysisUseCase(provider: ProcessCameraProvider, bindGeneration: Int) {
+    private fun bindAnalysisUseCase(
+        provider: ProcessCameraProvider,
+        bindGeneration: Int
+    ) {
         val executor = analysisExecutor ?: return
         try {
+            val selectedCamera = selectedCamera(provider) ?: run {
+                sendStatus("cameraUnavailable", force = true)
+                return
+            }
             val builder = ImageAnalysis.Builder()
             if (cheekAnalyzer != null) {
-                // CameraX performs RGBA conversion in its optimized pipeline;
-                // SHINE no longer loops over YUV pixels in Kotlin at runtime.
-                builder.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                builder.setOutputImageFormat(
+                    ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888
+                )
             }
             builder
                 .setResolutionSelector(
@@ -209,25 +217,32 @@ class CameraSwitchInputAdapter(
                         )
                         .build()
                 )
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            targetFpsRange()?.let { range ->
-                Camera2Interop.Extender(builder)
-                    .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+                .setBackpressureStrategy(
+                    ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                )
+            targetFpsRange(selectedCamera.cameraId)?.let { range ->
+                Camera2Interop.Extender(builder).setCaptureRequestOption(
+                    CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                    range
+                )
             }
-            val analysis = builder
-                .build()
-                .also { useCase ->
-                    useCase.setAnalyzer(executor) { imageProxy ->
-                        analyze(imageProxy, bindGeneration)
-                    }
+            val analysis = builder.build().also { useCase ->
+                useCase.setAnalyzer(executor) { imageProxy ->
+                    analyze(imageProxy, bindGeneration)
                 }
+            }
             imageAnalysis = analysis
             val camera = provider.bindToLifecycle(
                 lifecycleOwner,
-                CameraSelector.DEFAULT_FRONT_CAMERA,
+                selectedCamera.selector,
                 analysis
             )
             applyZoom(camera, settingsProvider().zoomRatio)
+            Log.i(
+                Tag,
+                "OPTICAL_CAMERA runtimeId=${selectedCamera.cameraId} " +
+                    "facing=front selector=saved-or-default"
+            )
             sendStatus("active", force = true)
         } catch (error: Exception) {
             Log.w(Tag, "CameraX bind failed", error)
@@ -245,19 +260,66 @@ class CameraSwitchInputAdapter(
         camera.cameraControl.setZoomRatio(zoom)
     }
 
-    private fun targetFpsRange(): Range<Int>? {
-        val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraId = manager.cameraIdList.firstOrNull { id ->
-            manager.getCameraCharacteristics(id)
-                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-        } ?: return null
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    private fun selectedCamera(
+        provider: ProcessCameraProvider
+    ): SelectedCamera? {
+        val manager =
+            context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraXIds = provider.availableCameraInfos.mapNotNull { cameraInfo ->
+            runCatching {
+                Camera2CameraInfo.from(cameraInfo).cameraId
+            }.getOrNull()
+        }.toSet()
+        val frontCameras =
+            CameraSwitchCameraSelection.availableCameras(manager).filter {
+                it.lensFacing == CameraCharacteristics.LENS_FACING_FRONT &&
+                    it.cameraId in cameraXIds
+            }
+        val defaultFrontId = runCatching {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+                .filter(provider.availableCameraInfos)
+                .firstOrNull()
+                ?.let { Camera2CameraInfo.from(it).cameraId }
+        }.getOrNull()
+        val settings = settingsProvider()
+        val selected = CameraSwitchCameraSelection.choose(
+            cameras = frontCameras,
+            preferredCameraId = settings.cameraId ?: defaultFrontId,
+            preferredLensFacing = CameraCharacteristics.LENS_FACING_FRONT
+        ) ?: return null
+        val selector = CameraSelector.Builder()
+            .addCameraFilter { cameraInfos ->
+                cameraInfos.filter { cameraInfo ->
+                    runCatching {
+                        Camera2CameraInfo.from(cameraInfo).cameraId ==
+                            selected.cameraId
+                    }.getOrDefault(false)
+                }
+            }
+            .build()
+        return SelectedCamera(selected.cameraId, selector)
+    }
+
+    private fun targetFpsRange(cameraId: String): Range<Int>? {
+        val manager =
+            context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val ranges = manager.getCameraCharacteristics(cameraId)
             .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
             ?: return null
         return ranges
-            .filter { it.upper <= MaxCameraFps && it.upper >= MinCameraFps }
-            .minWithOrNull(compareBy<Range<Int>> { kotlin.math.abs(it.upper - TargetCameraFps) }.thenBy { it.lower })
-            ?: ranges.minWithOrNull(compareBy<Range<Int>> { it.upper }.thenBy { it.lower })
+            .filter {
+                it.upper <= MaxCameraFps &&
+                    it.upper >= MinCameraFps
+            }
+            .minWithOrNull(
+                compareBy<Range<Int>> {
+                    kotlin.math.abs(it.upper - TargetCameraFps)
+                }.thenBy { it.lower }
+            )
+            ?: ranges.minWithOrNull(
+                compareBy<Range<Int>> { it.upper }.thenBy { it.lower }
+            )
     }
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
@@ -524,6 +586,7 @@ class CameraSwitchInputAdapter(
         }
     }
 
+    private data class SelectedCamera(val cameraId: String, val selector: CameraSelector)
     private companion object {
         const val NoFrame = -1L
         const val MlKitFrameIntervalMs = 200L

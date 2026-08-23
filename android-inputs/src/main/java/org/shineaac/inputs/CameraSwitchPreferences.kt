@@ -28,6 +28,8 @@ object CameraSwitchPreferences {
             cheekHoldMs = clampLong(prefs.getLong("cheekHoldMs", CameraSwitchSettings.DefaultCheekHoldMs), MinCheekHoldMs, MaxCheekHoldMs),
             cooldownMs = clampLong(prefs.getLong("cooldownMs", 900L), MinCooldownMs, MaxCooldownMs),
             zoomRatio = clampFloat(prefs.getFloat("zoomRatio", DefaultZoomRatio), MinZoomRatio, MaxZoomRatio),
+            cameraId = prefs.getString("cameraId", null),
+            cameraLensFacing = if (prefs.contains("cameraLensFacing")) prefs.getInt("cameraLensFacing", 0) else null,
             detectionParameters = readDetectionParameters(prefs),
             cheekModel = prefs.getString("cheekModel", null)?.let(::decodeCheekModel),
             source = if (prefs.contains("gesture")) gesture.inputSource else source
@@ -101,6 +103,12 @@ object CameraSwitchPreferences {
             .edit()
             .putFloat("zoomRatio", clampFloat(zoomRatio, MinZoomRatio, MaxZoomRatio))
             .apply()
+    }
+
+    fun saveCameraSelection(context: Context, cameraId: String, lensFacing: Int?) {
+        val editor = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE).edit().putString("cameraId", cameraId)
+        if (lensFacing == null) editor.remove("cameraLensFacing") else editor.putInt("cameraLensFacing", lensFacing)
+        editor.apply()
     }
 
     fun readCalibrationRecord(context: Context): CameraSwitchCalibrationRecord? {
