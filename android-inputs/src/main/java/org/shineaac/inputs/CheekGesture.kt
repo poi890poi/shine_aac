@@ -204,13 +204,18 @@ class BinarySwitchClassifier(private val config: Config) {
                 } else {
                     neutralSinceMs = NoTime
                     if (activeSinceMs == NoTime) activeSinceMs = nowMs
-                    if (nowMs - activeSinceMs < config.minimumHoldMs) emptyList()
-                    else { state = State.Holding; listOf(Event.HoldStarted) }
+                    if (nowMs - activeSinceMs < config.minimumHoldMs) {
+                        emptyList()
+                    } else {
+                        state = State.Latched
+                        listOf(
+                            Event.HoldStarted,
+                            Event.Activated(nowMs - activeSinceMs)
+                        )
+                    }
                 }
             }
-            State.Holding -> if (score <= config.exitThreshold) {
-                reset(assumeNeutral = true); listOf(Event.HoldEnded(EndReason.Relaxed))
-            } else { state = State.Latched; listOf(Event.Activated(nowMs - activeSinceMs)) }
+            State.Holding -> error("Holding state is no longer used")
             State.Latched -> if (score <= config.exitThreshold) {
                 reset(assumeNeutral = true); listOf(Event.HoldEnded(EndReason.Relaxed))
             } else emptyList()
