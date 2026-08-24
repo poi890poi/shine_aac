@@ -86,13 +86,9 @@ class BlinkGestureClassifier(
         signalLostStartedAtMs = NoTime
 
         if (reopenScore != null && reopenScore <= config.openThreshold) {
-            if (openCandidateStartedAtMs == NoTime) openCandidateStartedAtMs = nowMs
-            if (nowMs - openCandidateStartedAtMs >= config.openStableMs) {
-                val durationMs = nowMs - closedStartedAtMs
-                reset(assumeOpenBaseline = true)
-                return listOf(Event.HoldEnded(durationMs, EndReason.Opened))
-            }
-            return emptyList()
+            val durationMs = nowMs - closedStartedAtMs
+            reset(assumeOpenBaseline = true)
+            return listOf(Event.HoldEnded(durationMs, EndReason.Opened))
         }
         if (closedScore >= config.closeThreshold) {
             openCandidateStartedAtMs = NoTime

@@ -53,7 +53,7 @@ class BlinkGestureClassifierTest {
     }
 
     @Test
-    fun oneOpenFrameDoesNotBreakLongBlink() {
+    fun oneConfidentlyOpenFrameEndsHoldBeforeActivation() {
         val classifier = BlinkGestureClassifier(config)
         val events = mutableListOf<BlinkGestureClassifier.Event>()
 
@@ -65,11 +65,10 @@ class BlinkGestureClassifierTest {
         events += classifier.onSignal(0.9, 1340, LongBlinkMs)
 
         assertEquals(
-            listOf("HoldStarted", "Activated"),
+            listOf("HoldStarted", "HoldEnded", "HoldStarted"),
             events.map { it.nameForTest() }
         )
-        val activation = events.filterIsInstance<BlinkGestureClassifier.Event.Activated>().single()
-        assertTrue(activation.durationMs >= LongBlinkMs)
+        assertTrue(events.none { it is BlinkGestureClassifier.Event.Activated })
     }
 
     @Test
