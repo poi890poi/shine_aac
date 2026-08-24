@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ScanMode,
   ScanStage,
+  TileAction,
   advanceSession,
   createBoardConfig,
   createScannerState,
@@ -475,4 +476,44 @@ test("undo repairs the previous message state with one selection", () => {
   session = selectSuggestionCell(session, 0);
   assert.equal(session.lastSelection.tile.label, "UNDO");
   assert.equal(session.message, "I ");
+});
+
+test("a locked spoken message exposes a one-level replay, next-message, and edit subset", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  const base = createSession({
+    config,
+    message: "我想喝水",
+    messageHistory: ["", "我想"],
+    speechLockMessage: "我想喝水"
+  });
+
+  assert.deepEqual(
+    visibleBoard(base).map((row) => row.map((candidate) => candidate.label)),
+    [["重播"], ["下一句"], ["修改"]]
+  );
+
+  const replayed = pressSwitch(base, 1000);
+  assert.equal(replayed.lastSelection.tile.action, TileAction.Speak);
+  assert.equal(replayed.lastSelection.effect, "speak");
+  assert.equal(replayed.message, "我想喝水");
+  assert.equal(replayed.speechLockMessage, "我想喝水");
+
+  const cleared = pressSwitch({
+    ...base,
+    scannerState: createScannerState({ scanMode: config.scanMode, rowIndex: 1 })
+  }, 1000);
+  assert.equal(cleared.lastSelection.tile.action, TileAction.Clear);
+  assert.equal(cleared.message, "");
+  assert.equal(cleared.messageHistory.at(-1), "我想喝水");
+  assert.equal(cleared.speechLockMessage, null);
+
+  const edited = pressSwitch({
+    ...base,
+    scannerState: createScannerState({ scanMode: config.scanMode, rowIndex: 2 })
+  }, 1000);
+  assert.equal(edited.lastSelection.tile.action, TileAction.UnlockMessage);
+  assert.equal(edited.lastSelection.effect, "speech-unlock");
+  assert.equal(edited.message, "我想喝水");
+  assert.equal(edited.messageHistory, base.messageHistory);
+  assert.equal(edited.speechLockMessage, null);
 });

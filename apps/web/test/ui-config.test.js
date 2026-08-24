@@ -6,7 +6,8 @@ import {
   defaultUiConfig,
   moeBopomofoVoiceName,
   normalizeUiConfig,
-  normalizeSwitchInputProfile
+  normalizeSwitchInputProfile,
+  SpeechAfterReadModes
 } from "../src/ui-config.js";
 
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
@@ -41,6 +42,31 @@ test("the existing switch-input selector offers an explicit volume-key mode", ()
   );
   assert.match(appSource, /\["volume-buttons",\s*uiText\("Buttons — volume activates"/);
   assert.doesNotMatch(appSource, /name="volumeButtons/);
+});
+
+test("after-read behavior is one normalized three-level option", () => {
+  assert.deepEqual(SpeechAfterReadModes, ["off", "replay", "conversation"]);
+  assert.equal(defaultUiConfig.speechAfterReadMode, "off");
+  assert.equal(normalizeUiConfig({ speechAfterReadMode: "replay" }).speechAfterReadMode, "replay");
+  assert.equal(normalizeUiConfig({ speechAfterReadMode: "conversation" }).speechAfterReadMode, "conversation");
+  assert.equal(normalizeUiConfig({ speechAfterReadMode: "unknown" }).speechAfterReadMode, "off");
+  assert.match(appSource, /name="speechAfterReadMode"/);
+  assert.match(appSource, /speechAfterReadModeOptionsHtml/);
+});
+
+test("replay and conversation display share the same locked subset", () => {
+  assert.match(appSource, /speechLockMessage:\s*session\.message/);
+  assert.match(appSource, /uiConfig\.speechAfterReadMode === "conversation"/);
+  assert.match(styles, /\.shell\.speech-lock-enhanced[\s\S]*?grid-template-rows/);
+  assert.match(styles, /\.shell\.speech-lock-enhanced \.message\.locked-message[\s\S]*?white-space:\s*normal/);
+});
+
+test("conversation display shows only a bounded passive history of spoken messages", () => {
+  assert.match(appSource, /ConversationContextMessageLimit\s*=\s*2/);
+  assert.match(appSource, /entry\.closed\s*&&\s*entry\.spoken/);
+  assert.match(appSource, /markCurrentTextHistoryLineSpoken/);
+  assert.match(appSource, /data-testid",\s*"conversation-context"/);
+  assert.match(styles, /\.conversation-context-message[\s\S]*?-webkit-line-clamp:\s*2/);
 });
 
 test("camera input labels cover every configured optical gesture", () => {

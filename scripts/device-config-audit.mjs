@@ -156,6 +156,7 @@ async function formSnapshot() {
       options: {
         profileId: options('profileId'), scanMode: options('scanMode'),
         scanTimingPreset: options('scanTimingPreset'), scanPassLimit: options('scanPassLimit'),
+        speechAfterReadMode: options('speechAfterReadMode'),
         switchInputProfile: options('switchInputProfile'), contrastTheme: options('contrastTheme')
       }
     };
@@ -560,6 +561,7 @@ async function main() {
     "transitionPauseMs", "firstCellPauseMs", "inputLatencyCompensationMs",
     "scanPassLimit", "autoScanSuggestionPages", "deferUnsupportedZhuyinOnFirstPass",
     "rowScanVoice", "scanVoice", "activationVoice", "speechVoiceName",
+    "speechAfterReadMode",
     "restartScanFromTop", "verticalGroupProgress", "switchInputProfile",
     "contrastTheme", "suggestionDictionary", "symbols"
   ];
@@ -582,6 +584,7 @@ async function main() {
     scanTimingPreset: "cameraLongBlink", scanPassLimit: 0,
     autoScanSuggestionPages: true, deferUnsupportedZhuyinOnFirstPass: false,
     rowScanVoice: true, scanVoice: true, activationVoice: true,
+    speechAfterReadMode: "conversation",
     restartScanFromTop: false, verticalGroupProgress: false,
     switchInputProfile: "volume-buttons", contrastTheme: "high-contrast-dark"
   };
@@ -669,6 +672,7 @@ async function main() {
     ...["default", "slower", "cameraLongBlink", "firstCellSupport", "cancelable"].map((value) => [`timing preset ${value}`, { scanTimingPreset: value }]),
     ...["row-column", "block-row-column"].map((value) => [`scan method ${value}`, { scanMode: value }]),
     ...[1, 2, 3, 0].map((value) => [`scan pass limit ${value}`, { scanPassLimit: value }]),
+    ...["off", "replay", "conversation"].map((value) => [`after-read mode ${value}`, { speechAfterReadMode: value }]),
     ...["default", "high-contrast", "high-contrast-dark"].map((value) => [`contrast theme ${value}`, { contrastTheme: value }]),
     ...["hardware-buttons", "volume-buttons", "camera-long-blink", "hardware-and-camera", "off"].map((value) => [`switch input ${value}`, { switchInputProfile: value }]),
     ["numeric lower bounds", { columns: 2, scanIntervalMs: 300, transitionPauseMs: 0, firstCellPauseMs: 300, inputLatencyCompensationMs: 0 }],
@@ -722,6 +726,7 @@ async function main() {
     inputLatencyCompensationMs: "250", scanPassLimit: "2",
     autoScanSuggestionPages: false, deferUnsupportedZhuyinOnFirstPass: true,
     rowScanVoice: false, scanVoice: true, activationVoice: true,
+    speechAfterReadMode: "off",
     restartScanFromTop: true, verticalGroupProgress: false,
     switchInputProfile: "hardware-buttons", contrastTheme: "default"
   };

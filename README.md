@@ -103,6 +103,8 @@ Word selections automatically add a trailing space. Letter selections do not. Th
 
 Mistakes must be cheap to repair. The app keeps a short message history and exposes `UNDO` in the suggestion row whenever there is something to undo. `UNDO` restores the previous message state, so it can repair a mistaken word, letter, clear, or space with one selection instead of requiring several corrective inputs. Built-in boards therefore do not show a separate backspace key.
 
+The optional after-read behavior has three levels: `Continue input (off)`, `Replay controls`, and `Conversation display`. The two active levels lock the spoken message and replace the main board with three singleton scan targets: `Replay`, `Next message`, and `Edit`. `Next message` clears the completed message without an extra review hold; `Edit` returns to the normal board without losing it. Conversation display uses the same scanner state and controls, but enlarges the current message and passively shows at most two earlier messages that were actually spoken. Unspoken drafts are not included, and the context is read from the existing on-device text history rather than a separate cloud transcript.
+
 The progress hint is drawn inside the active highlighted target so it stays close to the user's gaze target and is easy to see. Block and row progress descends from top to bottom, matching the board's scan direction; individual-symbol progress continues from left to right:
 
 - Full-box highlight: the current block, row, or symbol.
@@ -167,6 +169,7 @@ Configuration is accessed with the `Config` button in the top panel. It is inten
 - suggestion dictionary
 - custom symbols and words
 - row-scan voice feedback, symbol-scan voice feedback, activation voice feedback, and a dedicated Android-style Taiwan voice list separating downloaded, online, and downloadable voices with radio selection, inline preview/download actions, engine metadata, and restart-from-top behavior
+- after-read behavior: continue input, show replay controls, or show an enhanced conversation display with two prior spoken messages
 - phone/external hardware button activation
 - input testing for reliable switches and noisy sensor-style adapters
 

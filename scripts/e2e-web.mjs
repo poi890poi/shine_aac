@@ -19,6 +19,7 @@ const timingOnlyMode = process.argv.includes("--timing-only");
 const cumulativeTimingMode = process.argv.includes("--cumulative-timing");
 const zhTwLayoutOnlyMode = process.argv.includes("--zh-tw-layout-only");
 const zhTwLanguageSwitchOnlyMode = process.argv.includes("--zh-tw-language-switch-only");
+const speechLockOnlyMode = process.argv.includes("--speech-lock-only");
 const blockModeOnly = process.argv.includes("--block-only") ||
   process.argv.includes("--four-block-only") ||
   process.argv.includes("--five-block-only");
@@ -128,6 +129,14 @@ try {
     await scenarioInitialFirstRowHold(firstRunSnapshot);
   }
 
+  if (speechLockOnlyMode) {
+    await scenarioSpeechLockConversationDisplay();
+    writeReport(true);
+    console.log("SPEECH LOCK E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       profileId: "en-US",
@@ -201,6 +210,7 @@ try {
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioHistoryUpgradeMigration();
+  await scenarioSpeechLockConversationDisplay();
   await scenarioReviewHold();
   await scenarioInputCalibration();
   await scenarioConfigProfileRelevance();
@@ -2170,6 +2180,97 @@ async function scenarioAutoScanMorePages() {
     "auto-scan-more-pages",
     "opt-in More navigation previews pages horizontally; activation selects the visible four-row page and enters row scanning"
   ));
+}
+
+async function scenarioSpeechLockConversationDisplay() {
+  await evaluate(`
+    document.querySelector(".config-button")?.click();
+    document.querySelector(".config-panel form")?.requestSubmit();
+  `);
+  await waitForRenderedBoard();
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 33,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: 120,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 180,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      speechAfterReadMode: "conversation"
+    }));
+    localStorage.setItem("shine-aac-text-history-v1", JSON.stringify({
+      version: 3,
+      entries: [
+        { id: "spoken-1", at: "2026-08-24T01:00:00Z", profileId: "en-US", source: "switch", effect: "reset", text: "I need water", spoken: true, closed: true },
+        { id: "draft", at: "2026-08-24T01:01:00Z", profileId: "en-US", source: "switch", effect: "reset", text: "unfinished private draft", spoken: false, closed: true },
+        { id: "spoken-2", at: "2026-08-24T01:02:00Z", profileId: "en-US", source: "switch", effect: "reset", text: "Please wait", spoken: true, closed: true }
+      ]
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
+  await selectLabel("YES");
+  await selectLabel("SAY");
+  await evaluate(`location.reload()`);
+  await waitForRenderedBoard();
+  const restoredLabels = (await getSnapshot()).rows.flat().map((tile) => tile.label);
+  if (!["Replay", "Next message", "Edit"].every((label) => restoredLabels.includes(label))) {
+    const restoredState = await evaluate(`({
+      labels: [...document.querySelectorAll(".tile")].map((tile) => tile.dataset.label),
+      message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage,
+      ui: JSON.parse(localStorage.getItem("shine-aac-web-ui-v1") ?? "null"),
+      draft: JSON.parse(localStorage.getItem("shine-aac-session-draft-v1") ?? "null")
+    })`);
+    throw new Error(`Speech lock did not restore: ${JSON.stringify(restoredState)}`);
+  }
+  await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "speech-lock-restore" })`);
+  await delay(40);
+
+  const locked = await evaluate(`({
+    mode: document.querySelector(".shell")?.dataset.speechLockMode,
+    enhanced: document.querySelector(".shell")?.classList.contains("speech-lock-enhanced"),
+    previous: [...document.querySelectorAll(".conversation-context-message")].map((node) => node.textContent),
+    rows: [...document.querySelectorAll(".row")].map((row) => row.querySelectorAll('.tile:not([data-action="noop"])').length),
+    message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage
+  })`);
+  if (
+    locked.mode !== "conversation" ||
+    !locked.enhanced ||
+    JSON.stringify(locked.previous) !== JSON.stringify(["I need water", "Please wait"]) ||
+    JSON.stringify(locked.rows) !== JSON.stringify([1, 1, 1]) ||
+    locked.message !== "yes "
+  ) {
+    throw new Error(`Conversation display did not isolate spoken context and singleton controls: ${JSON.stringify(locked)}`);
+  }
+  await assertNoViewportOverflow("speech-lock-conversation-display");
+
+  await selectLabel("Replay");
+  await assertMessage("yes ");
+  const afterReplay = await getSnapshot();
+  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "Replay|Next message|Edit") {
+    throw new Error(`Replay did not preserve the locked subset: ${JSON.stringify(afterReplay.rows)}`);
+  }
+
+  await activateWhenRenderedTargetIsCurrent("active-row", 1, 0, 30000);
+  await assertMessage("");
+  const afterNext = await getSnapshot();
+  if (
+    afterNext.rows.flat().some((tile) => ["Replay", "Next message", "Edit"].includes(tile.label)) ||
+    await evaluate(`Boolean(document.querySelector('[data-testid="conversation-context"]'))`)
+  ) {
+    throw new Error("Next message did not clear and leave the speech-lock conversation display");
+  }
+  steps.push(pass("speech-lock-conversation", "enhanced mode shows two prior spoken messages, excludes drafts, and keeps Replay/Next/Edit as singleton scan targets"));
 }
 
 async function scenarioConfigProfileRelevance() {

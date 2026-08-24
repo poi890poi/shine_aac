@@ -44,6 +44,7 @@ import {
   loadUiConfig,
   normalizeUiConfig,
   saveUiConfig,
+  SpeechAfterReadModes,
   syncNativeUiConfig
 } from "./ui-config.js";
 
@@ -70,6 +71,7 @@ const TextHistoryVersion = 3;
 const TextHistoryMaxEntries = 1000;
 const TextHistoryMaxChars = 220000;
 const TextHistoryMaxStorageChars = 480000;
+const ConversationContextMessageLimit = 2;
 const SessionDraftVersion = 1;
 const SessionDraftMaxHistoryEntries = 24;
 const SessionDraftMaxMessageChars = 10000;
@@ -79,6 +81,7 @@ const FunctionTileActions = new Set([
   TileAction.Clear,
   TileAction.Undo,
   TileAction.Speak,
+  TileAction.UnlockMessage,
   TileAction.EnterMode,
   TileAction.ExitMode,
   TileAction.OpenCategory,
@@ -92,6 +95,7 @@ const FunctionTileIcons = Object.freeze({
   [TileAction.Clear]: "✕",
   [TileAction.Undo]: "↶",
   [TileAction.Speak]: "▶",
+  [TileAction.UnlockMessage]: "✎",
   [TileAction.EnterMode]: "⇄",
   [TileAction.ExitMode]: "←",
   [TileAction.OpenCategory]: "⇄",
@@ -106,6 +110,27 @@ function isZhTwUi() {
 
 function uiText(english, traditionalChinese) {
   return isZhTwUi() ? traditionalChinese : english;
+}
+
+function isSpeechLockActive(candidateSession = session) {
+  return typeof candidateSession?.speechLockMessage === "string" &&
+    candidateSession.speechLockMessage.trim().length > 0;
+}
+
+function speechLockEnabled() {
+  return uiConfig.speechAfterReadMode !== "off";
+}
+
+function speechAfterReadModeOptionsHtml(selected) {
+  const labels = {
+    off: uiText("Continue input (off)", "繼續輸入（關閉）"),
+    replay: uiText("Replay controls", "重播控制"),
+    conversation: uiText("Conversation display", "對話顯示")
+  };
+  return SpeechAfterReadModes.map((mode) => {
+    const isSelected = mode === selected ? " selected" : "";
+    return `<option value="${mode}"${isSelected}>${escapeHtml(labels[mode])}</option>`;
+  }).join("");
 }
 
 function applyContrastTheme(theme) {
@@ -129,8 +154,9 @@ function contrastThemeOptionsHtml(selected) {
 }
 
 const initialConfig = loadConfig();
-let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
 let uiConfig = loadUiConfig(uiStorageKey);
+let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
+if (uiConfig.speechAfterReadMode === "off") session.speechLockMessage = null;
 applyContrastTheme(uiConfig.contrastTheme);
 let highlightStartedAt = performance.now();
 let highlightDeadlineAt = highlightStartedAt;
@@ -369,6 +395,7 @@ function loadSessionDraft(config) {
         .map(sanitizeDraftText)
         .slice(-SessionDraftMaxHistoryEntries)
       : [];
+    const speechLockMessage = sanitizeDraftText(stored.speechLockMessage);
     return {
       message,
       messageHistory,
@@ -380,7 +407,10 @@ function loadSessionDraft(config) {
       suggestionPage: Number.isInteger(stored.suggestionPage) ? stored.suggestionPage : 0,
       suggestionPageHistory: Array.isArray(stored.suggestionPageHistory)
         ? stored.suggestionPageHistory.filter(Number.isInteger).map((page) => Math.max(0, page)).slice(-SessionDraftMaxHistoryEntries)
-        : []
+        : [],
+      speechLockMessage: speechLockMessage.trim() && speechLockMessage === message
+        ? speechLockMessage
+        : null
     };
   } catch {
     return {};
@@ -404,7 +434,10 @@ function saveSessionDraft() {
     suggestionPage: session.suggestionPage,
     suggestionPageHistory: session.suggestionPageHistory
       .filter(Number.isInteger)
-      .slice(-SessionDraftMaxHistoryEntries)
+      .slice(-SessionDraftMaxHistoryEntries),
+    speechLockMessage: isSpeechLockActive(session)
+      ? sanitizeDraftText(session.speechLockMessage)
+      : null
   });
   try {
     localStorage.setItem(sessionDraftStorageKey, value);
@@ -494,6 +527,7 @@ function loadTextHistory() {
         source: String(entry.source ?? ""),
         effect: String(entry.effect ?? ""),
         text: String(entry.text),
+        spoken: entry.spoken === true,
         // Version 1 had no line state; version 2 introduced explicit reset lines.
         closed: hasMutableLines ? entry.closed !== false : true
       }));
@@ -559,6 +593,7 @@ function recordTextHistory(effect, source, { reset = false } = {}) {
   }
 
   if (last && !last.closed && last.profileId === session.config.profileId) {
+    if (last.text !== text) last.spoken = false;
     last.at = new Date().toISOString();
     last.source = String(source ?? last.source ?? "");
     last.effect = String(effect ?? last.effect ?? "");
@@ -578,9 +613,44 @@ function recordTextHistory(effect, source, { reset = false } = {}) {
       source: String(source ?? ""),
       effect: String(effect ?? ""),
       text,
+      spoken: false,
       closed: false
     }
   ]);
+}
+
+function markCurrentTextHistoryLineSpoken(source) {
+  let entries = loadTextHistory();
+  let last = entries.at(-1);
+  const matchesCurrentLine = () => last &&
+    !last.closed &&
+    last.profileId === session.config.profileId &&
+    last.text === session.message;
+
+  if (!matchesCurrentLine()) {
+    recordTextHistory("speak", source);
+    entries = loadTextHistory();
+    last = entries.at(-1);
+  }
+  if (!matchesCurrentLine()) return;
+
+  last.at = new Date().toISOString();
+  last.source = String(source ?? last.source ?? "");
+  last.effect = "speak";
+  last.spoken = true;
+  saveTextHistory(entries);
+}
+
+function recentSpokenMessages(limit = ConversationContextMessageLimit) {
+  return loadTextHistory()
+    .filter((entry) =>
+      entry.closed &&
+      entry.spoken &&
+      entry.profileId === session.config.profileId &&
+      entry.text.trim().length > 0
+    )
+    .slice(-Math.max(0, limit))
+    .map((entry) => entry.text);
 }
 
 function closeTextHistoryLine(effect, source) {
@@ -787,6 +857,7 @@ function pauseCommunication() {
 
 function activateSwitch(inputEvent = {}) {
   if (configOpen) return;
+  const speechLockWasActive = isSpeechLockActive(session);
   const cameraHoldWasActive = cameraHoldActive && isCameraInput(inputEvent.source);
   const frozenCameraProgress = cameraHoldProgress;
   cameraHoldActive = false;
@@ -808,7 +879,7 @@ function activateSwitch(inputEvent = {}) {
   const nextSessionWithTiming = pressSwitch(timedSession, elapsed);
   const nextSession = { ...nextSessionWithTiming, config: baseConfig };
   const selection = nextSession.lastSelection;
-  const shouldHold = shouldHoldAfterStateChange(selection);
+  const shouldHold = shouldHoldAfterStateChange(selection, speechLockWasActive);
   const enteredSuggestionPageScan = nextSession.scannerState.stage === ScanStage.SuggestionPages;
   session = !enteredSuggestionPageScan && ((uiConfig.restartScanFromTop && selection) || shouldHold)
     ? {
@@ -817,9 +888,23 @@ function activateSwitch(inputEvent = {}) {
       lockedRow: null
     }
     : nextSession;
+  const entersSpeechLock =
+    !speechLockWasActive &&
+    speechLockEnabled() &&
+    selection?.effect === "speak" &&
+    session.message.trim().length > 0;
+  if (entersSpeechLock) {
+    session = {
+      ...session,
+      speechLockMessage: session.message,
+      scannerState: createScannerState({ scanMode: session.config.scanMode }),
+      lockedRow: null
+    };
+  }
   if (selection && !["none", "speak"].includes(selection.effect)) {
     saveSessionDraft();
   }
+  if (entersSpeechLock) saveSessionDraft();
   if (selection && ["message", "undo"].includes(selection.effect)) {
     if (selection.tile.action === TileAction.Clear) {
       closeTextHistoryLine("reset", inputEvent.source ?? "switch");
@@ -827,13 +912,16 @@ function activateSwitch(inputEvent = {}) {
       recordTextHistory(selection.effect, inputEvent.source ?? "switch");
     }
   }
+  if (selection?.effect === "speak") {
+    markCurrentTextHistoryLineSpoken(inputEvent.source ?? "switch");
+  }
   reviewHoldActive = shouldHold;
   render();
   resetClock();
   scheduleScan();
 
   if (selection?.effect === "speak") {
-    speak(session.message);
+    speak(session.speechLockMessage ?? session.message);
   } else if (enteredSuggestionPageScan) {
     announceCurrentScanTarget();
   } else if (selection) {
@@ -977,11 +1065,13 @@ function forceProgressLayout(progressFills) {
   }
 }
 
-function shouldHoldAfterStateChange(selection) {
+function shouldHoldAfterStateChange(selection, speechLockWasActive = false) {
   if (
     selection?.tile.action === TileAction.MoreSuggestions &&
     session.config.autoScanSuggestionPages
   ) return false;
+  if (selection?.effect === "speech-unlock") return false;
+  if (speechLockWasActive && selection?.tile.action === TileAction.Clear) return false;
   return Boolean(selection && !["none", "speak"].includes(selection.effect));
 }
 
@@ -1244,11 +1334,18 @@ function render() {
 
 function renderFull(board, boardKey) {
   const scanner = session.scannerState;
+  const speechLocked = isSpeechLockActive(session);
+  const enhancedSpeechLock = speechLocked && uiConfig.speechAfterReadMode === "conversation";
+  const previousSpokenMessages = enhancedSpeechLock ? recentSpokenMessages() : [];
   invalidateRenderedBoard();
   app.innerHTML = "";
 
   const shell = document.createElement("section");
   shell.className = "shell";
+  if (speechLocked) shell.classList.add("speech-lock");
+  if (enhancedSpeechLock) shell.classList.add("speech-lock-enhanced");
+  if (previousSpokenMessages.length > 0) shell.classList.add("has-conversation-context");
+  if (speechLocked) shell.dataset.speechLockMode = uiConfig.speechAfterReadMode;
   shell.addEventListener("click", () => {
     handleInputEvent({ intent: InputIntent.Activate, source: "touch" });
   });
@@ -1258,13 +1355,33 @@ function renderFull(board, boardKey) {
 
   const message = document.createElement("div");
   message.className = "message";
+  if (speechLocked) message.classList.add("locked-message");
   message.setAttribute("data-testid", "message");
   message.setAttribute("data-raw-message", session.message);
   appendVisibleMessage(message, session.message);
-  const cursor = document.createElement("span");
-  cursor.className = "cursor";
-  cursor.textContent = "|";
-  message.append(cursor);
+  if (!speechLocked) {
+    const cursor = document.createElement("span");
+    cursor.className = "cursor";
+    cursor.textContent = "|";
+    message.append(cursor);
+  }
+
+  const conversationContext = document.createElement("section");
+  conversationContext.className = "conversation-context";
+  conversationContext.setAttribute("aria-label", uiText("Previous spoken messages", "先前朗讀的訊息"));
+  conversationContext.setAttribute("data-testid", "conversation-context");
+  const contextLabel = document.createElement("div");
+  contextLabel.className = "conversation-context-label";
+  contextLabel.textContent = uiText("Previous", "先前訊息");
+  const contextList = document.createElement("div");
+  contextList.className = "conversation-context-list";
+  previousSpokenMessages.forEach((text) => {
+    const contextMessage = document.createElement("div");
+    contextMessage.className = "conversation-context-message";
+    contextMessage.textContent = text;
+    contextList.append(contextMessage);
+  });
+  conversationContext.append(contextLabel, contextList);
 
   const status = document.createElement("div");
   status.className = "status-row";
@@ -1306,10 +1423,12 @@ function renderFull(board, boardKey) {
   attachDemoLongPress(configButton);
 
   status.append(phase, statusSecondary, configButton);
+  if (previousSpokenMessages.length > 0) topPanel.append(conversationContext);
   topPanel.append(message, status);
 
   const boardElement = document.createElement("section");
   boardElement.className = "board";
+  if (speechLocked) boardElement.classList.add("speech-lock-board");
   if (board.length >= 18) boardElement.classList.add("dense-board");
   const boardRowWeights = board.map((row, rowIndex) =>
     isDynamicEnglishSuggestionRow(rowIndex) && row.some((candidate) =>
@@ -1328,7 +1447,7 @@ function renderFull(board, boardKey) {
   board.forEach((row, rowIndex) => {
     const rowElement = document.createElement("div");
     rowElement.className = "row";
-    if (session.config.profileId === "zh-TW" && rowIndex < 4) rowElement.classList.add("suggestion-row");
+    if (!speechLocked && session.config.profileId === "zh-TW" && rowIndex < 4) rowElement.classList.add("suggestion-row");
     if (isDynamicEnglishSuggestionRow(rowIndex)) rowElement.classList.add("dynamic-suggestion-row");
     const visualColumns = visualColumnCountForRow(row, rowIndex);
     rowElement.dataset.visualColumns = String(visualColumns);
@@ -1346,8 +1465,8 @@ function renderFull(board, boardKey) {
       if (columnSpan > 1) tile.style.gridColumn = `span ${columnSpan}`;
       if (isFunctionTile(candidate)) {
         const functionName = session.config.profileId === "zh-TW" ? "功能鍵" : "function key";
-        tile.setAttribute("data-control-label", session.config.profileId === "zh-TW" ? "功能" : "KEY");
-        tile.setAttribute("data-control-icon", FunctionTileIcons[candidate.action] ?? "◆");
+        tile.setAttribute("data-control-label", candidate.controlLabel ?? (session.config.profileId === "zh-TW" ? "功能" : "KEY"));
+        tile.setAttribute("data-control-icon", candidate.controlIcon ?? FunctionTileIcons[candidate.action] ?? "◆");
         tile.setAttribute("aria-label", `${functionName}：${candidate.label}`);
       }
       if (candidate.action === TileAction.Noop) {
@@ -1363,7 +1482,9 @@ function renderFull(board, boardKey) {
 
       const label = document.createElement("span");
       label.className = "tile-label";
-      label.textContent = candidate.label;
+      label.textContent = candidate.speechLockControl && candidate.controlIcon
+        ? `${candidate.controlIcon} ${candidate.label}`
+        : candidate.label;
 
       tile.append(progressFill, label);
       rowElement.append(tile);
@@ -1609,6 +1730,7 @@ function emitRenderState(board) {
       blockIndex: session.scannerState.blockIndex,
       rowIndex: session.scannerState.rowIndex,
       cellIndex: session.scannerState.cellIndex,
+      speechLockMode: isSpeechLockActive(session) ? uiConfig.speechAfterReadMode : "off",
       rows: board.map((row) => row.map((candidate) => candidate.label))
     }));
   } catch {
@@ -1641,6 +1763,7 @@ function isFunctionTile(candidate) {
 }
 
 function isDynamicEnglishSuggestionRow(rowIndex) {
+  if (isSpeechLockActive(session)) return false;
   const hasEnglishSuggestions = session.config.profileId === "en-US" ||
     (session.config.profileId === "zh-TW" && session.activeCategory === "english");
   if (!hasEnglishSuggestions) return false;
@@ -1648,6 +1771,7 @@ function isDynamicEnglishSuggestionRow(rowIndex) {
 }
 
 function visualColumnCountForRow(row, rowIndex) {
+  if (isSpeechLockActive(session)) return session.config.columns;
   const isEmbeddedEnglishInput = session.config.profileId === "zh-TW" &&
     session.activeCategory === "english";
   if (isEmbeddedEnglishInput) return LanguageProfiles["en-US"].columns;
@@ -1871,12 +1995,17 @@ function statusPhaseLabel(scanner) {
   const zhTw = session.config.profileId === "zh-TW";
   if (cameraHoldActive) return zhTw ? "眨眼確認中" : "Blink detected";
   if (reviewHoldActive) return zhTw ? "暫停確認" : "Review pause";
+  if (isSpeechLockActive(session)) {
+    const locked = zhTw ? "訊息已鎖定" : "Message locked";
+    return `${locked} · ${phaseLabel(scanner)}`;
+  }
   return phaseLabel(scanner);
 }
 
 function statusPhaseCode(scanner) {
   if (cameraHoldActive) return "Blink";
   if (reviewHoldActive) return "Review";
+  if (isSpeechLockActive(session)) return "SpeechLock";
   return phaseCode(scanner.stage);
 }
 
@@ -2201,6 +2330,11 @@ function renderConfig() {
         ${uiText("Voice on activation", "選定後朗讀")}
       </label>
       ${speechVoiceSettingHtml(uiConfig.speechVoiceName)}
+      <label class="field wide">${uiText("After reading", "朗讀後")}
+        <select name="speechAfterReadMode">
+          ${speechAfterReadModeOptionsHtml(uiConfig.speechAfterReadMode)}
+        </select>
+      </label>
       <label class="field check-field">
         <input name="restartScanFromTop" type="checkbox" aria-label="${uiText("Restart scan at top after input", "輸入後從第一列重新開始")}" ${uiConfig.restartScanFromTop ? "checked" : ""}>
         ${uiText("Restart scan at top after input", "輸入後從第一列重新開始")}
@@ -2353,6 +2487,7 @@ function renderConfig() {
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
       speechVoiceName: String(data.get("speechVoiceName") ?? uiConfig.speechVoiceName ?? ""),
+      speechAfterReadMode: String(data.get("speechAfterReadMode") ?? "off"),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
       verticalGroupProgress: data.get("verticalGroupProgress") === "on",
       switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),

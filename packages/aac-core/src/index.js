@@ -29,6 +29,7 @@ export const TileAction = Object.freeze({
   Clear: "clear",
   Undo: "undo",
   Speak: "speak",
+  UnlockMessage: "unlock-message",
   EnterMode: "enter-mode",
   ExitMode: "exit-mode",
   OpenCategory: "open-category",
@@ -207,6 +208,9 @@ export const ZhuyinSpeechNames = Object.freeze({
 });
 
 export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
+  if (typeof candidate?.speechLabel === "string" && candidate.speechLabel.trim()) {
+    return candidate.speechLabel.trim();
+  }
   if (profileId === "zh-TW") {
     if (candidate.toneFallback === true) return candidate.label;
     if (candidate.action === TileAction.Space) return "空格";
@@ -214,6 +218,7 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
     if (candidate.action === TileAction.Clear) return "清除";
     if (candidate.action === TileAction.Undo) return "復原";
     if (candidate.action === TileAction.Speak) return "朗讀";
+    if (candidate.action === TileAction.UnlockMessage) return "修改";
     if (candidate.action === TileAction.EnterMode) return "用注音找字";
     if (candidate.action === TileAction.ExitMode) return "返回";
     if (candidate.action === TileAction.OpenCategory) {
@@ -234,6 +239,7 @@ export function speechLabelForTile(candidate, profileId = DefaultProfileId) {
   if (candidate.action === TileAction.Clear) return "clear";
   if (candidate.action === TileAction.Undo) return "undo";
   if (candidate.action === TileAction.Speak) return "speak";
+  if (candidate.action === TileAction.UnlockMessage) return "edit";
   if (candidate.action === TileAction.EnterMode) return "enter mode";
   if (candidate.action === TileAction.ExitMode) return "exit mode";
   if (candidate.action === TileAction.OpenCategory) return candidate.label;
@@ -894,6 +900,9 @@ export function applyScanTimingPreset(config = createBoardConfig(), presetId = "
 export function boardRows(config = createBoardConfig(), message = "", canUndo = false, inputState = {}) {
   const normalized = createBoardConfig(config);
   const safeColumns = clampInt(normalized.columns, 2, 8);
+  if (hasLockedSpeechMessage(inputState)) {
+    return speechLockRows(normalized.profileId, safeColumns);
+  }
   if (normalized.profileId === "zh-TW") {
     if (inputState.activeCategory) {
       const categoryRows = categorySuggestionRows(
@@ -928,6 +937,33 @@ export function boardRows(config = createBoardConfig(), message = "", canUndo = 
     excludeTiles: normalized.symbols
   });
   return [...suggestions, ...balancedChunk(normalized.symbols, safeColumns)];
+}
+
+function hasLockedSpeechMessage(inputState = {}) {
+  return typeof inputState.speechLockMessage === "string" && inputState.speechLockMessage.trim().length > 0;
+}
+
+export function speechLockRows(profileId = DefaultProfileId, columns = DefaultColumns) {
+  const zhTw = profileId === "zh-TW";
+  const columnSpan = clampInt(columns, 2, 8);
+  const command = (label, output, action, speechLabel, controlIcon) => Object.freeze({
+    ...tile(label, output, action),
+    columnSpan,
+    speechLabel,
+    controlIcon,
+    speechLockControl: true
+  });
+  return Object.freeze([
+    Object.freeze([
+      command(zhTw ? "重播" : "Replay", "SAY", TileAction.Speak, zhTw ? "重播" : "replay", "▶")
+    ]),
+    Object.freeze([
+      command(zhTw ? "下一句" : "Next message", "CLR", TileAction.Clear, zhTw ? "下一句" : "next message", "→")
+    ]),
+    Object.freeze([
+      command(zhTw ? "修改" : "Edit", "EDIT", TileAction.UnlockMessage, zhTw ? "修改" : "edit", "✎")
+    ])
+  ]);
 }
 
 function zhTwSuggestionColumnCount(symbolColumns) {
@@ -1048,6 +1084,8 @@ export function serializeSymbols(symbols) {
           return `${candidate.label || "UNDO"}=<undo>`;
         case TileAction.Speak:
           return `${candidate.label || "SAY"}=<speak>`;
+        case TileAction.UnlockMessage:
+          return null;
         case TileAction.EnterMode:
           return `${candidate.label}=<mode:${candidate.output}>`;
         case TileAction.ExitMode:
@@ -3497,6 +3535,7 @@ export function updateMessage(current, selectedTile, options = {}) {
       return "";
     case TileAction.Undo:
     case TileAction.Speak:
+    case TileAction.UnlockMessage:
     case TileAction.Noop:
     default:
       return current;
@@ -3561,6 +3600,7 @@ export function createSession(overrides = {}) {
     zhuyinGroup: null,
     suggestionPage: 0,
     suggestionPageHistory: [],
+    speechLockMessage: null,
     scannerState: createScannerState({ scanMode: config.scanMode }),
     lockedRow: null,
     lastSelection: null,
@@ -3581,6 +3621,7 @@ export function visibleBoard(session) {
   const cached = preparedBoardByDictionary.get(dictionary);
   const activeCategory = session.activeCategory ?? null;
   const suggestionPage = session.suggestionPage ?? 0;
+  const speechLockMessage = hasLockedSpeechMessage(session) ? session.speechLockMessage : null;
   const rows = cached &&
     cached.profileId === session.config.profileId &&
     cached.autoSpace === session.config.autoSpace &&
@@ -3591,7 +3632,8 @@ export function visibleBoard(session) {
     cached.message === session.message &&
     cached.canUndo === canUndo &&
     cached.activeCategory === activeCategory &&
-    cached.suggestionPage === suggestionPage
+    cached.suggestionPage === suggestionPage &&
+    cached.speechLockMessage === speechLockMessage
       ? cached.rows
       : boardRows(session.config, session.message, canUndo, session);
   if (!cached || rows !== cached.rows) {
@@ -3606,6 +3648,7 @@ export function visibleBoard(session) {
       canUndo,
       activeCategory,
       suggestionPage,
+      speechLockMessage,
       rows
     });
   }
@@ -3740,7 +3783,10 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     zhuyinStage: applied.zhuyinStage ?? session.zhuyinStage,
     zhuyinGroup: applied.zhuyinGroup ?? session.zhuyinGroup,
     suggestionPage: applied.suggestionPage ?? session.suggestionPage,
-    suggestionPageHistory: applied.suggestionPageHistory ?? session.suggestionPageHistory
+    suggestionPageHistory: applied.suggestionPageHistory ?? session.suggestionPageHistory,
+    speechLockMessage: Object.hasOwn(applied, "speechLockMessage")
+      ? applied.speechLockMessage
+      : session.speechLockMessage
   };
   const suggestionPageCount =
     selectedTile.action === TileAction.MoreSuggestions &&
@@ -3871,6 +3917,14 @@ export function applyTile(message, messageHistory, selectedTile, config = create
   if (selectedTile.action === TileAction.Noop) {
     return { message, messageHistory, effect: "none" };
   }
+  if (selectedTile.action === TileAction.UnlockMessage) {
+    return {
+      message,
+      messageHistory,
+      effect: "speech-unlock",
+      speechLockMessage: null
+    };
+  }
   if (selectedTile.action === TileAction.EnterMode) {
     return {
       message,
@@ -3978,7 +4032,8 @@ export function applyTile(message, messageHistory, selectedTile, config = create
     suggestionPageHistory: pushSuggestionPageHistory(inputState),
     effect: "message",
     activeCategory: inputState.activeCategory ?? null,
-    suggestionPage: 0
+    suggestionPage: 0,
+    speechLockMessage: selectedTile.action === TileAction.Clear ? null : inputState.speechLockMessage ?? null
   };
 }
 

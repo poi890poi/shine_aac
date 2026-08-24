@@ -1,6 +1,7 @@
 export const moeBopomofoVoiceName = "shine-aac-moe-bopomofo";
 export const androidSystemVoiceName = "android-system-default";
 export const currentUiConfigVersion = 1;
+export const SpeechAfterReadModes = Object.freeze(["off", "replay", "conversation"]);
 
 export const defaultUiConfig = Object.freeze({
   uiConfigVersion: currentUiConfigVersion,
@@ -8,6 +9,7 @@ export const defaultUiConfig = Object.freeze({
   scanVoice: true,
   activationVoice: true,
   speechVoiceName: moeBopomofoVoiceName,
+  speechAfterReadMode: "off",
   restartScanFromTop: true,
   verticalGroupProgress: false,
   hardwareButtons: true,
@@ -64,6 +66,9 @@ export function normalizeUiConfig(config) {
   const contrastTheme = ContrastThemes.includes(config.contrastTheme)
     ? config.contrastTheme
     : defaultUiConfig.contrastTheme;
+  const speechAfterReadMode = SpeechAfterReadModes.includes(config.speechAfterReadMode)
+    ? config.speechAfterReadMode
+    : defaultUiConfig.speechAfterReadMode;
   const normalized = {
     ...defaultUiConfig,
     ...config,
@@ -71,6 +76,7 @@ export function normalizeUiConfig(config) {
     // Blank is the pre-selector device-default value. Migrate it to the
     // lightweight Ministry of Education Bopomofo option.
     speechVoiceName,
+    speechAfterReadMode,
     switchInputProfile: profile,
     contrastTheme,
     hardwareButtons: profile === "hardware-buttons" ||
