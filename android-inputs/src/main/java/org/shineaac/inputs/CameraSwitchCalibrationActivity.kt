@@ -56,6 +56,7 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.util.Locale
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
@@ -522,7 +523,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
         }
         buttons.filterNotNull().forEach {
-            addView(it, actionButtonParams(horizontal = true))
+            addView(it, compactControlButtonParams(it))
         }
     }
 
@@ -1758,7 +1759,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         this.text = text
         isAllCaps = false
         minHeight = dp(44)
-        minWidth = 0
+        minWidth = dp(48)
         textSize = 14f
         maxLines = 2
         setPadding(dp(8), 0, dp(8), 0)
@@ -1775,6 +1776,17 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (horizontal) 0 else LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT,
         if (horizontal) 1f else 0f
+    ).apply {
+        setMargins(dp(4), dp(4), dp(4), dp(4))
+    }
+
+    private fun compactControlButtonParams(button: Button) = LinearLayout.LayoutParams(
+        compactControlWidthPx(
+            textWidthPx = button.paint.measureText(button.text.toString()),
+            horizontalPaddingPx = button.paddingLeft + button.paddingRight,
+            minimumTargetPx = dp(48)
+        ),
+        LinearLayout.LayoutParams.WRAP_CONTENT
     ).apply {
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
@@ -2005,6 +2017,15 @@ class CameraSwitchCalibrationActivity : Activity() {
 }
 
 internal const val MaxCameraSetupFontScale = 1.2f
+
+internal fun compactControlWidthPx(
+    textWidthPx: Float,
+    horizontalPaddingPx: Int,
+    minimumTargetPx: Int
+): Int = max(
+    minimumTargetPx,
+    ceil(textWidthPx).toInt() + horizontalPaddingPx
+)
 
 internal fun cameraSetupFontScale(systemFontScale: Float): Float =
     if (systemFontScale.isFinite() && systemFontScale > 0f) {
