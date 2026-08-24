@@ -140,6 +140,12 @@ test("configuration form controls retain 48px targets on short screens", () => {
   assert.match(styles, /\.config-panel \.secondary-button,[\s\S]*?\.config-panel \.primary-button\s*\{[\s\S]*?min-height:\s*48px/);
 });
 
+test("configuration reset requires an explicit, scoped confirmation", () => {
+  assert.match(appSource, /role="alertdialog"[\s\S]*?Text history is kept\. This action cannot be undone\./);
+  assert.match(appSource, /if \(action === "reset"\) \{[\s\S]*?showResetConfirmation\(event\.target/);
+  assert.match(appSource, /data-reset-action="confirm"/);
+});
+
 test("English suggestion sizing runs at the top level of both scanning modes", () => {
   assert.match(
     appSource,

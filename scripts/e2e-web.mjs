@@ -406,8 +406,11 @@ async function scenarioStrictScanTiming() {
       if (!resetButton) throw new Error("Timing probe could not open configuration");
       state.events.length = 0;
       state.lastTarget = "";
-      state.resetRequestedAt = performance.now();
       resetButton.click();
+      const confirmReset = document.querySelector('[data-reset-action="confirm"]');
+      if (!confirmReset) throw new Error("Timing probe could not open reset confirmation");
+      state.resetRequestedAt = performance.now();
+      confirmReset.click();
       window.setTimeout(() => {
         record("activation", { purpose: "startup-hold" });
         globalThis.ShineAacInput.receive({ intent: "activate", source: "timing-probe" });
@@ -2308,6 +2311,7 @@ async function scenarioZhTwResetUsesPackagedDefaults() {
     (() => {
       document.querySelector(".config-button")?.click();
       document.querySelector('[data-action="reset"]')?.click();
+      document.querySelector('[data-reset-action="confirm"]')?.click();
     })()
   `);
   await waitForLabels(["ㄅ", "ㄧ", "ㄩ", "英文"], { preserveInitialHold: true });

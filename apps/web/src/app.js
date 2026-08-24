@@ -1981,6 +1981,41 @@ function closeAppInfo() {
   renderConfig();
 }
 
+function showResetConfirmation(trigger, onConfirm) {
+  if (document.querySelector('[data-testid="reset-confirmation"]')) return;
+  const backdrop = document.createElement("div");
+  backdrop.className = "confirmation-backdrop";
+  backdrop.dataset.testid = "reset-confirmation";
+  backdrop.innerHTML = `
+    <section class="confirmation-dialog" role="alertdialog" aria-modal="true" aria-labelledby="reset-confirmation-title" aria-describedby="reset-confirmation-detail">
+      <h2 id="reset-confirmation-title">${uiText("Reset configuration?", "恢復預設設定？")}</h2>
+      <p id="reset-confirmation-detail">${uiText(
+        "This restores the board and all scan, input, voice, and display settings for the selected language.",
+        "這會恢復所選語言的版面內容，以及所有掃描、輸入、語音和顯示設定。"
+      )}</p>
+      <p>${uiText("Text history is kept. This action cannot be undone.", "文字記錄會保留。此動作無法復原。")}</p>
+      <div class="confirmation-actions">
+        <button class="secondary-button" type="button" data-reset-action="cancel">${uiText("Cancel", "取消")}</button>
+        <button class="danger-button" type="button" data-reset-action="confirm">${uiText("Reset", "恢復預設")}</button>
+      </div>
+    </section>
+  `;
+  const close = () => {
+    backdrop.remove();
+    trigger?.focus();
+  };
+  backdrop.addEventListener("click", (event) => {
+    const action = event.target?.dataset?.resetAction;
+    if (event.target === backdrop || action === "cancel") close();
+    if (action === "confirm") {
+      backdrop.remove();
+      onConfirm();
+    }
+  });
+  app.append(backdrop);
+  backdrop.querySelector('[data-reset-action="cancel"]')?.focus();
+}
+
 function navigateBackWithinApp() {
   if (demoMode.isActive()) {
     demoMode.stop();
@@ -2275,15 +2310,17 @@ function renderConfig() {
       exportTextHistory();
     }
     if (action === "reset") {
-      const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
-      const config = createBoardConfig({ profileId });
-      closeTextHistoryLine("reset", "config");
-      saveConfig(config);
-      uiConfig = normalizeUiConfig(defaultUiConfig);
-      saveUiConfig(uiStorageKey, uiConfig);
-      session = createSession({ config });
-      clearSessionDraft();
-      closeConfig({ holdFirstRow: true });
+      showResetConfirmation(event.target, () => {
+        const profileId = String(form.elements.profileId.value || session.config.profileId || "en-US");
+        const config = createBoardConfig({ profileId });
+        closeTextHistoryLine("reset", "config");
+        saveConfig(config);
+        uiConfig = normalizeUiConfig(defaultUiConfig);
+        saveUiConfig(uiStorageKey, uiConfig);
+        session = createSession({ config });
+        clearSessionDraft();
+        closeConfig({ holdFirstRow: true });
+      });
     }
   });
 

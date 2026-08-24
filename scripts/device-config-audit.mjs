@@ -456,6 +456,21 @@ async function main() {
     contrastTheme: "high-contrast-dark"
   });
   await evaluate(`document.querySelector('[data-action="reset"]')?.click()`);
+  await waitFor(() => evaluate(`Boolean(document.querySelector('[data-testid="reset-confirmation"]'))`), "reset confirmation");
+  screenshot("reset-confirmation");
+  const resetConfirmation = await evaluate(`document.querySelector('[data-testid="reset-confirmation"]')?.innerText ?? ''`);
+  if (!/文字記錄會保留/.test(resetConfirmation)) add("P1", "Reset confirmation omits data-retention scope", resetConfirmation, ["screenshots/reset-confirmation.png"]);
+  await evaluate(`document.querySelector('[data-reset-action="cancel"]')?.click()`);
+  const afterResetCancel = await formSnapshot();
+  const resetCancelMismatches = mismatchedValues(afterResetCancel, {
+    profileId: "zh-TW", columns: 2, scanMode: "block-row-column", scanPassLimit: 0,
+    rowScanVoice: true, scanVoice: false, activationVoice: false,
+    switchInputProfile: "off", contrastTheme: "high-contrast-dark"
+  });
+  if (resetCancelMismatches.length) add("P1", "Canceling reset changed configuration", JSON.stringify(resetCancelMismatches), ["screenshots/reset-confirmation.png"]);
+  else pass("reset cancellation", "confirmation explains retained history and Cancel preserves the form");
+  await evaluate(`document.querySelector('[data-action="reset"]')?.click()`);
+  await evaluate(`document.querySelector('[data-reset-action="confirm"]')?.click()`);
   await waitFor(() => evaluate(`Boolean(document.querySelector('.config-button')) && !document.querySelector('.config-panel')`), "reset board");
   await openConfig();
   const resetSnapshot = await formSnapshot();
