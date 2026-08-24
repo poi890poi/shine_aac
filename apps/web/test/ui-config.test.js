@@ -81,6 +81,8 @@ test("after-read behavior is one normalized three-level option", () => {
   assert.equal(normalizeUiConfig({ speechAfterReadMode: "unknown" }).speechAfterReadMode, "off");
   assert.match(appSource, /name="speechAfterReadMode"/);
   assert.match(appSource, /speechAfterReadModeOptionsHtml/);
+  assert.match(appSource, /Lock board · replay controls", "鎖定版面（重播控制）"/);
+  assert.match(appSource, /Keep entering \(not locked\)", "繼續輸入（不鎖定）"/);
 });
 
 test("replay and conversation display share the same locked subset", () => {

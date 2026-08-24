@@ -34,7 +34,7 @@
     <string name="settings_symbol_voice">Voice while symbol scanning</string>
     <string name="settings_activation_voice">Voice on activation</string>
     <string name="settings_speech_voice">Speech voice</string>
-    <string name="settings_after_reading">After reading</string>
+    <string name="settings_after_reading">Board after speaking</string>
     <string name="settings_manage_speech">Manage speech voices</string>
     <string name="settings_manage_speech_summary">Open Android text-to-speech settings</string>
     <string name="settings_switch_input">Switch input</string>

@@ -123,9 +123,9 @@ function speechLockEnabled() {
 
 function speechAfterReadModeOptionsHtml(selected) {
   const labels = {
-    off: uiText("Continue input (off)", "繼續輸入（關閉）"),
-    replay: uiText("Replay controls", "重播控制"),
-    conversation: uiText("Conversation display", "對話顯示")
+    off: uiText("Keep entering (not locked)", "繼續輸入（不鎖定）"),
+    replay: uiText("Lock board · replay controls", "鎖定版面（重播控制）"),
+    conversation: uiText("Lock board · conversation display", "鎖定版面（對話顯示）")
   };
   return SpeechAfterReadModes.map((mode) => {
     const isSelected = mode === selected ? " selected" : "";
@@ -2532,7 +2532,7 @@ function renderConfig() {
         ${uiText("Voice on activation", "選定後朗讀")}
       </label>
       ${speechVoiceSettingHtml(uiConfig.speechVoiceName)}
-      <label class="field wide">${uiText("After reading", "朗讀後")}
+      <label class="field wide">${uiText("Board after speaking", "朗讀後版面")}
         <select name="speechAfterReadMode">
           ${speechAfterReadModeOptionsHtml(uiConfig.speechAfterReadMode)}
         </select>

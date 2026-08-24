@@ -34,7 +34,7 @@
     <string name="settings_symbol_voice">選格時朗讀</string>
     <string name="settings_activation_voice">選定後朗讀</string>
     <string name="settings_speech_voice">語音</string>
-    <string name="settings_after_reading">朗讀後</string>
+    <string name="settings_after_reading">朗讀後版面</string>
     <string name="settings_manage_speech">管理語音</string>
     <string name="settings_manage_speech_summary">開啟 Android 文字轉語音設定</string>
     <string name="settings_switch_input">開關輸入</string>
