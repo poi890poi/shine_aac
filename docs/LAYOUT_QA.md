@@ -76,14 +76,15 @@ risk across the matrix.
      exposed to accessibility tools.
    - Infer the camera-preview band from the accessible header/status and
      controls-panel landmarks, or read the exact accessible preview frame.
-     Flag a portrait preview below 40% of screen height.
+     Flag a portrait preview below 50% of screen height.
    - Change the real optical mode and message, then require identical preview
      bounds before, during, and after restoring the original mode.
    - Normalize native button widths to dp and compare secondary control cells
      with Unicode glyph-width estimates. Identify the primary action row from
      geometry so prominent Start/Done actions are not treated as wasted space.
-   - Require secondary control groups to share a coherent trailing edge. Do not
-     treat intentional whitespace in a label/control grid as wasted space.
+   - Require like-for-like secondary control rows to share a coherent trailing
+     edge. Compare compound parameter grids only with the same row topology; do
+     not treat intentional whitespace in a label/control grid as wasted space.
 4. **Screenshot review**
    - Capture every major surface with state, locale, theme, font scale, and
      build identity in its filename/manifest.
@@ -100,8 +101,8 @@ invented examples:
 - Configuration checkbox rows: the reported layout had five 12 CSS-pixel
   gaps between consecutive 48px targets. A compact list has at most 4px.
 - Camera preview: the broken capture used 205px, and the first compact fix used
-  906px (37.8% of the full display). The current accessible preview is 1070px
-  (44.6%) at normal scale and 1032px (43.0%) at capped 200% font.
+  906px (37.8% of the full display). The current three-layer layout provides
+  1316px (54.8%) at normal scale and 1265px (52.7%) at capped 200% font.
 - Preview stability: the real-device Long Blink → Cheek Twitch → Long Blink
   sequence retained exact `(top, bottom) = (340, 1410)` bounds while both top
   messages changed.
@@ -109,9 +110,9 @@ invented examples:
   labels to 88-137dp cells. The corrected app uses Android's measured text
   width plus 16dp padding, with a 48dp minimum touch width; the independent
   UIAutomator audit reports no disproportionately padded secondary cells.
-- Camera Setup rows: compact secondary buttons remain anchored to one trailing
-  grid edge. Labels use concise nouns and values rather than sentence-like text;
-  whitespace inside the label column is not itself considered a defect.
+- Camera Setup rows: camera switching lives in the preview, Hold and Zoom share
+  a balanced parameter grid, and Gesture/primary actions remain separate rows.
+  Labels use concise nouns and values rather than sentence-like text.
 - Dark theme: a large opaque white surface is a finding; a small bright
   checkbox is not.
 

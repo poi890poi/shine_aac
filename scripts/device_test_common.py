@@ -280,6 +280,7 @@ def camera_setup_control_group_alignment_drift(
                 node.get("text", "").strip() for node in row["buttons"]
             ),
             "edge": max(node["bounds"][2] for node in row["buttons"]) / density,
+            "topology": len(row["buttons"]),
             "bounds": (
                 min(node["bounds"][0] for node in row["buttons"]),
                 min(node["bounds"][1] for node in row["buttons"]),
@@ -287,7 +288,13 @@ def camera_setup_control_group_alignment_drift(
                 max(node["bounds"][3] for node in row["buttons"]),
             ),
         })
-    return find_edge_alignment_drift(groups, tolerance_dp)
+    findings = []
+    for topology in sorted({group["topology"] for group in groups}):
+        comparable = [
+            group for group in groups if group["topology"] == topology
+        ]
+        findings.extend(find_edge_alignment_drift(comparable, tolerance_dp))
+    return findings
 
 def camera_permission_is_granted(command_output, package_dump):
     command = (command_output or "").lower()

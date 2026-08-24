@@ -191,6 +191,8 @@ class CameraControlPaddingTest(unittest.TestCase):
             self.button("下一個相機", (816, 1596, 1032, 1740)),
             self.button("-100", (684, 1764, 834, 1908)),
             self.button("+100", (858, 1764, 1032, 1908)),
+            self.button("縮小", (684, 1900, 834, 2044)),
+            self.button("放大", (858, 1900, 1032, 2044)),
             self.button("開始設定", (48, 2064, 528, 2208)),
             self.button("完成", (552, 2064, 1032, 2208)),
         ]
@@ -198,6 +200,22 @@ class CameraControlPaddingTest(unittest.TestCase):
             nodes, density_dpi=480
         )
         self.assertEqual([item["name"] for item in findings], ["長眨眼 / 臉頰抽動"])
+
+    def test_compound_parameter_grid_is_not_compared_with_gesture_row(self):
+        nodes = [
+            self.button("長眨眼", (633, 1680, 801, 1824)),
+            self.button("臉頰抽動", (825, 1680, 1032, 1824)),
+            self.button("-100", (129, 1896, 279, 2040)),
+            self.button("+100", (303, 1896, 453, 2040)),
+            self.button("縮小", (639, 1896, 789, 2040)),
+            self.button("放大", (813, 1896, 951, 2040)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        self.assertEqual(
+            camera_setup_control_group_alignment_drift(nodes, density_dpi=480),
+            [],
+        )
 
 
 class DeviceStateParserTest(unittest.TestCase):

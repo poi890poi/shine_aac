@@ -84,7 +84,8 @@ test("overlap audit reports intersecting controls", () => {
 test("camera-preview audit is calibrated by the captured before and after geometry", () => {
   assert.equal(cameraPreviewIsTooSmall(205, 2168), true);
   assert.equal(cameraPreviewIsTooSmall(850, 2168), true);
-  assert.equal(cameraPreviewIsTooSmall(1070, 2400), false);
+  assert.equal(cameraPreviewIsTooSmall(1070, 2400), true);
+  assert.equal(cameraPreviewIsTooSmall(1316, 2400), false);
   assert.ok(Math.abs(cameraPreviewFraction(205, 2168) - 0.0946) < 0.001);
   assert.ok(Math.abs(cameraPreviewFraction(850, 2168) - 0.3921) < 0.001);
 });

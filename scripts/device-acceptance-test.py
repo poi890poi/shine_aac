@@ -638,12 +638,12 @@ class DeepTest:
                     "name": "camera-preview",
                     "role": "primary-visual",
                     "fraction": preview["screen_fraction"],
-                    "minimum_fraction": 0.40,
+                    "minimum_fraction": 0.50,
                 }])
                 layout_metrics["region_allocation_findings"] = allocation_findings
                 if allocation_findings:
                     self.add_layout_observation(
-                        "P2", "Camera preview occupies less than 40% of the screen",
+                        "P2", "Camera preview occupies less than 50% of the screen",
                         1, name,
                         [
                             "ui/%s.xml" % name,

@@ -16,11 +16,11 @@ class CameraSetupFontScaleTest {
 
     @Test
     fun `compact labels retain action value and unit`() {
-        assertEquals("長眨眼 1200 毫秒", compactDurationLabel("長眨眼", 1200, "毫秒"))
+        assertEquals("維持 1200 毫秒", compactDurationLabel("維持", 1200, "毫秒"))
         assertEquals("縮放 1.6×", compactZoomLabel("縮放", 1.6f))
         assertEquals("前置相機 1/4", compactCameraPositionLabel("前置相機", 1, 4))
-        assertEquals("Long blink 1200 ms", compactDurationLabel("Long blink", 1200, "ms"))
-        assertEquals("Rear camera 4/4", compactCameraPositionLabel("Rear camera", 4, 4))
+        assertEquals("Hold 1200 ms", compactDurationLabel("Hold", 1200, "ms"))
+        assertEquals("Rear 4/4", compactCameraPositionLabel("Rear", 4, 4))
     }
 
     @Test

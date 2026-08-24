@@ -173,7 +173,7 @@ export function cameraPreviewFraction(previewHeightPx, screenHeightPx) {
   return previewHeightPx / screenHeightPx;
 }
 
-export function cameraPreviewIsTooSmall(previewHeightPx, screenHeightPx, minimumFraction = 0.4) {
+export function cameraPreviewIsTooSmall(previewHeightPx, screenHeightPx, minimumFraction = 0.5) {
   const fraction = cameraPreviewFraction(previewHeightPx, screenHeightPx);
   return fraction != null && fraction < minimumFraction;
 }
