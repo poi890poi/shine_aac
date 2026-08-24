@@ -49,7 +49,9 @@ from pathlib import Path
 
 from device_test_common import (
     ThermalGovernor,
+    camera_permission_is_granted,
     infer_camera_preview_metrics,
+    power_state_is_noninteractive,
     touch_target_size_exemption,
 )
 
@@ -1039,11 +1041,12 @@ class DeepTest:
         else:
             self.passed("camera released with display off")
 
-        asleep = ("Wakefulness: Asleep" in power or "mWakefulness=Asleep" in power)
-        if not asleep:
+        if power_state_is_noninteractive(power):
+            self.passed("screen-off power state confirmed")
+        else:
             self.add(
                 "INFO", "Screen-off state not confirmed",
-                "Power dump did not report Asleep; camera-release result is still recorded.",
+                "Power dump did not report a non-interactive sleep/doze state; camera-release result is still recorded.",
                 ["dumpsys/screenoff_off_power.txt"]
             )
 
@@ -1059,11 +1062,12 @@ class DeepTest:
         self.passed("app returns after screen off")
 
     def test_package_permissions(self):
-        self.dump_text("package_permissions", "dumpsys", "package", PACKAGE)
+        package_path = self.dump_text("package_permissions", "dumpsys", "package", PACKAGE)
+        package_dump = package_path.read_text(encoding="utf-8", errors="replace")
         cam = self.shell(
             "pm", "check-permission", "android.permission.CAMERA", PACKAGE, check=False
         ).stdout or ""
-        if "granted" in cam.lower():
+        if camera_permission_is_granted(cam, package_dump):
             self.passed("camera permission granted")
         else:
             self.add(

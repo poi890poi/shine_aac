@@ -1,7 +1,9 @@
 import unittest
 
 from scripts.device_test_common import (
+    camera_permission_is_granted,
     infer_camera_preview_metrics,
+    power_state_is_noninteractive,
     touch_target_size_exemption,
 )
 
@@ -65,6 +67,35 @@ class EffectiveTouchTargetTest(unittest.TestCase):
             (0, 0, 1080, 2168),
         )
         self.assertIsNone(reason)
+
+
+class DeviceStateParserTest(unittest.TestCase):
+    def test_package_dump_confirms_camera_permission_when_pm_command_is_unavailable(self):
+        package_dump = """
+          runtime permissions:
+            android.permission.CAMERA: granted=true, flags=[ USER_SET]
+        """
+        self.assertTrue(camera_permission_is_granted("Unknown command: check-permission", package_dump))
+
+    def test_denied_camera_permission_is_not_misread_as_granted(self):
+        package_dump = "android.permission.CAMERA: granted=false"
+        self.assertFalse(camera_permission_is_granted("", package_dump))
+
+    def test_samsung_dozing_state_is_noninteractive(self):
+        power_dump = """
+          mWakefulness=Dozing
+          mHalInteractiveModeEnabled=false
+          mHoldingDisplaySuspendBlocker=false
+        """
+        self.assertTrue(power_state_is_noninteractive(power_dump))
+
+    def test_awake_interactive_state_is_not_screen_off(self):
+        power_dump = """
+          mWakefulness=Awake
+          mHalInteractiveModeEnabled=true
+          mHoldingDisplaySuspendBlocker=true
+        """
+        self.assertFalse(power_state_is_noninteractive(power_dump))
 
 
 if __name__ == "__main__":

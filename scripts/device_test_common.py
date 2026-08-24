@@ -71,6 +71,30 @@ def touch_target_size_exemption(surface, node, viewport_bounds=None):
             return "accessibility-bounds-clipped-at-viewport-edge"
     return None
 
+def camera_permission_is_granted(command_output, package_dump):
+    command = (command_output or "").lower()
+    if "granted" in command and "not granted" not in command:
+        return True
+    return bool(re.search(
+        r"(?im)^\s*android\.permission\.camera:\s*granted=true\b",
+        package_dump or "",
+    ))
+
+def power_state_is_noninteractive(power_dump):
+    text = power_dump or ""
+    wakefulness = re.search(r"(?im)^\s*mWakefulness=(\w+)\s*$", text)
+    if wakefulness and wakefulness.group(1).lower() in ("asleep", "dozing"):
+        return True
+    legacy = re.search(r"(?im)^\s*Wakefulness:\s*(\w+)\s*$", text)
+    if legacy and legacy.group(1).lower() in ("asleep", "dozing"):
+        return True
+    interactive = re.search(r"(?im)^\s*mHalInteractiveModeEnabled=(true|false)\s*$", text)
+    display_blocker = re.search(r"(?im)^\s*mHoldingDisplaySuspendBlocker=(true|false)\s*$", text)
+    return bool(
+        interactive and interactive.group(1).lower() == "false"
+        and display_blocker and display_blocker.group(1).lower() == "false"
+    )
+
 class ThermalGovernor:
     """
     Device thermal guard.
