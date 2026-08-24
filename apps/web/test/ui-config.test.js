@@ -140,6 +140,10 @@ test("configuration form controls retain 48px targets on short screens", () => {
   assert.match(styles, /\.config-panel \.secondary-button,[\s\S]*?\.config-panel \.primary-button\s*\{[\s\S]*?min-height:\s*48px/);
 });
 
+test("phone configuration actions do not cover form controls", () => {
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.config-actions\s*\{[\s\S]*?position:\s*static/);
+});
+
 test("configuration reset requires an explicit, scoped confirmation", () => {
   assert.match(appSource, /role="alertdialog"[\s\S]*?Text history is kept\. This action cannot be undone\./);
   assert.match(appSource, /if \(action === "reset"\) \{[\s\S]*?showResetConfirmation\(event\.target/);

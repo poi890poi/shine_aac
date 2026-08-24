@@ -1569,6 +1569,7 @@ body.demo-active .phase::after {
   }
 
   .config-actions {
+    position: static;
     flex-wrap: wrap;
   }
 
