@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.text.InputType
@@ -44,6 +45,11 @@ class SettingsActivity : AppCompatActivity(),
         toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
         toolbar.navigationContentDescription = getString(R.string.settings_back)
         toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        supportFragmentManager.addOnBackStackChangedListener {
+            if (supportFragmentManager.backStackEntryCount == 0) {
+                toolbar.title = getString(R.string.settings_title)
+            }
+        }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.settings_container)) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -65,6 +71,7 @@ class SettingsActivity : AppCompatActivity(),
         val fragmentName = preference.fragment ?: return false
         val fragment = supportFragmentManager.fragmentFactory.instantiate(classLoader, fragmentName)
         fragment.arguments = preference.extras
+        findViewById<Toolbar>(R.id.settings_toolbar).title = preference.title
         supportFragmentManager.beginTransaction()
             .replace(R.id.settings_container, fragment)
             .addToBackStack(preference.key)
@@ -112,8 +119,6 @@ class SettingsActivity : AppCompatActivity(),
 }
 
 class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
-    private var textToSpeech: TextToSpeech? = null
-
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.preferenceDataStore = SettingsPreferenceDataStore(requireContext())
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
@@ -130,19 +135,13 @@ class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
         configureLargeTextEditor("symbols", R.string.settings_symbols_summary)
         configureProfileVisibility(currentProfileId())
         configureActions()
-        loadSpeechVoices()
-    }
-
-    override fun onDestroy() {
-        textToSpeech?.shutdown()
-        textToSpeech = null
-        super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
         findPreference<ListPreference>("scanTimingPreset")?.value =
             SettingsStore.getString(requireContext(), "scanTimingPreset", "custom") ?: "custom"
+        findPreference<Preference>("speechVoiceName")?.summary = selectedVoiceSummary()
     }
 
     private fun configureActions() {
@@ -167,15 +166,11 @@ class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
         findPreference<Preference>("inputTest")?.setOnPreferenceClickListener {
-            settingsActivity().finishWithAction(SettingsActivity.ActionInputTest)
+            startActivity(Intent(requireContext(), InputTestActivity::class.java))
             true
         }
         findPreference<Preference>("exportText")?.setOnPreferenceClickListener {
             settingsActivity().finishWithAction(SettingsActivity.ActionExportText)
-            true
-        }
-        findPreference<Preference>("appInfo")?.setOnPreferenceClickListener {
-            settingsActivity().showAbout()
             true
         }
         findPreference<Preference>("reset")?.setOnPreferenceClickListener {
@@ -327,54 +322,12 @@ class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
     private fun currentProfileId(): String =
         SettingsStore.getString(requireContext(), "profileId", "en-US") ?: "en-US"
 
-    private fun loadSpeechVoices() {
-        val preference = findPreference<ListPreference>("speechVoiceName") ?: return
-        val currentValue = SettingsStore.getString(requireContext(), "speechVoiceName", "").orEmpty()
-        val initialEntries = mutableListOf(
-            getString(R.string.settings_builtin_voice),
-            getString(R.string.settings_system_voice),
-        )
-        val initialValues = mutableListOf(
-            BuiltInVoiceName,
-            AndroidSystemVoiceName,
-        )
-        if (currentValue.isNotBlank() && currentValue !in initialValues) {
-            initialEntries += currentValue + getString(R.string.settings_current_voice_suffix)
-            initialValues += currentValue
-        }
-        preference.entries = initialEntries.toTypedArray()
-        preference.entryValues = initialValues.toTypedArray()
-        preference.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
-
-        textToSpeech = TextToSpeech(requireContext().applicationContext) { status ->
-            if (status != TextToSpeech.SUCCESS || !isAdded) return@TextToSpeech
-            val voices = textToSpeech?.voices
-                .orEmpty()
-                .filter { it.name.isNotBlank() }
-                .sortedWith(compareBy({ it.locale.getDisplayName(Locale.getDefault()) }, { it.name }))
-            val labels = mutableListOf(
-                getString(R.string.settings_builtin_voice),
-                getString(R.string.settings_system_voice),
-            )
-            val values = mutableListOf(BuiltInVoiceName, AndroidSystemVoiceName)
-            voices.forEach { voice ->
-                if (voice.name in values) return@forEach
-                val localeName = voice.locale.getDisplayName(Locale.getDefault())
-                val networkSuffix = if (voice.isNetworkConnectionRequired) {
-                    getString(R.string.settings_network_voice_suffix)
-                } else {
-                    ""
-                }
-                labels += "$localeName — ${voice.name}$networkSuffix"
-                values += voice.name
-            }
-            if (currentValue.isNotBlank() && currentValue !in values) {
-                labels += currentValue + getString(R.string.settings_current_voice_suffix)
-                values += currentValue
-            }
-            preference.entries = labels.toTypedArray()
-            preference.entryValues = values.toTypedArray()
-        }
+    private fun selectedVoiceSummary(): String = when (
+        val voiceName = SettingsStore.getString(requireContext(), "speechVoiceName", "").orEmpty()
+    ) {
+        "", BuiltInVoiceName -> getString(R.string.settings_builtin_voice)
+        AndroidSystemVoiceName -> getString(R.string.settings_system_voice)
+        else -> voiceName
     }
 
     private fun settingsActivity(): SettingsActivity = requireActivity() as SettingsActivity
@@ -402,6 +355,147 @@ class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
             "firstCellPauseMs",
             "inputLatencyCompensationMs",
         )
+    }
+}
+
+class SpeechVoicePreferenceFragment : PreferenceFragmentCompat() {
+    private var textToSpeech: TextToSpeech? = null
+    private var speechReady = false
+
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        preferenceManager.preferenceDataStore = SettingsPreferenceDataStore(requireContext())
+        setPreferencesFromResource(R.xml.speech_voice_preferences, rootKey)
+        populateVoiceList(emptyList())
+
+        findPreference<Preference>("previewSpeechVoice")?.setOnPreferenceClickListener {
+            previewSelectedVoice()
+            true
+        }
+        findPreference<Preference>("manageSpeech")?.setOnPreferenceClickListener {
+            openSpeechManagement()
+            true
+        }
+
+        textToSpeech = TextToSpeech(requireContext().applicationContext) { status ->
+            speechReady = status == TextToSpeech.SUCCESS
+            if (!speechReady || !isAdded) return@TextToSpeech
+            populateVoiceList(
+                textToSpeech?.voices
+                    .orEmpty()
+                    .filter { it.name.isNotBlank() }
+                    .sortedWith(compareBy({ it.locale.getDisplayName(Locale.getDefault()) }, { it.name })),
+            )
+        }
+    }
+
+    override fun onDestroy() {
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        super.onDestroy()
+    }
+
+    private fun populateVoiceList(voices: List<android.speech.tts.Voice>) {
+        val preference = findPreference<ListPreference>("speechVoiceName") ?: return
+        val currentValue = SettingsStore.getString(requireContext(), "speechVoiceName", "").orEmpty()
+        val labels = mutableListOf(
+            getString(R.string.settings_builtin_voice),
+            getString(R.string.settings_system_voice),
+        )
+        val values = mutableListOf(BuiltInVoiceName, AndroidSystemVoiceName)
+        voices.forEach { voice ->
+            if (voice.name in values) return@forEach
+            val networkSuffix = if (voice.isNetworkConnectionRequired) {
+                getString(R.string.settings_network_voice_suffix)
+            } else {
+                ""
+            }
+            labels += "${voice.locale.getDisplayName(Locale.getDefault())} — ${voice.name}$networkSuffix"
+            values += voice.name
+        }
+        if (currentValue.isNotBlank() && currentValue !in values) {
+            labels += currentValue + getString(R.string.settings_current_voice_suffix)
+            values += currentValue
+        }
+        preference.entries = labels.toTypedArray()
+        preference.entryValues = values.toTypedArray()
+        preference.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
+    }
+
+    private fun previewSelectedVoice() {
+        val voiceName = SettingsStore.getString(requireContext(), "speechVoiceName", "").orEmpty()
+        if (voiceName.isBlank() || voiceName == BuiltInVoiceName) {
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.settings_preview_voice)
+                .setMessage(R.string.settings_builtin_preview_unavailable)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            return
+        }
+        val engine = textToSpeech
+        if (!speechReady || engine == null) {
+            AlertDialog.Builder(requireContext())
+                .setMessage(R.string.settings_voice_not_ready)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            return
+        }
+
+        if (voiceName == AndroidSystemVoiceName) {
+            engine.voice = engine.defaultVoice
+        } else {
+            engine.voices.firstOrNull { it.name == voiceName }?.let { engine.voice = it }
+        }
+        val profileId = SettingsStore.stringValue(requireContext(), "profileId", "en-US")
+        val previewText = if (profileId == "zh-TW") {
+            getString(R.string.settings_voice_preview_text_zh)
+        } else {
+            getString(R.string.settings_voice_preview_text)
+        }
+        engine.speak(previewText, TextToSpeech.QUEUE_FLUSH, null, "shine-settings-preview")
+    }
+
+    private fun openSpeechManagement() {
+        val intent = listOf(
+            Intent("com.android.settings.TTS_SETTINGS"),
+            Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA),
+        ).firstOrNull { candidate ->
+            candidate.resolveActivity(requireContext().packageManager) != null
+        }
+        if (intent != null) startActivity(intent)
+    }
+
+    private companion object {
+        const val BuiltInVoiceName = "shine-aac-moe-bopomofo"
+        const val AndroidSystemVoiceName = "android-system-default"
+    }
+}
+
+class AppInfoPreferenceFragment : PreferenceFragmentCompat() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        setPreferencesFromResource(R.xml.app_info_preferences, rootKey)
+        @Suppress("DEPRECATION")
+        val packageInfo = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0)
+        val versionName = packageInfo.versionName.orEmpty()
+        val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+        findPreference<Preference>("appVersion")?.summary =
+            getString(R.string.settings_about_message, versionName, versionCode)
+        bindUrl("sourceCode", SourceCodeUrl)
+        bindUrl("privacyPolicy", PrivacyPolicyUrl)
+        bindUrl("support", SupportUrl)
+    }
+
+    private fun bindUrl(key: String, url: String) {
+        findPreference<Preference>(key)?.setOnPreferenceClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            true
+        }
+    }
+
+    private companion object {
+        const val SourceCodeUrl = "https://github.com/poi890poi/shine_aac"
+        const val PrivacyPolicyUrl = "https://poi890poi.github.io/shine_aac/privacy-policy/"
+        const val SupportUrl = "https://poi890poi.github.io/shine_aac/support/"
     }
 }
 
