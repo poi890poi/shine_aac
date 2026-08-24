@@ -81,6 +81,11 @@ class OpticalOracleTest(unittest.TestCase):
             ),
         )
 
+    def test_demo_activation_requires_exactly_one_input(self):
+        self.assertEqual("MISS", RIG.demo_activation_result(4, 4))
+        self.assertEqual("PASS", RIG.demo_activation_result(4, 5))
+        self.assertEqual("DUPLICATE", RIG.demo_activation_result(4, 6))
+
     def test_latest_e2e_state_preserves_log_epoch_for_fresh_target_waits(self):
         log = (
             '1787515415.700 14353 I ShineAacE2E: SHINE_AAC_E2E_STATE '

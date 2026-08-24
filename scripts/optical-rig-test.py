@@ -678,6 +678,16 @@ def e2e_input_count(log_text, intent, source):
     return count
 
 
+def demo_activation_result(before, after):
+    """Classify one presented gesture; normal use must produce exactly one input."""
+    delta = after - before
+    if delta < 1:
+        return "MISS"
+    if delta == 1:
+        return "PASS"
+    return "DUPLICATE"
+
+
 def blink_calibration_timeline_is_complete(timeline):
     """Require five visible open/long-closed/open calibration cycles."""
     events = (timeline or {}).get("events") or []
@@ -3035,7 +3045,8 @@ class OpticalRig:
         deadline = time.time() + 4.0
         while time.time() < deadline:
             after = e2e_input_count(self.e2e_log(), "activate", source_name)
-            if after > before:
+            result = demo_activation_result(before, after)
+            if result == "DUPLICATE":
                 self.demo_steps.append({
                     "step": step_label,
                     "gesture": case.get("gesture", "blink"),
@@ -3044,7 +3055,28 @@ class OpticalRig:
                     "completed_epoch_s": time.time(),
                     "activation_count_before": before,
                     "activation_count_after": after,
-                    "result": "PASS",
+                    "result": result,
+                })
+                (self.outdir / "demo-steps.json").write_text(
+                    json.dumps(self.demo_steps, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                self.add(
+                    "P1", "One physical gesture produced duplicate activations",
+                    "%s produced %d activations." % (step_label, after - before),
+                    ["demo-e2e-%s.log" % gesture, "demo-steps.json"],
+                )
+                return None
+            if result == "PASS":
+                self.demo_steps.append({
+                    "step": step_label,
+                    "gesture": case.get("gesture", "blink"),
+                    "case": case.get("id"),
+                    "started_epoch_s": started_at,
+                    "completed_epoch_s": time.time(),
+                    "activation_count_before": before,
+                    "activation_count_after": after,
+                    "result": result,
                 })
                 (self.outdir / "demo-steps.json").write_text(
                     json.dumps(self.demo_steps, ensure_ascii=False, indent=2),
@@ -3104,12 +3136,15 @@ class OpticalRig:
                     encoding="utf-8",
                 )
                 continue
-            if self.demo_activate(
+            activation_result = self.demo_activate(
                 case, source_by_id,
                 "%s ATTEMPT %d" % (step_label, attempt),
                 report_miss=False,
                 activation_count_before=activation_count_before,
-            ):
+            )
+            if activation_result is None:
+                return False
+            if activation_result:
                 if attempt > 1:
                     gesture = case.get("gesture", "blink")
                     self.add(
@@ -3143,7 +3178,8 @@ class OpticalRig:
             return self.ensure_stimulus_visible(token, "demo-rest-" + step_label)
         source = source_by_id[case["source"]]
         return bool(self.show_video_still(
-            source, 0.75, "DEMO REST " + step_label
+            source, float(case.get("rest_at", case.get("start", 0.0))),
+            "DEMO REST " + step_label
         ))
 
     def demo_select_label(self, labels, case, source_by_id):

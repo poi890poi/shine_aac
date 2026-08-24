@@ -128,6 +128,7 @@
     {
       "id": "cheek_smile_positive",
       "source": "commons_smiling",
+      "rest_at": 0.0,
       "rate": 1.0,
       "expect": "activate",
       "severity": "P1",
