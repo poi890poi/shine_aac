@@ -554,6 +554,16 @@ class DeepTest:
         self.screenshot("cycle%02d_config" % cycle)
         return self.is_config_ui(xml2)
 
+    def open_camera_setup_from_config(self, label, section_swipes=5, camera_swipes=5):
+        """Follow the native Settings index into Input, then Camera Setup."""
+        if not self.find_tap(
+            ["input", "輸入"], label + "_input_section", swipes=section_swipes
+        ):
+            return False
+        return bool(self.find_tap(
+            ["camera setup", "相機設定"], label, swipes=camera_swipes
+        ))
+
     def analyze_layout(self, name, xml):
         """
         Device-side accessibility/layout heuristics.
@@ -862,17 +872,14 @@ class DeepTest:
             config_before_xml = self.outdir / "ui" / ("cycle%02d_config.xml" % cycle)
             config_before_signature = self.form_value_signature(config_before_xml)
 
-            # Camera setup may be below the fold. WebView accessibility exposes
-            # offscreen elements with zero-height bounds, so find_tap scrolls
-            # until the actual button has a positive visible rectangle.
-            if not self.find_tap(
-                ["camera setup", "相機設定"],
+            if not self.open_camera_setup_from_config(
                 "cycle%02d_camera_button" % cycle,
-                swipes=8
+                section_swipes=6,
+                camera_swipes=3,
             ):
                 self.add(
                     "P0", "Camera setup button not reachable",
-                    "Could not locate Camera setup after scrolling configuration.",
+                    "Could not follow Settings > Input > Camera setup.",
                     ["ui/cycle%02d_config.xml" % cycle]
                 )
                 return False
@@ -1079,9 +1086,15 @@ class DeepTest:
                          "ui/cycle%02d_return_from_camera.xml" % cycle]
                     )
 
-            # Back from config should now actually expose a live board.
-            self.shell("input", "keyevent", "4", check=False)
-            time.sleep(0.7)
+            # Camera setup returns to the Input subsection. Unwind the section
+            # and root Settings screens before evaluating the live board.
+            if not self.ensure_board():
+                self.add(
+                    "P0", "Cannot leave configuration after camera return",
+                    "Back navigation did not unwind Input and root Settings.",
+                    ["ui/cycle%02d_return_from_camera.xml" % cycle]
+                )
+                return False
             shot, board_xml = self.checkpoint("cycle%02d_board_after_config" % cycle)
             if not self.is_board_ui(board_xml):
                 self.add(
@@ -1341,10 +1354,10 @@ class DeepTest:
                 self.checkpoint("font200_config")
                 self.passed("configuration opens at 200% font")
                 # Camera setup must still be reachable even if it is far below fold.
-                if self.find_tap(
-                    ["camera setup", "相機設定"],
+                if self.open_camera_setup_from_config(
                     "font200_camera_button",
-                    swipes=12
+                    section_swipes=10,
+                    camera_swipes=5,
                 ):
                     if self.wait_activity(CAMERA_ACTIVITY_FRAGMENT, 8):
                         self.checkpoint("font200_camera_setup")
