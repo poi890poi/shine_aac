@@ -92,11 +92,19 @@ export function analyzeScanContrastMatrix(rawThemes, {
       const background = parseCssColor(state.background);
       const border = parseCssColor(state.border);
       const progressSurface = compositeColors(state.progressFill, background);
+      const progressEdge = state.progressEdge ? parseCssColor(state.progressEdge) : null;
+      const progressEdgeWidth = Number(state.progressEdgeWidth) || 0;
       const baseTextContrast = contrastRatio(text, background);
       const filledTextContrast = contrastRatio(text, progressSurface);
       const backgroundContrast = contrastRatio(background, neutralBackground);
       const borderContrast = contrastRatio(border, neutralBackground);
       const progressContrast = contrastRatio(progressSurface, background);
+      const progressEdgeContrast = progressEdge
+        ? Math.min(contrastRatio(progressEdge, background), contrastRatio(progressEdge, progressSurface))
+        : 1;
+      const effectiveProgressIndicatorContrast = progressEdgeWidth >= 6
+        ? Math.max(progressContrast, progressEdgeContrast)
+        : progressContrast;
       const progress = [
         { percent: 0, minimumTextContrast: baseTextContrast },
         { percent: 50, minimumTextContrast: Math.min(baseTextContrast, filledTextContrast) },
@@ -110,7 +118,10 @@ export function analyzeScanContrastMatrix(rawThemes, {
         backgroundContrastFromNeutral: round(backgroundContrast),
         borderContrastFromNeutral: round(borderContrast),
         activeIndicatorContrast: round(Math.max(backgroundContrast, borderContrast)),
-        progressContrast: round(progressContrast),
+        progressFillContrast: round(progressContrast),
+        progressEdgeContrast: round(progressEdgeContrast),
+        progressEdgeWidth,
+        progressIndicatorContrast: round(effectiveProgressIndicatorContrast),
         progress,
       };
     });
@@ -128,8 +139,8 @@ export function analyzeScanContrastMatrix(rawThemes, {
       if (state.name !== "neutral" && state.activeIndicatorContrast < nonTextThreshold) {
         activeIndicatorFailures.push({ theme: theme.name, state: state.name, ratio: state.activeIndicatorContrast });
       }
-      if (state.progressContrast < nonTextThreshold) {
-        progressFailures.push({ theme: theme.name, state: state.name, ratio: state.progressContrast });
+      if (state.progressIndicatorContrast < nonTextThreshold) {
+        progressFailures.push({ theme: theme.name, state: state.name, ratio: state.progressIndicatorContrast });
       }
     }
   }

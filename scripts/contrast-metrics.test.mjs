@@ -42,6 +42,30 @@ test("scan contrast matrix covers every state at 0, 50, and 100 percent progress
   assert.ok(result.themes[0].states.every((sample) => Number.isFinite(sample.minimumTextContrast)));
 });
 
+test("a six-pixel high-contrast edge can carry a subtle full-height progress fill", () => {
+  const state = (name, background) => ({
+    name,
+    text: "#000000",
+    background,
+    border: "#000000",
+    progressFill: "rgba(31, 122, 140, 0.28)",
+    progressEdge: "#000000",
+    progressEdgeWidth: 6,
+  });
+  const result = analyzeScanContrastMatrix([{
+    name: "fixture-light",
+    states: [
+      state("neutral", "#ffffff"),
+      state("active-block", "#ded5f2"),
+      state("active-row", "#9bc1bc"),
+      state("active-cell", "#f4d35e"),
+    ],
+  }]);
+  assert.equal(result.failures.progress.length, 0);
+  assert.ok(result.themes[0].states.every((sample) => sample.progressFillContrast < 3));
+  assert.ok(result.themes[0].states.every((sample) => sample.progressEdgeContrast >= 3));
+});
+
 test("hex alpha colors and modern percentage rgb syntax are parsed", () => {
   assert.equal(parseCssColor("#ffffff80").alpha, 128 / 255);
   const red = parseCssColor("rgb(100% 0% 0% / 25%)");

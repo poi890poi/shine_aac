@@ -553,6 +553,8 @@ async function scanContrastStateSamples() {
           background: tileStyle.backgroundColor,
           border: tileStyle.borderTopColor,
           progressFill: progressStyle.backgroundColor,
+          progressEdge: progressStyle.borderRightColor,
+          progressEdgeWidth: Math.max(parseFloat(progressStyle.borderRightWidth), parseFloat(progressStyle.borderBottomWidth)),
         };
       });
       return { name: theme.name, states: themeStates };
@@ -583,7 +585,7 @@ async function auditScanStateContrast() {
   if (result.failures.progress.length) {
     add("P2", "Progress hint contrast below 3:1", result.failures.progress.map(describe).join(", "), ["scan-contrast.json"]);
   } else {
-    pass("progress hint contrast", "composited progress fills meet or exceed 3:1 in every theme and scan state");
+    pass("progress hint contrast", "the composited fill or its moving edge meets or exceeds 3:1 in every theme and scan state");
   }
   writeFileSync(resolve(outDir, "scan-contrast.json"), JSON.stringify(result, null, 2));
   return result;
