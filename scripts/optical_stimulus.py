@@ -2,6 +2,7 @@
 
 import ctypes
 import argparse
+import json
 import math
 import os
 import subprocess
@@ -13,6 +14,38 @@ from pathlib import Path
 
 WINDOW_TITLE = "SHINE AAC Optical Rig"
 IDLE_WINDOW_TITLE = "SHINE AAC Optical Rig - Idle"
+PRESENTER_REGISTRY = Path(".tmp/optical-rig-presenter.json")
+
+
+def presenter_registry_path(root):
+    return Path(root) / PRESENTER_REGISTRY
+
+
+def register_presenter(root, mode, title):
+    """Publish the exact owner PID so emergency cleanup does not depend on a window title."""
+    path = presenter_registry_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "pid": os.getpid(),
+        "registered_at": time.time(),
+        "mode": mode,
+        "title": title,
+        "executable": str(Path(sys.executable).resolve()),
+    }
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.replace(str(temporary), str(path))
+
+
+def unregister_presenter(root):
+    """Remove the registry only when this process still owns it."""
+    path = presenter_registry_path(root)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if int(payload.get("pid", -1)) == os.getpid():
+            path.unlink()
+    except (OSError, ValueError, TypeError):
+        pass
 
 
 def set_window_topmost(hwnd, enabled):
@@ -283,6 +316,7 @@ class OpenCvStimulus:
 
     def _fullscreen_window(self):
         self.hwnd = _make_fullscreen_window(self.cv2, WINDOW_TITLE, self.desktop_rect)
+        register_presenter(self.root, "active", WINDOW_TITLE)
 
     def _abort_from_operator(self, reason):
         self.operator_abort = True
@@ -474,6 +508,7 @@ class OpenCvStimulus:
             self.error = error
             self.ready_event.set()
         finally:
+            unregister_presenter(self.root)
             if prepared and prepared.get("capture"):
                 prepared["capture"].release()
             try:
@@ -491,6 +526,7 @@ def run_idle_presenter(root):
     _, _, width, height = rect
     black = numpy.zeros((height, width, 3), dtype=numpy.uint8)
     hwnd = _make_fullscreen_window(cv2, IDLE_WINDOW_TITLE, rect)
+    register_presenter(root, "idle", IDLE_WINDOW_TITLE)
     topmost = True
     try:
         print(
@@ -519,6 +555,7 @@ def run_idle_presenter(root):
             except Exception:
                 break
     finally:
+        unregister_presenter(root)
         try:
             cv2.destroyWindow(IDLE_WINDOW_TITLE)
             cv2.waitKey(1)

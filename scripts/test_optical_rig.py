@@ -4,6 +4,7 @@ import struct
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import zlib
 from pathlib import Path
@@ -393,6 +394,17 @@ class CameraZoomGeometryTest(unittest.TestCase):
 
 
 class OpenCvFramebufferTest(unittest.TestCase):
+    def test_presenter_registry_is_owned_and_removed_by_exact_pid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            optical_stimulus.register_presenter(directory, "idle", "test title")
+            path = optical_stimulus.presenter_registry_path(directory)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(optical_stimulus.os.getpid(), payload["pid"])
+            self.assertEqual("idle", payload["mode"])
+            self.assertLess(abs(time.time() - payload["registered_at"]), 5)
+            optical_stimulus.unregister_presenter(directory)
+            self.assertFalse(path.exists())
+
     def test_escape_aborts_presenter_without_killing_process(self):
         presenter = object.__new__(optical_stimulus.OpenCvStimulus)
         presenter.hwnd = 123

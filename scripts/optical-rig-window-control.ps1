@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('close', 'topmost-off', 'topmost-on')]
+    [ValidateSet('close', 'force-close', 'topmost-off', 'topmost-on')]
     [string]$Command = 'close'
 )
 
@@ -34,8 +34,51 @@ foreach ($title in $titles) {
     }
 }
 
+$registryPath = Join-Path (Split-Path -Parent $PSScriptRoot) '.tmp\optical-rig-presenter.json'
+$registeredProcess = $null
+if (Test-Path -LiteralPath $registryPath) {
+    try {
+        $registry = Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json
+        $candidate = Get-Process -Id ([int]$registry.pid) -ErrorAction Stop
+        $sameExecutable = (
+            [System.IO.Path]::GetFullPath($candidate.Path) -ieq
+            [System.IO.Path]::GetFullPath([string]$registry.executable)
+        )
+        $registeredAt = [DateTimeOffset]::FromUnixTimeMilliseconds(
+            [int64]([double]$registry.registered_at * 1000)
+        ).LocalDateTime
+        $plausibleStart = $candidate.StartTime -le $registeredAt -and
+            $candidate.StartTime -ge $registeredAt.AddMinutes(-5)
+        if ($sameExecutable -and $plausibleStart) {
+            $registeredProcess = $candidate
+        }
+    } catch {
+        $registeredProcess = $null
+    }
+}
+
+if ($Command -eq 'force-close') {
+    if (-not $registeredProcess) {
+        throw 'No verified optical-rig presenter PID is registered.'
+    }
+    Stop-Process -Id $registeredProcess.Id -Force
+    Write-Host "Force-closed registered optical-rig PID $($registeredProcess.Id)."
+    exit 0
+}
+
 if ($windows.Count -eq 0) {
-    Write-Host 'No SHINE AAC optical-rig window is open.'
+    if ($Command -eq 'close' -and $registeredProcess) {
+        Stop-Process -Id $registeredProcess.Id -Force
+        Write-Host (
+            "The OpenCV title was hidden; force-closed verified optical-rig PID " +
+            "$($registeredProcess.Id)."
+        )
+        exit 0
+    }
+    if ($registeredProcess) {
+        throw "The rig PID is verified but Windows exposes no window handle; use 'force-close'."
+    }
+    Write-Host 'No SHINE AAC optical-rig window or verified presenter PID is open.'
     exit 0
 }
 
@@ -46,6 +89,7 @@ foreach ($window in $windows) {
             $ok = [ShineOpticalWindow]::PostMessage(
                 $window.Handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
         }
+        'force-close' { throw 'force-close must be handled through the PID registry.' }
         'topmost-off' {
             $ok = [ShineOpticalWindow]::SetWindowPos(
                 $window.Handle, [IntPtr](-2), 0, 0, 0, 0, 0x0013)
