@@ -233,7 +233,7 @@ async function verifyRoundTrip(label, values) {
   return snapshot;
 }
 
-async function boardContrastSamples() {
+async function contrastSamples(selectors) {
   return evaluate(`(() => {
     const parse = (value) => {
       const match = String(value).match(/[\\d.]+/g);
@@ -251,13 +251,32 @@ async function boardContrastSamples() {
       if (!element) return null;
       const style = getComputedStyle(element);
       const foreground = parse(style.color);
-      const background = parse(style.backgroundColor);
+      let surface = element;
+      while (surface && getComputedStyle(surface).backgroundColor === 'rgba(0, 0, 0, 0)') surface = surface.parentElement;
+      const backgroundColor = surface ? getComputedStyle(surface).backgroundColor : getComputedStyle(document.body).backgroundColor;
+      const background = parse(backgroundColor);
       const light = Math.max(luminance(foreground), luminance(background));
       const dark = Math.min(luminance(foreground), luminance(background));
-      return { selector, color: style.color, background: style.backgroundColor, ratio: (light + 0.05) / (dark + 0.05), text: element.textContent.trim() };
+      return { selector, color: style.color, background: backgroundColor, ratio: (light + 0.05) / (dark + 0.05), text: element.textContent.trim() };
     };
-    return ['.review-hold-row .tile', '.tile.action-clear', '.tile.action-backspace'].map(sample).filter(Boolean);
+    return ${JSON.stringify(selectors)}.map(sample).filter(Boolean);
   })()`);
+}
+
+async function auditContrast(label, selectors, evidence) {
+  const samples = await contrastSamples(selectors);
+  const failures = samples.filter((sample) => sample.ratio < 4.5);
+  if (failures.length) {
+    add(
+      "P1",
+      `${label} contains text below 4.5:1 contrast`,
+      failures.map((sample) => `${sample.text.slice(0, 50) || sample.selector}: ${sample.ratio.toFixed(2)}:1`).join(", "),
+      evidence
+    );
+  } else {
+    pass(`${label} contrast`, `${samples.length} representative surfaces meet or exceed 4.5:1`);
+  }
+  return samples;
 }
 
 async function restoreOriginal() {
@@ -334,22 +353,19 @@ async function main() {
   };
   await setAndSave(matrix);
   screenshot("en-block-dark-board");
-  const boardContrast = await boardContrastSamples();
-  const unreadableBoard = boardContrast.filter((sample) => sample.ratio < 4.5);
-  if (unreadableBoard.length) {
-    add(
-      "P1",
-      "High-contrast dark board contains unreadable text",
-      unreadableBoard.map((sample) => `${sample.text || sample.selector}: ${sample.ratio.toFixed(2)}:1`).join(", "),
-      ["screenshots/en-block-dark-board.png", "matrix.json"]
-    );
-  }
+  const boardContrast = await auditContrast("High-contrast dark board", [
+    ".review-hold-row .tile", ".tile.action-clear", ".tile.action-backspace", ".tile.function-key"
+  ], ["screenshots/en-block-dark-board.png", "matrix.json"]);
   await openConfig();
   const saved = await formSnapshot();
   const mismatches = mismatchedValues(saved, matrix);
   if (mismatches.length) add("P1", "Major settings failed to persist", JSON.stringify(mismatches), ["matrix.json"]);
   else pass("major settings persistence", `${Object.keys(matrix).length} representative changes persisted`);
   await captureConfigPages("en-block-dark-config");
+  const configContrast = await auditContrast("High-contrast dark Configuration", [
+    ".config-panel h1", ".config-panel .field", ".settings-row", ".settings-row small",
+    ".config-actions .secondary-button", ".config-actions .primary-button"
+  ], ["screenshots/en-block-dark-config-1.png", "screenshots/en-block-dark-config-4.png"]);
 
   const beforeCancel = await evaluate(`({ config: localStorage.getItem('shine-aac-web-config-v1'), ui: localStorage.getItem('shine-aac-web-ui-v1') })`);
   await evaluate(`(() => {
@@ -377,12 +393,19 @@ async function main() {
     })()
   }))()`);
   screenshot("speech-voices");
+  const voiceContrast = await auditContrast("High-contrast dark voice settings", [
+    "#speech-voice-title", ".speech-voice-intro", ".speech-engine-row", ".speech-engine-row small",
+    ".speech-voice-section h2", ".speech-voice-row.selected .speech-voice-title", ".speech-voice-row.selected small"
+  ], ["screenshots/speech-voices.png"]);
   if (voices.unnamedButtons) add("P2", "Unnamed voice controls", `${voices.unnamedButtons} voice control(s) lack labels`, ["screenshots/speech-voices.png"]);
   else pass("speech voice accessibility", `${voices.rows} voice choices exposed with named controls`);
   await evaluate(`document.querySelector('[data-speech-action="back"]')?.click()`);
 
   await evaluate(`document.querySelector('[data-action="app-info"]')?.click()`);
   await delay(250); screenshot("app-info");
+  const appInfoContrast = await auditContrast("High-contrast dark App Info", [
+    ".info-header h1", ".info-header strong", ".info-header p", ".info-list dt", ".info-list dd"
+  ], ["screenshots/app-info.png"]);
   const appInfo = await evaluate(`document.querySelector('.info-panel')?.innerText ?? ''`);
   if (!/SayToMe AAC/.test(appInfo) || !/0\.3\.4/.test(appInfo) || !/58/.test(appInfo)) add("P1", "English App Info identity or version metadata incorrect", appInfo, ["screenshots/app-info.png"]);
   else pass("App Info", "shows English product name, version 0.3.4, and code 58");
@@ -390,6 +413,10 @@ async function main() {
 
   await evaluate(`document.querySelector('[data-action="calibrate"]')?.click()`);
   await delay(250); screenshot("input-test");
+  const inputTestContrast = await auditContrast("High-contrast dark Input Test", [
+    ".calibration-panel h1", ".calibration-intro", ".calibration-intro span", ".mode-button",
+    ".calibration-step", ".calibration-step small", ".calibration-live", ".calibration-live span"
+  ], ["screenshots/input-test.png"]);
   const inputTest = await evaluate(`document.querySelector('.calibration-panel')?.innerText ?? ''`);
   if (!inputTest) add("P1", "Input Test did not open", "No calibration panel appeared", ["screenshots/input-test.png"]);
   else pass("Input Test flow", "opened and returned to configuration");
@@ -460,7 +487,12 @@ async function main() {
   await waitFor(() => evaluate(`Boolean(document.querySelector('.config-panel form'))`), "configuration after export cancellation");
   pass("text export cancellation", "returned to Configuration without saving a document");
 
-  writeFileSync(resolve(outDir, "matrix.json"), JSON.stringify({ matrix, saved, voices, boardContrast }, null, 2));
+  writeFileSync(resolve(outDir, "matrix.json"), JSON.stringify({
+    matrix,
+    saved,
+    voices,
+    contrast: { board: boardContrast, configuration: configContrast, voiceSettings: voiceContrast, appInfo: appInfoContrast, inputTest: inputTestContrast }
+  }, null, 2));
   writeFileSync(resolve(outDir, "option-matrix.json"), JSON.stringify({ cases: optionMatrix, reset: resetSnapshot }, null, 2));
 }
 

@@ -59,8 +59,9 @@ test("compact phone status text remains grouped instead of wrapping per characte
 });
 
 test("review pause uses a calm grouped treatment without a progress fill", () => {
-  assert.match(styles, /\.row\.review-hold-row::after\s*\{[\s\S]*?border:\s*3px solid #226f77/);
-  assert.match(styles, /\.row\.review-hold-row \.tile\s*\{[\s\S]*?outline:\s*none;[\s\S]*?background:\s*#eef4f3/);
+  assert.match(styles, /--color-review-border:\s*#226f77/);
+  assert.match(styles, /\.row\.review-hold-row::after\s*\{[\s\S]*?border:\s*3px solid var\(--color-review-border\)/);
+  assert.match(styles, /\.row\.review-hold-row \.tile\s*\{[\s\S]*?outline:\s*none;[\s\S]*?background:\s*var\(--color-review-bg\)/);
   assert.match(styles, /\.tile\.review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
 });
 
@@ -122,7 +123,15 @@ test("reduced first-pass blocks reuse compact core grouping in the rendered high
 
 test("tone fallback controls use a distinct secondary treatment", () => {
   assert.match(appSource, /candidate\.toneFallback === true/);
-  assert.match(styles, /\.tile\.tone-fallback\s*\{[\s\S]*?border-color:\s*#8064a2/);
+  assert.match(styles, /--color-tone-border:\s*#8064a2/);
+  assert.match(styles, /\.tile\.tone-fallback\s*\{[\s\S]*?border-color:\s*var\(--color-tone-border\)/);
+});
+
+test("high-contrast presets cover board and secondary app surfaces", () => {
+  assert.match(styles, /\[data-contrast="high-contrast-dark"\]\s*\{[\s\S]*?--color-review-bg:\s*#102d2a[\s\S]*?--color-clear-bg:\s*#541c14[\s\S]*?--color-export-file-bg:\s*#1f2529/);
+  assert.match(styles, /\.settings-row\s*\{[\s\S]*?background:\s*var\(--color-panel-bg\)[\s\S]*?color:\s*var\(--color-text\)/);
+  assert.match(styles, /\.speech-voice-row\.selected\s*\{[\s\S]*?background:\s*var\(--color-surface-selected\)/);
+  assert.match(styles, /\.calibration-intro\s*\{[\s\S]*?background:\s*var\(--color-accent-soft\)[\s\S]*?color:\s*var\(--color-text\)/);
 });
 
 test("English suggestion sizing runs at the top level of both scanning modes", () => {
