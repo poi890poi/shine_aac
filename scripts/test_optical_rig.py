@@ -93,6 +93,22 @@ class OpticalOracleTest(unittest.TestCase):
             ),
         )
 
+    def test_semantic_demo_target_follows_current_text_and_position(self):
+        state = {
+            "rows": [
+                ["清除", "喝水"],
+                ["說出", "幫我"],
+            ]
+        }
+        self.assertEqual(
+            ("幫我", 1, 1),
+            RIG.semantic_board_target(state, ["幫忙", "幫我", "Help"]),
+        )
+        self.assertEqual(
+            ("說出", 1, 0),
+            RIG.semantic_board_target(state, ["朗讀", "說出", "Speak"]),
+        )
+
     def test_blink_calibration_timeline_requires_five_long_closures(self):
         events = []
         for cycle in range(1, 6):

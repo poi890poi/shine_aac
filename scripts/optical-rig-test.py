@@ -632,6 +632,16 @@ def latest_e2e_state(log_text):
         return None
 
 
+def semantic_board_target(state, labels):
+    """Return the current label and coordinates for a semantic board item."""
+    folded = {label.casefold() for label in labels}
+    for row_index, row in enumerate((state or {}).get("rows", [])):
+        for cell_index, value in enumerate(row):
+            if value.casefold() in folded:
+                return value, row_index, cell_index
+    return None
+
+
 def e2e_input_count(log_text, intent, source):
     count = 0
     for payload in re.findall(r"SHINE_AAC_E2E_INPUT\s+(\{[^\r\n]+\})", log_text or ""):
@@ -2992,9 +3002,10 @@ class OpticalRig:
             encoding="utf-8",
         )
         if report_miss:
+            gesture = case.get("gesture", "blink")
             self.add(
                 "P1", "Physical demo activation missed", step_label,
-                ["demo-e2e.log", "demo-steps.json"],
+                ["demo-e2e-%s.log" % gesture, "demo-steps.json"],
             )
         return False
 
@@ -3021,16 +3032,18 @@ class OpticalRig:
                 report_miss=False,
             ):
                 if attempt > 1:
+                    gesture = case.get("gesture", "blink")
                     self.add(
                         "P2", "Physical demo required gesture retry",
                         "%s succeeded on attempt %d." % (step_label, attempt),
-                        ["demo-steps.json", "demo-e2e.log"],
+                        ["demo-steps.json", "demo-e2e-%s.log" % gesture],
                     )
                 return True
+        gesture = case.get("gesture", "blink")
         self.add(
             "P1", "Physical demo activation missed after retries",
             "%s failed after %d attempts." % (step_label, attempts),
-            ["demo-steps.json", "demo-e2e.log"],
+            ["demo-steps.json", "demo-e2e-%s.log" % gesture],
         )
         return False
 
@@ -3054,34 +3067,40 @@ class OpticalRig:
             source, 0.75, "DEMO REST " + step_label
         ))
 
-    def demo_select_label(self, label, case, source_by_id):
+    def demo_select_label(self, labels, case, source_by_id):
+        """Select a semantic board item from the currently rendered state.
+
+        The rig discovers the item's current row and cell. It does not assume
+        a fixed coordinate, and accepts copy aliases so harmless wording
+        changes do not masquerade as optical failures.
+        """
+        if isinstance(labels, str):
+            labels = [labels]
         state = latest_e2e_state(self.e2e_log())
         if not state:
-            self.add("P0", "Demo render state unavailable", label)
-            return False
-        target = None
-        for row_index, row in enumerate(state.get("rows", [])):
-            for cell_index, value in enumerate(row):
-                if value == label:
-                    target = (row_index, cell_index)
-                    break
-            if target:
-                break
+            self.add("P0", "Demo render state unavailable", ", ".join(labels))
+            return None
+        target = semantic_board_target(state, labels)
         if target is None:
-            self.add("P0", "Demo label unavailable", label)
-            return False
-        row_index, cell_index = target
-        if not self.demo_show_rest(case, source_by_id, "WAIT ROW " + label):
-            return False
+            self.add(
+                "P0", "Demo semantic item unavailable",
+                "Expected one of %s; current rows were %s."
+                % (labels, state.get("rows", [])),
+                ["demo-e2e.log"],
+            )
+            return None
+        matched_label, row_index, cell_index = target
+        if not self.demo_show_rest(case, source_by_id, "WAIT ROW " + matched_label):
+            return None
         def wait_row():
             return bool(self.wait_demo_state(
                 stage="Rows", row_index=row_index, timeout=70.0,
                 not_before_epoch_s=time.time(),
             ))
         if not self.demo_activate_with_retries(
-            case, source_by_id, "ROW " + label, target_wait=wait_row
+            case, source_by_id, "ROW " + matched_label, target_wait=wait_row
         ):
-            return False
+            return None
         def wait_cell():
             if cell_index == 0:
                 return bool(self.wait_demo_state(
@@ -3093,9 +3112,11 @@ class OpticalRig:
                 cell_index=cell_index, timeout=25.0,
                 not_before_epoch_s=time.time(),
             ))
-        return self.demo_activate_with_retries(
-            case, source_by_id, "CELL " + label, target_wait=wait_cell
-        )
+        if not self.demo_activate_with_retries(
+            case, source_by_id, "CELL " + matched_label, target_wait=wait_cell
+        ):
+            return None
+        return matched_label
 
     def run_physical_demo(self, gesture, manifest, source_by_id):
         if gesture == "cheek":
@@ -3144,24 +3165,32 @@ class OpticalRig:
         ):
             return False
         message = ""
-        for label in ("幫忙", "喝水"):
-            if not self.demo_select_label(label, case, source_by_id):
+        phrase_items = (
+            ("help", ["幫忙", "幫我", "Help"]),
+            ("drink water", ["喝水", "飲水", "Drink water", "Water"]),
+        )
+        for concept, labels in phrase_items:
+            matched_label = self.demo_select_label(labels, case, source_by_id)
+            if not matched_label:
                 return False
-            message += label
+            message += matched_label
             if not self.wait_demo_state(message=message, timeout=8.0):
                 self.add("P1", "Demo message did not update", message)
                 return False
             if not self.demo_activate_with_retries(
-                case, source_by_id, "RELEASE " + label
+                case, source_by_id, "RELEASE " + concept
             ):
                 return False
-        if not self.demo_select_label("朗讀", case, source_by_id):
+        speak_label = self.demo_select_label(
+            ["朗讀", "說出", "Speak", "Read aloud"], case, source_by_id
+        )
+        if not speak_label:
             return False
         if not self.wait_demo_state(message=message, timeout=8.0):
             self.add("P1", "Demo phrase was not retained", message)
             return False
         log = self.e2e_log()
-        (self.outdir / "demo-e2e.log").write_text(
+        (self.outdir / ("demo-e2e-%s.log" % gesture)).write_text(
             log, encoding="utf-8", errors="replace"
         )
         self.device.screenshot("demo_%s_complete" % gesture)
@@ -3174,7 +3203,7 @@ class OpticalRig:
                 if gesture == "cheek" else "android-camera-long-blink",
             ),
         }
-        (self.outdir / "physical-demo.json").write_text(
+        (self.outdir / ("physical-demo-%s.json" % gesture)).write_text(
             json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         self.pass_(
@@ -3563,19 +3592,35 @@ class OpticalRig:
                 )
             ),
         ]
-        report += ["","## Stimulus results",""]
-        demo_path = self.outdir / "physical-demo.json"
-        if demo_path.exists():
+        report += ["", "## Normal-use functional sessions", ""]
+        demos = []
+        for gesture in ("blink", "cheek"):
+            demo_path = self.outdir / ("physical-demo-%s.json" % gesture)
+            if not demo_path.exists():
+                continue
             try:
-                demo = json.loads(demo_path.read_text(encoding="utf-8"))
-                report += [
-                    "- Physical demo: `%s`" % demo.get("gesture", "unknown"),
-                    "- Composed message: `%s`" % demo.get("message", ""),
-                    "- Camera activations: `%s`" % demo.get("physical_activations", "unknown"),
-                    "",
-                ]
+                demos.append(json.loads(demo_path.read_text(encoding="utf-8")))
             except (OSError, ValueError):
                 pass
+        if not demos:
+            report.append("No complete normal-use session recorded.")
+        else:
+            for demo in demos:
+                report.append(
+                    "- `%s`: composed `%s`, then selected Speak through %s camera activations"
+                    % (
+                        demo.get("gesture", "unknown"),
+                        demo.get("message", ""),
+                        demo.get("physical_activations", "unknown"),
+                    )
+                )
+        report += [
+            "",
+            "Normal-use sessions run before repeated detector sequences. A failure here stops the full suite before stress testing.",
+            "",
+            "## Repeated detector and stress sequences",
+            "",
+        ]
         if not self.results:
             report.append("No stimulus cases completed.")
         else:
@@ -3622,6 +3667,8 @@ class OpticalRig:
         report += [
             "## Interpretation",
             "",
+            "- Functional confidence comes first from two complete board sessions: compose a request and invoke Speak once with long blink and once with cheek twitch.",
+            "- Repeated short sequences are detector stress checks and are reported separately; they do not substitute for a normal-use session.",
             "- `no_activate` cases are automated false-positive checks.",
             "- Deterministic blink cases hold real open/closed frames for known durations and enforce missed/duplicate activation counts.",
             "- Imported cheek calibration trials first exercise native personalization, then enforce runtime missed/duplicate activation counts.",
@@ -3783,7 +3830,7 @@ class OpticalRig:
                     if not self.run_physical_demo(
                         session_gesture, manifest, source_by_id
                     ):
-                        (self.outdir / "demo-e2e.log").write_text(
+                        (self.outdir / ("demo-e2e-%s.log" % session_gesture)).write_text(
                             self.e2e_log(), encoding="utf-8", errors="replace"
                         )
                         self.write_report(calibration)
@@ -3852,6 +3899,9 @@ class OpticalRig:
                 return 1 if blocking else 0
             self.guard("before-calibration")
             self.clear_optical_camera_log()
+            if not self.install_demo_profile():
+                self.write_report(None)
+                return 2
             if not self.open_camera_setup("blink"):
                 self.add("P0","Could not open camera setup",
                          "Automatic Settings -> Camera setup navigation failed.")
@@ -3897,21 +3947,25 @@ class OpticalRig:
             if not self.camera_setup_to_board():
                 self.write_report(calibration); return 2
             self.device.dump_prefs()
+            self.clear_optical_camera_log()
             if not self.verify_runtime_camera_selection():
                 self.write_report(calibration); return 2
 
-            for case in manifest.get("blink_cases",[]):
-                c=dict(case); c["gesture"]="blink"
-                self.play_case(c,source_by_id)
-            for case in manifest.get("negative_cases",[]):
-                c=dict(case); c["gesture"]="blink"
-                self.play_case(c,source_by_id)
+            print("==> FUNCTIONAL SESSION 1/2: normal long-blink demo")
+            if not self.run_physical_demo("blink", manifest, source_by_id):
+                (self.outdir / "demo-e2e-blink.log").write_text(
+                    self.e2e_log(), encoding="utf-8", errors="replace"
+                )
+                self.write_report(calibration)
+                return 2
 
             if self.args.with_local_cheek:
                 local_cases=self.load_local_cheek_cases()
                 if not local_cases:
-                    self.add("P2","No local cheek calibration stimulus",
+                    self.add("P0","No local cheek calibration stimulus",
                              "Run scripts/import-cheek-calibration.py <zip> first.")
+                    self.write_report(calibration)
+                    return 2
                 else:
                     self.guard("before-cheek")
                     if self.open_camera_setup("cheek"):
@@ -3937,6 +3991,21 @@ class OpticalRig:
                                 ],
                             )
                         if self.camera_setup_to_board():
+                            self.clear_optical_camera_log()
+                            if not self.verify_runtime_camera_selection():
+                                self.write_report(calibration)
+                                return 2
+                            print("==> FUNCTIONAL SESSION 2/2: normal cheek-twitch demo")
+                            if not self.run_physical_demo(
+                                "cheek", manifest, source_by_id
+                            ):
+                                (self.outdir / "demo-e2e-cheek.log").write_text(
+                                    self.e2e_log(), encoding="utf-8", errors="replace"
+                                )
+                                self.write_report(calibration)
+                                return 2
+
+                            print("==> STRESS: repeated cheek detector sequences")
                             runtime_cases = list(local_cases)
                             neutral = next(
                                 (c for c in local_cases if c.get("expect") == "no_activate"),
@@ -3948,9 +4017,29 @@ class OpticalRig:
                                 runtime_cases.append(after)
                             for case in runtime_cases:
                                 self.play_case(case)
+                        else:
+                            self.write_report(calibration)
+                            return 2
                     else:
                         self.add("P0","Could not switch to cheek mode",
                                  "Camera setup did not expose Cheek twitch.")
+                        self.write_report(calibration)
+                        return 2
+
+            print("==> STRESS: repeated blink and false-positive sequences")
+            if self.args.with_local_cheek:
+                if not self.open_camera_setup("blink"):
+                    self.write_report(calibration)
+                    return 2
+                if not self.camera_setup_to_board():
+                    self.write_report(calibration)
+                    return 2
+            for case in manifest.get("blink_cases",[]):
+                c=dict(case); c["gesture"]="blink"
+                self.play_case(c,source_by_id)
+            for case in manifest.get("negative_cases",[]):
+                c=dict(case); c["gesture"]="blink"
+                self.play_case(c,source_by_id)
 
             self.write_report(calibration)
             blocking=[f for f in self.findings if f["priority"] in ("P0","P1")]
