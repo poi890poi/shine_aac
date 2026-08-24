@@ -117,6 +117,7 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertGreaterEqual(len(script), 20)
         self.assertEqual(4, sum(step["kind"] == "speak" for step in script))
         self.assertTrue(any(step["kind"] == "undo" for step in script))
+        self.assertTrue(any(step["kind"] == "append_wrong_dynamic" for step in script))
         self.assertTrue(any(step["kind"] == "open_category" for step in script))
         self.assertTrue(any(step["kind"] == "close_category" for step in script))
 
@@ -224,6 +225,20 @@ class OpticalOracleTest(unittest.TestCase):
                 "row-column", RIG.scan_mode_from_settings_xml(path)
             )
 
+    def test_reads_native_scan_mode_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.xml"
+            path.write_text(
+                '<hierarchy><node text="掃描模式" clickable="false" '
+                'bounds="[216,304][400,374]" />'
+                '<node text="先列後格" clickable="false" '
+                'bounds="[216,374][376,436]" /></hierarchy>',
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                "row-column", RIG.scan_mode_from_settings_xml(path)
+            )
+
     def test_scan_mode_reader_ignores_offscreen_webview_values(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "settings.xml"
@@ -246,6 +261,20 @@ class OpticalOracleTest(unittest.TestCase):
                 'bounds="[66,853][249,913]" />'
                 '<node text="相機動作" clickable="true" '
                 'bounds="[66,931][1014,1078]" /></hierarchy>',
+                encoding="utf-8",
+            )
+            label = RIG.switch_input_label_from_settings_xml(path)
+            self.assertEqual("相機動作", label)
+            self.assertTrue(RIG.is_camera_switch_input_label(label))
+
+    def test_reads_native_camera_input_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.xml"
+            path.write_text(
+                '<hierarchy><node text="開關輸入" clickable="false" '
+                'bounds="[216,304][400,374]" />'
+                '<node text="相機動作" clickable="false" '
+                'bounds="[216,374][376,436]" /></hierarchy>',
                 encoding="utf-8",
             )
             label = RIG.switch_input_label_from_settings_xml(path)

@@ -45,6 +45,7 @@ from optical_stimulus import (
 ROOT = Path.cwd()
 PACKAGE = "org.shineaac.app"
 CAMERA_ACTIVITY_FRAGMENT = "CameraSwitchCalibrationActivity"
+SETTINGS_ACTIVITY_FRAGMENT = "SettingsActivity"
 SOURCES_PATH = ROOT / "testdata/optical-rig/sources.json"
 DOWNLOADED = ROOT / "testdata/optical-rig/downloaded"
 LOCAL_ROOT = ROOT / "testdata/optical-rig/local"
@@ -77,12 +78,11 @@ def board_phase_from_xml(xml_path):
 
 
 def scan_mode_from_settings_xml(xml_path):
-    """Read the selected scan mode from the visible HTML select value.
+    """Read the selected scan mode from legacy or native Settings.
 
-    UIAutomator exposes a WebView ``select`` as a clickable node whose text is
-    the current value.  Tapping the separate label does not open Android's
-    option dialog on every WebView/layout, so the visible value itself is the
-    stable, non-mutating oracle.
+    The legacy WebView exposes the selected value as clickable. AndroidX
+    Preference exposes the same exact value as a non-clickable summary inside
+    a clickable row, so exact localized value matching is the stable oracle.
     """
     labels = {
         "Rows, then columns": "row-column",
@@ -99,7 +99,7 @@ def scan_mode_from_settings_xml(xml_path):
         if attributes.get("bounds") == "[0,0][0,0]":
             continue
         mode = labels.get(attributes.get("text", "").strip())
-        if mode and attributes.get("clickable") == "true":
+        if mode:
             return mode
     return None
 
@@ -134,7 +134,7 @@ def switch_input_label_from_settings_xml(xml_path):
         if attributes.get("bounds") == "[0,0][0,0]":
             continue
         label = attributes.get("text", "").strip()
-        if label in labels and attributes.get("clickable") == "true":
+        if label in labels:
             return label
     return None
 
@@ -652,7 +652,7 @@ PHYSICAL_NORMAL_USE_SCRIPT = (
     {"kind": "speak", "concept": "speak request 2", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
     {"kind": "clear", "concept": "clear request 2", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
     {"kind": "append", "concept": "pain", "labels": ("痛", "疼痛", "Pain"), "message": "痛"},
-    {"kind": "append", "concept": "wrong choice", "labels": ("喝水", "飲水", "Drink water", "Water"), "message": "痛喝水"},
+    {"kind": "append_wrong_dynamic", "concept": "wrong choice"},
     {"kind": "undo", "concept": "correct wrong choice", "labels": ("復原", "撤銷", "Undo"), "message": "痛"},
     {"kind": "append", "concept": "help after correction", "labels": ("幫忙", "幫我", "Help"), "message": "痛幫忙"},
     {"kind": "speak", "concept": "speak corrected request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
@@ -1533,7 +1533,7 @@ class OpticalRig:
     <boolean name="cameraSwitch" value="true" />
     <float name="scanIntervalMs" value="4000.0" />
     <float name="transitionPauseMs" value="0.0" />
-    <float name="firstCellPauseMs" value="4000.0" />
+    <float name="firstCellPauseMs" value="8000.0" />
     <float name="inputLatencyCompensationMs" value="250.0" />
 </map>
 """
@@ -2201,6 +2201,13 @@ class OpticalRig:
 
     def select_runtime_optical_profile(self):
         """Ensure a real camera-gesture input option is selected in Settings."""
+        first_xml = self.device.ui_dump("rig_switch_input_root")
+        if not switch_input_label_from_settings_xml(first_xml):
+            section = self.device.find_node(
+                first_xml, ["input", "輸入"], visible_only=True
+            )
+            if section and self.device.tap_node(section):
+                time.sleep(0.6)
         for attempt in range(7):
             xml = self.device.ui_dump(
                 "rig_switch_input_nav_%02d" % attempt
@@ -2265,6 +2272,19 @@ class OpticalRig:
         """Read, without changing, the real scan mode needed by the UI oracle."""
         xml = self.device.ui_dump("rig_scan_mode")
         self.scan_mode = scan_mode_from_settings_xml(xml)
+        opened_native_section = False
+        if not self.scan_mode:
+            section = self.device.find_node(
+                xml, ["scanning", "掃描"], visible_only=True
+            )
+            if section and self.device.tap_node(section):
+                opened_native_section = True
+                time.sleep(0.6)
+                xml = self.device.ui_dump("rig_scan_mode_section")
+                self.scan_mode = scan_mode_from_settings_xml(xml)
+        if opened_native_section:
+            self.device.shell("input", "keyevent", "4", check=False)
+            time.sleep(0.5)
         if not self.scan_mode:
             self.add(
                 "P0", "Unknown scan mode",
@@ -2277,6 +2297,19 @@ class OpticalRig:
 
     def save_settings_to_board(self):
         """Save the currently visible Settings draft through the real UI."""
+        if SETTINGS_ACTIVITY_FRAGMENT in self.device.top_activity():
+            for _ in range(3):
+                self.device.shell("input", "keyevent", "4", check=False)
+                time.sleep(0.7)
+                xml = self.device.ui_dump("rig_native_settings_back")
+                if self.device.is_board_ui(xml):
+                    return True
+            self.add(
+                "P0", "Could not return to board",
+                "Native Settings Back navigation did not return to the board.",
+                ["device/ui/rig_native_settings_back.xml"],
+            )
+            return False
         saved = False
         for attempt in range(6):
             xml = self.device.ui_dump("rig_save_nav_%02d" % attempt)
@@ -2950,14 +2983,21 @@ class OpticalRig:
             time.sleep(0.25)
         return None
 
-    def demo_activate(self, case, source_by_id, step_label, report_miss=True):
+    def demo_activate(
+        self, case, source_by_id, step_label, report_miss=True,
+        activation_count_before=None,
+    ):
         """Perform one normal optical activation without resetting board state."""
         gesture = case.get("gesture", "blink")
         source_name = (
             "android-camera-cheek-twitch"
             if gesture == "cheek" else "android-camera-long-blink"
         )
-        before = e2e_input_count(self.e2e_log(), "activate", source_name)
+        before = (
+            activation_count_before
+            if activation_count_before is not None
+            else e2e_input_count(self.e2e_log(), "activate", source_name)
+        )
         started_at = time.time()
         if "frames" in case:
             token = self.host.set_state(
@@ -3041,6 +3081,16 @@ class OpticalRig:
         self, case, source_by_id, step_label, target_wait=None, attempts=3
     ):
         for attempt in range(1, attempts + 1):
+            activation_count_before = None
+            if target_wait:
+                source_name = (
+                    "android-camera-cheek-twitch"
+                    if case.get("gesture", "blink") == "cheek"
+                    else "android-camera-long-blink"
+                )
+                activation_count_before = e2e_input_count(
+                    self.e2e_log(), "activate", source_name
+                )
             if target_wait and not target_wait():
                 self.demo_steps.append({
                     "step": "%s ATTEMPT %d" % (step_label, attempt),
@@ -3058,6 +3108,7 @@ class OpticalRig:
                 case, source_by_id,
                 "%s ATTEMPT %d" % (step_label, attempt),
                 report_miss=False,
+                activation_count_before=activation_count_before,
             ):
                 if attempt > 1:
                     gesture = case.get("gesture", "blink")
@@ -3132,8 +3183,8 @@ class OpticalRig:
         def wait_cell():
             if cell_index == 0:
                 return bool(self.wait_demo_state(
-                    row_index=row_index, cell_index=0, timeout=25.0,
-                    not_before_epoch_s=time.time(),
+                    stage="FirstCell", row_index=row_index, cell_index=0,
+                    timeout=35.0, not_before_epoch_s=time.time(),
                 ))
             return bool(self.wait_demo_state(
                 stage="Cells", row_index=row_index,
@@ -3203,12 +3254,82 @@ class OpticalRig:
         message = initial_state.get("message", "")
         spoken_messages = []
         selections = []
+        if message:
+            normalize_started_at = time.time()
+            matched_label = self.demo_select_label(
+                ("清除", "清空", "Clear", "CLR"), case, source_by_id
+            )
+            if not matched_label:
+                return False
+            cleared = self.wait_demo_state(
+                message="", timeout=8.0,
+                not_before_epoch_s=normalize_started_at,
+            )
+            if not cleared:
+                self.add(
+                    "P1", "Extended demo could not clear retained text",
+                    "Normal-use setup started with %r." % message,
+                )
+                return False
+            selections.append({
+                "index": 0,
+                "kind": "clear",
+                "concept": "clear retained message",
+                "visible_label": matched_label,
+            })
+            message = ""
+            if not self.demo_activate_with_retries(
+                case, source_by_id, "RELEASE INITIAL CLEAR"
+            ):
+                return False
+        current_state = latest_e2e_state(self.e2e_log()) or {}
+        if not semantic_board_target(current_state, ("幫忙", "幫我")):
+            if not semantic_board_target(current_state, ("注音", "Zhuyin")):
+                self.add(
+                    "P0", "Demo Chinese board unavailable",
+                    "The current board exposed neither the Chinese help item nor a Zhuyin return control.",
+                )
+                return False
+            matched_label = self.demo_select_label(
+                ("注音", "Zhuyin"), case, source_by_id
+            )
+            if not matched_label:
+                return False
+            if not self.demo_activate_with_retries(
+                case, source_by_id, "RELEASE INITIAL ZHUYIN"
+            ):
+                return False
+            if not self.wait_demo_semantic_available(("幫忙", "幫我")):
+                self.add(
+                    "P1", "Demo could not return to Chinese board",
+                    "Selecting the visible Zhuyin control did not reveal the Chinese help item.",
+                )
+                return False
+            selections.append({
+                "index": -1,
+                "kind": "close_category",
+                "concept": "normalize to Zhuyin",
+                "visible_label": matched_label,
+            })
         for index, step in enumerate(PHYSICAL_NORMAL_USE_SCRIPT, 1):
             before_message = message
             selected_at = time.time()
-            matched_label = self.demo_select_label(
-                step["labels"], case, source_by_id
-            )
+            labels = step.get("labels")
+            if step["kind"] == "append_wrong_dynamic":
+                state = latest_e2e_state(self.e2e_log()) or {}
+                labels = next((
+                    (value,)
+                    for row in state.get("rows", [])[:4]
+                    for value in row
+                    if value and value not in {"復原", "撤銷", "Undo"}
+                ), None)
+                if not labels:
+                    self.add(
+                        "P0", "Demo dynamic suggestion unavailable",
+                        "No current non-function suggestion could exercise Undo.",
+                    )
+                    return False
+            matched_label = self.demo_select_label(labels, case, source_by_id)
             if not matched_label:
                 return False
             selections.append({
@@ -3232,7 +3353,7 @@ class OpticalRig:
                     )
                     return False
                 message = state.get("message", "")
-            elif step["kind"] == "append_dynamic":
+            elif step["kind"] in ("append_dynamic", "append_wrong_dynamic"):
                 state = self.wait_demo_message_change(
                     before_message, selected_at, timeout=8.0
                 )
@@ -3243,6 +3364,16 @@ class OpticalRig:
                     )
                     return False
                 message = state.get("message", "")
+                if (
+                    step["kind"] == "append_dynamic" and
+                    message != before_message + matched_label.lower()
+                ):
+                    self.add(
+                        "P1", "Extended demo selected the wrong dynamic cell",
+                        "%s expected %r but produced %r"
+                        % (step["concept"], before_message + matched_label.lower(), message),
+                    )
+                    return False
             else:
                 current = latest_e2e_state(self.e2e_log()) or {}
                 message = current.get("message", message)
