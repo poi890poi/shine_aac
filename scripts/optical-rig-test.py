@@ -3239,7 +3239,9 @@ class OpticalRig:
             return self.ensure_stimulus_visible(token, "demo-rest-" + step_label)
         source = source_by_id[case["source"]]
         return bool(self.show_video_still(
-            source, float(case.get("rest_at", case.get("start", 0.0))),
+            source, float(case.get(
+                "rest_at", source.get("rest_at_s", case.get("start", 0.0))
+            )),
             "DEMO REST " + step_label
         ))
 

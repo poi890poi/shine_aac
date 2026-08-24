@@ -483,6 +483,9 @@ class OpenCvFramebufferTest(unittest.TestCase):
             )
         )
         cases = {case["id"]: case for case in manifest["blink_cases"]}
+        sources = {source["id"]: source for source in manifest["sources"]}
+        self.assertEqual(0.75, sources["commons_blinking"]["rest_at_s"])
+        self.assertEqual(0.0, sources["commons_smiling"]["rest_at_s"])
         self.assertEqual(
             [0.75, 0.25, 0.75, 2.0, 0.75],
             [item["start"] for item in cases["blink_two_gestures_recovery"]["stills"]],

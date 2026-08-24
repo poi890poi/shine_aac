@@ -8,6 +8,7 @@
       "page": "https://commons.wikimedia.org/wiki/File:20140529_-_Blinking.webm",
       "sha1": "faab2e7a395c4113876f984549312abe3e3c39c9",
       "duration_s": 5.833,
+      "rest_at_s": 0.75,
       "license": "CC BY-SA 3.0",
       "author": "Cl\u00e9ment Bucco-Lechat",
       "purpose": "natural blink negative control and source frames for deterministic short/long blink timing"
@@ -19,6 +20,7 @@
       "page": "https://commons.wikimedia.org/wiki/File:20140529_-_Smiling.webm",
       "sha1": "7189d1550bd079a6c992f50722c5437edfdc3292",
       "duration_s": 3.333,
+      "rest_at_s": 0.0,
       "license": "CC BY-SA 3.0",
       "author": "Cl\u00e9ment Bucco-Lechat",
       "purpose": "non-blink/non-cheek negative facial-motion control"
