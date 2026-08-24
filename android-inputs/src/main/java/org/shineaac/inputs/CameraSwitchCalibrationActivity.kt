@@ -151,6 +151,13 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var cameraPermissionRequested = false
     @Volatile private var activityResumed = false
 
+    override fun attachBaseContext(newBase: Context) {
+        val configuration = Configuration(newBase.resources.configuration).apply {
+            fontScale = cameraSetupFontScale(fontScale)
+        }
+        super.attachBaseContext(newBase.createConfigurationContext(configuration))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -1996,3 +2003,12 @@ class CameraSwitchCalibrationActivity : Activity() {
             min(maxValue, max(minValue, value))
     }
 }
+
+internal const val MaxCameraSetupFontScale = 1.2f
+
+internal fun cameraSetupFontScale(systemFontScale: Float): Float =
+    if (systemFontScale.isFinite() && systemFontScale > 0f) {
+        systemFontScale.coerceAtMost(MaxCameraSetupFontScale)
+    } else {
+        1f
+    }
