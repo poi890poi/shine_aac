@@ -20,6 +20,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.usb.UsbDevice
 import android.media.Image
 import android.media.ImageReader
 import android.net.Uri
@@ -55,6 +56,10 @@ import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.jiangdg.usb.USBMonitor
+import com.jiangdg.uvc.IFrameCallback
+import com.jiangdg.uvc.UVCCamera
+import java.nio.ByteBuffer
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.max
@@ -84,6 +89,14 @@ class CameraSwitchCalibrationActivity : Activity() {
     private var selectedCamera: CameraSwitchCamera? = null
     private var preferredCameraId: String? = null
     private var preferredLensFacing: Int? = null
+    private var preferredCameraSource: CameraSwitchCameraSource? = null
+    private var usbMonitor: USBMonitor? = null
+    private var uvcCamera: UVCCamera? = null
+    private var uvcPreviewSurface: Surface? = null
+    private var activeUvcDeviceName: String? = null
+    @Volatile private var uvcFrameQueued = false
+    @Volatile private var uvcFrameWidth = 0
+    @Volatile private var uvcFrameHeight = 0
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
     private var activeCameraMirrored = true
@@ -174,6 +187,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         calibratedZoomRatio = savedSettings.zoomRatio
         preferredCameraId = savedSettings.cameraId
         preferredLensFacing = savedSettings.cameraLensFacing
+        preferredCameraSource = savedSettings.cameraSource
         detectionParameters = savedSettings.detectionParameters
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         detector = FaceDetection.getClient(
@@ -1044,6 +1058,12 @@ class CameraSwitchCalibrationActivity : Activity() {
         calibratedZoomRatio = (calibratedZoomRatio + delta).coerceIn(1.0f, min(maxZoom, MaxSavedZoomRatio))
         CameraSwitchPreferences.saveZoom(this, calibratedZoomRatio)
         applyZoomToRepeatingRequest()
+        if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
+            updatePreviewTransform(
+                textureView?.width ?: 0,
+                textureView?.height ?: 0
+            )
+        }
         updateZoomUi()
         statusView?.text = tr("Camera zoom updated.", "已更新相機縮放。")
         metricsView?.text = tr(
@@ -1116,6 +1136,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         if (!activityResumed) return
         if (
             cameraDevice != null ||
+            uvcCamera != null ||
             cameraOpening ||
             checkSelfPermission(Manifest.permission.CAMERA) !=
                 PackageManager.PERMISSION_GRANTED
@@ -1128,19 +1149,6 @@ class CameraSwitchCalibrationActivity : Activity() {
         cameraThread =
             HandlerThread("ShineCameraCalibration").also { it.start() }
         cameraHandler = Handler(cameraThread!!.looper)
-        reader = ImageReader.newInstance(
-            analysisSize.width,
-            analysisSize.height,
-            android.graphics.ImageFormat.YUV_420_888,
-            2
-        ).apply {
-            setOnImageAvailableListener({ imageReader ->
-                val image = imageReader.acquireLatestImage()
-                    ?: return@setOnImageAvailableListener
-                analyze(image)
-            }, cameraHandler)
-        }
-
         val manager =
             getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val providerFuture = ProcessCameraProvider.getInstance(this)
@@ -1166,9 +1174,11 @@ class CameraSwitchCalibrationActivity : Activity() {
                         .firstOrNull()
                         ?.let { Camera2CameraInfo.from(it).cameraId }
 
-                val refreshed =
+                val camera2Cameras =
                     CameraSwitchCameraSelection.availableCameras(manager)
                         .filter { it.cameraId in cameraXIds }
+                val refreshed = camera2Cameras +
+                    UvcCameraDiscovery.availableCameras(this)
                 availableCameras = refreshed
                 selectedCamera = CameraSwitchCameraSelection.choose(
                     cameras = refreshed,
@@ -1178,7 +1188,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                             ?: defaultFrontId,
                     preferredLensFacing =
                         preferredLensFacing
-                            ?: CameraCharacteristics.LENS_FACING_FRONT
+                            ?: CameraCharacteristics.LENS_FACING_FRONT,
+                    preferredSource = preferredCameraSource
                 )
                 updateCameraUi()
                 selectedCamera?.cameraId
@@ -1197,16 +1208,32 @@ class CameraSwitchCalibrationActivity : Activity() {
             val lensFacing = selectedCamera?.lensFacing
             preferredCameraId = cameraId
             preferredLensFacing = lensFacing
+            preferredCameraSource = selectedCamera?.source
             CameraSwitchPreferences.saveCameraSelection(
                 this,
                 cameraId,
-                lensFacing
+                lensFacing,
+                selectedCamera?.source ?: CameraSwitchCameraSource.Camera2
             )
             Log.i(
                 CameraSetupLogTag,
                 "OPTICAL_CAMERA setupId=$cameraId " +
-                    "facing=${cameraFacingLogName(lensFacing)} selector=saved-or-default"
+                    "facing=${cameraFacingLogName(lensFacing)} " +
+                    "selector=${selectedCamera?.source?.storedValue ?: "camera2"}"
             )
+
+            if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
+                activeCameraMirrored = false
+                analysisRotationDegrees = 0
+                maxCameraZoomRatio = MaxSavedZoomRatio
+                updateZoomUi()
+                updatePreviewTransform(
+                    textureView?.width ?: 0,
+                    textureView?.height ?: 0
+                )
+                startUvcCalibration(cameraId, openGeneration, texture)
+                return@addListener
+            }
 
             val characteristics =
                 manager.getCameraCharacteristics(cameraId)
@@ -1240,6 +1267,19 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
             updateZoomUi()
             val fpsRange = targetFpsRange(manager, cameraId)
+
+            reader = ImageReader.newInstance(
+                analysisSize.width,
+                analysisSize.height,
+                android.graphics.ImageFormat.YUV_420_888,
+                2
+            ).apply {
+                setOnImageAvailableListener({ imageReader ->
+                    val image = imageReader.acquireLatestImage()
+                        ?: return@setOnImageAvailableListener
+                    analyze(image)
+                }, cameraHandler)
+            }
 
             try {
                 manager.openCamera(
@@ -1303,6 +1343,394 @@ class CameraSwitchCalibrationActivity : Activity() {
         }, Executor { command -> runOnUiThread(command) })
     }
 
+    private fun startUvcCalibration(
+        cameraId: String,
+        openGeneration: Int,
+        previewTexture: android.graphics.SurfaceTexture
+    ) {
+        val monitor = USBMonitor.getInstance(applicationContext).apply {
+            setOnDeviceConnectListener(object : USBMonitor.OnDeviceConnectListener {
+                override fun onAttach(device: UsbDevice) {
+                    if (openGeneration != cameraOpenGeneration ||
+                        !activityResumed || uvcCamera != null ||
+                        !UvcCameraDiscovery.isUvcDevice(device)
+                    ) return
+                    preferredCameraId = UvcCameraDiscovery.cameraId(device)
+                    usbMonitor?.requestPermission(device)
+                }
+
+                override fun onConnect(
+                    device: UsbDevice,
+                    ctrlBlock: USBMonitor.UsbControlBlock,
+                    createNew: Boolean
+                ) {
+                    if (openGeneration != cameraOpenGeneration ||
+                        !activityResumed || !UvcCameraDiscovery.isUvcDevice(device)
+                    ) return
+                    openUvcCalibration(
+                        device,
+                        ctrlBlock,
+                        openGeneration,
+                        previewTexture
+                    )
+                }
+
+                override fun onDisconnect(
+                    device: UsbDevice,
+                    ctrlBlock: USBMonitor.UsbControlBlock
+                ) {
+                    if (device.deviceName != activeUvcDeviceName) return
+                    closeUvcCalibrationStream()
+                    runOnUiThread {
+                        statusView?.text = tr(
+                            "USB camera disconnected.",
+                            "USB 相機已中斷連線。"
+                        )
+                    }
+                }
+
+                override fun onDetach(device: UsbDevice) = Unit
+
+                override fun onCancel(device: UsbDevice) {
+                    if (openGeneration != cameraOpenGeneration) return
+                    cameraOpening = false
+                    runOnUiThread {
+                        statusView?.text = tr(
+                            "USB camera permission was not granted.",
+                            "未授予 USB 相機權限。"
+                        )
+                    }
+                }
+            })
+        }
+        usbMonitor = monitor
+        try {
+            monitor.register()
+            val device = UvcCameraDiscovery.findDevice(this, cameraId)
+            if (device == null) {
+                cameraOpening = false
+                statusView?.text = tr(
+                    "USB camera unavailable.",
+                    "找不到 USB 相機。"
+                )
+            } else {
+                statusView?.text = tr(
+                    "Waiting for USB camera permission…",
+                    "正在等待 USB 相機權限…"
+                )
+                if (monitor.requestPermission(device)) {
+                    cameraOpening = false
+                    statusView?.text = tr(
+                        "USB camera permission request failed.",
+                        "USB 相機權限要求失敗。"
+                    )
+                }
+            }
+        } catch (error: Exception) {
+            cameraOpening = false
+            Log.w(CameraSetupLogTag, "UVC monitor failed", error)
+            statusView?.text = tr(
+                "USB camera setup failed.",
+                "USB 相機設定失敗。"
+            )
+        }
+    }
+
+    private fun openUvcCalibration(
+        device: UsbDevice,
+        ctrlBlock: USBMonitor.UsbControlBlock,
+        openGeneration: Int,
+        previewTexture: android.graphics.SurfaceTexture
+    ) {
+        closeUvcCalibrationStream()
+        val camera = UVCCamera()
+        try {
+            camera.open(ctrlBlock)
+            val selectedSize = configureUvcPreview(camera)
+            previewTexture.setDefaultBufferSize(
+                selectedSize.width,
+                selectedSize.height
+            )
+            val surface = Surface(previewTexture)
+            uvcPreviewSurface = surface
+            uvcFrameWidth = selectedSize.width
+            uvcFrameHeight = selectedSize.height
+            activeUvcDeviceName = device.deviceName
+            camera.setPreviewDisplay(surface)
+            camera.setFrameCallback(
+                IFrameCallback { frame ->
+                    queueUvcCalibrationFrame(frame, openGeneration)
+                },
+                UVCCamera.PIXEL_FORMAT_NV21
+            )
+            camera.startPreview()
+            uvcCamera = camera
+            cameraOpening = false
+            runOnUiThread {
+                updatePreviewTransform(
+                    textureView?.width ?: 0,
+                    textureView?.height ?: 0
+                )
+                statusView?.text = tr(
+                    "USB camera connected. Center your face, then tap Start setup.",
+                    "USB 相機已連線。將臉置於中央，再按「開始設定」。"
+                )
+            }
+            Log.i(
+                CameraSetupLogTag,
+                "OPTICAL_CAMERA setupId=${UvcCameraDiscovery.cameraId(device)} " +
+                    "facing=external selector=usb-uvc " +
+                    "size=${selectedSize.width}x${selectedSize.height}"
+            )
+        } catch (error: Exception) {
+            cameraOpening = false
+            Log.w(CameraSetupLogTag, "UVC open failed", error)
+            runCatching { camera.destroy() }
+            closeUvcCalibrationStream()
+            runOnUiThread {
+                statusView?.text = tr(
+                    "USB camera could not be opened.",
+                    "無法開啟 USB 相機。"
+                )
+            }
+        }
+    }
+
+    private fun configureUvcPreview(camera: UVCCamera): UvcFrameSize {
+        val candidates = UvcFrameSizeSelector.candidates(camera).ifEmpty {
+            listOf(
+                UvcFrameSize(640, 480, UVCCamera.FRAME_FORMAT_MJPEG),
+                UvcFrameSize(640, 480, UVCCamera.FRAME_FORMAT_YUYV)
+            )
+        }
+        var lastError: IllegalArgumentException? = null
+        for (candidate in candidates) {
+            try {
+                camera.setPreviewSize(
+                    candidate.width,
+                    candidate.height,
+                    candidate.frameFormat
+                )
+                return candidate
+            } catch (error: IllegalArgumentException) {
+                lastError = error
+            }
+        }
+        throw lastError ?: IllegalArgumentException("No UVC preview size")
+    }
+
+    private fun queueUvcCalibrationFrame(
+        frame: ByteBuffer,
+        frameGeneration: Int
+    ) {
+        if (frameGeneration != cameraOpenGeneration ||
+            !activityResumed || uvcFrameQueued
+        ) return
+        val width = uvcFrameWidth
+        val height = uvcFrameHeight
+        val expectedBytes = width * height * 3 / 2
+        if (width <= 0 || height <= 0 || frame.remaining() < expectedBytes) return
+        uvcFrameQueued = true
+        val bytes = ByteArray(expectedBytes)
+        frame.duplicate().apply { rewind() }.get(bytes)
+        val handler = cameraHandler
+        if (handler == null || !handler.post {
+                analyzeUvcCalibrationFrame(
+                    bytes,
+                    width,
+                    height,
+                    frameGeneration
+                )
+            }
+        ) {
+            uvcFrameQueued = false
+        }
+    }
+
+    private fun analyzeUvcCalibrationFrame(
+        bytes: ByteArray,
+        width: Int,
+        height: Int,
+        frameGeneration: Int
+    ) {
+        val now = System.currentTimeMillis()
+        val interval = when (selectedGesture) {
+            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
+            OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
+        }
+        if (frameGeneration != cameraOpenGeneration || !activityResumed ||
+            mlKitInFlight || now - lastFrameAt < interval
+        ) {
+            uvcFrameQueued = false
+            return
+        }
+        val bitmap = try {
+            Nv21Bitmaps.toBitmap(
+                bytes,
+                width,
+                height,
+                zoomRatio = calibratedZoomRatio
+            )
+        } catch (error: Exception) {
+            Log.w(CameraSetupLogTag, "UVC frame conversion failed", error)
+            uvcFrameQueued = false
+            return
+        }
+        mlKitInFlight = true
+        lastFrameAt = now
+        val imageWidth = bitmap.width
+        val imageHeight = bitmap.height
+        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+            analyzeUvcCheek(bitmap, now, imageWidth, imageHeight)
+            return
+        }
+        val activeDetector = detector
+        if (activeDetector == null) {
+            bitmap.recycle()
+            mlKitInFlight = false
+            uvcFrameQueued = false
+            return
+        }
+        activeDetector.process(InputImage.fromBitmap(bitmap, 0))
+            .addOnSuccessListener { faces ->
+                val face = faces.maxByOrNull {
+                    it.boundingBox.width() * it.boundingBox.height()
+                }
+                val signal = face?.blinkEyeSignal(detectionParameters)
+                val score = signal?.closedScore
+                if (signal != null) collectCalibrationSample(signal, now)
+                val previewBlink = signal?.let {
+                    collectPreviewBlinkDuration(it)
+                } ?: PreviewBlink.None
+                mainHandler?.post {
+                    overlayView?.setPixelDetection(
+                        face = face?.boundingBox,
+                        frameWidth = imageWidth,
+                        frameHeight = imageHeight,
+                        score = score,
+                        threshold = detectionParameters.closeThreshold,
+                        hasSignal = score != null,
+                        mirrorHorizontally = false
+                    )
+                    when (previewBlink) {
+                        PreviewBlink.Short -> {
+                            playShortCue()
+                            statusView?.text = tr(
+                                "Short blink detected.",
+                                "偵測到短眨眼。"
+                            )
+                        }
+                        PreviewBlink.Long -> {
+                            playLongAcceptedCue()
+                            statusView?.text = tr(
+                                "Long blink accepted. Current position works.",
+                                "長眨眼已接受。目前位置合適。"
+                            )
+                        }
+                        PreviewBlink.None -> Unit
+                    }
+                    updateMetrics(score)
+                }
+            }
+            .addOnFailureListener {
+                mainHandler?.post {
+                    metricsView?.text = tr(
+                        "ML Kit model unavailable or still downloading.",
+                        "辨識模型尚未提供，或仍在下載。"
+                    )
+                }
+            }
+            .addOnCompleteListener {
+                bitmap.recycle()
+                mlKitInFlight = false
+                uvcFrameQueued = false
+            }
+    }
+
+    private fun analyzeUvcCheek(
+        bitmap: android.graphics.Bitmap,
+        now: Long,
+        imageWidth: Int,
+        imageHeight: Int
+    ) {
+        val analyzer = cheekAnalyzer
+        try {
+            val observation = analyzer?.analyzeBitmapForCamera(bitmap, now)
+            val values = observation?.takeIf { it.usable }?.blendshapes
+            val defaultScore = values?.let { cheekDetector.observe(it) }
+            val score = values?.let { cheekModel?.score(it) } ?: defaultScore
+            val calibrationAccepted = values?.let {
+                processCheekCalibration(it, defaultScore)
+            } ?: false
+            var activated = calibrationAccepted
+            cheekClassifier.onScore(score, now).forEach { event ->
+                if (event is BinarySwitchClassifier.Event.Activated) {
+                    activated = true
+                    cheekPreviewActivations += 1
+                }
+            }
+            val warmupPercent = (cheekDetector.warmupProgress * 100f).toInt()
+            val threshold = cheekModel?.enterThreshold
+                ?: CheekTwitchDetector.DefaultEnterThreshold
+            mainHandler?.post {
+                overlayView?.setNormalizedDetection(
+                    face = observation?.normalizedBounds,
+                    landmarks = observation?.normalizedLandmarks,
+                    frameWidth = imageWidth,
+                    frameHeight = imageHeight,
+                    score = score,
+                    threshold = threshold,
+                    hasSignal = observation?.usable == true
+                )
+                if (activated) {
+                    playLongAcceptedCue()
+                    statusView?.text = tr(
+                        "Cheek twitch accepted. Current position works.",
+                        "臉頰抽動已接受。目前位置合適。"
+                    )
+                }
+                metricsView?.text = when {
+                    observation == null -> tr("Face not detected", "未偵測到臉部")
+                    !observation.usable -> tr("Adjust face position", "請調整臉部位置")
+                    !cheekDetector.ready -> tr(
+                        "Learning resting face $warmupPercent%",
+                        "正在學習放鬆表情 $warmupPercent%"
+                    )
+                    score == null -> tr("Learning resting face", "正在學習放鬆表情")
+                    else -> tr(
+                        "Cheek ${"%.2f".format(score)} / ${"%.2f".format(threshold)} | accepted $cheekPreviewActivations",
+                        "臉頰 ${"%.2f".format(score)} / ${"%.2f".format(threshold)}｜已接受 $cheekPreviewActivations"
+                    )
+                }
+            }
+        } catch (_: Exception) {
+            cheekClassifier.onScore(null, now)
+            mainHandler?.post {
+                metricsView?.text = tr(
+                    "Cheek analysis paused; keep your face centered.",
+                    "臉頰分析暫停；請保持臉部置中。"
+                )
+            }
+        } finally {
+            bitmap.recycle()
+            mlKitInFlight = false
+            uvcFrameQueued = false
+        }
+    }
+
+    private fun closeUvcCalibrationStream() {
+        val camera = uvcCamera
+        uvcCamera = null
+        activeUvcDeviceName = null
+        uvcFrameQueued = false
+        runCatching { camera?.setFrameCallback(null, 0) }
+        runCatching { camera?.destroy() }
+        uvcPreviewSurface?.release()
+        uvcPreviewSurface = null
+        uvcFrameWidth = 0
+        uvcFrameHeight = 0
+    }
+
     private fun createCameraSession(camera: CameraDevice, previewSurface: Surface, imageSurface: Surface, fpsRange: Range<Int>?) {
         val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
             addTarget(previewSurface)
@@ -1333,6 +1761,10 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun stopCamera() {
         cameraOpenGeneration += 1
         cameraOpening = false
+        closeUvcCalibrationStream()
+        val monitor = usbMonitor
+        usbMonitor = null
+        runCatching { monitor?.destroy() }
         cameraHandler?.removeCallbacksAndMessages(null)
         repeatingRequestBuilder = null
         session?.close()
@@ -1708,23 +2140,42 @@ class CameraSwitchCalibrationActivity : Activity() {
 
     private fun updatePreviewTransform(width: Int, height: Int) {
         val texture = textureView ?: return
+        val bufferWidth = if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
+            uvcFrameWidth.takeIf { it > 0 } ?: PreviewBufferWidth
+        } else PreviewBufferWidth
+        val bufferHeight = if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
+            uvcFrameHeight.takeIf { it > 0 } ?: PreviewBufferHeight
+        } else PreviewBufferHeight
         val scale = CameraPreviewGeometry.aspectFitScale(
             viewWidth = width,
             viewHeight = height,
-            bufferWidth = PreviewBufferWidth,
-            bufferHeight = PreviewBufferHeight,
+            bufferWidth = bufferWidth,
+            bufferHeight = bufferHeight,
             rotationDegrees = analysisRotationDegrees
         )
+        val previewZoom = if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
+            calibratedZoomRatio.coerceAtLeast(1f)
+        } else 1f
         texture.setTransform(
             Matrix().apply {
-                setScale(scale.x, scale.y, width / 2f, height / 2f)
+                setScale(
+                    scale.x * previewZoom,
+                    scale.y * previewZoom,
+                    width / 2f,
+                    height / 2f
+                )
             }
         )
     }
 
     private fun changeCamera() {
         if (!activityResumed || isFinishing || isDestroyed) return
-        val cameras = availableCameras
+        val cameras = (
+            availableCameras.filter {
+                it.source == CameraSwitchCameraSource.Camera2
+            } + UvcCameraDiscovery.availableCameras(this)
+        ).distinctBy { it.cameraId }
+        availableCameras = cameras
         if (cameras.isEmpty()) {
             stopCamera()
             startCamera()
@@ -1739,11 +2190,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         val next = cameras[nextIndex]
         preferredCameraId = next.cameraId
         preferredLensFacing = next.lensFacing
+        preferredCameraSource = next.source
         selectedCamera = next
         CameraSwitchPreferences.saveCameraSelection(
             this,
             next.cameraId,
-            next.lensFacing
+            next.lensFacing,
+            next.source
         )
         updateCameraUi()
         statusView?.text = tr(
@@ -1770,7 +2223,9 @@ class CameraSwitchCalibrationActivity : Activity() {
         val ordinal = availableCameras.indexOfFirst {
             it.cameraId == camera.cameraId
         }.coerceAtLeast(0) + 1
-        val kind = when (camera.lensFacing) {
+        val kind = if (camera.source == CameraSwitchCameraSource.Uvc) {
+            tr("USB", "USB")
+        } else when (camera.lensFacing) {
             CameraCharacteristics.LENS_FACING_FRONT ->
                 tr("Front", "前置")
             CameraCharacteristics.LENS_FACING_BACK ->

@@ -9,6 +9,7 @@ data class CameraSwitchSettings(
     val zoomRatio: Float = 1.6f,
     val cameraId: String? = null,
     val cameraLensFacing: Int? = null,
+    val cameraSource: CameraSwitchCameraSource? = null,
     val detectionParameters: BlinkDetectionParameters = BlinkDetectionParameters(),
     val cheekModel: CheekGestureModel? = null,
     val source: String = gesture.inputSource

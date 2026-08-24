@@ -2,15 +2,19 @@ package org.shineaac.inputs
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.PixelFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.usb.UsbDevice
+import android.media.ImageReader
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.util.Range
 import android.util.Size
+import android.view.Surface
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
@@ -26,6 +30,10 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.jiangdg.usb.USBMonitor
+import com.jiangdg.uvc.IFrameCallback
+import com.jiangdg.uvc.UVCCamera
+import java.nio.ByteBuffer
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -40,6 +48,15 @@ class CameraSwitchInputAdapter(
     private val mainExecutor = Executor { command -> mainHandler.post(command) }
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageAnalysis: ImageAnalysis? = null
+    private var usbMonitor: USBMonitor? = null
+    private var uvcCamera: UVCCamera? = null
+    private var uvcDrainReader: ImageReader? = null
+    private var uvcPreviewSurface: Surface? = null
+    private var selectedUvcCameraId: String? = null
+    private var activeUvcDeviceName: String? = null
+    @Volatile private var uvcFrameQueued = false
+    @Volatile private var uvcFrameWidth = 0
+    @Volatile private var uvcFrameHeight = 0
     private var analysisExecutor: ExecutorService? = null
     private var detector: FaceDetector? = null
     private var cheekAnalyzer: CheekFaceAnalyzer? = null
@@ -163,6 +180,7 @@ class CameraSwitchInputAdapter(
         }
         imageAnalysis = null
         cameraProvider = null
+        stopUvcCamera()
         detector?.close()
         detector = null
         cheekAnalyzer?.close()
@@ -176,6 +194,7 @@ class CameraSwitchInputAdapter(
         analysisExecutor?.shutdownNow()
         analysisExecutor = null
         mlKitInFlight = false
+        uvcFrameQueued = false
         activeFrameId = NoFrame
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
@@ -199,6 +218,10 @@ class CameraSwitchInputAdapter(
         try {
             val selectedCamera = selectedCamera(provider) ?: run {
                 sendStatus("cameraUnavailable", force = true)
+                return
+            }
+            if (selectedCamera.source == CameraSwitchCameraSource.Uvc) {
+                startUvcCamera(selectedCamera, bindGeneration)
                 return
             }
             activeCameraMirrored =
@@ -238,7 +261,7 @@ class CameraSwitchInputAdapter(
             imageAnalysis = analysis
             val camera = provider.bindToLifecycle(
                 lifecycleOwner,
-                selectedCamera.selector,
+                checkNotNull(selectedCamera.selector),
                 analysis
             )
             applyZoom(camera, settingsProvider().zoomRatio)
@@ -255,6 +278,300 @@ class CameraSwitchInputAdapter(
             imageAnalysis = null
             sendStatus("cameraStale", force = true)
         }
+    }
+
+    private fun startUvcCamera(
+        selectedCamera: SelectedCamera,
+        bindGeneration: Int
+    ) {
+        selectedUvcCameraId = selectedCamera.cameraId
+        activeCameraMirrored = false
+        val monitor = USBMonitor.getInstance(context.applicationContext).apply {
+            setOnDeviceConnectListener(object : USBMonitor.OnDeviceConnectListener {
+                override fun onAttach(device: UsbDevice) {
+                    if (bindGeneration != generation || !running ||
+                        !UvcCameraDiscovery.isUvcDevice(device) || uvcCamera != null
+                    ) return
+                    selectedUvcCameraId = UvcCameraDiscovery.cameraId(device)
+                    usbMonitor?.requestPermission(device)
+                }
+
+                override fun onConnect(
+                    device: UsbDevice,
+                    ctrlBlock: USBMonitor.UsbControlBlock,
+                    createNew: Boolean
+                ) {
+                    if (bindGeneration != generation || !running ||
+                        !UvcCameraDiscovery.isUvcDevice(device)
+                    ) return
+                    openUvcCamera(device, ctrlBlock, bindGeneration)
+                }
+
+                override fun onDisconnect(
+                    device: UsbDevice,
+                    ctrlBlock: USBMonitor.UsbControlBlock
+                ) {
+                    if (device.deviceName != activeUvcDeviceName) return
+                    closeUvcStream()
+                    if (bindGeneration == generation && running) {
+                        sendStatus("cameraStale", force = true)
+                    }
+                }
+
+                override fun onDetach(device: UsbDevice) = Unit
+
+                override fun onCancel(device: UsbDevice) {
+                    if (bindGeneration == generation && running) {
+                        sendStatus("usbPermissionDenied", force = true)
+                    }
+                }
+            })
+        }
+        usbMonitor = monitor
+        try {
+            monitor.register()
+            val device = UvcCameraDiscovery.findDevice(
+                context,
+                selectedUvcCameraId
+            )
+            if (device == null) {
+                sendStatus("cameraUnavailable", force = true)
+            } else if (monitor.requestPermission(device)) {
+                sendStatus("usbPermissionDenied", force = true)
+            } else {
+                sendStatus("usbPermission", force = true)
+            }
+        } catch (error: Exception) {
+            Log.w(Tag, "UVC monitor failed", error)
+            sendStatus("cameraStale", force = true)
+        }
+        scheduleWatchdog()
+    }
+
+    private fun openUvcCamera(
+        device: UsbDevice,
+        ctrlBlock: USBMonitor.UsbControlBlock,
+        openGeneration: Int
+    ) {
+        if (openGeneration != generation || !running) return
+        closeUvcStream()
+        val camera = UVCCamera()
+        try {
+            camera.open(ctrlBlock)
+            val selectedSize = configureUvcPreview(camera)
+            val drainReader = ImageReader.newInstance(
+                selectedSize.width,
+                selectedSize.height,
+                PixelFormat.RGBA_8888,
+                2
+            ).apply {
+                setOnImageAvailableListener({ reader ->
+                    reader.acquireLatestImage()?.close()
+                }, mainHandler)
+            }
+            val surface = drainReader.surface
+            uvcFrameWidth = selectedSize.width
+            uvcFrameHeight = selectedSize.height
+            uvcDrainReader = drainReader
+            uvcPreviewSurface = surface
+            activeUvcDeviceName = device.deviceName
+            camera.setPreviewDisplay(surface)
+            camera.setFrameCallback(
+                IFrameCallback { frame ->
+                    queueUvcFrame(frame, openGeneration)
+                },
+                UVCCamera.PIXEL_FORMAT_NV21
+            )
+            camera.startPreview()
+            uvcCamera = camera
+            lastImageReceivedAt = System.currentTimeMillis()
+            lastAnalysisCompletedAt = lastImageReceivedAt
+            Log.i(
+                Tag,
+                "OPTICAL_CAMERA runtimeId=${UvcCameraDiscovery.cameraId(device)} " +
+                    "facing=external selector=usb-uvc " +
+                    "size=${selectedSize.width}x${selectedSize.height}"
+            )
+            sendStatus("active", force = true)
+        } catch (error: Exception) {
+            Log.w(Tag, "UVC open failed", error)
+            runCatching { camera.destroy() }
+            closeUvcStream()
+            sendStatus("cameraStale", force = true)
+        }
+    }
+
+    private fun configureUvcPreview(camera: UVCCamera): UvcFrameSize {
+        val candidates = UvcFrameSizeSelector.candidates(camera).ifEmpty {
+            listOf(
+                UvcFrameSize(640, 480, UVCCamera.FRAME_FORMAT_MJPEG),
+                UvcFrameSize(640, 480, UVCCamera.FRAME_FORMAT_YUYV)
+            )
+        }
+        var lastError: IllegalArgumentException? = null
+        for (candidate in candidates) {
+            try {
+                camera.setPreviewSize(
+                    candidate.width,
+                    candidate.height,
+                    candidate.frameFormat
+                )
+                return candidate
+            } catch (error: IllegalArgumentException) {
+                lastError = error
+            }
+        }
+        throw lastError ?: IllegalArgumentException("No UVC preview size")
+    }
+
+    private fun queueUvcFrame(frame: ByteBuffer, frameGeneration: Int) {
+        if (frameGeneration != generation || !running) return
+        lastImageReceivedAt = System.currentTimeMillis()
+        if (uvcFrameQueued) return
+        val width = uvcFrameWidth
+        val height = uvcFrameHeight
+        val expectedBytes = width * height * 3 / 2
+        if (width <= 0 || height <= 0 || frame.remaining() < expectedBytes) return
+        uvcFrameQueued = true
+        val bytes = ByteArray(expectedBytes)
+        frame.duplicate().apply { rewind() }.get(bytes)
+        try {
+            analysisExecutor?.execute {
+                analyzeUvcFrame(bytes, width, height, frameGeneration)
+            } ?: run { uvcFrameQueued = false }
+        } catch (_: RuntimeException) {
+            uvcFrameQueued = false
+        }
+    }
+
+    private fun analyzeUvcFrame(
+        bytes: ByteArray,
+        width: Int,
+        height: Int,
+        frameGeneration: Int
+    ) {
+        if (frameGeneration != generation || !running) {
+            uvcFrameQueued = false
+            return
+        }
+        val settings = settingsProvider()
+        val now = System.currentTimeMillis()
+        val interval = when (settings.gesture) {
+            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
+            OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
+        }
+        if (!settings.enabled || now - lastFrameAt < interval) {
+            uvcFrameQueued = false
+            return
+        }
+        val bitmap = try {
+            Nv21Bitmaps.toBitmap(
+                bytes,
+                width,
+                height,
+                zoomRatio = settings.zoomRatio
+            )
+        } catch (error: Exception) {
+            Log.w(Tag, "UVC frame conversion failed", error)
+            uvcFrameQueued = false
+            return
+        }
+        lastFrameAt = now
+        if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+            val startedNs = SystemClock.elapsedRealtimeNanos()
+            try {
+                val observation = cheekAnalyzer?.analyzeBitmapForCamera(bitmap, now)
+                val score = if (observation?.usable == true) {
+                    settings.cheekModel?.score(observation.blendshapes)
+                        ?: cheekDetector.observe(observation.blendshapes)
+                } else null
+                if (frameGeneration == generation && running) {
+                    updateCheekState(score, settings)
+                }
+            } catch (error: Exception) {
+                Log.w(Tag, "UVC cheek analysis failed", error)
+                if (frameGeneration == generation) updateCheekState(null, settings)
+            } finally {
+                bitmap.recycle()
+                recordCheekPerformance(SystemClock.elapsedRealtimeNanos() - startedNs)
+                if (frameGeneration == generation) {
+                    lastAnalysisCompletedAt = System.currentTimeMillis()
+                    sendStatus("analysis")
+                }
+                uvcFrameQueued = false
+            }
+            return
+        }
+
+        val activeDetector = detector
+        if (activeDetector == null || mlKitInFlight) {
+            bitmap.recycle()
+            uvcFrameQueued = false
+            return
+        }
+        mlKitInFlight = true
+        val frameId = ++frameSequence
+        activeFrameId = frameId
+        mainHandler.postDelayed({
+            if (frameGeneration == generation && activeFrameId == frameId && mlKitInFlight) {
+                activeFrameId = NoFrame
+                mlKitInFlight = false
+                uvcFrameQueued = false
+                lastAnalysisCompletedAt = System.currentTimeMillis()
+                blinkClassifier.reset()
+                sendHoldEnd(activeSource, "reason=detectorTimeout")
+                sendStatus("detectorStale", force = true)
+            }
+        }, MlKitTimeoutMs)
+        activeDetector.process(InputImage.fromBitmap(bitmap, 0))
+            .addOnSuccessListener(mainExecutor) { faces ->
+                if (frameGeneration != generation || activeFrameId != frameId) {
+                    return@addOnSuccessListener
+                }
+                val face = faces.maxByOrNull {
+                    it.boundingBox.width() * it.boundingBox.height()
+                }
+                val signal = face?.blinkEyeSignal(activeDetectionParameters)
+                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
+            }
+            .addOnFailureListener(mainExecutor) { error ->
+                if (frameGeneration == generation) {
+                    Log.w(Tag, "UVC ML Kit analysis failed", error)
+                }
+            }
+            .addOnCompleteListener(mainExecutor) {
+                bitmap.recycle()
+                if (frameGeneration == generation && activeFrameId == frameId) {
+                    lastAnalysisCompletedAt = System.currentTimeMillis()
+                    mlKitInFlight = false
+                    activeFrameId = NoFrame
+                    sendStatus("analysis")
+                }
+                uvcFrameQueued = false
+            }
+    }
+
+    private fun closeUvcStream() {
+        val camera = uvcCamera
+        uvcCamera = null
+        activeUvcDeviceName = null
+        uvcFrameQueued = false
+        runCatching { camera?.setFrameCallback(null, 0) }
+        runCatching { camera?.destroy() }
+        uvcPreviewSurface?.release()
+        uvcPreviewSurface = null
+        uvcDrainReader?.close()
+        uvcDrainReader = null
+        uvcFrameWidth = 0
+        uvcFrameHeight = 0
+    }
+
+    private fun stopUvcCamera() {
+        closeUvcStream()
+        selectedUvcCameraId = null
+        val monitor = usbMonitor
+        usbMonitor = null
+        runCatching { monitor?.destroy() }
     }
 
     private fun applyZoom(camera: androidx.camera.core.Camera, requestedZoomRatio: Float) {
@@ -280,6 +597,8 @@ class CameraSwitchInputAdapter(
             CameraSwitchCameraSelection.availableCameras(manager).filter {
                 it.cameraId in cameraXIds
             }
+        val allCameras = compatibleCameras +
+            UvcCameraDiscovery.availableCameras(context)
         val defaultFrontId = runCatching {
             CameraSelector.DEFAULT_FRONT_CAMERA
                 .filter(provider.availableCameraInfos)
@@ -288,11 +607,20 @@ class CameraSwitchInputAdapter(
         }.getOrNull()
         val settings = settingsProvider()
         val selected = CameraSwitchCameraSelection.choose(
-            cameras = compatibleCameras,
+            cameras = allCameras,
             preferredCameraId = settings.cameraId ?: defaultFrontId,
             preferredLensFacing = settings.cameraLensFacing
-                ?: CameraCharacteristics.LENS_FACING_FRONT
+                ?: CameraCharacteristics.LENS_FACING_FRONT,
+            preferredSource = settings.cameraSource
         ) ?: return null
+        if (selected.source == CameraSwitchCameraSource.Uvc) {
+            return SelectedCamera(
+                selected.cameraId,
+                selected.lensFacing,
+                selected.source,
+                null
+            )
+        }
         val selector = CameraSelector.Builder()
             .addCameraFilter { cameraInfos ->
                 cameraInfos.filter { cameraInfo ->
@@ -306,6 +634,7 @@ class CameraSwitchInputAdapter(
         return SelectedCamera(
             selected.cameraId,
             selected.lensFacing,
+            selected.source,
             selector
         )
     }
@@ -608,7 +937,8 @@ class CameraSwitchInputAdapter(
     private data class SelectedCamera(
         val cameraId: String,
         val lensFacing: Int?,
-        val selector: CameraSelector
+        val source: CameraSwitchCameraSource,
+        val selector: CameraSelector?
     )
     private companion object {
         const val NoFrame = -1L

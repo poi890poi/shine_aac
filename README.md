@@ -78,11 +78,35 @@ The Android app is now a thin Kotlin WebView shell that packages the shared Wind
 - Taiwan Mandarin suggestions combine up to three recent committed Han glyphs with the active Zhuyin prefix, reserving ordinary candidates while promoting a bounded set of source-backed continuations.
 - A message buffer with speak, delete, and clear actions represented as scan targets.
 - Android Text-to-Speech output.
+- Blink and cheek-twitch camera switches using a built-in Camera2 camera or a
+  directly attached USB UVC webcam on Android USB-host/OTG devices.
 - Voice feedback for row scanning, symbol scanning, and activated targets, configurable by a helper. Row-scan voice is off by default; symbol and activation voice remain on.
 - A developer-only demo mode. On a phone, long-press `Config` to start the extended everyday conversation demo; tap anywhere to exit. Browser builds can also start it with `?demo=water` or `localStorage["shine-aac-demo-mode"]="water"`. It emits the same activation intents as real input, including word selections, alphabet spelling across deeper rows, speech, clear, and `UNDO` correction.
 - Different visual styles for text-entry targets, space, speak, and repair functions such as `CLR`, `UNDO`, and `DEL`.
 - Adjustable scan speed, transition pause, first-target hold, suggestion-review hold, and input-latency compensation.
 - A configurable communication board with urgent needs, common words, full alphabet, space, delete, speak, and clear.
+
+### Text-to-speech download and setup
+
+User-facing download, voice selection, offline verification, and troubleshooting
+instructions are maintained in the published
+[Traditional Chinese operation guide](docs/index.html#speech-setup).
+
+### USB UVC cameras
+
+Connect a UVC-compatible webcam through a powered USB hub or OTG adapter, then
+open `Config` → `Camera setup` and use the camera selector until it shows
+`USB`. Android asks for camera permission first and USB-device permission when
+the USB camera is selected. The saved USB source is reused by the continuous
+blink or cheek switch and falls back by device type if the USB bus address
+changes after reconnection.
+
+Direct UVC capture is packaged for `arm64-v8a`, `armeabi-v7a`, `x86`, and
+`x86_64`, with 16 KB native-page alignment for current Android devices.
+Camera2 external-camera support remains available on devices whose Android
+camera provider exposes the webcam itself. Actual UVC formats, USB bandwidth,
+power, and OTG support vary by camera and Android device, so calibration and
+the physical camera test remain required for each supported pairing.
 
 ## Switch Scanning Design
 This app targets automatic scanning for users who may have only one reliable action, such as a touch, switch, blink, or other binary signal. The communication surface intentionally avoids direct cell tapping: the same single action is used everywhere on the main board. Row/column scanning remains available, while block/row/column scanning can reduce long row searches without changing the communication layout.

@@ -53,4 +53,26 @@ class CameraSwitchCameraSelectionTest {
 
         assertEquals(external, selected)
     }
+
+    @Test
+    fun savedUvcSourceSurvivesUsbAddressChange() {
+        val camera2External = CameraSwitchCamera(
+            "external-0",
+            CameraCharacteristics.LENS_FACING_EXTERNAL
+        )
+        val reconnectedUvc = CameraSwitchCamera(
+            "uvc:1133:2085:/dev/bus/usb/001/009",
+            CameraCharacteristics.LENS_FACING_EXTERNAL,
+            CameraSwitchCameraSource.Uvc
+        )
+
+        val selected = CameraSwitchCameraSelection.choose(
+            cameras = listOf(camera2External, reconnectedUvc),
+            preferredCameraId = "uvc:1133:2085:/dev/bus/usb/001/004",
+            preferredLensFacing = CameraCharacteristics.LENS_FACING_EXTERNAL,
+            preferredSource = CameraSwitchCameraSource.Uvc
+        )
+
+        assertEquals(reconnectedUvc, selected)
+    }
 }

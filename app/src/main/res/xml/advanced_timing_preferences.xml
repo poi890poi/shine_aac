@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <EditTextPreference
+        app:key="scanIntervalMs"
+        app:title="@string/settings_switch_speed"
+        app:useSimpleSummaryProvider="true" />
+    <EditTextPreference
+        app:key="transitionPauseMs"
+        app:title="@string/settings_transition_pause"
+        app:useSimpleSummaryProvider="true" />
+    <EditTextPreference
+        app:key="firstCellPauseMs"
+        app:title="@string/settings_first_symbol_hold"
+        app:useSimpleSummaryProvider="true" />
+    <EditTextPreference
+        app:key="inputLatencyCompensationMs"
+        app:title="@string/settings_latency_compensation"
+        app:useSimpleSummaryProvider="true" />
+
+</PreferenceScreen>
