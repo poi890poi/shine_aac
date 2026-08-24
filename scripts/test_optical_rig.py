@@ -3,9 +3,11 @@ import json
 import struct
 import sys
 import tempfile
+import threading
 import unittest
 import zlib
 from pathlib import Path
+from unittest import mock
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -391,6 +393,28 @@ class CameraZoomGeometryTest(unittest.TestCase):
 
 
 class OpenCvFramebufferTest(unittest.TestCase):
+    def test_escape_aborts_presenter_without_killing_process(self):
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.hwnd = 123
+        presenter.topmost = True
+        presenter.operator_abort = False
+        presenter.error = None
+        presenter.stop_event = threading.Event()
+        presenter.condition = threading.Condition()
+        presenter._handle_operator_key(27)
+        self.assertTrue(presenter.operator_abort)
+        self.assertTrue(presenter.stop_event.is_set())
+        self.assertIn("Esc", str(presenter.error))
+
+    def test_t_toggles_only_presenter_topmost_state(self):
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.hwnd = 123
+        presenter.topmost = True
+        with mock.patch.object(optical_stimulus, "set_window_topmost", return_value=True) as setter:
+            presenter._handle_operator_key(ord("t"))
+        setter.assert_called_once_with(123, False)
+        self.assertFalse(presenter.topmost)
+
     def test_manifest_uses_visually_verified_closed_eye_frames(self):
         manifest = json.loads(
             (SCRIPT_DIR.parent / "testdata/optical-rig/sources.json").read_text(

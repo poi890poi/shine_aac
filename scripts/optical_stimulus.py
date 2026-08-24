@@ -15,6 +15,16 @@ WINDOW_TITLE = "SHINE AAC Optical Rig"
 IDLE_WINDOW_TITLE = "SHINE AAC Optical Rig - Idle"
 
 
+def set_window_topmost(hwnd, enabled):
+    """Change only the rig window's z-order, preserving its pixel geometry."""
+    if os.name != "nt" or not hwnd:
+        return False
+    user32 = ctypes.windll.user32
+    insert_after = -1 if enabled else -2  # HWND_TOPMOST / HWND_NOTOPMOST
+    flags = 0x0001 | 0x0002 | 0x0010  # NOSIZE | NOMOVE | NOACTIVATE
+    return bool(user32.SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, flags))
+
+
 def enable_per_monitor_dpi_awareness():
     """Make desktop geometry and the OpenCV framebuffer use physical pixels."""
     if os.name != "nt":
@@ -197,6 +207,9 @@ class OpenCvStimulus:
         self.ready_event = threading.Event()
         self.thread = None
         self.error = None
+        self.hwnd = None
+        self.topmost = True
+        self.operator_abort = False
         self._token_counter = 0
 
     @property
@@ -220,6 +233,8 @@ class OpenCvStimulus:
             self.thread.join(timeout=5.0)
 
     def set_state(self, **state):
+        if self.operator_abort:
+            raise RuntimeError("optical rig stopped by operator")
         with self.condition:
             self._token_counter += 1
             state = dict(state)
@@ -235,6 +250,8 @@ class OpenCvStimulus:
         deadline = time.time() + timeout
         with self.condition:
             while time.time() < deadline:
+                if self.operator_abort:
+                    raise RuntimeError("optical rig stopped by operator")
                 for event in self.events:
                     if event.get("token") == token and event.get("type") == event_type:
                         return event
@@ -265,7 +282,29 @@ class OpenCvStimulus:
         return candidate
 
     def _fullscreen_window(self):
-        _make_fullscreen_window(self.cv2, WINDOW_TITLE, self.desktop_rect)
+        self.hwnd = _make_fullscreen_window(self.cv2, WINDOW_TITLE, self.desktop_rect)
+
+    def _abort_from_operator(self, reason):
+        self.operator_abort = True
+        self.error = RuntimeError(reason)
+        self.stop_event.set()
+        with self.condition:
+            self.condition.notify_all()
+        print("\n[optical rig] %s" % reason, flush=True)
+
+    def _handle_operator_key(self, key):
+        key = key & 0xFF
+        if key == 27:
+            self._abort_from_operator("operator pressed Esc; test aborted and window closed")
+            return
+        if key in (ord("t"), ord("T")):
+            self.topmost = not self.topmost
+            if set_window_topmost(self.hwnd, self.topmost):
+                state = "enabled" if self.topmost else "disabled"
+                print("\n[optical rig] always-on-top %s (press T to toggle)" % state, flush=True)
+            else:
+                self.topmost = not self.topmost
+                print("\n[optical rig] could not change always-on-top", flush=True)
 
     def _background(self, state):
         value = state.get("background", "#000000").lstrip("#")
@@ -395,6 +434,11 @@ class OpenCvStimulus:
         ended_sent = False
         try:
             self._fullscreen_window()
+            print(
+                "[optical rig] window controls: Esc closes/aborts; T toggles always-on-top; "
+                "optical-rig-window.bat works from another terminal",
+                flush=True,
+            )
             self.ready_event.set()
             while not self.stop_event.is_set():
                 with self.condition:
@@ -409,7 +453,14 @@ class OpenCvStimulus:
                     ended_sent = False
                 frame, ended = self._render_state(state, prepared)
                 self.cv2.imshow(WINDOW_TITLE, frame)
-                self.cv2.waitKey(1)
+                key = self.cv2.waitKey(1)
+                if key >= 0:
+                    self._handle_operator_key(key)
+                if self.stop_event.is_set():
+                    break
+                if os.name == "nt" and self.hwnd and not ctypes.windll.user32.IsWindow(self.hwnd):
+                    self._abort_from_operator("operator closed the rig window; test aborted")
+                    break
                 if not applied:
                     self._emit(token, "state_applied", viewport=[frame.shape[1], frame.shape[0]])
                     if state.get("mode") == "video":
@@ -440,12 +491,26 @@ def run_idle_presenter(root):
     _, _, width, height = rect
     black = numpy.zeros((height, width, 3), dtype=numpy.uint8)
     hwnd = _make_fullscreen_window(cv2, IDLE_WINDOW_TITLE, rect)
+    topmost = True
     try:
+        print(
+            "[optical rig idle] Esc closes; T toggles always-on-top; "
+            "optical-rig-window.bat works from another terminal",
+            flush=True,
+        )
         while True:
             cv2.imshow(IDLE_WINDOW_TITLE, black)
             key = cv2.waitKey(100)
             if key == 27:
                 break
+            if key >= 0 and (key & 0xFF) in (ord("t"), ord("T")):
+                topmost = not topmost
+                set_window_topmost(hwnd, topmost)
+                print(
+                    "[optical rig idle] always-on-top %s" %
+                    ("enabled" if topmost else "disabled"),
+                    flush=True,
+                )
             if os.name == "nt" and hwnd and not ctypes.windll.user32.IsWindow(hwnd):
                 break
             try:
