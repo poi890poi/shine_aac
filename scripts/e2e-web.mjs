@@ -2224,7 +2224,7 @@ async function scenarioSpeechLockConversationDisplay() {
   await evaluate(`location.reload()`);
   await waitForRenderedBoard();
   const restoredLabels = (await getSnapshot()).rows.flat().map((tile) => tile.label);
-  if (!["Replay", "Next message", "Edit"].every((label) => restoredLabels.includes(label))) {
+  if (!["Speak", "Clear", "Edit"].every((label) => restoredLabels.includes(label))) {
     const restoredState = await evaluate(`({
       labels: [...document.querySelectorAll(".tile")].map((tile) => tile.dataset.label),
       message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage,
@@ -2247,30 +2247,30 @@ async function scenarioSpeechLockConversationDisplay() {
     locked.mode !== "conversation" ||
     !locked.enhanced ||
     JSON.stringify(locked.previous) !== JSON.stringify(["I need water", "Please wait"]) ||
-    JSON.stringify(locked.rows) !== JSON.stringify([1, 1, 1]) ||
+    JSON.stringify(locked.rows) !== JSON.stringify([3]) ||
     locked.message !== "yes "
   ) {
     throw new Error(`Conversation display did not isolate spoken context and singleton controls: ${JSON.stringify(locked)}`);
   }
   await assertNoViewportOverflow("speech-lock-conversation-display");
 
-  await selectLabel("Replay");
+  await selectLabel("Speak");
   await assertMessage("yes ");
   const afterReplay = await getSnapshot();
-  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "Replay|Next message|Edit") {
-    throw new Error(`Replay did not preserve the locked subset: ${JSON.stringify(afterReplay.rows)}`);
+  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "Speak|Clear|Edit") {
+    throw new Error(`Speak did not preserve the locked subset: ${JSON.stringify(afterReplay.rows)}`);
   }
 
-  await activateWhenRenderedTargetIsCurrent("active-row", 1, 0, 30000);
+  await selectLabel("Clear");
   await assertMessage("");
   const afterNext = await getSnapshot();
   if (
-    afterNext.rows.flat().some((tile) => ["Replay", "Next message", "Edit"].includes(tile.label)) ||
+    afterNext.rows.flat().some((tile) => ["Speak", "Clear", "Edit"].includes(tile.label)) ||
     await evaluate(`Boolean(document.querySelector('[data-testid="conversation-context"]'))`)
   ) {
-    throw new Error("Next message did not clear and leave the speech-lock conversation display");
+    throw new Error("Clear did not leave the speech-lock conversation display");
   }
-  steps.push(pass("speech-lock-conversation", "enhanced mode shows two prior spoken messages, excludes drafts, and keeps Replay/Next/Edit as singleton scan targets"));
+  steps.push(pass("speech-lock-conversation", "enhanced mode shows two prior spoken messages, excludes drafts, and keeps Speak/Clear/Edit in one compact row"));
 }
 
 async function scenarioConfigProfileRelevance() {
@@ -2805,7 +2805,7 @@ async function selectCell(rowIndex, cellIndex, { activationDelayMs = 0 } = {}) {
   await releaseFirstRowHold();
   const initialSnapshot = await getSnapshot();
   const rowTimeoutMs = Math.max(30000, (initialSnapshot.rows.length + 2) * 1500);
-  let rowWasAutomaticallyActivated = false;
+  let rowWasAutomaticallyActivated = initialSnapshot.activeCell?.rowIndex === rowIndex;
   if (initialSnapshot.activeBlock) {
     const blockActivation = await activateWhenRenderedTargetIsCurrent("active-block", rowIndex, 0, rowTimeoutMs);
     rowWasAutomaticallyActivated = blockActivation.activeBlockRowCount === 1;
