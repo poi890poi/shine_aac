@@ -1180,7 +1180,7 @@ def camera_setup_geometry(xml_path):
         visible.append((node, bounds))
         text_value = node.get("text") or ""
         match = re.search(
-            r"(?:Camera zoom\s*:\s*|相機縮放\s*[：:]\s*)(\d+(?:\.\d+)?)",
+            r"(?:Camera zoom\s*:\s*|Zoom\s*|相機縮放\s*[：:]\s*|縮放\s*)(\d+(?:\.\d+)?)",
             text_value,
             re.I,
         )
@@ -1191,14 +1191,34 @@ def camera_setup_geometry(xml_path):
     if not scrolls:
         raise ValueError("Camera Setup controls area is not visible")
     controls = max(scrolls, key=lambda value: (value[2] - value[0]) * (value[3] - value[1]))
-    before_controls = [
+    explicit_previews = [
         bounds for node, bounds in visible
-        if bounds[3] <= controls[1] and bounds[0] >= controls[0] and bounds[2] <= controls[2]
+        if node.get("class") == "android.widget.FrameLayout"
+        and bounds[3] <= controls[1]
+        and bounds[0] >= controls[0]
+        and bounds[2] <= controls[2]
+        and bounds[2] - bounds[0] >= 100
+        and bounds[3] - bounds[1] >= 100
     ]
-    if not before_controls:
-        raise ValueError("Camera Setup preview boundary is not visible")
-    preview_top = max(bounds[3] for bounds in before_controls)
-    preview = (controls[0], preview_top, controls[2], controls[1])
+    if explicit_previews:
+        # Newer Camera Setup layouts expose the stable preview container
+        # directly. Prefer it over reconstructing a gap between header and
+        # controls; otherwise its bottom edge is mistaken for the preview top.
+        preview = max(
+            explicit_previews,
+            key=lambda value: (value[2] - value[0]) * (value[3] - value[1])
+        )
+    else:
+        before_controls = [
+            bounds for node, bounds in visible
+            if bounds[3] <= controls[1]
+            and bounds[0] >= controls[0]
+            and bounds[2] <= controls[2]
+        ]
+        if not before_controls:
+            raise ValueError("Camera Setup preview boundary is not visible")
+        preview_top = max(bounds[3] for bounds in before_controls)
+        preview = (controls[0], preview_top, controls[2], controls[1])
     if preview[2] - preview[0] < 100 or preview[3] - preview[1] < 100:
         raise ValueError("Camera Setup preview is too small")
     if zoom_ratio is None:

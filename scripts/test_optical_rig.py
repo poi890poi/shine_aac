@@ -350,6 +350,21 @@ class CameraZoomGeometryTest(unittest.TestCase):
         self.assertEqual((36, 456, 1044, 1362), geometry["preview_rect"])
         self.assertEqual(1.6, geometry["zoom_ratio"])
 
+    def test_prefers_explicit_stable_camera_preview_container(self):
+        xml = """<hierarchy><node class="android.widget.FrameLayout" bounds="[0,0][1080,2168]">
+          <node class="android.widget.TextView" text="未偵測到臉部" bounds="[54,392][750,468]" />
+          <node class="android.widget.FrameLayout" bounds="[36,340][1044,1656]" />
+          <node class="android.widget.ScrollView" bounds="[36,1656][1044,2168]">
+            <node class="android.widget.TextView" text="縮放 1.6×" bounds="[546,1824][1044,1890]" />
+          </node>
+        </node></hierarchy>"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "setup.xml"
+            path.write_text(xml, encoding="utf-8")
+            geometry = RIG.camera_setup_geometry(path)
+        self.assertEqual((36, 340, 1044, 1656), geometry["preview_rect"])
+        self.assertEqual(1.6, geometry["zoom_ratio"])
+
 
 class OpenCvFramebufferTest(unittest.TestCase):
     def test_manifest_uses_visually_verified_closed_eye_frames(self):
