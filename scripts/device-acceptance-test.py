@@ -62,6 +62,7 @@ from device_test_common import (
 PACKAGE = "org.shineaac.app"
 MAIN_ACTIVITY = "org.shineaac.app/.MainActivity"
 CAMERA_ACTIVITY_FRAGMENT = "CameraSwitchCalibrationActivity"
+SETTINGS_ACTIVITY_FRAGMENT = "SettingsActivity"
 DEFAULT_APK = Path("app/build/outputs/apk/debug/app-debug.apk")
 
 PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4, "INFO": 5}
@@ -497,12 +498,19 @@ class DeepTest:
         )
 
     def is_config_ui(self, xml):
+        if SETTINGS_ACTIVITY_FRAGMENT in self.top_activity():
+            return True
         texts = "\n".join(self.visible_strings(xml)).lower()
         has_camera_setup = ("camera setup" in texts or "相機設定" in texts)
         has_save = ("save" in texts or "儲存" in texts)
         return has_camera_setup and has_save
 
     def is_board_ui(self, xml):
+        activity = self.top_activity()
+        if SETTINGS_ACTIVITY_FRAGMENT in activity or CAMERA_ACTIVITY_FRAGMENT in activity:
+            return False
+        if "MainActivity" not in activity:
+            return False
         texts = "\n".join(self.visible_strings(xml)).lower()
         config_button = ("settings" in texts or "設定" in texts)
         camera_setup = ("camera setup" in texts or "相機設定" in texts)
@@ -991,15 +999,14 @@ class DeepTest:
                         evidence,
                     )
 
-            # Native Back must return to config, not board.  Preserve a log
-            # watermark so an enabled optical input can prove that MainActivity
-            # deliberately rebound the runtime camera after setup.
+            # Native Back must return to native Settings, not the board.
+            # Preserve a log watermark for legacy MainActivity-hosted settings.
             runtime_binds_before_back = self.runtime_camera_bind_count()
             self.shell("input", "keyevent", "4", check=False)
-            if not self.wait_activity("MainActivity", 8):
+            if not self.wait_activity(SETTINGS_ACTIVITY_FRAGMENT, 8):
                 self.add(
-                    "P0", "MainActivity did not resume after camera setup",
-                    "Back from camera setup did not resume MainActivity.",
+                    "P0", "Settings did not resume after camera setup",
+                    "Back from camera setup did not resume SettingsActivity.",
                     ["dumpsys/cycle%02d_return_activity.txt" % cycle]
                 )
                 self.checkpoint("cycle%02d_return_failed" % cycle)
@@ -1019,7 +1026,7 @@ class DeepTest:
                 else:
                     self.add(
                         "P0", "Camera remains active after leaving setup",
-                        "SHINE remains an active camera client after Back returned to MainActivity, without a new runtime-camera bind.",
+                        "SHINE remains an active camera client after Back returned to Settings, without a new runtime-camera bind.",
                         ["dumpsys/cycle%02d_return_from_camera_camera.txt" % cycle]
                     )
             else:
@@ -1054,7 +1061,7 @@ class DeepTest:
                         )
                 self.add(
                     "P0", "Camera setup returns to wrong page",
-                    "Back returned to MainActivity, but configuration controls are absent.",
+                    "Back returned from Camera setup, but native Settings is absent.",
                     evidence
                 )
                 return False
@@ -1343,7 +1350,7 @@ class DeepTest:
                         self.checkpoint("font200_camera_setup")
                         self.passed("camera setup reachable at 200% font")
                         self.shell("input", "keyevent", "4", check=False)
-                        self.wait_activity("MainActivity", 8)
+                        self.wait_activity(SETTINGS_ACTIVITY_FRAGMENT, 8)
                     else:
                         self.add(
                             "P1", "Camera setup launch failed at 200% font",
