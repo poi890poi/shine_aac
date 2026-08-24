@@ -5,17 +5,17 @@ This draft is for Google Play internal and closed testing. The primary audience 
 ## Product Names
 
 - Default listing name: `SayToMe AAC`
-- Taiwan zh-TW listing name: `我想說 SayToMe AAC`
+- Taiwan zh-TW listing name: `我想說`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current source release: `v0.3.1`, Android version code `50`, target SDK `36`
+- Current source release: `0.3.4`, Android version code `58`, target SDK `36`
 - Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing
 
 ### App Name
 
-我想說 SayToMe AAC
+我想說
 
 ### Short Description
 
@@ -23,7 +23,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 ### Full Description
 
-我想說 SayToMe AAC 是一個早期開發中的輔助溝通 AAC 應用程式，主要面向台灣繁體中文使用情境。它的目標是協助說話困難 或無法穩定使用語音的人 用較簡單的方式表達需求 感受 想法與選擇。
+我想說是一個早期開發中的輔助溝通 AAC 應用程式，主要面向台灣繁體中文使用情境。它的目標是協助說話困難 或無法穩定使用語音的人 用較簡單的方式表達需求 感受 想法與選擇。
 
 這個版本的核心是單一開關掃描。使用者或協助者可以透過一個可靠訊號 例如按鍵 觸碰螢幕 或支援的硬體按鈕 逐步選擇詞語 注音符號 候選字詞與操作。現在的台灣中文設定檔支援繁體中文 注音輸入 候選建議 語音輸出 掃描速度設定 復原 清除 以及偶爾需要英文時的英文輸入入口。
 
@@ -36,6 +36,10 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - 常用需求 感受 照護與修正用語
 - 候選字詞與可輸入性品質檢查
 - 可調整掃描速度與語音回饋設定
+- 可選擇列格或區塊列格掃描 並使用預設速度或進階時間微調
+- 可選用長眨眼或臉頰抽動作為相機開關 影像只在裝置上處理
+- 朗讀後可顯示重播控制或放大對話內容 也可維持原本的繼續輸入方式
+- 一般 高對比亮色與高對比暗色顯示預設
 - 讓照顧者 協助者與專業人員更容易一起測試
 
 測試時請保持謹慎。請觀察使用者是否理解流程 是否疲勞 是否能修正錯誤 是否能表達真實需求。測試期間請保留其他可靠的溝通方式 尤其是疼痛 同意 拒絕 不舒服 或緊急情況。
@@ -43,6 +47,14 @@ This draft is for Google Play internal and closed testing. The primary audience 
 我們歡迎台灣使用者 家人 照顧者 語言治療師 AAC 相關專家 UX 設計者 測試者與軟體開發者提供回饋。
 
 ### Release Notes For Internal Testing
+
+0.3.4:
+
+- 相機動作新增臉頰抽動 並改善長眨眼 個人化校正 預覽與相機可靠度
+- 朗讀後可選擇重播控制或放大對話顯示 避免誤改已說出的訊息
+- 改善設定版面 重設確認 大字體 高對比 文字與觸控標示
+- 新增相機動作及進階掃描設定專頁 授權改為 Apache License 2.0
+- 仍是早期開發版本 不能作為唯一或緊急溝通方式
 
 0.2.44:
 

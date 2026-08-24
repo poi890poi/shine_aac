@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="我想說 0.3.4 相機動作開關設定：長眨眼與臉頰抽動、校正、測試及問題排除。">
+  <title>相機動作開關｜我想說</title>
+  <link rel="stylesheet" href="../assets/help-pages.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+  <header>
+    <div class="wrap header-inner">
+      <p class="eyebrow">我想說 0.3.4</p>
+      <h1>相機動作開關</h1>
+      <p class="subtitle">由協助者設定長眨眼或臉頰抽動，讓一次可靠動作等同一次開關啟動。</p>
+    </div>
+  </header>
+  <nav aria-label="本頁段落">
+    <div class="wrap">
+      <a href="../">返回操作說明</a>
+      <a href="#prepare">使用前準備</a>
+      <a href="#setup">設定步驟</a>
+      <a href="#gestures">兩種動作</a>
+      <a href="#troubleshooting">問題排除</a>
+    </div>
+  </nav>
+
+  <main id="main" class="wrap">
+    <div class="summary">
+      <strong>先求穩定，再求速度。</strong>
+      <p>請先選擇使用者最容易重複、最少誤觸的動作。校正後要在實際坐姿、裝置位置與光線下測試；移動手機後也要重新測試。</p>
+    </div>
+
+    <h2 id="prepare">使用前準備</h2>
+    <ul>
+      <li>由視力與手部操作能力足以完成設定的協助者操作此頁。</li>
+      <li>固定手機或平板，讓使用者能維持舒適、自然的姿勢，不要為了鏡頭刻意抬頭或靠近。</li>
+      <li>臉部保持在預覽中央，雙眼、鼻子與兩側臉頰要清楚可見；避免強烈背光、臉部陰影或鏡頭髒污。</li>
+      <li>相機影像只在裝置上分析；我想說不會儲存相機畫面，也不需要網路。</li>
+    </ul>
+
+    <div class="warning">
+      <strong>0.3.4 的支援範圍</strong>
+      <p>本版的正式支援範圍是 Android 裝置內建相機。相機切換控制不代表已支援 USB／UVC 外接攝影機；請勿把外接攝影機當作 0.3.4 的已驗證功能。</p>
+    </div>
+
+    <h2 id="setup">完整設定步驟</h2>
+    <ol>
+      <li>在主畫面選擇「設定」。</li>
+      <li>把「開關輸入」設為「相機動作」，或需要保留實體按鍵時選擇「按鍵＋相機動作」。</li>
+      <li>選擇「相機設定」，並允許相機權限。</li>
+      <li>在「動作」選擇「長眨眼」或「臉頰抽動」。</li>
+      <li>確認預覽中的臉部完整、清楚、置中。需要時用正常的相機「縮小／放大」調整取景。</li>
+      <li>選擇「開始設定」，依畫面及語音提示完成個人化校正。</li>
+      <li>校正結束後，在同一頁連續嘗試目標動作與自然休息。畫面應只在有意動作時顯示「已接受」。</li>
+      <li>選擇「完成」回到設定頁，再選擇「儲存」。回到溝通板後，以實際掃描完成數次選列與選格。</li>
+    </ol>
+
+    <div class="callout">
+      <strong>不要只看校正成功。</strong>
+      <p>至少要驗證三件事：有意動作能啟動、自然眨眼或表情不會啟動、連續使用後仍能維持。任何一項不穩定，都應先調整姿勢、光線、動作或維持時間。</p>
+    </div>
+
+    <h2 id="gestures">選擇適合的動作</h2>
+    <div class="choice-grid">
+      <section class="choice">
+        <h3>長眨眼</h3>
+        <p>適合能刻意閉眼一段時間，而且自然眨眼明顯較短的使用者。校正會先記錄放鬆狀態，再收集慢眨眼。請依提示完成多次清楚的慢眨眼，不要一直閉眼。</p>
+      </section>
+      <section class="choice">
+        <h3>臉頰抽動</h3>
+        <p>適合能重複做出局部臉頰動作的使用者。校正先學習放鬆臉部，再收集六次臉頰抽動；每次之間要回到自然放鬆。預設偵測可使用，但個人化校正通常更可靠。</p>
+      </section>
+    </div>
+
+    <h3>維持時間</h3>
+    <p>維持時間是動作必須持續多久才算一次啟動。太短容易誤觸，太長則費力且反應慢。每次只調整一小步，接著同時測試有意動作與自然休息。不要用掃描速度掩蓋動作偵測不穩定。</p>
+
+    <h3>相機縮放與位置</h3>
+    <p>縮放只改變相機取景，不會放大 App 的一般介面。臉部應占預覽的主要部分，但仍保留完整眼睛與臉頰；若臉部被裁掉，請先縮小。裝置位置或使用距離改變後，先回到相機設定確認取景與測試結果。</p>
+
+    <h2 id="troubleshooting">問題排除</h2>
+    <details>
+      <summary>一直顯示找不到臉或分析暫停</summary>
+      <ul>
+        <li>擦拭鏡頭，改善正面光線，減少背光。</li>
+        <li>把完整臉部移到預覽中央；必要時縮小相機。</li>
+        <li>確認沒有口罩、手或物品遮住眼睛與臉頰。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>自然眨眼或表情也會啟動</summary>
+      <ul>
+        <li>稍微增加維持時間，再測試自然休息至少一分鐘。</li>
+        <li>重新校正，放鬆階段保持自然，不要刻意僵住。</li>
+        <li>若長眨眼與自然眨眼差異太小，改試臉頰抽動或實體開關。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>有意動作常常沒有反應</summary>
+      <ul>
+        <li>先確認畫面持續偵測到臉部，再稍微減少維持時間。</li>
+        <li>重新校正，讓每次示範動作清楚、可重複且彼此相近。</li>
+        <li>測試疲勞後的動作；若可靠度下降，選擇更省力的動作或實體開關。</li>
+      </ul>
+    </details>
+    <details>
+      <summary>換位置後變得不準</summary>
+      <p>回到相機設定，重新置中、調整相機縮放並測試。個人校正可以保留，但若光線、角度或使用者動作明顯改變，應重新校正。</p>
+    </details>
+
+    <div class="warning">
+      <strong>安全提醒</strong>
+      <p>相機動作輸入不能作為唯一或緊急溝通方式。實際使用前，請準備使用者與協助者都能操作的備用溝通方式。</p>
+    </div>
+  </main>
+
+  <footer><div class="wrap"><a href="../">返回操作說明</a> · <a href="../advanced-settings/">進階掃描與設定</a> · <a href="../privacy-policy/">隱私權政策</a></div></footer>
+</body>
+</html>
