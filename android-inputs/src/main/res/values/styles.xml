@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ShineAac.CameraSetup" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">#237A6E</item>
+        <item name="colorAccent">#34D399</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">#13181F</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:statusBarColor">#13181F</item>
+    </style>
+</resources>

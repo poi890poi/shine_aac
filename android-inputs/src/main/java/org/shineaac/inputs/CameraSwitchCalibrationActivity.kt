@@ -2,10 +2,10 @@ package org.shineaac.inputs
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
@@ -50,6 +50,9 @@ import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatButton
+import androidx.appcompat.widget.Toolbar
 import java.util.concurrent.Executor
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -85,7 +88,7 @@ internal fun cheekCalibrationMoveInstruction(
     }
 }
 
-class CameraSwitchCalibrationActivity : Activity() {
+class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val analysisSize = Size(480, 360)
     private var textureView: TextureView? = null
     private var overlayView: FaceOverlayView? = null
@@ -346,13 +349,15 @@ class CameraSwitchCalibrationActivity : Activity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
         }
 
-        val title = TextView(this).apply {
-            text = tr("Optical switch setup", "光學開關設定")
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
+        val toolbar = Toolbar(this).apply {
+            title = tr("Optical switch setup", "光學開關設定")
+            setTitleTextColor(Color.WHITE)
+            setNavigationIcon(R.drawable.ic_camera_setup_back)
+            navigationContentDescription = tr("Back", "返回")
+            setNavigationOnClickListener { finish() }
+            contentInsetStartWithNavigation = 0
+            setContentInsetsRelative(0, 0)
+            minimumHeight = dp(48)
         }
         statusView = TextView(this).apply {
             text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
@@ -513,7 +518,13 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(title)
+            addView(
+                toolbar,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(48)
+                )
+            )
             addView(statusView)
             addView(previewFrame)
         }
@@ -927,11 +938,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         button ?: return
         button.setTextColor(if (selected) Color.WHITE else Color.rgb(226, 234, 242))
         button.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-        button.background = roundedBackground(
-            if (selected) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64),
-            dp(8),
-            if (selected) Color.rgb(52, 211, 153) else Color.rgb(78, 92, 108)
-        )
+        button.backgroundTintList = actionButtonTint(primary = selected)
     }
 
     private fun startCheekCalibration() {
@@ -2306,7 +2313,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             .replace("x", " 倍")
     }
 
-    private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = Button(this).apply {
+    private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = AppCompatButton(this).apply {
         this.text = text
         isAllCaps = false
         minHeight = dp(48)
@@ -2315,13 +2322,22 @@ class CameraSwitchCalibrationActivity : Activity() {
         maxLines = 2
         setPadding(dp(8), 0, dp(8), 0)
         setTextColor(if (primary) Color.WHITE else Color.rgb(226, 234, 242))
-        background = roundedBackground(
-            if (primary) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64),
-            dp(8),
-            if (primary) Color.rgb(52, 211, 153) else Color.rgb(78, 92, 108)
-        )
+        backgroundTintList = actionButtonTint(primary)
         configure()
     }
+
+    private fun actionButtonTint(primary: Boolean): ColorStateList = ColorStateList(
+        arrayOf(
+            intArrayOf(-android.R.attr.state_enabled),
+            intArrayOf(android.R.attr.state_pressed),
+            intArrayOf()
+        ),
+        intArrayOf(
+            Color.rgb(45, 52, 60),
+            if (primary) Color.rgb(28, 104, 94) else Color.rgb(53, 65, 78),
+            if (primary) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64)
+        )
+    )
 
     private fun actionButtonParams(horizontal: Boolean) = LinearLayout.LayoutParams(
         if (horizontal) 0 else LinearLayout.LayoutParams.MATCH_PARENT,
