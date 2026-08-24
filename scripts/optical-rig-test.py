@@ -642,6 +642,30 @@ def semantic_board_target(state, labels):
     return None
 
 
+PHYSICAL_NORMAL_USE_SCRIPT = (
+    {"kind": "append", "concept": "help", "labels": ("幫忙", "幫我", "Help"), "message": "幫忙"},
+    {"kind": "append", "concept": "drink water", "labels": ("喝水", "飲水", "Drink water", "Water"), "message": "幫忙喝水"},
+    {"kind": "speak", "concept": "speak request 1", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+    {"kind": "clear", "concept": "clear request 1", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+    {"kind": "append", "concept": "uncomfortable", "labels": ("不舒服", "不適", "Uncomfortable"), "message": "不舒服"},
+    {"kind": "append", "concept": "rest", "labels": ("休息", "Rest"), "message": "不舒服休息"},
+    {"kind": "speak", "concept": "speak request 2", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+    {"kind": "clear", "concept": "clear request 2", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+    {"kind": "append", "concept": "pain", "labels": ("痛", "疼痛", "Pain"), "message": "痛"},
+    {"kind": "append", "concept": "wrong choice", "labels": ("喝水", "飲水", "Drink water", "Water"), "message": "痛喝水"},
+    {"kind": "undo", "concept": "correct wrong choice", "labels": ("復原", "撤銷", "Undo"), "message": "痛"},
+    {"kind": "append", "concept": "help after correction", "labels": ("幫忙", "幫我", "Help"), "message": "痛幫忙"},
+    {"kind": "speak", "concept": "speak corrected request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+    {"kind": "clear", "concept": "clear corrected request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+    {"kind": "open_category", "concept": "open English", "labels": ("英文", "English", "EN"), "reveals": ("注音", "Zhuyin")},
+    {"kind": "append_dynamic", "concept": "English H", "labels": ("H",)},
+    {"kind": "append_dynamic", "concept": "English I", "labels": ("I",)},
+    {"kind": "speak", "concept": "speak English request", "labels": ("朗讀", "說出", "Speak", "SAY")},
+    {"kind": "clear", "concept": "clear English request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+    {"kind": "close_category", "concept": "return to Zhuyin", "labels": ("注音", "Zhuyin"), "reveals": ("英文", "English", "EN")},
+)
+
+
 def e2e_input_count(log_text, intent, source):
     count = 0
     for payload in re.findall(r"SHINE_AAC_E2E_INPUT\s+(\{[^\r\n]+\})", log_text or ""):
@@ -3118,7 +3142,29 @@ class OpticalRig:
             return None
         return matched_label
 
+    def wait_demo_message_change(self, before, not_before_epoch_s, timeout=8.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            state = latest_e2e_state(self.e2e_log())
+            if (
+                state and state.get("message") != before and
+                float(state.get("_logEpochS", 0)) >= not_before_epoch_s
+            ):
+                return state
+            time.sleep(0.2)
+        return None
+
+    def wait_demo_semantic_available(self, labels, timeout=12.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            state = latest_e2e_state(self.e2e_log())
+            if semantic_board_target(state, labels):
+                return state
+            time.sleep(0.25)
+        return None
+
     def run_physical_demo(self, gesture, manifest, source_by_id):
+        started_at = time.time()
         if gesture == "cheek":
             cases = [
                 dict(case, gesture="cheek") for case in self.load_local_cheek_cases()
@@ -3164,30 +3210,79 @@ class OpticalRig:
             case, source_by_id, "RELEASE REVIEW"
         ):
             return False
-        message = ""
-        phrase_items = (
-            ("help", ["幫忙", "幫我", "Help"]),
-            ("drink water", ["喝水", "飲水", "Drink water", "Water"]),
-        )
-        for concept, labels in phrase_items:
-            matched_label = self.demo_select_label(labels, case, source_by_id)
+        initial_state = latest_e2e_state(self.e2e_log()) or {}
+        message = initial_state.get("message", "")
+        spoken_messages = []
+        selections = []
+        for index, step in enumerate(PHYSICAL_NORMAL_USE_SCRIPT, 1):
+            before_message = message
+            selected_at = time.time()
+            matched_label = self.demo_select_label(
+                step["labels"], case, source_by_id
+            )
             if not matched_label:
                 return False
-            message += matched_label
-            if not self.wait_demo_state(message=message, timeout=8.0):
-                self.add("P1", "Demo message did not update", message)
-                return False
+            selections.append({
+                "index": index,
+                "kind": step["kind"],
+                "concept": step["concept"],
+                "visible_label": matched_label,
+            })
+
+            expected_message = step.get("message")
+            if expected_message is not None:
+                state = self.wait_demo_state(
+                    message=expected_message,
+                    timeout=8.0,
+                    not_before_epoch_s=selected_at,
+                )
+                if not state:
+                    self.add(
+                        "P1", "Extended demo message did not update",
+                        "%s expected %r" % (step["concept"], expected_message),
+                    )
+                    return False
+                message = state.get("message", "")
+            elif step["kind"] == "append_dynamic":
+                state = self.wait_demo_message_change(
+                    before_message, selected_at, timeout=8.0
+                )
+                if not state:
+                    self.add(
+                        "P1", "Extended demo dynamic text did not update",
+                        step["concept"],
+                    )
+                    return False
+                message = state.get("message", "")
+            else:
+                current = latest_e2e_state(self.e2e_log()) or {}
+                message = current.get("message", message)
+
+            if step["kind"] == "speak":
+                if not message:
+                    self.add("P1", "Extended demo tried to speak empty text", step["concept"])
+                    return False
+                spoken_messages.append(message)
+
             if not self.demo_activate_with_retries(
-                case, source_by_id, "RELEASE " + concept
+                case, source_by_id, "RELEASE " + step["concept"]
             ):
                 return False
-        speak_label = self.demo_select_label(
-            ["朗讀", "說出", "Speak", "Read aloud"], case, source_by_id
-        )
-        if not speak_label:
-            return False
-        if not self.wait_demo_state(message=message, timeout=8.0):
-            self.add("P1", "Demo phrase was not retained", message)
+
+            if step.get("reveals") and not self.wait_demo_semantic_available(
+                step["reveals"]
+            ):
+                self.add(
+                    "P1", "Extended demo category transition failed",
+                    "%s did not reveal %s" % (step["concept"], step["reveals"]),
+                )
+                return False
+
+        if len(spoken_messages) != 4:
+            self.add(
+                "P1", "Extended demo did not complete four speech turns",
+                str(spoken_messages),
+            )
             return False
         log = self.e2e_log()
         (self.outdir / ("demo-e2e-%s.log" % gesture)).write_text(
@@ -3196,7 +3291,11 @@ class OpticalRig:
         self.device.screenshot("demo_%s_complete" % gesture)
         result = {
             "gesture": gesture,
-            "message": message,
+            "scenario": "extended-normal-use",
+            "spoken_messages": spoken_messages,
+            "selections": selections,
+            "selection_count": len(selections),
+            "elapsed_s": round(time.time() - started_at, 3),
             "physical_activations": e2e_input_count(
                 log, "activate",
                 "android-camera-cheek-twitch"
@@ -3208,7 +3307,8 @@ class OpticalRig:
         )
         self.pass_(
             "physical %s demo" % gesture,
-            "%s composed and Speak selected through real camera activations" % message,
+            "%d selections, four speech turns, correction, clear, and language round-trip through real camera activations"
+            % len(selections),
         )
         return True
 
@@ -3607,11 +3707,13 @@ class OpticalRig:
         else:
             for demo in demos:
                 report.append(
-                    "- `%s`: composed `%s`, then selected Speak through %s camera activations"
+                    "- `%s`: %s selections, four speech turns `%s`, correction, clear, and language round-trip through %s camera activations in %ss"
                     % (
                         demo.get("gesture", "unknown"),
-                        demo.get("message", ""),
+                        demo.get("selection_count", "unknown"),
+                        " / ".join(demo.get("spoken_messages", [])),
                         demo.get("physical_activations", "unknown"),
+                        demo.get("elapsed_s", "unknown"),
                     )
                 )
         report += [
@@ -4084,7 +4186,7 @@ def main():
     ap.add_argument("--calibrate-cheek-session", action="store_true",
                     help="with --runtime-only, create a reusable cheek session from the imported pack")
     ap.add_argument("--demo-phrase", action="store_true",
-                    help="with --runtime-only, compose 幫忙喝水 and select Speak using physical camera gestures")
+                    help="with --runtime-only, run the extended normal-use scenario using physical camera gestures")
     ap.add_argument("--case", action="append", default=[],
                     help="with --runtime-only, run only this case ID (repeatable)")
     ap.add_argument("--repeat", type=int, default=1,

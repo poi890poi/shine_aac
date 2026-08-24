@@ -109,6 +109,14 @@ class OpticalOracleTest(unittest.TestCase):
             RIG.semantic_board_target(state, ["朗讀", "說出", "Speak"]),
         )
 
+    def test_physical_normal_use_script_is_extended_and_covers_repair(self):
+        script = RIG.PHYSICAL_NORMAL_USE_SCRIPT
+        self.assertGreaterEqual(len(script), 20)
+        self.assertEqual(4, sum(step["kind"] == "speak" for step in script))
+        self.assertTrue(any(step["kind"] == "undo" for step in script))
+        self.assertTrue(any(step["kind"] == "open_category" for step in script))
+        self.assertTrue(any(step["kind"] == "close_category" for step in script))
+
     def test_blink_calibration_timeline_requires_five_long_closures(self):
         events = []
         for cycle in range(1, 6):
