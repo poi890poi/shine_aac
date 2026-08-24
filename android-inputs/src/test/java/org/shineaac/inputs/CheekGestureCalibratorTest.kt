@@ -43,13 +43,22 @@ class CheekGestureCalibratorTest {
     }
 
     @Test
-    fun calibrationCandidateGateIsLowerThanRuntimeAndAdaptsToRestNoise() {
-        val quiet = cheekCalibrationCandidateThreshold(List(40) { 0.08 + (it % 3) * 0.005 })
-        val noisier = cheekCalibrationCandidateThreshold(List(40) { 0.24 + (it % 4) * 0.01 })
+    fun registrationClustersUnknownPeriodAndKeepsStrongestFewFrames() {
+        val scores = listOf(0.17, 0.19, 0.21, 0.34, 0.39, 0.46, 0.44, 0.41, 0.22, 0.18)
+        val period = scores.mapIndexed { index, score ->
+            ScoredCheekCalibrationFrame(mapOf("cheekSquintLeft" to index / 10.0), score)
+        }
+        val selected = selectCheekCalibrationPositiveFrames(period, maximumSamples = 4)
 
-        assertEquals(0.28, quiet, 0.0001)
-        assertTrue(noisier > quiet)
-        assertTrue(noisier <= 0.50)
-        assertTrue(noisier < CheekTwitchDetector.DefaultEnterThreshold)
+        assertEquals(listOf(0.46, 0.44, 0.41, 0.39), selected.map { it.score })
+        assertTrue(selected.maxOf { it.score } < CheekTwitchDetector.DefaultEnterThreshold)
+    }
+
+    @Test
+    fun registrationRejectsPeriodsWithoutASeparatedActiveCluster() {
+        val period = listOf(0.18, 0.19, 0.20, 0.19, 0.21, 0.20).map {
+            ScoredCheekCalibrationFrame(mapOf("cheekSquintLeft" to it), it)
+        }
+        assertTrue(selectCheekCalibrationPositiveFrames(period).isEmpty())
     }
 }

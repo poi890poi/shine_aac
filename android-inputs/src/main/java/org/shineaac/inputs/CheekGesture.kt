@@ -64,15 +64,43 @@ sealed class CheekCalibrationOutcome {
     data class Failure(val reason: String, val diagnosticModel: CheekGestureModel? = null) : CheekCalibrationOutcome()
 }
 
+internal data class ScoredCheekCalibrationFrame(
+    val values: Map<String, Double>,
+    val score: Double
+)
+
 /**
- * A permissive, rest-adaptive gate used only to collect calibration examples.
- * Runtime activation remains governed by the default or learned detector
- * threshold. Final model quality checks reject noisy or inseparable trials.
+ * Separates an unknown-length twitch period into transition/rest-like and
+ * active samples, then keeps only the strongest few active frames. This is a
+ * registration step; runtime thresholds and final model quality remain intact.
  */
-internal fun cheekCalibrationCandidateThreshold(neutralScores: List<Double>): Double {
-    val quietHigh = if (neutralScores.isEmpty()) 0.0
-    else CheekGestureCalibrator.percentile(neutralScores, 0.99)
-    return (quietHigh + 0.08).coerceIn(0.28, 0.50)
+internal fun selectCheekCalibrationPositiveFrames(
+    period: List<ScoredCheekCalibrationFrame>,
+    maximumSamples: Int = 6
+): List<ScoredCheekCalibrationFrame> {
+    if (period.size < 3 || maximumSamples < 1) return emptyList()
+    var lowCenter = period.minOf { it.score }
+    var highCenter = period.maxOf { it.score }
+    if (highCenter - lowCenter < 0.06) return emptyList()
+    repeat(12) {
+        val low = period.filter { kotlin.math.abs(it.score - lowCenter) <= kotlin.math.abs(it.score - highCenter) }
+        val high = period.filter { kotlin.math.abs(it.score - lowCenter) > kotlin.math.abs(it.score - highCenter) }
+        if (low.isEmpty() || high.isEmpty()) return emptyList()
+        val nextLow = low.map { it.score }.average()
+        val nextHigh = high.map { it.score }.average()
+        if (kotlin.math.abs(nextLow - lowCenter) < 0.0001 && kotlin.math.abs(nextHigh - highCenter) < 0.0001) {
+            lowCenter = nextLow
+            highCenter = nextHigh
+            return@repeat
+        }
+        lowCenter = nextLow
+        highCenter = nextHigh
+    }
+    if (highCenter - lowCenter < 0.06) return emptyList()
+    val boundary = (lowCenter + highCenter) / 2.0
+    val active = period.filter { it.score > boundary }.sortedByDescending { it.score }
+    if (active.size < 3) return emptyList()
+    return active.take(maximumSamples)
 }
 
 class CheekGestureCalibrator(private val candidateFeatures: List<String> = CheekFeatureSpace.names) {

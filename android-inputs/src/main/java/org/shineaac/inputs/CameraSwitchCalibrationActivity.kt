@@ -178,10 +178,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val cheekCalibrator = CheekGestureCalibrator()
     private var cheekCalibrationStage = CheekCalibrationStage.Idle
     private var cheekCalibrationTrial = 0
-    private var cheekCalibrationBuffer = mutableListOf<Map<String, Double>>()
-    private var cheekCalibrationPeak = 0.0
-    private val cheekCalibrationNeutralScores = mutableListOf<Double>()
-    private var cheekCalibrationCandidateEnterThreshold = cheekCalibrationCandidateThreshold(emptyList())
+    private var cheekCalibrationBuffer = mutableListOf<ScoredCheekCalibrationFrame>()
     private var calibratedZoomRatio = 1.6f
     private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
@@ -909,9 +906,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         cheekCalibrationStage = CheekCalibrationStage.Idle
         cheekCalibrationTrial = 0
         cheekCalibrationBuffer.clear()
-        cheekCalibrationPeak = 0.0
-        cheekCalibrationNeutralScores.clear()
-        cheekCalibrationCandidateEnterThreshold = cheekCalibrationCandidateThreshold(emptyList())
         cheekCalibrator.reset()
         cheekDetector.reset()
         cheekPreviewActivations = 0
@@ -951,9 +945,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         cheekCalibrationStage = CheekCalibrationStage.Rest
         cheekCalibrationTrial = 0
         cheekCalibrationBuffer.clear()
-        cheekCalibrationPeak = 0.0
-        cheekCalibrationNeutralScores.clear()
-        cheekCalibrationCandidateEnterThreshold = cheekCalibrationCandidateThreshold(emptyList())
         cheekPreviewActivations = 0
         statusView?.text = tr(
             "Calibration: relax your face. We will continue automatically when enough resting frames are collected.",
@@ -968,15 +959,10 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             CheekCalibrationStage.Idle -> return false
             CheekCalibrationStage.Rest -> {
                 cheekCalibrator.addNeutral(values)
-                liveScore?.takeIf { it.isFinite() }?.let(cheekCalibrationNeutralScores::add)
                 val count = cheekCalibrator.neutralCount()
                 if (count >= 36 && cheekDetector.ready) {
-                    cheekCalibrationCandidateEnterThreshold = cheekCalibrationCandidateThreshold(
-                        cheekCalibrationNeutralScores
-                    )
                     cheekCalibrationStage = CheekCalibrationStage.Move
                     cheekCalibrationBuffer.clear()
-                    cheekCalibrationPeak = 0.0
                     statusView?.text = cheekCalibrationMoveInstruction(
                         acceptedTrials = 0,
                         zhTw = zhTwUi
@@ -987,19 +973,18 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             }
             CheekCalibrationStage.Move -> {
                 val score = liveScore ?: return false
-                if (score >= cheekCalibrationCandidateEnterThreshold * 0.45) {
-                    cheekCalibrationBuffer.add(values)
-                    cheekCalibrationPeak = max(cheekCalibrationPeak, score)
+                if (score >= CheekTwitchDetector.DefaultExitThreshold * 0.5) {
+                    cheekCalibrationBuffer.add(ScoredCheekCalibrationFrame(values, score))
                     return false
                 }
-                val accepted = cheekCalibrationPeak >= cheekCalibrationCandidateEnterThreshold && cheekCalibrationBuffer.size >= 3
+                val positiveFrames = selectCheekCalibrationPositiveFrames(cheekCalibrationBuffer)
+                val accepted = positiveFrames.size >= 3
                 if (accepted) {
                     cheekCalibrationTrial += 1
-                    cheekCalibrationBuffer.forEach { cheekCalibrator.addActive(cheekCalibrationTrial, it) }
+                    positiveFrames.forEach { cheekCalibrator.addActive(cheekCalibrationTrial, it.values) }
                     playLongAcceptedCue()
                 }
                 cheekCalibrationBuffer.clear()
-                cheekCalibrationPeak = 0.0
                 metricsView?.text = tr("Accepted movements $cheekCalibrationTrial / 6", "已接受動作 $cheekCalibrationTrial / 6")
                 if (cheekCalibrationTrial >= 6) {
                     finishCheekCalibration()
