@@ -31,7 +31,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="@string/settings_input_test_instructions"
-                android:textAppearance="?attr/textAppearanceHeadline6" />
+                android:textAppearance="@style/TextAppearance.AppCompat.Title" />
 
             <TextView
                 android:id="@+id/input_test_count"
@@ -50,7 +50,7 @@
                 android:accessibilityLiveRegion="polite"
                 android:layout_marginTop="12dp"
                 android:gravity="center"
-                android:textAppearance="?attr/textAppearanceBody1" />
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
 
             <Button
                 android:id="@+id/input_test_touch_button"
@@ -71,7 +71,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="@string/settings_input_test_camera_note"
-                android:textAppearance="?attr/textAppearanceCaption" />
+                android:textAppearance="@style/TextAppearance.AppCompat.Caption" />
 
         </LinearLayout>
     </ScrollView>
