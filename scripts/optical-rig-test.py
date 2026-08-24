@@ -76,6 +76,34 @@ def board_phase_from_xml(xml_path):
     return None
 
 
+def scan_mode_from_settings_xml(xml_path):
+    """Read the selected scan mode from the visible HTML select value.
+
+    UIAutomator exposes a WebView ``select`` as a clickable node whose text is
+    the current value.  Tapping the separate label does not open Android's
+    option dialog on every WebView/layout, so the visible value itself is the
+    stable, non-mutating oracle.
+    """
+    labels = {
+        "Rows, then columns": "row-column",
+        "先列後格": "row-column",
+        "Blocks, then rows and columns": "block-row-column",
+        "區塊、列、格": "block-row-column",
+    }
+    try:
+        tree = ET.parse(xml_path)
+    except (ET.ParseError, OSError):
+        return None
+    for node in tree.iter("node"):
+        attributes = node.attrib
+        if attributes.get("bounds") == "[0,0][0,0]":
+            continue
+        mode = labels.get(attributes.get("text", "").strip())
+        if mode and attributes.get("clickable") == "true":
+            return mode
+    return None
+
+
 def visible_activation_count(before_phase, after_phase, scan_mode):
     """Infer 0..2 inputs from the normal board's deterministic review reset."""
     if before_phase != "review":
@@ -2143,33 +2171,12 @@ class OpticalRig:
     def read_scan_mode_from_settings(self):
         """Read, without changing, the real scan mode needed by the UI oracle."""
         xml = self.device.ui_dump("rig_scan_mode")
-        selector = self.device.find_node(
-            xml, ["scanning method", "掃描方式"], visible_only=True
-        )
-        if not selector or not self.device.tap_node(selector):
-            self.add("P0", "Could not read scan mode", "The Settings scan-mode selector was unavailable.")
-            return None
-        time.sleep(0.4)
-        dialog = self.device.ui_dump("rig_scan_mode_dialog")
-        try:
-            tree = ET.parse(dialog)
-            label = next((
-                node.attrib.get("text", "")
-                for node in tree.iter("node")
-                if node.attrib.get("checked") == "true"
-            ), "")
-        except (ET.ParseError, OSError):
-            label = ""
-        self.device.shell("input", "keyevent", "4", check=False)
-        if label in ("Rows, then columns", "先列後格"):
-            self.scan_mode = "row-column"
-        elif label in ("Blocks, then rows and columns", "區塊、列、格"):
-            self.scan_mode = "block-row-column"
-        else:
+        self.scan_mode = scan_mode_from_settings_xml(xml)
+        if not self.scan_mode:
             self.add(
                 "P0", "Unknown scan mode",
-                "The checked scan-mode label was %r." % label,
-                ["device/ui/rig_scan_mode_dialog.xml"]
+                "No recognized visible scan-mode value was exposed by Settings.",
+                ["device/ui/rig_scan_mode.xml"]
             )
             return None
         self.pass_("visible activation oracle", "scan mode is " + self.scan_mode)

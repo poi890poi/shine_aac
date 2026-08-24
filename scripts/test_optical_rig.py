@@ -183,6 +183,34 @@ class OpticalOracleTest(unittest.TestCase):
             )
             self.assertEqual("cells", RIG.board_phase_from_xml(path))
 
+    def test_reads_visible_scan_mode_value_without_opening_select_dialog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.xml"
+            path.write_text(
+                '<hierarchy><node text="掃描方式" clickable="false" '
+                'bounds="[66,853][249,913]" />'
+                '<node text="先列後格" clickable="true" '
+                'bounds="[66,931][1014,1078]" /></hierarchy>',
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                "row-column", RIG.scan_mode_from_settings_xml(path)
+            )
+
+    def test_scan_mode_reader_ignores_offscreen_webview_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.xml"
+            path.write_text(
+                '<hierarchy><node text="區塊、列、格" clickable="true" '
+                'bounds="[0,0][0,0]" />'
+                '<node text="Rows, then columns" clickable="true" '
+                'bounds="[66,931][1014,1078]" /></hierarchy>',
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                "row-column", RIG.scan_mode_from_settings_xml(path)
+            )
+
 
 class CoordinateAtlasDecoderTest(unittest.TestCase):
     def _decode(self, pixel, size=(512, 384)):
