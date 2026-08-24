@@ -2177,6 +2177,9 @@ async function scenarioConfigProfileRelevance() {
       const profile = form.elements.profileId;
       const field = form.querySelector("[data-zhuyin-first-pass-field]");
       const checkbox = form.elements.deferUnsupportedZhuyinOnFirstPass;
+      const unnamedCheckboxes = [...form.querySelectorAll('input[type="checkbox"]')]
+        .filter((input) => !input.getAttribute("aria-label"))
+        .length;
       const englishInitiallyHidden = field.hidden;
       profile.value = "zh-TW";
       profile.dispatchEvent(new Event("change", { bubbles: true }));
@@ -2185,7 +2188,7 @@ async function scenarioConfigProfileRelevance() {
       profile.dispatchEvent(new Event("change", { bubbles: true }));
       const englishState = { hidden: field.hidden, checked: checkbox.checked };
       form.querySelector('[data-action="cancel"]')?.click();
-      return { englishInitiallyHidden, zhTwState, englishState };
+      return { englishInitiallyHidden, zhTwState, englishState, unnamedCheckboxes };
     })()
   `);
   if (
@@ -2193,7 +2196,8 @@ async function scenarioConfigProfileRelevance() {
     result.zhTwState.hidden ||
     !result.zhTwState.checked ||
     !result.englishState.hidden ||
-    result.englishState.checked
+    result.englishState.checked ||
+    result.unnamedCheckboxes !== 0
   ) {
     throw new Error(`Zhuyin-only setting visibility does not follow the language profile: ${JSON.stringify(result)}`);
   }

@@ -2146,32 +2146,32 @@ function renderConfig() {
         </select>
       </label>
       <label class="field check-field">
-        <input name="autoScanSuggestionPages" type="checkbox" ${session.config.autoScanSuggestionPages ? "checked" : ""}>
+        <input name="autoScanSuggestionPages" type="checkbox" aria-label="${uiText("Auto-scan More pages", "自動掃描「更多」頁面")}" ${session.config.autoScanSuggestionPages ? "checked" : ""}>
         ${uiText("Auto-scan More pages", "自動掃描「更多」頁面")}
       </label>
       <label class="field check-field" data-zhuyin-first-pass-field${session.config.profileId === "zh-TW" ? "" : " hidden"}>
-        <input name="deferUnsupportedZhuyinOnFirstPass" type="checkbox" ${session.config.deferUnsupportedZhuyinOnFirstPass ? "checked" : ""}>
+        <input name="deferUnsupportedZhuyinOnFirstPass" type="checkbox" aria-label="${uiText("Defer unsupported Zhuyin until pass 2", "第一輪略過無有效字音的注音")}" ${session.config.deferUnsupportedZhuyinOnFirstPass ? "checked" : ""}>
         ${uiText("Defer unsupported Zhuyin until pass 2", "第一輪略過無有效字音的注音")}
       </label>
       <label class="field check-field">
-        <input name="rowScanVoice" type="checkbox" ${uiConfig.rowScanVoice ? "checked" : ""}>
+        <input name="rowScanVoice" type="checkbox" aria-label="${uiText("Voice while row scanning", "選列時朗讀")}" ${uiConfig.rowScanVoice ? "checked" : ""}>
         ${uiText("Voice while row scanning", "選列時朗讀")}
       </label>
       <label class="field check-field">
-        <input name="scanVoice" type="checkbox" ${uiConfig.scanVoice ? "checked" : ""}>
+        <input name="scanVoice" type="checkbox" aria-label="${uiText("Voice while symbol scanning", "選格時朗讀")}" ${uiConfig.scanVoice ? "checked" : ""}>
         ${uiText("Voice while symbol scanning", "選格時朗讀")}
       </label>
       <label class="field check-field">
-        <input name="activationVoice" type="checkbox" ${uiConfig.activationVoice ? "checked" : ""}>
+        <input name="activationVoice" type="checkbox" aria-label="${uiText("Voice on activation", "選定後朗讀")}" ${uiConfig.activationVoice ? "checked" : ""}>
         ${uiText("Voice on activation", "選定後朗讀")}
       </label>
       ${speechVoiceSettingHtml(uiConfig.speechVoiceName)}
       <label class="field check-field">
-        <input name="restartScanFromTop" type="checkbox" ${uiConfig.restartScanFromTop ? "checked" : ""}>
+        <input name="restartScanFromTop" type="checkbox" aria-label="${uiText("Restart scan at top after input", "輸入後從第一列重新開始")}" ${uiConfig.restartScanFromTop ? "checked" : ""}>
         ${uiText("Restart scan at top after input", "輸入後從第一列重新開始")}
       </label>
       <label class="field check-field">
-        <input name="verticalGroupProgress" type="checkbox" ${uiConfig.verticalGroupProgress ? "checked" : ""}>
+        <input name="verticalGroupProgress" type="checkbox" aria-label="${uiText("Vertical block / row progress", "區塊／列使用垂直進度")}" ${uiConfig.verticalGroupProgress ? "checked" : ""}>
         ${uiText("Vertical block / row progress", "區塊／列使用垂直進度")}
       </label>
       <label class="field">${uiText("Switch input", "開關輸入")}
