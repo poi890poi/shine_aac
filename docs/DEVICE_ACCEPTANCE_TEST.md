@@ -20,6 +20,7 @@ Useful options:
 
 ```text
 --cycles 10
+--apk .artifacts\releases\v0.3.4\shine-aac-v0.3.4-code58-debug.apk
 --no-build
 --no-install
 --skip-font-200
@@ -29,6 +30,29 @@ Useful options:
 --thermal-resume-c 38
 --thermal-stable-sec 30
 ```
+
+Use `--apk` with `--no-build` to test a specific already-built artifact. The
+runner records its resolved path, byte size, and SHA-256 in `apk.txt`; it never
+silently substitutes the default Gradle debug output.
+
+Android cannot replace an installed package with an APK signed by a different
+key. Remove the existing package only after deciding whether its private app
+data needs to be preserved.
+
+The standard `device-test.bat` run continues with the configuration and UX
+audit after the lifecycle/camera suite. To run that portion independently:
+
+```bat
+device-config-audit.bat
+```
+
+It uses the debuggable Android WebView on the physical device, captures every
+configuration viewport, inventories all major options, verifies every timing
+preset, scan method, pass limit, input profile, language and contrast theme,
+checks numeric boundaries and save/cancel/reset/export behavior, opens Taiwan
+voice/App Info/Input Test, checks target sizes/names/overflow/type size, and
+restores the original stored configuration when it exits. Its report includes
+P0 through P4 findings under `test-results\config-*`.
 
 ## Thermal governor
 
@@ -80,8 +104,11 @@ The standard run covers:
 - crash/ANR/camera/app-owned exception logs;
 - rough PSS growth;
 - screenshots, UI hierarchy, dumpsys, preferences and logcat.
+- full Configuration option/persistence/action/UX audit.
 
-P0/P1 findings make the command return non-zero.
+P0/P1 findings make the command return non-zero. Reports enumerate P0 through
+P4 so minor polish and consistency observations are retained instead of being
+discarded.
 
 ## Optical switch regression
 

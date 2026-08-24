@@ -13,6 +13,7 @@
 #
 # Options:
 #   --no-build         skip quick/core + Android debug build
+#   --apk PATH         install and test this exact APK instead of the debug output
 #   --no-install       do not reinstall APK
 #   --cycles 5         camera setup return cycles (default 5)
 #   --skip-font-200    skip Android font-scale 2.0 layout pass
@@ -51,9 +52,9 @@ from device_test_common import ThermalGovernor
 PACKAGE = "org.shineaac.app"
 MAIN_ACTIVITY = "org.shineaac.app/.MainActivity"
 CAMERA_ACTIVITY_FRAGMENT = "CameraSwitchCalibrationActivity"
-APK = Path("app/build/outputs/apk/debug/app-debug.apk")
+DEFAULT_APK = Path("app/build/outputs/apk/debug/app-debug.apk")
 
-PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "INFO": 4}
+PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4, "INFO": 5}
 
 def find_adb():
     candidates = []
@@ -152,6 +153,30 @@ class DeepTest:
         }
         self.findings.append(item)
         print("%s  %s: %s" % (priority, title, detail))
+
+    def add_layout_observation(self, priority, title, count, checkpoint, evidence):
+        existing = next((item for item in self.findings if item["title"] == title), None)
+        observation = {"checkpoint": checkpoint, "count": count}
+        if existing is None:
+            existing = {
+                "priority": priority,
+                "title": title,
+                "detail": "",
+                "evidence": [],
+                "observations": [],
+            }
+            self.findings.append(existing)
+        existing["observations"].append(observation)
+        for item in evidence:
+            if item not in existing["evidence"]:
+                existing["evidence"].append(item)
+        counts = [item["count"] for item in existing["observations"]]
+        existing["detail"] = (
+            "Observed at %d checkpoint(s); %d-%d visible control(s) affected per checkpoint. "
+            "See findings.json for every checkpoint."
+            % (len(counts), min(counts), max(counts))
+        )
+        print("%s  %s: %d at %s" % (priority, title, count, checkpoint))
 
     def passed(self, title, detail=""):
         self.passes.append((title, detail))
@@ -523,26 +548,29 @@ class DeepTest:
                 unnamed.append((cls, b, n["resource_id"]))
 
         if small:
-            title = "Visible touch targets below 48dp"
-            if not any(f["title"] == title and ("ui/%s.xml" % name) in f["evidence"]
-                       for f in self.findings):
-                self.add(
-                    "P2", title,
-                    "%d visible interactive control(s) are below Android's 48dp "
-                    "recommended target at checkpoint %s." % (len(small), name),
-                    ["ui/%s.xml" % name, "screenshots/%s.png" % name]
-                )
+            if "board" in name or name in (
+                "launch", "scan_motion_board", "background_before", "background_return",
+                "screenoff_before", "screenoff_return", "recreation_after"
+            ):
+                surface = "Communication-board"
+            elif "camera_setup" in name:
+                surface = "Camera-setup"
+            elif "config" in name or "return_from_camera" in name:
+                surface = "Configuration"
+            else:
+                surface = "Communication-board"
+            self.add_layout_observation(
+                "P2", "%s touch targets below 48dp" % surface,
+                len(small), name,
+                ["ui/%s.xml" % name, "screenshots/%s.png" % name]
+            )
 
         if unnamed:
-            title = "Unnamed visible interactive controls"
-            if not any(f["title"] == title and ("ui/%s.xml" % name) in f["evidence"]
-                       for f in self.findings):
-                self.add(
-                    "P2", title,
-                    "%d visible interactive control(s) have neither text nor "
-                    "content-description at checkpoint %s." % (len(unnamed), name),
-                    ["ui/%s.xml" % name, "screenshots/%s.png" % name]
-                )
+            self.add_layout_observation(
+                "P2", "Visible controls missing Android accessibility names",
+                len(unnamed), name,
+                ["ui/%s.xml" % name, "screenshots/%s.png" % name]
+            )
 
     def visible_text_set(self, xml_path):
         result = set()
@@ -1265,8 +1293,14 @@ class DeepTest:
                 lines.append("")
                 if f["evidence"]:
                     lines.append("Evidence:")
-                    for e in f["evidence"]:
+                    report_evidence = f["evidence"]
+                    if len(report_evidence) > 6:
+                        report_evidence = report_evidence[:4] + report_evidence[-2:]
+                    for e in report_evidence:
                         lines.append("- `%s`" % e)
+                    if len(f["evidence"]) > len(report_evidence):
+                        lines.append("- `%d additional evidence files listed in findings.json`" %
+                                     (len(f["evidence"]) - len(report_evidence)))
                     lines.append("")
         lines += ["## Passed checks", ""]
         for title, detail in self.passes:
@@ -1279,6 +1313,7 @@ class DeepTest:
             "- **P1** — major functional/reliability issue; should fix before release.",
             "- **P2** — UI/layout/accessibility defect or automation weakness.",
             "- **P3** — minor/cosmetic issue.",
+            "- **P4** — polish, consistency, or low-impact usability improvement.",
             "",
             "## AAC / UI / accessibility review basis",
             "",
@@ -1308,11 +1343,14 @@ class DeepTest:
             "- Dynamic suggestions can legitimately change some board labels across process recreation.",
         ]
         self.save("FINDINGS.md", "\n".join(lines))
+        self.save("findings.json", json.dumps(self.findings, ensure_ascii=False, indent=2))
         summary = [
             "Findings: %d" % len(findings),
             "P0: %d" % sum(1 for f in findings if f["priority"] == "P0"),
             "P1: %d" % sum(1 for f in findings if f["priority"] == "P1"),
             "P2: %d" % sum(1 for f in findings if f["priority"] == "P2"),
+            "P3: %d" % sum(1 for f in findings if f["priority"] == "P3"),
+            "P4: %d" % sum(1 for f in findings if f["priority"] == "P4"),
             "Passed checks: %d" % len(self.passes),
             "Report: " + str((self.outdir / "FINDINGS.md").resolve()),
         ]
@@ -1324,6 +1362,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-build", action="store_true",
                     help="skip npm quick tests and Android debug build")
+    ap.add_argument("--apk",
+                    help="install and test this exact APK (relative paths use the repository root)")
     ap.add_argument("--no-install", action="store_true")
     ap.add_argument("--cycles", type=int, default=5)
     ap.add_argument("--skip-font-200", action="store_true")
@@ -1342,6 +1382,11 @@ def main():
     root = Path.cwd()
     if not (root / "app").exists() or not (root / "packages" / "aac-core").exists():
         raise SystemExit("Run from shine_aac repository root.")
+
+    apk_path = Path(args.apk).expanduser() if args.apk else DEFAULT_APK
+    if not apk_path.is_absolute():
+        apk_path = root / apk_path
+    apk_path = apk_path.resolve()
 
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     outdir = root / "test-results" / ("device-" + stamp)
@@ -1373,6 +1418,16 @@ def main():
 
     adb = find_adb()
     t = DeepTest(adb, root, outdir)
+
+    if apk_path.exists():
+        apk_sha256 = hashlib.sha256(apk_path.read_bytes()).hexdigest()
+        t.save(
+            "apk.txt",
+            "path=%s\nsize=%d\nsha256=%s\n" %
+            (apk_path, apk_path.stat().st_size, apk_sha256),
+        )
+    else:
+        apk_sha256 = "missing"
 
     git = []
     for cmd in (
@@ -1409,15 +1464,15 @@ def main():
         t.dump_text("battery_initial", "dumpsys", "battery")
 
         if not args.no_install:
-            if not APK.exists():
-                raise SystemExit("APK missing: " + str(APK))
-            r = t.adb_cmd("install", "-r", str(APK.resolve()), check=False, timeout=120)
+            if not apk_path.exists():
+                raise SystemExit("APK missing: " + str(apk_path))
+            r = t.adb_cmd("install", "-r", str(apk_path), check=False, timeout=120)
             t.save("install.txt", r.stdout or "")
             if r.returncode != 0 or "Success" not in (r.stdout or ""):
                 t.add("P0", "APK install failed", (r.stdout or "").strip(), ["install.txt"])
                 t.write_report()
                 return 2
-            t.passed("APK install")
+            t.passed("APK install", "%s sha256=%s" % (apk_path.name, apk_sha256))
 
         t.thermal_guard("before-permissions")
         t.test_package_permissions()

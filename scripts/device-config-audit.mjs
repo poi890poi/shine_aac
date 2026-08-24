@@ -1,0 +1,493 @@
+#!/usr/bin/env node
+
+// Real-device configuration and UX audit for SHINE AAC's debug-built APK.
+// Run with Node's built-in WebSocket support:
+//   node --experimental-websocket scripts/device-config-audit.mjs
+
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
+const outDir = resolve(root, "test-results", `config-${stamp}`);
+const screenshotDir = resolve(outDir, "screenshots");
+mkdirSync(screenshotDir, { recursive: true });
+
+const adb = process.env.ADB || "E:\\Android\\Sdk\\platform-tools\\adb.exe";
+const packageName = "org.shineaac.app";
+const activity = `${packageName}/.MainActivity`;
+const port = Number(process.env.SHINE_AAC_DEVICE_CDP_PORT || 9224);
+const restoreUiOverride = process.env.SHINE_AAC_CONFIG_AUDIT_RESTORE_UI_JSON || "";
+const findings = [];
+const passes = [];
+let cdp;
+let originalStorage;
+
+function adbRun(args, encoding = "utf8") {
+  return execFileSync(adb, args, { cwd: root, encoding, windowsHide: true });
+}
+
+function add(priority, title, detail, evidence = []) {
+  findings.push({ priority, title, detail, evidence });
+}
+
+function pass(title, detail = "") {
+  passes.push({ title, detail });
+}
+
+function delay(ms) {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
+}
+
+function screenshot(name) {
+  const path = resolve(screenshotDir, `${name}.png`);
+  writeFileSync(path, adbRun(["exec-out", "screencap", "-p"], null));
+  return `screenshots/${name}.png`;
+}
+
+async function waitFor(predicate, label, timeoutMs = 15000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (await predicate()) return;
+    await delay(250);
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+
+class CdpClient {
+  constructor(socket) {
+    this.socket = socket;
+    this.nextId = 1;
+    this.pending = new Map();
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(String(event.data));
+      if (!message.id) return;
+      const pending = this.pending.get(message.id);
+      if (!pending) return;
+      this.pending.delete(message.id);
+      if (message.error) pending.reject(new Error(JSON.stringify(message.error)));
+      else pending.resolve(message.result);
+    });
+  }
+
+  static async connect(url) {
+    const socket = new WebSocket(url);
+    await new Promise((resolveOpen, rejectOpen) => {
+      socket.addEventListener("open", resolveOpen, { once: true });
+      socket.addEventListener("error", rejectOpen, { once: true });
+    });
+    return new CdpClient(socket);
+  }
+
+  send(method, params = {}) {
+    const id = this.nextId++;
+    return new Promise((resolveSend, rejectSend) => {
+      this.pending.set(id, { resolve: resolveSend, reject: rejectSend });
+      this.socket.send(JSON.stringify({ id, method, params }));
+    });
+  }
+
+  close() {
+    this.socket.close();
+  }
+}
+
+async function evaluate(expression) {
+  const response = await cdp.send("Runtime.evaluate", {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (response.exceptionDetails) throw new Error(response.exceptionDetails.text || "JavaScript evaluation failed");
+  return response.result?.value;
+}
+
+async function connect() {
+  const pid = adbRun(["shell", "pidof", packageName]).trim().split(/\s+/)[0];
+  if (!pid) throw new Error("SHINE AAC process is not running");
+  adbRun(["forward", `tcp:${port}`, `localabstract:webview_devtools_remote_${pid}`]);
+  let targets = [];
+  await waitFor(async () => {
+    try {
+      targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+      return targets.length > 0;
+    } catch {
+      return false;
+    }
+  }, "Android WebView debug target");
+  const target = targets.find((item) => /android_asset|apps\/web/i.test(item.url || "")) || targets[0];
+  cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
+  await cdp.send("Runtime.enable");
+}
+
+async function openConfig() {
+  await evaluate(`document.querySelector('.config-button')?.click()`);
+  await waitFor(() => evaluate(`Boolean(document.querySelector('.config-panel form'))`), "configuration form");
+}
+
+async function formSnapshot() {
+  return evaluate(`(() => {
+    const form = document.querySelector('.config-panel form');
+    if (!form) return null;
+    const value = (name) => {
+      const element = form.elements[name];
+      if (!element) return null;
+      if (element.type === 'checkbox') return element.checked;
+      if (element.tagName === 'TEXTAREA') return { length: element.value.length, lines: element.value.split('\\n').length };
+      return element.value;
+    };
+    const names = [...form.elements].map((element) => element.name).filter(Boolean);
+    const options = (name) => [...(form.elements[name]?.options ?? [])].map((option) => ({ value: option.value, label: option.textContent.trim() }));
+    return {
+      names,
+      values: Object.fromEntries([...new Set(names)].map((name) => [name, value(name)])),
+      options: {
+        profileId: options('profileId'), scanMode: options('scanMode'),
+        scanTimingPreset: options('scanTimingPreset'), scanPassLimit: options('scanPassLimit'),
+        switchInputProfile: options('switchInputProfile'), contrastTheme: options('contrastTheme')
+      }
+    };
+  })()`);
+}
+
+async function auditLayout() {
+  return evaluate(`(() => {
+    const panel = document.querySelector('.config-panel');
+    const form = panel?.querySelector('form');
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+    };
+    const controls = [...form.querySelectorAll('button,input,select,textarea')].filter(visible).map((element) => {
+      const own = element.getBoundingClientRect();
+      const label = element.labels?.[0];
+      const target = (element.type === 'checkbox' && label) ? label.getBoundingClientRect() : own;
+      const name = element.getAttribute('aria-label') || label?.innerText?.trim() || element.innerText?.trim() || element.name || '';
+      return { name, type: element.type || element.tagName, width: target.width, height: target.height };
+    });
+    const panelRect = panel.getBoundingClientRect();
+    const overflow = [...form.querySelectorAll('.field,.settings-row,.config-actions button')].filter(visible).filter((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.left < panelRect.left - 1 || rect.right > panelRect.right + 1 || element.scrollWidth > element.clientWidth + 2;
+    }).map((element) => element.innerText?.trim().slice(0, 80) || element.className);
+    const tinyText = [...form.querySelectorAll('label,button,small,strong')].filter(visible).filter((element) => parseFloat(getComputedStyle(element).fontSize) < 14).map((element) => ({ text: element.innerText.trim().slice(0, 80), px: getComputedStyle(element).fontSize }));
+    return {
+      viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
+      panel: { width: panelRect.width, scrollHeight: panel.scrollHeight, clientHeight: panel.clientHeight },
+      unnamed: controls.filter((item) => !item.name),
+      smallTargets: controls.filter((item) => item.width < 48 || item.height < 48),
+      overflow,
+      tinyText
+    };
+  })()`);
+}
+
+async function captureConfigPages(prefix) {
+  const positions = await evaluate(`(() => {
+    const panel = document.querySelector('.config-panel');
+    const max = Math.max(0, panel.scrollHeight - panel.clientHeight);
+    return [0, Math.round(max * 0.33), Math.round(max * 0.66), max];
+  })()`);
+  for (let index = 0; index < positions.length; index += 1) {
+    await evaluate(`document.querySelector('.config-panel').scrollTop=${positions[index]}`);
+    await delay(250);
+    screenshot(`${prefix}-${index + 1}`);
+  }
+}
+
+async function setAndSave(values) {
+  await evaluate(`(() => {
+    const form = document.querySelector('.config-panel form');
+    const values = ${JSON.stringify(values)};
+    for (const [name, value] of Object.entries(values)) {
+      const element = form.elements[name];
+      if (!element) throw new Error('Missing setting: ' + name);
+      if (element.type === 'checkbox') element.checked = Boolean(value);
+      else element.value = String(value);
+      element.dispatchEvent(new Event(element.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
+    }
+    form.requestSubmit();
+  })()`);
+  await waitFor(() => evaluate(`Boolean(document.querySelector('.config-button')) && !document.querySelector('.config-panel')`), "saved board");
+}
+
+function mismatchedValues(snapshot, expected) {
+  return Object.entries(expected).filter(([name, value]) =>
+    snapshot.values[name] !== value && String(snapshot.values[name]) !== String(value)
+  );
+}
+
+async function verifyRoundTrip(label, values) {
+  await setAndSave(values);
+  await openConfig();
+  const snapshot = await formSnapshot();
+  const mismatches = mismatchedValues(snapshot, values);
+  if (mismatches.length) {
+    add("P1", `${label} failed to persist`, JSON.stringify(mismatches), ["option-matrix.json"]);
+  } else {
+    pass(label, `${Object.keys(values).length} value(s) saved and reloaded`);
+  }
+  return snapshot;
+}
+
+async function boardContrastSamples() {
+  return evaluate(`(() => {
+    const parse = (value) => {
+      const match = String(value).match(/[\\d.]+/g);
+      return match ? match.slice(0, 3).map(Number) : [0, 0, 0];
+    };
+    const luminance = (rgb) => {
+      const channels = rgb.map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    const sample = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const style = getComputedStyle(element);
+      const foreground = parse(style.color);
+      const background = parse(style.backgroundColor);
+      const light = Math.max(luminance(foreground), luminance(background));
+      const dark = Math.min(luminance(foreground), luminance(background));
+      return { selector, color: style.color, background: style.backgroundColor, ratio: (light + 0.05) / (dark + 0.05), text: element.textContent.trim() };
+    };
+    return ['.review-hold-row .tile', '.tile.action-clear', '.tile.action-backspace'].map(sample).filter(Boolean);
+  })()`);
+}
+
+async function restoreOriginal() {
+  if (!originalStorage) return;
+  await evaluate(`(() => {
+    const values = ${JSON.stringify(originalStorage)};
+    for (const [key, value] of Object.entries(values)) {
+      if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, value);
+    }
+    const ui = values['shine-aac-web-ui-v1'];
+    if (ui && globalThis.ShineAacAndroid?.setUiConfigJson) {
+      globalThis.ShineAacAndroid.setUiConfigJson(ui);
+    }
+    location.reload();
+  })()`);
+  await delay(1800);
+  const restoredStorage = await evaluate(`({
+    'shine-aac-web-config-v1': localStorage.getItem('shine-aac-web-config-v1'),
+    'shine-aac-web-ui-v1': localStorage.getItem('shine-aac-web-ui-v1')
+  })`);
+  writeFileSync(resolve(outDir, "restoration.json"), JSON.stringify({ expected: originalStorage, actual: restoredStorage }, null, 2));
+  if (JSON.stringify(restoredStorage) !== JSON.stringify(originalStorage)) {
+    add("P1", "Original configuration restore verification failed", "Restored localStorage differs from the pre-test snapshot", ["restoration.json"]);
+  } else {
+    pass("original configuration restore", "both board and native-mirrored UI stores match the pre-test snapshot");
+  }
+}
+
+async function main() {
+  adbRun(["shell", "input", "keyevent", "224"]); // WAKEUP
+  adbRun(["shell", "wm", "dismiss-keyguard"]);
+  adbRun(["shell", "am", "force-stop", packageName]);
+  adbRun(["shell", "am", "start", "-n", activity]);
+  await delay(1800);
+  await connect();
+  await waitFor(() => evaluate(`Boolean(document.querySelector('.config-button'))`), "board");
+  originalStorage = await evaluate(`({
+    'shine-aac-web-config-v1': localStorage.getItem('shine-aac-web-config-v1'),
+    'shine-aac-web-ui-v1': localStorage.getItem('shine-aac-web-ui-v1')
+  })`);
+  if (restoreUiOverride) {
+    originalStorage["shine-aac-web-ui-v1"] = JSON.stringify(JSON.parse(restoreUiOverride));
+  }
+
+  await openConfig();
+  const baseline = await formSnapshot();
+  const expected = [
+    "profileId", "columns", "scanMode", "scanTimingPreset", "scanIntervalMs",
+    "transitionPauseMs", "firstCellPauseMs", "inputLatencyCompensationMs",
+    "scanPassLimit", "autoScanSuggestionPages", "deferUnsupportedZhuyinOnFirstPass",
+    "rowScanVoice", "scanVoice", "activationVoice", "speechVoiceName",
+    "restartScanFromTop", "verticalGroupProgress", "switchInputProfile",
+    "contrastTheme", "suggestionDictionary", "symbols"
+  ];
+  const missing = expected.filter((name) => !baseline.names.includes(name));
+  if (missing.length) add("P1", "Configuration controls missing", missing.join(", "));
+  else pass("configuration inventory", `${expected.length} persisted settings present`);
+
+  const layout = await auditLayout();
+  if (layout.unnamed.length) add("P2", "Unnamed configuration controls", `${layout.unnamed.length} control(s) lack an accessible name`, ["baseline.json"]);
+  if (layout.smallTargets.length) add("P2", "Configuration targets below 48dp", `${layout.smallTargets.length} control(s) have a target below 48 CSS px`, ["baseline.json"]);
+  if (layout.overflow.length) add("P2", "Configuration horizontal clipping/overflow", `${layout.overflow.length} element(s) overflow the panel`, ["baseline.json"]);
+  if (layout.tinyText.length) add("P3", "Small configuration text", `${layout.tinyText.length} visible text element(s) render below 14 CSS px`, ["baseline.json"]);
+  await captureConfigPages("zh-default-config");
+  writeFileSync(resolve(outDir, "baseline.json"), JSON.stringify({ baseline, layout }, null, 2));
+
+  const matrix = {
+    profileId: "en-US", columns: 4, scanMode: "block-row-column",
+    scanTimingPreset: "cameraLongBlink", scanPassLimit: 0,
+    autoScanSuggestionPages: true, deferUnsupportedZhuyinOnFirstPass: false,
+    rowScanVoice: true, scanVoice: true, activationVoice: true,
+    restartScanFromTop: false, verticalGroupProgress: false,
+    switchInputProfile: "volume-buttons", contrastTheme: "high-contrast-dark"
+  };
+  await setAndSave(matrix);
+  screenshot("en-block-dark-board");
+  const boardContrast = await boardContrastSamples();
+  const unreadableBoard = boardContrast.filter((sample) => sample.ratio < 4.5);
+  if (unreadableBoard.length) {
+    add(
+      "P1",
+      "High-contrast dark board contains unreadable text",
+      unreadableBoard.map((sample) => `${sample.text || sample.selector}: ${sample.ratio.toFixed(2)}:1`).join(", "),
+      ["screenshots/en-block-dark-board.png", "matrix.json"]
+    );
+  }
+  await openConfig();
+  const saved = await formSnapshot();
+  const mismatches = mismatchedValues(saved, matrix);
+  if (mismatches.length) add("P1", "Major settings failed to persist", JSON.stringify(mismatches), ["matrix.json"]);
+  else pass("major settings persistence", `${Object.keys(matrix).length} representative changes persisted`);
+  await captureConfigPages("en-block-dark-config");
+
+  const beforeCancel = await evaluate(`({ config: localStorage.getItem('shine-aac-web-config-v1'), ui: localStorage.getItem('shine-aac-web-ui-v1') })`);
+  await evaluate(`(() => {
+    const form = document.querySelector('.config-panel form');
+    form.elements.profileId.value='zh-TW'; form.elements.profileId.dispatchEvent(new Event('change',{bubbles:true}));
+    form.elements.contrastTheme.value='high-contrast'; form.elements.contrastTheme.dispatchEvent(new Event('change',{bubbles:true}));
+    form.querySelector('[data-action="cancel"]').click();
+  })()`);
+  await openConfig();
+  const afterCancel = await evaluate(`({ config: localStorage.getItem('shine-aac-web-config-v1'), ui: localStorage.getItem('shine-aac-web-ui-v1') })`);
+  if (JSON.stringify(beforeCancel) !== JSON.stringify(afterCancel)) add("P1", "Cancel persisted unsaved configuration", "Language/theme edits changed storage after Cancel");
+  else pass("configuration cancel", "unsaved language/theme edits were discarded");
+
+  await evaluate(`document.querySelector('[data-action="speech-voices"]')?.click()`);
+  await waitFor(() => evaluate(`Boolean(document.querySelector('[data-testid="speech-voice-page"]'))`), "speech voice page");
+  const voices = await evaluate(`(() => ({
+    title: document.querySelector('#speech-voice-title')?.textContent,
+    rows: document.querySelectorAll('.speech-voice-row').length,
+    unnamedButtons: [...document.querySelectorAll('.speech-voice-icon-button')].filter((button) => !button.getAttribute('aria-label')).length,
+    selectedStyle: (() => {
+      const element = document.querySelector('.speech-voice-row:has(input:checked) .speech-voice-title');
+      if (!element) return null;
+      const style = getComputedStyle(element);
+      return { color: style.color, background: getComputedStyle(element.closest('.speech-voice-row')).backgroundColor };
+    })()
+  }))()`);
+  screenshot("speech-voices");
+  if (voices.unnamedButtons) add("P2", "Unnamed voice controls", `${voices.unnamedButtons} voice control(s) lack labels`, ["screenshots/speech-voices.png"]);
+  else pass("speech voice accessibility", `${voices.rows} voice choices exposed with named controls`);
+  await evaluate(`document.querySelector('[data-speech-action="back"]')?.click()`);
+
+  await evaluate(`document.querySelector('[data-action="app-info"]')?.click()`);
+  await delay(250); screenshot("app-info");
+  const appInfo = await evaluate(`document.querySelector('.info-panel')?.innerText ?? ''`);
+  if (!/0\.3\.4/.test(appInfo) || !/58/.test(appInfo)) add("P1", "App Info version metadata incorrect", appInfo, ["screenshots/app-info.png"]);
+  else pass("App Info", "shows version 0.3.4 and code 58");
+  adbRun(["shell", "input", "keyevent", "4"]); await delay(400);
+
+  await evaluate(`document.querySelector('[data-action="calibrate"]')?.click()`);
+  await delay(250); screenshot("input-test");
+  const inputTest = await evaluate(`document.querySelector('.calibration-panel')?.innerText ?? ''`);
+  if (!inputTest) add("P1", "Input Test did not open", "No calibration panel appeared", ["screenshots/input-test.png"]);
+  else pass("Input Test flow", "opened and returned to configuration");
+  adbRun(["shell", "input", "keyevent", "4"]); await delay(400);
+
+  const optionMatrix = [];
+  const cases = [
+    ...["default", "slower", "cameraLongBlink", "firstCellSupport", "cancelable"].map((value) => [`timing preset ${value}`, { scanTimingPreset: value }]),
+    ...["row-column", "block-row-column"].map((value) => [`scan method ${value}`, { scanMode: value }]),
+    ...[1, 2, 3, 0].map((value) => [`scan pass limit ${value}`, { scanPassLimit: value }]),
+    ...["default", "high-contrast", "high-contrast-dark"].map((value) => [`contrast theme ${value}`, { contrastTheme: value }]),
+    ...["hardware-buttons", "volume-buttons", "camera-long-blink", "hardware-and-camera", "off"].map((value) => [`switch input ${value}`, { switchInputProfile: value }]),
+    ["numeric lower bounds", { columns: 2, scanIntervalMs: 300, transitionPauseMs: 0, firstCellPauseMs: 300, inputLatencyCompensationMs: 0 }],
+    ["numeric upper bounds", { columns: 8, scanIntervalMs: 5000, transitionPauseMs: 4000, firstCellPauseMs: 6000, inputLatencyCompensationMs: 1200 }],
+    ["language English", { profileId: "en-US" }],
+    ["language Traditional Chinese", { profileId: "zh-TW" }]
+  ];
+  for (const [label, values] of cases) {
+    const snapshot = await verifyRoundTrip(label, values);
+    optionMatrix.push({ label, values, saved: snapshot.values });
+    if (label === "contrast theme high-contrast") {
+      await evaluate(`document.querySelector('[data-action="cancel"]')?.click()`);
+      screenshot("high-contrast-light-board");
+      await openConfig();
+    }
+  }
+
+  await verifyRoundTrip("reset setup", {
+    profileId: "zh-TW",
+    columns: 2,
+    scanMode: "block-row-column",
+    scanPassLimit: 0,
+    rowScanVoice: true,
+    scanVoice: false,
+    activationVoice: false,
+    switchInputProfile: "off",
+    contrastTheme: "high-contrast-dark"
+  });
+  await evaluate(`document.querySelector('[data-action="reset"]')?.click()`);
+  await waitFor(() => evaluate(`Boolean(document.querySelector('.config-button')) && !document.querySelector('.config-panel')`), "reset board");
+  await openConfig();
+  const resetSnapshot = await formSnapshot();
+  const expectedReset = {
+    profileId: "zh-TW", columns: "6", scanMode: "row-column", scanTimingPreset: "default",
+    scanIntervalMs: "1800", transitionPauseMs: "0", firstCellPauseMs: "2400",
+    inputLatencyCompensationMs: "250", scanPassLimit: "2",
+    autoScanSuggestionPages: false, deferUnsupportedZhuyinOnFirstPass: true,
+    rowScanVoice: false, scanVoice: true, activationVoice: true,
+    restartScanFromTop: true, verticalGroupProgress: false,
+    switchInputProfile: "hardware-buttons", contrastTheme: "default"
+  };
+  const resetMismatches = mismatchedValues(resetSnapshot, expectedReset);
+  if (resetMismatches.length) add("P1", "Reset did not restore packaged defaults", JSON.stringify(resetMismatches), ["option-matrix.json"]);
+  else pass("configuration reset", "restored zh-TW board and UI defaults");
+
+  await evaluate(`document.querySelector('[data-action="export-text"]')?.click()`);
+  await delay(900);
+  const activityDump = adbRun(["shell", "dumpsys", "activity", "activities"]);
+  const exportActivity = activityDump.split(/\r?\n/).find((line) => /mResumedActivity|topResumedActivity/.test(line))?.trim() || "";
+  screenshot("export-document-picker");
+  if (!/documentsui|files|picker/i.test(exportActivity)) {
+    add("P1", "Export text did not open Android document picker", exportActivity || "No resumed activity", ["screenshots/export-document-picker.png"]);
+  } else {
+    pass("text export launch", exportActivity);
+  }
+  adbRun(["shell", "input", "keyevent", "4"]);
+  await delay(600);
+  await waitFor(() => evaluate(`Boolean(document.querySelector('.config-panel form'))`), "configuration after export cancellation");
+  pass("text export cancellation", "returned to Configuration without saving a document");
+
+  writeFileSync(resolve(outDir, "matrix.json"), JSON.stringify({ matrix, saved, voices, boardContrast }, null, 2));
+  writeFileSync(resolve(outDir, "option-matrix.json"), JSON.stringify({ cases: optionMatrix, reset: resetSnapshot }, null, 2));
+}
+
+try {
+  await main();
+} catch (error) {
+  add("P0", "Configuration audit aborted", error.stack || String(error));
+} finally {
+  try { await restoreOriginal(); } catch (error) { add("P1", "Original configuration restore failed", String(error)); }
+  try { cdp?.close(); } catch {}
+  try { adbRun(["forward", "--remove", `tcp:${port}`]); } catch {}
+  try { adbRun(["shell", "input", "keyevent", "223"]); } catch {} // SLEEP
+}
+
+const order = { P0: 0, P1: 1, P2: 2, P3: 3, P4: 4 };
+findings.sort((left, right) => order[left.priority] - order[right.priority] || left.title.localeCompare(right.title));
+const lines = ["# SHINE AAC real-device configuration audit", "", "## Findings", ""];
+if (!findings.length) lines.push("No automated findings.", "");
+for (const finding of findings) {
+  lines.push(`- **${finding.priority} — ${finding.title}:** ${finding.detail}`);
+  if (finding.evidence.length) lines.push(`  Evidence: ${finding.evidence.map((item) => `\`${item}\``).join(", ")}`);
+}
+lines.push("", "## Passed checks", "", ...passes.map((item) => `- ${item.title}${item.detail ? `: ${item.detail}` : ""}`), "");
+for (const priority of ["P0", "P1", "P2", "P3", "P4"]) lines.push(`${priority}: ${findings.filter((item) => item.priority === priority).length}`);
+lines.push(`Passed checks: ${passes.length}`);
+writeFileSync(resolve(outDir, "FINDINGS.md"), lines.join("\n"));
+writeFileSync(resolve(outDir, "summary.json"), JSON.stringify({ findings, passes }, null, 2));
+console.log(lines.slice(-6).join("\n"));
+console.log(`Report: ${resolve(outDir, "FINDINGS.md")}`);
+process.exitCode = findings.some((item) => item.priority === "P0" || item.priority === "P1") ? 1 : 0;

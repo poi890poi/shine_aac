@@ -70,8 +70,8 @@ $resolvedKeystoreProperties = Resolve-Path -LiteralPath $KeystoreProperties
 & (Join-Path $PSScriptRoot "verify-android-data-policy.ps1")
 
 if (-not $SkipBuild) {
-    Write-Step "Building signed release APK and Play AAB"
-    & .\gradlew.bat assembleRelease bundleRelease "-PshineAacKeystoreProperties=$($resolvedKeystoreProperties.Path)"
+    Write-Step "Building signed Google Play AAB"
+    & .\gradlew.bat bundleRelease "-PshineAacKeystoreProperties=$($resolvedKeystoreProperties.Path)"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -81,11 +81,6 @@ $aabPath = Join-Path $repoRoot "app\build\outputs\bundle\release\app-release.aab
 if (-not (Test-Path -LiteralPath $aabPath)) {
     throw "Release AAB was not found at $aabPath"
 }
-$apkPath = Join-Path $repoRoot "app\build\outputs\apk\release\app-release.apk"
-if (-not (Test-Path -LiteralPath $apkPath)) {
-    throw "Release APK was not found at $apkPath"
-}
-
 $version = Read-VersionProperties
 $versionName = $version["versionName"]
 $versionCode = $version["versionCode"]
@@ -104,24 +99,15 @@ New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 $artifactName = "shine-aac-v$versionName-code$versionCode-release.aab"
 $artifactPath = Join-Path $releaseDir $artifactName
 Copy-Item -LiteralPath $aabPath -Destination $artifactPath -Force
-$apkArtifactName = "shine-aac-v$versionName-code$versionCode-release.apk"
-$apkArtifactPath = Join-Path $releaseDir $apkArtifactName
-Copy-Item -LiteralPath $apkPath -Destination $apkArtifactPath -Force
-
 $hash = Get-Sha256Hex -Path $artifactPath
 $hashLine = "$hash  $artifactName"
 Set-Content -LiteralPath (Join-Path $releaseDir "PLAY_AAB_SHA256SUMS.txt") -Value $hashLine -Encoding ASCII
-$apkHash = Get-Sha256Hex -Path $apkArtifactPath
-$apkHashLine = "$apkHash  $apkArtifactName"
-Set-Content -LiteralPath (Join-Path $releaseDir "RELEASE_APK_SHA256SUMS.txt") -Value $apkHashLine -Encoding ASCII
 
 $releaseNotesSource = Join-Path $repoRoot "docs\releases\v$versionName.md"
 if (Test-Path -LiteralPath $releaseNotesSource) {
     Copy-Item -LiteralPath $releaseNotesSource -Destination (Join-Path $releaseDir "RELEASE_NOTES.md") -Force
 }
 
-Write-Step "Signed release artifacts created"
-Write-Host $apkArtifactPath
-Write-Host "SHA-256: $apkHash"
+Write-Step "Signed Google Play artifact created"
 Write-Host $artifactPath
 Write-Host "SHA-256: $hash"
