@@ -50,6 +50,27 @@ def infer_camera_preview_metrics(nodes, screen_height):
         "screen_fraction": float(preview_height) / float(screen_height),
     }
 
+def touch_target_size_exemption(surface, node, viewport_bounds=None):
+    """Return why a small accessibility node is not the effective touch target."""
+    class_name = node.get("cls", "")
+    if surface == "Communication-board" and class_name.endswith("Button"):
+        # Board tiles are visual scan choices. MainActivity's WebView handles
+        # every touch on the enclosing full-screen shell as one switch press.
+        return "board-shell-is-the-effective-switch-target"
+    if surface == "Configuration" and class_name.endswith("CheckBox"):
+        # Android exposes only the 22px checkbox glyph. The enclosing HTML
+        # label is the actual clickable target and is measured by the CDP audit.
+        return "webview-label-is-the-effective-checkbox-target"
+    bounds = node.get("bounds")
+    if surface in ("Camera-setup", "Configuration") and bounds and viewport_bounds:
+        _, _, _, bottom = bounds
+        _, _, _, viewport_bottom = viewport_bounds
+        if bottom >= viewport_bottom:
+            # ScrollView clips accessibility bounds at its visible edge. A
+            # clipped node cannot establish the control's laid-out target size.
+            return "accessibility-bounds-clipped-at-viewport-edge"
+    return None
+
 class ThermalGovernor:
     """
     Device thermal guard.

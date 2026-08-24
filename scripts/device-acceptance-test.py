@@ -47,7 +47,11 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from device_test_common import ThermalGovernor, infer_camera_preview_metrics
+from device_test_common import (
+    ThermalGovernor,
+    infer_camera_preview_metrics,
+    touch_target_size_exemption,
+)
 
 PACKAGE = "org.shineaac.app"
 MAIN_ACTIVITY = "org.shineaac.app/.MainActivity"
@@ -523,10 +527,24 @@ class DeepTest:
         are intentionally restricted to actual visible rectangles.
         """
         nodes = self.xml_nodes(xml)
+        viewport_bounds = nodes[0].get("bounds") if nodes else None
         min_px = int(48.0 * self.density / 160.0)
         small = []
+        size_exemptions = []
         unnamed = []
         visible_controls = []
+
+        if "board" in name or name in (
+            "launch", "scan_motion_board", "background_before", "background_return",
+            "screenoff_before", "screenoff_return", "recreation_after"
+        ):
+            surface = "Communication-board"
+        elif "camera_setup" in name:
+            surface = "Camera-setup"
+        elif "config" in name or "return_from_camera" in name:
+            surface = "Configuration"
+        else:
+            surface = "Communication-board"
 
         for n in nodes:
             b = n["bounds"]
@@ -543,26 +561,31 @@ class DeepTest:
             visible_controls.append(n)
             x1,y1,x2,y2 = b
             if (x2-x1) < min_px or (y2-y1) < min_px:
-                small.append((n["text"] or n["desc"] or cls, b))
+                exemption = touch_target_size_exemption(surface, n, viewport_bounds)
+                item = {
+                    "name": n["text"] or n["desc"] or cls,
+                    "class": cls,
+                    "bounds": b,
+                    "width_px": x2-x1,
+                    "height_px": y2-y1,
+                }
+                if exemption:
+                    item["reason"] = exemption
+                    size_exemptions.append(item)
+                else:
+                    small.append(item)
             if not n["text"].strip() and not n["desc"].strip():
                 unnamed.append((cls, b, n["resource_id"]))
 
         if small:
-            if "board" in name or name in (
-                "launch", "scan_motion_board", "background_before", "background_return",
-                "screenoff_before", "screenoff_return", "recreation_after"
-            ):
-                surface = "Communication-board"
-            elif "camera_setup" in name:
-                surface = "Camera-setup"
-            elif "config" in name or "return_from_camera" in name:
-                surface = "Configuration"
-            else:
-                surface = "Communication-board"
             self.add_layout_observation(
                 "P2", "%s touch targets below 48dp" % surface,
                 len(small), name,
-                ["ui/%s.xml" % name, "screenshots/%s.png" % name]
+                [
+                    "ui/%s.xml" % name,
+                    "screenshots/%s.png" % name,
+                    "dumpsys/%s_layout.json" % name,
+                ]
             )
 
         if unnamed:
@@ -572,13 +595,17 @@ class DeepTest:
                 ["ui/%s.xml" % name, "screenshots/%s.png" % name]
             )
 
+        layout_metrics = {
+            "surface": surface,
+            "minimum_target_px": min_px,
+            "small_targets": small,
+            "effective_target_exemptions": size_exemptions,
+        }
+
         if "camera_setup" in name:
             preview = infer_camera_preview_metrics(nodes, self.screen_h)
             if preview:
-                self.save(
-                    "dumpsys/%s_layout.json" % name,
-                    json.dumps({"camera_preview": preview}, indent=2)
-                )
+                layout_metrics["camera_preview"] = preview
                 if preview["screen_fraction"] < 0.25:
                     self.add_layout_observation(
                         "P2", "Camera preview occupies less than 25% of the screen",
@@ -589,6 +616,10 @@ class DeepTest:
                             "dumpsys/%s_layout.json" % name,
                         ]
                     )
+        self.save(
+            "dumpsys/%s_layout.json" % name,
+            json.dumps(layout_metrics, indent=2)
+        )
 
     def visible_text_set(self, xml_path):
         result = set()
