@@ -2055,7 +2055,7 @@ function renderAppInfo() {
   panel.addEventListener("click", (event) => event.stopPropagation());
   panel.innerHTML = `
     <header class="info-header">
-      <h1>${escapeHtml(info.appName)}</h1>
+      <h1>${uiText("SayToMe AAC", "我想說")}</h1>
       <strong>${uiText("Version", "版本")} ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</strong>
       <p>${uiText("An augmentative and alternative communication app for composing and speaking messages with touch, switch, or camera input.", "使用觸控、開關或相機輸入來組合並朗讀訊息的輔助溝通程式。")}</p>
     </header>

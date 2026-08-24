@@ -384,8 +384,8 @@ async function main() {
   await evaluate(`document.querySelector('[data-action="app-info"]')?.click()`);
   await delay(250); screenshot("app-info");
   const appInfo = await evaluate(`document.querySelector('.info-panel')?.innerText ?? ''`);
-  if (!/0\.3\.4/.test(appInfo) || !/58/.test(appInfo)) add("P1", "App Info version metadata incorrect", appInfo, ["screenshots/app-info.png"]);
-  else pass("App Info", "shows version 0.3.4 and code 58");
+  if (!/SayToMe AAC/.test(appInfo) || !/0\.3\.4/.test(appInfo) || !/58/.test(appInfo)) add("P1", "English App Info identity or version metadata incorrect", appInfo, ["screenshots/app-info.png"]);
+  else pass("App Info", "shows English product name, version 0.3.4, and code 58");
   adbRun(["shell", "input", "keyevent", "4"]); await delay(400);
 
   await evaluate(`document.querySelector('[data-action="calibrate"]')?.click()`);
