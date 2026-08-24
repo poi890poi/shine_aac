@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <Preference
+        app:key="appVersion"
+        app:persistent="false"
+        app:selectable="false"
+        app:title="@string/settings_version" />
+    <Preference
+        app:key="sourceCode"
+        app:persistent="false"
+        app:title="@string/settings_source_code"
+        app:summary="@string/settings_source_code_summary" />
+    <Preference
+        app:key="privacyPolicy"
+        app:persistent="false"
+        app:title="@string/settings_privacy_policy" />
+    <Preference
+        app:key="support"
+        app:persistent="false"
+        app:title="@string/settings_support" />
+
+</PreferenceScreen>

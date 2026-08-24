@@ -55,8 +55,9 @@
         <SwitchPreferenceCompat
             app:key="activationVoice"
             app:title="@string/settings_activation_voice" />
-        <ListPreference
+        <Preference
             app:key="speechVoiceName"
+            app:fragment="org.shineaac.app.SpeechVoicePreferenceFragment"
             app:title="@string/settings_speech_voice" />
         <ListPreference
             app:key="speechAfterReadMode"
@@ -95,6 +96,7 @@
             app:title="@string/settings_export_text" />
         <Preference
             app:key="appInfo"
+            app:fragment="org.shineaac.app.AppInfoPreferenceFragment"
             app:persistent="false"
             app:title="@string/settings_app_info" />
         <Preference

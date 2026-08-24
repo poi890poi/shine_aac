@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <ListPreference
+        app:key="speechVoiceName"
+        app:title="@string/settings_speech_voice" />
+    <Preference
+        app:key="previewSpeechVoice"
+        app:persistent="false"
+        app:title="@string/settings_preview_voice"
+        app:summary="@string/settings_preview_voice_summary" />
+    <Preference
+        app:key="manageSpeech"
+        app:persistent="false"
+        app:title="@string/settings_manage_speech"
+        app:summary="@string/settings_manage_speech_summary" />
+
+</PreferenceScreen>
