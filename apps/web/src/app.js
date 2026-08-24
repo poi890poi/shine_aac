@@ -2149,7 +2149,7 @@ function renderConfig() {
         <input name="autoScanSuggestionPages" type="checkbox" ${session.config.autoScanSuggestionPages ? "checked" : ""}>
         ${uiText("Auto-scan More pages", "自動掃描「更多」頁面")}
       </label>
-      <label class="field check-field">
+      <label class="field check-field" data-zhuyin-first-pass-field${session.config.profileId === "zh-TW" ? "" : " hidden"}>
         <input name="deferUnsupportedZhuyinOnFirstPass" type="checkbox" ${session.config.deferUnsupportedZhuyinOnFirstPass ? "checked" : ""}>
         ${uiText("Defer unsupported Zhuyin until pass 2", "第一輪略過無有效字音的注音")}
       </label>
@@ -2214,6 +2214,7 @@ function renderConfig() {
     form.elements.scanPassLimit.value = String(profile.scanPassLimit);
     form.elements.autoScanSuggestionPages.checked = profile.autoScanSuggestionPages;
     form.elements.deferUnsupportedZhuyinOnFirstPass.checked = profile.deferUnsupportedZhuyinOnFirstPass;
+    form.querySelector("[data-zhuyin-first-pass-field]").hidden = profile.id !== "zh-TW";
     form.elements.scanTimingPreset.value = "default";
     form.querySelector("[data-suggestion-dictionary-field]").hidden = profile.id === "zh-TW";
     form.elements.suggestionDictionary.value = serializeDictionary(profile.suggestionDictionary);
@@ -2301,7 +2302,8 @@ function renderConfig() {
       scanMode: String(data.get("scanMode") ?? ScanMode.RowColumn),
       scanPassLimit: normalizeStoredScanPassLimit(data.get("scanPassLimit"), 2),
       autoScanSuggestionPages: data.get("autoScanSuggestionPages") === "on",
-      deferUnsupportedZhuyinOnFirstPass: data.get("deferUnsupportedZhuyinOnFirstPass") === "on",
+      deferUnsupportedZhuyinOnFirstPass:
+        profile.id === "zh-TW" && data.get("deferUnsupportedZhuyinOnFirstPass") === "on",
       suggestionDictionary: profile.id === "zh-TW"
         ? profile.suggestionDictionary
         : parseDictionary(String(data.get("suggestionDictionary") ?? "")),

@@ -203,6 +203,7 @@ try {
   await scenarioHistoryUpgradeMigration();
   await scenarioReviewHold();
   await scenarioInputCalibration();
+  await scenarioConfigProfileRelevance();
   await scenarioAppInfoPage();
   await scenarioTextExportResult();
   await scenarioSpeechVoiceSettings();
@@ -2166,6 +2167,37 @@ async function scenarioAutoScanMorePages() {
     "auto-scan-more-pages",
     "opt-in More navigation previews pages horizontally; activation selects the visible four-row page and enters row scanning"
   ));
+}
+
+async function scenarioConfigProfileRelevance() {
+  const result = await evaluate(`
+    (() => {
+      document.querySelector(".config-button")?.click();
+      const form = document.querySelector(".config-panel form");
+      const profile = form.elements.profileId;
+      const field = form.querySelector("[data-zhuyin-first-pass-field]");
+      const checkbox = form.elements.deferUnsupportedZhuyinOnFirstPass;
+      const englishInitiallyHidden = field.hidden;
+      profile.value = "zh-TW";
+      profile.dispatchEvent(new Event("change", { bubbles: true }));
+      const zhTwState = { hidden: field.hidden, checked: checkbox.checked };
+      profile.value = "en-US";
+      profile.dispatchEvent(new Event("change", { bubbles: true }));
+      const englishState = { hidden: field.hidden, checked: checkbox.checked };
+      form.querySelector('[data-action="cancel"]')?.click();
+      return { englishInitiallyHidden, zhTwState, englishState };
+    })()
+  `);
+  if (
+    !result.englishInitiallyHidden ||
+    result.zhTwState.hidden ||
+    !result.zhTwState.checked ||
+    !result.englishState.hidden ||
+    result.englishState.checked
+  ) {
+    throw new Error(`Zhuyin-only setting visibility does not follow the language profile: ${JSON.stringify(result)}`);
+  }
+  steps.push(pass("config-profile-relevance", "shows the Zhuyin-only option only for zh-TW and resets it when returning to English"));
 }
 
 async function scenarioEnglishFilledRows() {
