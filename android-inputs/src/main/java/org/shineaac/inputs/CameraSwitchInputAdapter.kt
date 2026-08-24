@@ -942,7 +942,10 @@ class CameraSwitchInputAdapter(
     )
     private companion object {
         const val NoFrame = -1L
-        const val MlKitFrameIntervalMs = 200L
+        // Match the requested 10 fps camera stream. At 5 fps, rapid ordinary
+        // blinks can alias into consecutive closed samples and look like one
+        // long hold; KEEP_ONLY_LATEST still prevents analysis backlogs.
+        const val MlKitFrameIntervalMs = 100L
         const val CheekFrameIntervalMs = 66L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5
