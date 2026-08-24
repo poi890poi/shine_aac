@@ -438,6 +438,19 @@ class OpenCvFramebufferTest(unittest.TestCase):
             continuous["start"], continuous["end"], continuous["rate"],
         ))
 
+    def test_cheek_runtime_uses_only_downloaded_manifest_videos(self):
+        manifest = json.loads(
+            (SCRIPT_DIR.parent / "testdata/optical-rig/sources.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        cases = manifest["cheek_cases"]
+        self.assertGreaterEqual(len(cases), 3)
+        self.assertTrue(all("source" in case for case in cases))
+        self.assertTrue(all("frames" not in case for case in cases))
+        self.assertTrue(any(case["expect"] == "activate" for case in cases))
+        self.assertTrue(any(case["expect"] == "no_activate" for case in cases))
+
     def test_blank_framebuffer_is_exact_black(self):
         _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
         presenter = object.__new__(optical_stimulus.OpenCvStimulus)

@@ -33,6 +33,17 @@
       "license": "CC BY-SA 3.0",
       "author": "Cl\u00e9ment Bucco-Lechat",
       "purpose": "negative facial-motion/control stimulus"
+    },
+    {
+      "id": "commons_frowning",
+      "filename": "commons-frowning.webm",
+      "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/20140529%20-%20Frowning.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:20140529_-_Frowning.webm",
+      "sha1": "84d0bf71b7ca187f2a2e392efa1dee9c88895e55",
+      "duration_s": 2.4,
+      "license": "CC BY-SA 3.0",
+      "author": "Cl\u00e9ment Bucco-Lechat",
+      "purpose": "downloaded real-face mouth-motion control for cheek-twitch testing"
     }
   ],
   "blink_cases": [
@@ -111,6 +122,32 @@
         { "start": 2.00, "ms": 1600 },
         { "start": 0.75, "ms": 900 }
       ]
+    }
+  ],
+  "cheek_cases": [
+    {
+      "id": "cheek_smile_positive",
+      "source": "commons_smiling",
+      "rate": 1.0,
+      "expect": "activate",
+      "severity": "P1",
+      "purpose": "natural downloaded cheek/mouth movement tested against the saved twitch calibration"
+    },
+    {
+      "id": "cheek_frown_negative",
+      "source": "commons_frowning",
+      "rate": 1.0,
+      "expect": "no_activate",
+      "severity": "P1",
+      "purpose": "downloaded non-twitch mouth movement false-positive control"
+    },
+    {
+      "id": "cheek_surprise_negative",
+      "source": "commons_surprised",
+      "rate": 1.0,
+      "expect": "no_activate",
+      "severity": "P1",
+      "purpose": "downloaded whole-face movement false-positive control"
     }
   ],
   "negative_cases": [

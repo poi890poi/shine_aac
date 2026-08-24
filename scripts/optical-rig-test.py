@@ -1776,6 +1776,10 @@ class OpticalRig:
             case for case in manifest.get("negative_cases", [])
             if case.get("source") in available_ids
         ]
+        manifest["cheek_cases"] = [
+            case for case in manifest.get("cheek_cases", [])
+            if case.get("source") in available_ids
+        ]
         return manifest
 
     def start_host(self):
@@ -3167,27 +3171,12 @@ class OpticalRig:
         started_at = time.time()
         if gesture == "cheek":
             cases = [
-                dict(case, gesture="cheek") for case in self.load_local_cheek_cases()
+                dict(case, gesture="cheek") for case in manifest.get("cheek_cases", [])
                 if case.get("expect") == "activate"
             ]
             case = cases[0] if cases else None
             if case:
-                frames = case.get("frames") or []
-                active_index = next((
-                    index for index, frame in enumerate(frames)
-                    if frame.get("phase") == "Active"
-                ), 0)
-                prefix = []
-                prefix_ms = 0.0
-                for frame in reversed(frames[:active_index]):
-                    prefix.insert(0, dict(frame))
-                    prefix_ms += float(frame.get("ms", 100))
-                    if prefix_ms >= 250:
-                        break
-                case["frames"] = prefix + [
-                    dict(frame) for frame in frames[active_index:]
-                ]
-                case["id"] += "_demo_timed"
+                case["id"] += "_demo"
         else:
             case = next((
                 dict(item, gesture="blink")
@@ -3947,14 +3936,14 @@ class OpticalRig:
                     return 2
                 available_cases = []
                 if session_gesture == "cheek":
-                    for case in self.load_local_cheek_cases():
+                    for case in manifest.get("cheek_cases", []):
                         item = dict(case)
                         item["gesture"] = "cheek"
                         available_cases.append(item)
                     if not available_cases:
                         self.add(
-                            "P0", "No local cheek runtime stimulus",
-                            "Import the private cheek sequence pack before focused replay."
+                            "P0", "No downloaded cheek runtime stimulus",
+                            "Fetch the public optical sources before focused replay."
                         )
                         self.write_report(calibration)
                         return 2
@@ -3990,9 +3979,7 @@ class OpticalRig:
                             repeated_cases.append(repeated)
                     available_cases = repeated_cases
                 for case in available_cases:
-                    self.play_case(
-                        case, source_by_id if session_gesture == "blink" else None
-                    )
+                    self.play_case(case, source_by_id)
                 self.write_report(calibration)
                 blocking = [
                     finding for finding in self.findings
@@ -4108,17 +4095,12 @@ class OpticalRig:
                                 return 2
 
                             print("==> STRESS: repeated cheek detector sequences")
-                            runtime_cases = list(local_cases)
-                            neutral = next(
-                                (c for c in local_cases if c.get("expect") == "no_activate"),
-                                None
-                            )
-                            if neutral:
-                                after = dict(neutral)
-                                after["id"] = neutral["id"] + "_after_trials"
-                                runtime_cases.append(after)
+                            runtime_cases = [
+                                dict(case, gesture="cheek")
+                                for case in manifest.get("cheek_cases", [])
+                            ]
                             for case in runtime_cases:
-                                self.play_case(case)
+                                self.play_case(case, source_by_id)
                         else:
                             self.write_report(calibration)
                             return 2
