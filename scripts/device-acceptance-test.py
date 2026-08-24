@@ -47,7 +47,7 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from device_test_common import ThermalGovernor
+from device_test_common import ThermalGovernor, infer_camera_preview_metrics
 
 PACKAGE = "org.shineaac.app"
 MAIN_ACTIVITY = "org.shineaac.app/.MainActivity"
@@ -571,6 +571,24 @@ class DeepTest:
                 len(unnamed), name,
                 ["ui/%s.xml" % name, "screenshots/%s.png" % name]
             )
+
+        if "camera_setup" in name:
+            preview = infer_camera_preview_metrics(nodes, self.screen_h)
+            if preview:
+                self.save(
+                    "dumpsys/%s_layout.json" % name,
+                    json.dumps({"camera_preview": preview}, indent=2)
+                )
+                if preview["screen_fraction"] < 0.25:
+                    self.add_layout_observation(
+                        "P2", "Camera preview occupies less than 25% of the screen",
+                        1, name,
+                        [
+                            "ui/%s.xml" % name,
+                            "screenshots/%s.png" % name,
+                            "dumpsys/%s_layout.json" % name,
+                        ]
+                    )
 
     def visible_text_set(self, xml_path):
         result = set()

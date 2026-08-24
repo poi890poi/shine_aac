@@ -16,6 +16,40 @@ THERMAL_NAMES = {
     6: "SHUTDOWN",
 }
 
+def infer_camera_preview_metrics(nodes, screen_height):
+    """
+    Infer the native Camera Setup preview band from UIAutomator geometry.
+
+    TextureView is not exposed in the accessibility hierarchy. Camera Setup's
+    preview sits between the last header/status TextView and the controls
+    ScrollView, so those two accessible landmarks give a stable measurement.
+    """
+    if not screen_height:
+        return None
+    scrolls = [
+        node for node in (nodes or [])
+        if node.get("cls", "").endswith("ScrollView") and node.get("bounds")
+    ]
+    if not scrolls:
+        return None
+    controls_top = min(node["bounds"][1] for node in scrolls)
+    header_bottoms = [
+        node["bounds"][3] for node in nodes
+        if node.get("cls", "").endswith("TextView")
+        and node.get("bounds")
+        and node["bounds"][3] <= controls_top
+    ]
+    if not header_bottoms:
+        return None
+    preview_top = max(header_bottoms)
+    preview_height = max(0, controls_top - preview_top)
+    return {
+        "top": preview_top,
+        "bottom": controls_top,
+        "height": preview_height,
+        "screen_fraction": float(preview_height) / float(screen_height),
+    }
+
 class ThermalGovernor:
     """
     Device thermal guard.

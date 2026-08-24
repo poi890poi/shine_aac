@@ -8,6 +8,14 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+  findBrightDarkThemeSurfaces,
+  findControlOverlaps,
+  findExcessiveCellPadding,
+  findLooseLineHeights,
+  findRepeatedRowAlignmentDrift,
+  findRepeatedRowGaps,
+} from "./layout-quality-heuristics.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
@@ -185,6 +193,150 @@ async function auditLayout() {
   })()`);
 }
 
+async function auditVisualQuality(rootSelector, repeatedRowSelector = "") {
+  const raw = await evaluate(`(() => {
+    const root = document.querySelector(${JSON.stringify(rootSelector)});
+    if (!root) return null;
+    const rootRect = root.getBoundingClientRect();
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+    };
+    const inViewport = (rect) => rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
+    const name = (element) => element.getAttribute('aria-label') || element.labels?.[0]?.innerText?.trim() || element.innerText?.trim().slice(0, 80) || element.name || element.tagName;
+    const selector = (element) => {
+      if (element.id) return '#' + CSS.escape(element.id);
+      const classes = [...element.classList].slice(0, 3).map((item) => '.' + CSS.escape(item)).join('');
+      const fieldName = element.getAttribute('name');
+      return element.tagName.toLowerCase() + classes + (fieldName ? '[name="' + fieldName + '"]' : '');
+    };
+    const parseColor = (value) => {
+      const parts = String(value).match(/[\\d.]+/g)?.map(Number) ?? [];
+      return { red: parts[0] ?? 0, green: parts[1] ?? 0, blue: parts[2] ?? 0, alpha: parts[3] ?? 1 };
+    };
+    const clippedArea = (rect) => {
+      const width = Math.max(0, Math.min(rect.right, rootRect.right, innerWidth) - Math.max(rect.left, rootRect.left, 0));
+      const height = Math.max(0, Math.min(rect.bottom, rootRect.bottom, innerHeight) - Math.max(rect.top, rootRect.top, 0));
+      return width * height;
+    };
+
+    const repeatedRows = [];
+    if (${JSON.stringify(repeatedRowSelector)}) {
+      const candidates = [...root.querySelectorAll(${JSON.stringify(repeatedRowSelector)})];
+      const parents = [...new Set(candidates.map((element) => element.parentElement))];
+      for (const parent of parents) {
+        let items = [];
+        const flush = () => {
+          if (items.length > 1) repeatedRows.push({ role: ${JSON.stringify(repeatedRowSelector)}, items });
+          items = [];
+        };
+        for (const child of [...parent.children].filter(visible)) {
+          if (child.matches(${JSON.stringify(repeatedRowSelector)})) {
+            const rect = child.getBoundingClientRect();
+            items.push({ name: name(child), top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
+          } else {
+            flush();
+          }
+        }
+        flush();
+      }
+    }
+
+    const textSamples = [...root.querySelectorAll('h1,h2,h3,p,label,button,small,strong,dt,dd')].filter(visible).map((element) => {
+      const style = getComputedStyle(element);
+      return {
+        text: element.innerText?.trim().slice(0, 80) || element.textContent?.trim().slice(0, 80) || element.tagName,
+        fontSizePx: Number.parseFloat(style.fontSize),
+        lineHeightPx: style.lineHeight === 'normal' ? null : Number.parseFloat(style.lineHeight),
+      };
+    });
+
+    const backgroundSamples = [root, ...root.querySelectorAll('*')].filter(visible).map((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const color = style.backgroundColor;
+      const parsed = parseColor(color);
+      return { selector: selector(element), color, ...parsed, area: clippedArea(rect) };
+    }).filter((sample) => sample.area > 0);
+
+    const cellSamples = [...root.querySelectorAll('button,input,select,.settings-row,.speech-voice-row,.mode-button,.calibration-step,.tile')].filter(visible).map((element) => {
+      const style = getComputedStyle(element);
+      return {
+        selector: selector(element),
+        text: name(element),
+        fontSizePx: Number.parseFloat(style.fontSize) || 0,
+        paddingTopPx: Number.parseFloat(style.paddingTop) || 0,
+        paddingRightPx: Number.parseFloat(style.paddingRight) || 0,
+        paddingBottomPx: Number.parseFloat(style.paddingBottom) || 0,
+        paddingLeftPx: Number.parseFloat(style.paddingLeft) || 0,
+      };
+    });
+
+    const controls = [...root.querySelectorAll('button,input,select,textarea,[role="button"]')].filter(visible).map((element) => {
+      const rect = element.type === 'checkbox' && element.labels?.[0]
+        ? element.labels[0].getBoundingClientRect()
+        : element.getBoundingClientRect();
+      return { name: name(element), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    }).filter((item) => inViewport(item));
+
+    return {
+      rootArea: Math.max(0, Math.min(rootRect.width, innerWidth) * Math.min(rootRect.height, innerHeight)),
+      repeatedRows,
+      textSamples,
+      backgroundSamples,
+      cellSamples,
+      controls,
+    };
+  })()`);
+  if (!raw) return null;
+  return {
+    repeatedRowGaps: findRepeatedRowGaps(raw.repeatedRows),
+    repeatedRowAlignmentDrift: findRepeatedRowAlignmentDrift(raw.repeatedRows),
+    looseLineHeights: findLooseLineHeights(raw.textSamples),
+    excessiveCellPadding: findExcessiveCellPadding(raw.cellSamples),
+    brightDarkSurfaces: findBrightDarkThemeSurfaces(raw.backgroundSamples, raw.rootArea),
+    controlOverlaps: findControlOverlaps(raw.controls),
+    raw,
+  };
+}
+
+function recordVisualQuality(label, quality, evidence, options = {}) {
+  if (!quality) {
+    add("P1", `${label} layout audit unavailable`, "The expected layout root was absent.", evidence);
+    return;
+  }
+  if (options.spacing && quality.repeatedRowGaps.length) {
+    const largest = Math.max(...quality.repeatedRowGaps.map((item) => item.gapPx));
+    add("P3", `${label} repeated rows are too widely spaced`, `${quality.repeatedRowGaps.length} adjacent repeated-row gap(s) exceed 4 CSS px; largest ${largest}px.`, evidence);
+  }
+  if (quality.looseLineHeights.length) {
+    add("P3", `${label} contains unusually loose text leading`, `${quality.looseLineHeights.length} text element(s) exceed a 1.6 line-height/font-size ratio.`, evidence);
+  }
+  if (quality.excessiveCellPadding.length) {
+    add("P4", `${label} contains unusually padded cells`, `${quality.excessiveCellPadding.length} cell(s) have padding disproportionate to their text size.`, evidence);
+  }
+  if (quality.repeatedRowAlignmentDrift.length) {
+    add("P3", `${label} contains misaligned repeated rows`, `${quality.repeatedRowAlignmentDrift.length} repeated row(s) drift by more than 2 CSS px.`, evidence);
+  }
+  if (options.darkTheme && quality.brightDarkSurfaces.length) {
+    add("P2", `${label} contains bright patches in dark theme`, `${quality.brightDarkSurfaces.length} opaque bright surface(s) occupy at least 1% of the visible panel.`, evidence);
+  }
+  if (quality.controlOverlaps.length) {
+    add("P2", `${label} contains overlapping controls`, `${quality.controlOverlaps.length} control pair(s) overlap.`, evidence);
+  }
+  if (
+    (!options.spacing || !quality.repeatedRowGaps.length) &&
+    !quality.looseLineHeights.length &&
+    !quality.excessiveCellPadding.length &&
+    !quality.repeatedRowAlignmentDrift.length &&
+    (!options.darkTheme || !quality.brightDarkSurfaces.length) &&
+    !quality.controlOverlaps.length
+  ) {
+    pass(`${label} visual geometry`, "no excessive repeated-row gaps, loose leading, padded cells, alignment drift, bright dark-theme patches, or control overlaps detected");
+  }
+}
+
 async function captureConfigPages(prefix) {
   const positions = await evaluate(`(() => {
     const panel = document.querySelector('.config-panel');
@@ -336,12 +488,14 @@ async function main() {
   else pass("configuration inventory", `${expected.length} persisted settings present`);
 
   const layout = await auditLayout();
+  const baselineQuality = await auditVisualQuality(".config-panel", ".check-field");
   if (layout.unnamed.length) add("P2", "Unnamed configuration controls", `${layout.unnamed.length} control(s) lack an accessible name`, ["baseline.json"]);
   if (layout.smallTargets.length) add("P2", "Configuration targets below 48dp", `${layout.smallTargets.length} control(s) have a target below 48 CSS px`, ["baseline.json"]);
   if (layout.overflow.length) add("P2", "Configuration horizontal clipping/overflow", `${layout.overflow.length} element(s) overflow the panel`, ["baseline.json"]);
   if (layout.tinyText.length) add("P3", "Small configuration text", `${layout.tinyText.length} visible text element(s) render below 14 CSS px`, ["baseline.json"]);
+  recordVisualQuality("Configuration", baselineQuality, ["baseline.json", "screenshots/zh-default-config-2.png"], { spacing: true });
   await captureConfigPages("zh-default-config");
-  writeFileSync(resolve(outDir, "baseline.json"), JSON.stringify({ baseline, layout }, null, 2));
+  writeFileSync(resolve(outDir, "baseline.json"), JSON.stringify({ baseline, layout, visualQuality: baselineQuality }, null, 2));
 
   const matrix = {
     profileId: "en-US", columns: 4, scanMode: "block-row-column",
@@ -366,6 +520,8 @@ async function main() {
     ".config-panel h1", ".config-panel .field", ".settings-row", ".settings-row small",
     ".config-actions .secondary-button", ".config-actions .primary-button"
   ], ["screenshots/en-block-dark-config-1.png", "screenshots/en-block-dark-config-4.png"]);
+  const darkConfigQuality = await auditVisualQuality(".config-panel");
+  recordVisualQuality("High-contrast dark Configuration", darkConfigQuality, ["screenshots/en-block-dark-config-1.png", "screenshots/en-block-dark-config-4.png", "matrix.json"], { darkTheme: true });
 
   const beforeCancel = await evaluate(`({ config: localStorage.getItem('shine-aac-web-config-v1'), ui: localStorage.getItem('shine-aac-web-ui-v1') })`);
   await evaluate(`(() => {
@@ -397,6 +553,8 @@ async function main() {
     "#speech-voice-title", ".speech-voice-intro", ".speech-engine-row", ".speech-engine-row small",
     ".speech-voice-section h2", ".speech-voice-row.selected .speech-voice-title", ".speech-voice-row.selected small"
   ], ["screenshots/speech-voices.png"]);
+  const voiceQuality = await auditVisualQuality("[data-testid=\"speech-voice-page\"]");
+  recordVisualQuality("High-contrast dark voice settings", voiceQuality, ["screenshots/speech-voices.png", "matrix.json"], { darkTheme: true });
   if (voices.unnamedButtons) add("P2", "Unnamed voice controls", `${voices.unnamedButtons} voice control(s) lack labels`, ["screenshots/speech-voices.png"]);
   else pass("speech voice accessibility", `${voices.rows} voice choices exposed with named controls`);
   await evaluate(`document.querySelector('[data-speech-action="back"]')?.click()`);
@@ -406,6 +564,8 @@ async function main() {
   const appInfoContrast = await auditContrast("High-contrast dark App Info", [
     ".info-header h1", ".info-header strong", ".info-header p", ".info-list dt", ".info-list dd"
   ], ["screenshots/app-info.png"]);
+  const appInfoQuality = await auditVisualQuality(".info-panel");
+  recordVisualQuality("High-contrast dark App Info", appInfoQuality, ["screenshots/app-info.png", "matrix.json"], { darkTheme: true });
   const appInfo = await evaluate(`document.querySelector('.info-panel')?.innerText ?? ''`);
   if (!/SayToMe AAC/.test(appInfo) || !/0\.3\.4/.test(appInfo) || !/58/.test(appInfo)) add("P1", "English App Info identity or version metadata incorrect", appInfo, ["screenshots/app-info.png"]);
   else pass("App Info", "shows English product name, version 0.3.4, and code 58");
@@ -417,6 +577,8 @@ async function main() {
     ".calibration-panel h1", ".calibration-intro", ".calibration-intro span", ".mode-button",
     ".calibration-step", ".calibration-step small", ".calibration-live", ".calibration-live span"
   ], ["screenshots/input-test.png"]);
+  const inputTestQuality = await auditVisualQuality(".calibration-panel");
+  recordVisualQuality("High-contrast dark Input Test", inputTestQuality, ["screenshots/input-test.png", "matrix.json"], { darkTheme: true });
   const inputTest = await evaluate(`document.querySelector('.calibration-panel')?.innerText ?? ''`);
   if (!inputTest) add("P1", "Input Test did not open", "No calibration panel appeared", ["screenshots/input-test.png"]);
   else pass("Input Test flow", "opened and returned to configuration");
@@ -506,7 +668,8 @@ async function main() {
     matrix,
     saved,
     voices,
-    contrast: { board: boardContrast, configuration: configContrast, voiceSettings: voiceContrast, appInfo: appInfoContrast, inputTest: inputTestContrast }
+    contrast: { board: boardContrast, configuration: configContrast, voiceSettings: voiceContrast, appInfo: appInfoContrast, inputTest: inputTestContrast },
+    visualQuality: { configuration: darkConfigQuality, voiceSettings: voiceQuality, appInfo: appInfoQuality, inputTest: inputTestQuality }
   }, null, 2));
   writeFileSync(resolve(outDir, "option-matrix.json"), JSON.stringify({ cases: optionMatrix, reset: resetSnapshot }, null, 2));
 }
