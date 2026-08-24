@@ -18,6 +18,7 @@ import {
   findRepeatedRowAlignmentDrift,
   findRepeatedRowGaps,
 } from "./layout-quality-heuristics.mjs";
+import { analyzeScanContrastMatrix } from "./contrast-metrics.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
@@ -30,6 +31,7 @@ const packageName = "org.shineaac.app";
 const activity = `${packageName}/.MainActivity`;
 const port = Number(process.env.SHINE_AAC_DEVICE_CDP_PORT || 9224);
 const restoreUiOverride = process.env.SHINE_AAC_CONFIG_AUDIT_RESTORE_UI_JSON || "";
+const scanContrastOnly = process.argv.includes("--scan-contrast-only");
 const findings = [];
 const passes = [];
 let cdp;
@@ -512,6 +514,81 @@ async function auditContrast(label, selectors, evidence) {
   return samples;
 }
 
+async function scanContrastStateSamples() {
+  return evaluate(`(() => {
+    const root = document.documentElement;
+    const tile = [...document.querySelectorAll('.tile:not(.noop):not(.review-hold):not(.camera-hold):not(.scan-deferred)')]
+      .find((candidate) => !candidate.closest('.review-hold-row'));
+    const progress = tile?.querySelector('.progress-fill');
+    if (!tile || !progress) return [];
+    const original = {
+      contrast: root.dataset.contrast,
+      systemAppearance: root.dataset.systemAppearance,
+      tileClass: tile.className,
+    };
+    const themes = [
+      { name: 'system-light', contrast: 'system', appearance: 'light' },
+      { name: 'system-dark', contrast: 'system', appearance: 'dark' },
+      { name: 'standard', contrast: 'standard', appearance: 'light' },
+      { name: 'high-contrast-light', contrast: 'high-contrast', appearance: 'light' },
+      { name: 'high-contrast-dark', contrast: 'high-contrast-dark', appearance: 'dark' },
+    ];
+    const states = [
+      { name: 'neutral', className: '' },
+      { name: 'active-block', className: 'active-block' },
+      { name: 'active-row', className: 'active-row' },
+      { name: 'active-cell', className: 'active-cell' },
+    ];
+    const samples = themes.map((theme) => {
+      root.dataset.contrast = theme.contrast;
+      root.dataset.systemAppearance = theme.appearance;
+      const themeStates = states.map((state) => {
+        tile.classList.remove('active-block', 'active-row', 'active-cell');
+        if (state.className) tile.classList.add(state.className);
+        const tileStyle = getComputedStyle(tile);
+        const progressStyle = getComputedStyle(progress);
+        return {
+          name: state.name,
+          text: tileStyle.color,
+          background: tileStyle.backgroundColor,
+          border: tileStyle.borderTopColor,
+          progressFill: progressStyle.backgroundColor,
+        };
+      });
+      return { name: theme.name, states: themeStates };
+    });
+    tile.className = original.tileClass;
+    if (original.contrast == null) delete root.dataset.contrast;
+    else root.dataset.contrast = original.contrast;
+    if (original.systemAppearance == null) delete root.dataset.systemAppearance;
+    else root.dataset.systemAppearance = original.systemAppearance;
+    return samples;
+  })()`);
+}
+
+async function auditScanStateContrast() {
+  const raw = await scanContrastStateSamples();
+  const result = analyzeScanContrastMatrix(raw);
+  const describe = (failure) => `${failure.theme}/${failure.state}: ${failure.ratio.toFixed(2)}:1`;
+  if (result.failures.text.length) {
+    add("P1", "Scan-state text contrast below 4.5:1", result.failures.text.map(describe).join(", "), ["scan-contrast.json"]);
+  } else {
+    pass("scan-state text contrast", "all theme/state/progress combinations meet or exceed 4.5:1");
+  }
+  if (result.failures.activeIndicator.length) {
+    add("P2", "Active scan indicator contrast below 3:1", result.failures.activeIndicator.map(describe).join(", "), ["scan-contrast.json"]);
+  } else {
+    pass("active scan indicator contrast", "block, row, and cell indicators meet or exceed 3:1 in every theme");
+  }
+  if (result.failures.progress.length) {
+    add("P2", "Progress hint contrast below 3:1", result.failures.progress.map(describe).join(", "), ["scan-contrast.json"]);
+  } else {
+    pass("progress hint contrast", "composited progress fills meet or exceed 3:1 in every theme and scan state");
+  }
+  writeFileSync(resolve(outDir, "scan-contrast.json"), JSON.stringify(result, null, 2));
+  return result;
+}
+
 async function restoreOriginal() {
   if (!originalStorage) return;
   await evaluate(`(() => {
@@ -554,6 +631,14 @@ async function main() {
     originalStorage["shine-aac-web-ui-v1"] = JSON.stringify(JSON.parse(restoreUiOverride));
   }
 
+  if (scanContrastOnly) {
+    const scanStateContrast = await auditScanStateContrast();
+    writeFileSync(resolve(outDir, "matrix.json"), JSON.stringify({
+      contrast: { scanStates: scanStateContrast },
+    }, null, 2));
+    return;
+  }
+
   await openConfig();
   const baseline = await formSnapshot();
   const expected = [
@@ -593,6 +678,7 @@ async function main() {
   const boardContrast = await auditContrast("High-contrast dark board", [
     ".review-hold-row .tile", ".tile.action-clear", ".tile.action-backspace", ".tile.function-key"
   ], ["screenshots/en-block-dark-board.png", "matrix.json"]);
+  const scanStateContrast = await auditScanStateContrast();
   await openConfig();
   const saved = await formSnapshot();
   const mismatches = mismatchedValues(saved, matrix);
@@ -753,7 +839,7 @@ async function main() {
     matrix,
     saved,
     voices,
-    contrast: { board: boardContrast, configuration: configContrast, voiceSettings: voiceContrast, appInfo: appInfoContrast, inputTest: inputTestContrast },
+    contrast: { board: boardContrast, scanStates: scanStateContrast, configuration: configContrast, voiceSettings: voiceContrast, appInfo: appInfoContrast, inputTest: inputTestContrast },
     visualQuality: { configuration: darkConfigQuality, voiceSettings: voiceQuality, appInfo: appInfoQuality, inputTest: inputTestQuality }
   }, null, 2));
   writeFileSync(resolve(outDir, "option-matrix.json"), JSON.stringify({ cases: optionMatrix, reset: resetSnapshot }, null, 2));
@@ -767,12 +853,17 @@ try {
   try { await restoreOriginal(); } catch (error) { add("P1", "Original configuration restore failed", String(error)); }
   try { cdp?.close(); } catch {}
   try { adbRun(["forward", "--remove", `tcp:${port}`]); } catch {}
-  try { adbRun(["shell", "input", "keyevent", "223"]); } catch {} // SLEEP
+  if (!scanContrastOnly) {
+    try { adbRun(["shell", "input", "keyevent", "223"]); } catch {} // SLEEP
+  }
 }
 
 const order = { P0: 0, P1: 1, P2: 2, P3: 3, P4: 4 };
 findings.sort((left, right) => order[left.priority] - order[right.priority] || left.title.localeCompare(right.title));
-const lines = ["# SHINE AAC real-device configuration audit", "", "## Findings", ""];
+const reportTitle = scanContrastOnly
+  ? "SHINE AAC real-device scan contrast audit"
+  : "SHINE AAC real-device configuration audit";
+const lines = [`# ${reportTitle}`, "", "## Findings", ""];
 if (!findings.length) lines.push("No automated findings.", "");
 for (const finding of findings) {
   lines.push(`- **${finding.priority} — ${finding.title}:** ${finding.detail}`);

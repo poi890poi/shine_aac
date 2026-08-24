@@ -10,7 +10,7 @@
     "test:core:full": "npm --prefix packages/aac-core test",
     "test:core:benchmarks": "npm --prefix packages/aac-core run test:benchmarks",
     "test:scan-performance": "npm --prefix packages/aac-core run test:scan-performance",
-    "test:web:unit": "node --test apps/web/test/ui-config.test.js apps/web/test/demo-mode.test.js apps/web/test/layout-quality-heuristics.test.js",
+    "test:web:unit": "node --test apps/web/test/ui-config.test.js apps/web/test/demo-mode.test.js apps/web/test/layout-quality-heuristics.test.js scripts/contrast-metrics.test.mjs",
     "report:zhtw:inventory": "node scripts/report-zhtw-dictionary-inventory.mjs",
     "report:zhtw:phonetic": "node scripts/report-zhtw-phonetic-access.mjs",
     "report:zhtw:conversation": "node scripts/report-zhtw-conversation-benchmark.mjs",
