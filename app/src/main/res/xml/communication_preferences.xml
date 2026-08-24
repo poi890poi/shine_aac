@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ListPreference app:key="profileId" app:title="@string/settings_language" />
+    <EditTextPreference app:key="columns" app:title="@string/settings_columns" />
+    <EditTextPreference app:key="suggestionDictionary" app:title="@string/settings_suggestion_dictionary" />
+    <EditTextPreference app:key="symbols" app:title="@string/settings_board_symbols" />
+</PreferenceScreen>

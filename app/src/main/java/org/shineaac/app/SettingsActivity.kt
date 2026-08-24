@@ -120,8 +120,23 @@ class SettingsActivity : AppCompatActivity(),
 
 class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.preferenceDataStore = SettingsPreferenceDataStore(requireContext())
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
+    }
+}
+
+class SectionSettingsPreferenceFragment : PreferenceFragmentCompat() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        preferenceManager.preferenceDataStore = SettingsPreferenceDataStore(requireContext())
+        val resource = when (requireArguments().getString(SectionArgument)) {
+            "communication" -> R.xml.communication_preferences
+            "scanning" -> R.xml.scanning_preferences
+            "speech" -> R.xml.speech_preferences
+            "input" -> R.xml.input_preferences
+            "display" -> R.xml.display_preferences
+            "data_support" -> R.xml.data_support_preferences
+            else -> error("Unknown settings section")
+        }
+        setPreferencesFromResource(resource, rootKey)
 
         configureList("profileId")
         configureList("scanMode")
@@ -333,6 +348,7 @@ class MainSettingsPreferenceFragment : PreferenceFragmentCompat() {
     private fun settingsActivity(): SettingsActivity = requireActivity() as SettingsActivity
 
     private companion object {
+        const val SectionArgument = "settings_section"
         const val BuiltInVoiceName = "shine-aac-moe-bopomofo"
         const val AndroidSystemVoiceName = "android-system-default"
         val ProfileDefaultStringKeys = listOf(

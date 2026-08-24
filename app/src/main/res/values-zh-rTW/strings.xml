@@ -7,6 +7,12 @@
     <string name="settings_category_input">輸入</string>
     <string name="settings_category_display">顯示</string>
     <string name="settings_category_data_support">資料與支援</string>
+    <string name="settings_section_communication_summary">語言、溝通版面與候選設定</string>
+    <string name="settings_section_scanning_summary">掃描方式、速度、進度與語音回饋</string>
+    <string name="settings_section_speech_summary">語音回饋、朗讀聲音與朗讀後行為</string>
+    <string name="settings_section_input_summary">輸入來源、相機設定與輸入測試</string>
+    <string name="settings_section_display_summary">對比與視覺外觀</string>
+    <string name="settings_section_data_support_summary">匯出、程式資訊與恢復預設</string>
     <string name="settings_language">語言</string>
     <string name="settings_columns">版面欄數</string>
     <string name="settings_suggestion_dictionary">候選字詞庫</string>

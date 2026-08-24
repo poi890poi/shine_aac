@@ -7,6 +7,12 @@
     <string name="settings_category_input">Input</string>
     <string name="settings_category_display">Display</string>
     <string name="settings_category_data_support">Data and support</string>
+    <string name="settings_section_communication_summary">Language, board layout, and suggestions</string>
+    <string name="settings_section_scanning_summary">Scan method, timing, progress, and voice feedback</string>
+    <string name="settings_section_speech_summary">Speech feedback, voice, and after-reading behavior</string>
+    <string name="settings_section_input_summary">Switch source, Camera Setup, and Input Test</string>
+    <string name="settings_section_display_summary">Contrast and visual appearance</string>
+    <string name="settings_section_data_support_summary">Export, app information, and reset</string>
     <string name="settings_language">Language</string>
     <string name="settings_columns">Board columns</string>
     <string name="settings_suggestion_dictionary">Suggestion dictionary</string>

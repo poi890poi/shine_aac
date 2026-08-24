@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ListPreference app:key="scanMode" app:title="@string/settings_scan_mode" />
+    <ListPreference app:key="scanTimingPreset" app:title="@string/settings_scan_preset" />
+    <ListPreference app:key="scanPassLimit" app:title="@string/settings_scan_pass_limit" />
+    <SwitchPreferenceCompat app:key="autoScanSuggestionPages" app:title="@string/settings_auto_scan_more" />
+    <SwitchPreferenceCompat app:key="deferUnsupportedZhuyinOnFirstPass" app:title="@string/settings_defer_zhuyin" />
+    <SwitchPreferenceCompat app:key="restartScanFromTop" app:title="@string/settings_restart_scan" />
+    <SwitchPreferenceCompat app:key="verticalGroupProgress" app:title="@string/settings_vertical_progress" />
+    <Preference app:key="advancedTiming" app:fragment="org.shineaac.app.AdvancedTimingPreferenceFragment" app:title="@string/settings_advanced_timing" app:summary="@string/settings_advanced_timing_summary" />
+</PreferenceScreen>

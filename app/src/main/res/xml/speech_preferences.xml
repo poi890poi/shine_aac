@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <SwitchPreferenceCompat app:key="rowScanVoice" app:title="@string/settings_row_voice" />
+    <SwitchPreferenceCompat app:key="scanVoice" app:title="@string/settings_symbol_voice" />
+    <SwitchPreferenceCompat app:key="activationVoice" app:title="@string/settings_activation_voice" />
+    <Preference app:key="speechVoiceName" app:fragment="org.shineaac.app.SpeechVoicePreferenceFragment" app:title="@string/settings_speech_voice" />
+    <ListPreference app:key="speechAfterReadMode" app:title="@string/settings_after_reading" />
+    <Preference app:key="manageSpeech" app:persistent="false" app:title="@string/settings_manage_speech" app:summary="@string/settings_manage_speech_summary" />
+</PreferenceScreen>
