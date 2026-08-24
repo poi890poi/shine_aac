@@ -945,22 +945,16 @@ function hasLockedSpeechMessage(inputState = {}) {
 
 export function speechLockRows(profileId = DefaultProfileId, columns = DefaultColumns) {
   const zhTw = profileId === "zh-TW";
-  const columnSpan = clampInt(columns, 2, 8);
   const command = (label, output, action, speechLabel, controlIcon) => Object.freeze({
     ...tile(label, output, action),
-    columnSpan,
     speechLabel,
     controlIcon,
     speechLockControl: true
   });
   return Object.freeze([
     Object.freeze([
-      command(zhTw ? "重播" : "Replay", "SAY", TileAction.Speak, zhTw ? "重播" : "replay", "▶")
-    ]),
-    Object.freeze([
-      command(zhTw ? "下一句" : "Next message", "CLR", TileAction.Clear, zhTw ? "下一句" : "next message", "→")
-    ]),
-    Object.freeze([
+      command(zhTw ? "重播" : "Replay", "SAY", TileAction.Speak, zhTw ? "重播" : "replay", "▶"),
+      command(zhTw ? "下一句" : "Next message", "CLR", TileAction.Clear, zhTw ? "下一句" : "next message", "→"),
       command(zhTw ? "修改" : "Edit", "EDIT", TileAction.UnlockMessage, zhTw ? "修改" : "edit", "✎")
     ])
   ]);
@@ -2691,6 +2685,17 @@ export function createScannerState(overrides = {}) {
   };
 }
 
+export function createSpeechLockScannerState(overrides = {}) {
+  return createScannerState({
+    scanMode: ScanMode.RowColumn,
+    stage: ScanStage.FirstCell,
+    rowIndex: 0,
+    cellIndex: 0,
+    passIndex: 1,
+    ...overrides
+  });
+}
+
 function zhTwGlyphReadingPrefixSet(dictionary) {
   const prefixes = new Set();
   for (const entry of dictionary) {
@@ -3660,6 +3665,7 @@ export function advanceSession(session, scanPassLimit = session.config.scanPassL
     return advanceSuggestionPageSession(session);
   }
   const rows = visibleBoard(session);
+  const speechLocked = hasLockedSpeechMessage(session);
   const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
     ? (rowIndex, passIndex) => scanSelectableCellIndices(rows[rowIndex], passIndex, scanPassLimit)
     : undefined;
@@ -3667,8 +3673,8 @@ export function advanceSession(session, scanPassLimit = session.config.scanPassL
     session.scannerState,
     rows.length,
     (row) => selectableCount(rows[row]),
-    scanPassLimit,
-    session.config.scanMode,
+    speechLocked ? 0 : scanPassLimit,
+    speechLocked ? ScanMode.RowColumn : session.config.scanMode,
     session.config.scanBlockCount,
     selectableCellIndicesForRow
   );
@@ -3712,6 +3718,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     };
   }
   const rows = visibleBoard(session);
+  const speechLocked = hasLockedSpeechMessage(session);
   const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
     ? (rowIndex, passIndex) => scanSelectableCellIndices(
       rows[rowIndex],
@@ -3725,7 +3732,7 @@ export function pressSwitch(session, elapsedInHighlightMs) {
     (row) => selectableCount(rows[row]),
     elapsedInHighlightMs,
     session.config.inputLatencyCompensationMs,
-    session.config.scanMode,
+    speechLocked ? ScanMode.RowColumn : session.config.scanMode,
     session.config.scanBlockCount,
     selectableCellIndicesForRow
   );
@@ -3804,7 +3811,11 @@ export function pressSwitch(session, elapsedInHighlightMs) {
         cycleStartSuggestionPage: nextSession.suggestionPage,
         suggestionPageCount
       })
-      : confirmation.nextState,
+      : hasLockedSpeechMessage(nextSession)
+        ? createSpeechLockScannerState()
+        : speechLocked
+          ? createScannerState({ scanMode: session.config.scanMode })
+          : confirmation.nextState,
     lockedRow: null,
     lastSelection: {
       rowIndex: confirmation.rowIndex,

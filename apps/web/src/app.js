@@ -11,6 +11,7 @@ import {
   boardRows,
   createBoardConfig,
   createScannerState,
+  createSpeechLockScannerState,
   createSession,
   compactTextHistorySnapshots,
   loadProfileColumnsForConfig,
@@ -170,6 +171,9 @@ const initialConfig = loadConfig();
 let uiConfig = loadUiConfig(uiStorageKey);
 let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
 if (uiConfig.speechAfterReadMode === "off") session.speechLockMessage = null;
+if (isSpeechLockActive(session)) {
+  session = { ...session, scannerState: createSpeechLockScannerState(), lockedRow: null };
+}
 applyContrastTheme(uiConfig.contrastTheme);
 globalThis.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
   if (uiConfig.contrastTheme === "system") applyContrastTheme("system");
@@ -900,7 +904,9 @@ function activateSwitch(inputEvent = {}) {
   session = !enteredSuggestionPageScan && ((uiConfig.restartScanFromTop && selection) || shouldHold)
     ? {
       ...nextSession,
-      scannerState: createScannerState({ scanMode: session.config.scanMode }),
+      scannerState: isSpeechLockActive(nextSession)
+        ? createSpeechLockScannerState()
+        : createScannerState({ scanMode: session.config.scanMode }),
       lockedRow: null
     }
     : nextSession;
@@ -913,7 +919,7 @@ function activateSwitch(inputEvent = {}) {
     session = {
       ...session,
       speechLockMessage: session.message,
-      scannerState: createScannerState({ scanMode: session.config.scanMode }),
+      scannerState: createSpeechLockScannerState(),
       lockedRow: null
     };
   }
@@ -1792,7 +1798,7 @@ function isDynamicEnglishSuggestionRow(rowIndex) {
 }
 
 function visualColumnCountForRow(row, rowIndex) {
-  if (isSpeechLockActive(session)) return session.config.columns;
+  if (isSpeechLockActive(session)) return Math.max(1, row.length);
   const isEmbeddedEnglishInput = session.config.profileId === "zh-TW" &&
     session.activeCategory === "english";
   if (isEmbeddedEnglishInput) return LanguageProfiles["en-US"].columns;
@@ -2017,8 +2023,7 @@ function statusPhaseLabel(scanner) {
   if (cameraHoldActive) return zhTw ? "眨眼確認中" : "Blink detected";
   if (reviewHoldActive) return zhTw ? "暫停確認" : "Review pause";
   if (isSpeechLockActive(session)) {
-    const locked = zhTw ? "訊息已鎖定" : "Message locked";
-    return `${locked} · ${phaseLabel(scanner)}`;
+    return zhTw ? "訊息已鎖定 · 選擇操作" : "Message locked · Choose an action";
   }
   return phaseLabel(scanner);
 }

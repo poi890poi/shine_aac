@@ -7,6 +7,7 @@ import {
   advanceSession,
   createBoardConfig,
   createScannerState,
+  createSpeechLockScannerState,
   createSession,
   pauseSession,
   pressSwitch,
@@ -478,19 +479,27 @@ test("undo repairs the previous message state with one selection", () => {
   assert.equal(session.message, "I ");
 });
 
-test("a locked spoken message exposes a one-level replay, next-message, and edit subset", () => {
+test("a locked spoken message flat-scans replay, next-message, and edit without escape layers", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const base = createSession({
     config,
     message: "我想喝水",
     messageHistory: ["", "我想"],
-    speechLockMessage: "我想喝水"
+    speechLockMessage: "我想喝水",
+    scannerState: createSpeechLockScannerState()
   });
 
   assert.deepEqual(
     visibleBoard(base).map((row) => row.map((candidate) => candidate.label)),
-    [["重播"], ["下一句"], ["修改"]]
+    [["重播", "下一句", "修改"]]
   );
+
+  let advanced = advanceSession(base);
+  assert.equal(advanced.scannerState.stage, ScanStage.Cells);
+  assert.equal(advanced.scannerState.cellIndex, 1);
+  advanced = advanceSession(advanceSession(advanced));
+  assert.equal(advanced.scannerState.stage, ScanStage.FirstCell);
+  assert.equal(advanced.scannerState.cellIndex, 0);
 
   const replayed = pressSwitch(base, 1000);
   assert.equal(replayed.lastSelection.tile.action, TileAction.Speak);
@@ -500,7 +509,7 @@ test("a locked spoken message exposes a one-level replay, next-message, and edit
 
   const cleared = pressSwitch({
     ...base,
-    scannerState: createScannerState({ scanMode: config.scanMode, rowIndex: 1 })
+    scannerState: createSpeechLockScannerState({ stage: ScanStage.Cells, cellIndex: 1 })
   }, 1000);
   assert.equal(cleared.lastSelection.tile.action, TileAction.Clear);
   assert.equal(cleared.message, "");
@@ -509,7 +518,7 @@ test("a locked spoken message exposes a one-level replay, next-message, and edit
 
   const edited = pressSwitch({
     ...base,
-    scannerState: createScannerState({ scanMode: config.scanMode, rowIndex: 2 })
+    scannerState: createSpeechLockScannerState({ stage: ScanStage.Cells, cellIndex: 2 })
   }, 1000);
   assert.equal(edited.lastSelection.tile.action, TileAction.UnlockMessage);
   assert.equal(edited.lastSelection.effect, "speech-unlock");

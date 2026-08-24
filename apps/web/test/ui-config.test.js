@@ -89,7 +89,9 @@ test("replay and conversation display share the same locked subset", () => {
   assert.match(appSource, /speechLockMessage:\s*session\.message/);
   assert.match(appSource, /uiConfig\.speechAfterReadMode === "conversation"/);
   assert.match(styles, /\.shell\.speech-lock-enhanced[\s\S]*?grid-template-rows/);
-  assert.match(styles, /\.shell\.speech-lock-enhanced \.message\.locked-message[\s\S]*?white-space:\s*normal/);
+  assert.match(styles, /\.shell\.speech-lock \.message\.locked-message[\s\S]*?white-space:\s*normal/);
+  assert.match(styles, /\.shell\.speech-lock\s*\{[\s\S]*?clamp\(96px, 18vh, 160px\)/);
+  assert.match(appSource, /訊息已鎖定 · 選擇操作/);
 });
 
 test("conversation display shows only a bounded passive history of spoken messages", () => {
