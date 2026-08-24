@@ -10,10 +10,12 @@ screenshots to inspect one at a time:
 
 - **Nodes** are text ink, controls, repeated rows, and named major regions.
   Measure rendered ink and bounds, not the width of an arbitrary layout cell.
-- **Edges** express relationships: a label belongs to a control, rows belong to
-  a sequence, and a major visual region belongs between its header and controls.
+- **Edges** express relationships: explicitly adjacent content belongs together,
+  rows belong to a sequence, and a major visual region belongs between its
+  header and controls. An ordinary two-column form is not assumed to be adjacent.
 - **Local invariants** cover touch size, overlap, text leading, cell padding,
-  repeated-row rhythm, alignment, contrast, and semantic source-to-target gaps.
+  repeated-row rhythm, edge alignment, contrast, and explicitly declared
+  source-to-target gaps.
 - **Global invariants** use proportions rather than captured pixels: important
   regions receive an explicit minimum/maximum share of the available viewport.
 - **Differential invariants** compare the same named region across interaction
@@ -41,6 +43,22 @@ Automation produces candidates. A new or uncertain heuristic remains a review
 finding until before/after screenshots establish that it has low false-positive
 risk across the matrix.
 
+## Design references
+
+- Android adaptive guidance: make layout decisions from the available app
+  window and test across width/height classes, rather than assuming a physical
+  device size.
+  <https://developer.android.com/develop/ui/views/layout/responsive-adaptive-design-with-views>
+- Android accessibility guidance: interactive targets are at least 48×48dp;
+  visual content may remain more compact inside that target.
+  <https://developer.android.com/guide/topics/ui/accessibility/views/apps-views>
+- Material accessibility guidance: keep related information grouped, but retain
+  consistent alignment and at least 8dp between distinct touch targets.
+  <https://m1.material.io/usability/accessibility.html>
+- Google's Camera Switches flow gives gesture selection and gesture duration
+  distinct, plainly named concepts rather than combining them into long prose.
+  <https://support.google.com/accessibility/android/answer/11150722>
+
 ## Evidence layers
 
 1. **Rendered geometry**
@@ -64,8 +82,8 @@ risk across the matrix.
    - Normalize native button widths to dp and compare secondary control cells
      with Unicode glyph-width estimates. Identify the primary action row from
      geometry so prominent Start/Done actions are not treated as wasted space.
-   - Estimate the rendered end of each native row label and flag a gap over
-     20dp before its first control.
+   - Require secondary control groups to share a coherent trailing edge. Do not
+     treat intentional whitespace in a label/control grid as wasted space.
 4. **Screenshot review**
    - Capture every major surface with state, locale, theme, font scale, and
      build identity in its filename/manifest.
@@ -91,10 +109,9 @@ invented examples:
   labels to 88-137dp cells. The corrected app uses Android's measured text
   width plus 16dp padding, with a 48dp minimum touch width; the independent
   UIAutomator audit reports no disproportionately padded secondary cells.
-- Camera Setup labels: the former weighted label cell left over 100dp between
-  the short `動作` label and its first button. Content-sized portrait labels
-  now leave a measured 4dp layout gap and long translations use the remaining
-  width rather than pushing controls offscreen.
+- Camera Setup rows: compact secondary buttons remain anchored to one trailing
+  grid edge. Labels use concise nouns and values rather than sentence-like text;
+  whitespace inside the label column is not itself considered a defect.
 - Dark theme: a large opaque white surface is a finding; a small bright
   checkbox is not.
 

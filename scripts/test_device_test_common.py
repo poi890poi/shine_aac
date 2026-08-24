@@ -1,10 +1,11 @@
 import unittest
 
 from scripts.device_test_common import (
-    camera_setup_excessive_label_control_gaps,
+    camera_setup_control_group_alignment_drift,
     camera_setup_excessively_padded_buttons,
     camera_permission_is_granted,
     find_excessive_related_gaps,
+    find_edge_alignment_drift,
     find_geometry_drift,
     find_region_allocation_violations,
     infer_camera_preview_metrics,
@@ -76,6 +77,14 @@ class GeneralLayoutGraphTest(unittest.TestCase):
             {"name": "tiny", "role": "primary-visual", "fraction": 0.18, "minimum_fraction": 0.40},
         ])
         self.assertEqual([item["name"] for item in findings], ["tiny"])
+
+    def test_edge_alignment_uses_the_group_anchor_not_screen_pixels(self):
+        findings = find_edge_alignment_drift([
+            {"name": "first", "edge": 320},
+            {"name": "second", "edge": 320},
+            {"name": "ragged", "edge": 250},
+        ])
+        self.assertEqual([item["name"] for item in findings], ["ragged"])
 
 
 class EffectiveTouchTargetTest(unittest.TestCase):
@@ -160,40 +169,35 @@ class CameraControlPaddingTest(unittest.TestCase):
             [],
         )
 
-    def test_weighted_label_cell_with_large_visual_gap_is_flagged(self):
+    def test_different_width_groups_with_a_shared_right_edge_pass(self):
         nodes = [
-            {
-                "cls": "android.widget.TextView",
-                "text": "動作",
-                "bounds": (36, 1425, 468, 1491),
-            },
             self.button("長眨眼", (480, 1386, 744, 1530)),
             self.button("臉頰抽動", (768, 1386, 1032, 1530)),
-            self.button("開始設定", (48, 2064, 528, 2208)),
-            self.button("完成", (552, 2064, 1032, 2208)),
-        ]
-        findings = camera_setup_excessive_label_control_gaps(
-            nodes, density_dpi=480
-        )
-        self.assertEqual(len(findings), 1)
-        self.assertEqual(findings[0]["label"], "動作")
-
-    def test_content_following_label_with_small_gap_passes(self):
-        nodes = [
-            {
-                "cls": "android.widget.TextView",
-                "text": "動作",
-                "bounds": (36, 1467, 122, 1533),
-            },
-            self.button("長眨眼", (146, 1428, 314, 1572)),
-            self.button("臉頰抽動", (338, 1428, 546, 1572)),
+            self.button("下一個相機", (816, 1554, 1032, 1698)),
+            self.button("-100", (684, 1722, 834, 1866)),
+            self.button("+100", (858, 1722, 1032, 1866)),
             self.button("開始設定", (48, 2064, 528, 2208)),
             self.button("完成", (552, 2064, 1032, 2208)),
         ]
         self.assertEqual(
-            camera_setup_excessive_label_control_gaps(nodes, density_dpi=480),
+            camera_setup_control_group_alignment_drift(nodes, density_dpi=480),
             [],
         )
+
+    def test_control_group_pulled_to_the_left_is_flagged(self):
+        nodes = [
+            self.button("長眨眼", (146, 1428, 314, 1572)),
+            self.button("臉頰抽動", (338, 1428, 546, 1572)),
+            self.button("下一個相機", (816, 1596, 1032, 1740)),
+            self.button("-100", (684, 1764, 834, 1908)),
+            self.button("+100", (858, 1764, 1032, 1908)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        findings = camera_setup_control_group_alignment_drift(
+            nodes, density_dpi=480
+        )
+        self.assertEqual([item["name"] for item in findings], ["長眨眼 / 臉頰抽動"])
 
 
 class DeviceStateParserTest(unittest.TestCase):

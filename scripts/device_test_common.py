@@ -3,6 +3,7 @@
 
 import csv
 import re
+import statistics
 import time
 import unicodedata
 from pathlib import Path
@@ -175,6 +176,22 @@ def find_region_allocation_violations(regions):
             })
     return findings
 
+def find_edge_alignment_drift(items, tolerance=4.0):
+    """Find items that break a shared visual edge without fixed screen coordinates."""
+    samples = [item for item in (items or []) if item.get("edge") is not None]
+    if len(samples) < 2:
+        return []
+    anchor = statistics.median(item["edge"] for item in samples)
+    findings = []
+    for item in samples:
+        delta = item["edge"] - anchor
+        if abs(delta) > tolerance:
+            finding = dict(item)
+            finding["anchor"] = round(anchor, 1)
+            finding["delta"] = round(delta, 1)
+            findings.append(finding)
+    return findings
+
 def camera_setup_excessively_padded_buttons(nodes, density_dpi, text_size_sp=14.0):
     """
     Find secondary camera-setup buttons whose cells are much wider than their text.
@@ -218,10 +235,10 @@ def camera_setup_excessively_padded_buttons(nodes, density_dpi, text_size_sp=14.
             })
     return findings
 
-def camera_setup_excessive_label_control_gaps(
-    nodes, density_dpi, text_size_sp=15.0, maximum_gap_dp=20.0
+def camera_setup_control_group_alignment_drift(
+    nodes, density_dpi, tolerance_dp=4.0
 ):
-    """Find native setup rows with disproportionate empty space after labels."""
+    """Find secondary control rows that break the common trailing grid edge."""
     if not density_dpi:
         return []
     density = float(density_dpi) / 160.0
@@ -230,13 +247,7 @@ def camera_setup_excessive_label_control_gaps(
         if node.get("cls", "").endswith("Button")
         and node.get("bounds")
     ]
-    labels = [
-        node for node in (nodes or [])
-        if node.get("cls", "").endswith("TextView")
-        and (node.get("text") or "").strip()
-        and node.get("bounds")
-    ]
-    if not buttons or not labels:
+    if not buttons:
         return []
     bottom_center = max(
         (node["bounds"][1] + node["bounds"][3]) / 2.0 for node in buttons
@@ -262,46 +273,21 @@ def camera_setup_excessive_label_control_gaps(
             row = {"center": center, "buttons": []}
             rows.append(row)
         row["buttons"].append(button)
-    findings = []
+    groups = []
     for row in rows:
-        first_button = min(row["buttons"], key=lambda node: node["bounds"][0])
-        button_left_dp = first_button["bounds"][0] / density
-        row_top = min(node["bounds"][1] for node in row["buttons"])
-        row_bottom = max(node["bounds"][3] for node in row["buttons"])
-        candidates = []
-        for label in labels:
-            x1, y1, x2, y2 = label["bounds"]
-            if x1 >= first_button["bounds"][0]:
-                continue
-            if min(y2, row_bottom) <= max(y1, row_top):
-                continue
-            text = label["text"].strip()
-            content_right_dp = (
-                x1 / density
-                + _rendered_text_width_units(text) * text_size_sp
-            )
-            candidates.append((content_right_dp, label))
-        if not candidates:
-            continue
-        content_right_dp, label = max(candidates, key=lambda item: item[0])
-        findings.append({
-            "source": label["text"].strip(),
-            "target": first_button.get("text", "").strip(),
-            "source_end": content_right_dp,
-            "target_start": button_left_dp,
-            "label_bounds": label["bounds"],
-            "control_bounds": first_button["bounds"],
+        groups.append({
+            "name": " / ".join(
+                node.get("text", "").strip() for node in row["buttons"]
+            ),
+            "edge": max(node["bounds"][2] for node in row["buttons"]) / density,
+            "bounds": (
+                min(node["bounds"][0] for node in row["buttons"]),
+                min(node["bounds"][1] for node in row["buttons"]),
+                max(node["bounds"][2] for node in row["buttons"]),
+                max(node["bounds"][3] for node in row["buttons"]),
+            ),
         })
-    return [
-        {
-            "label": item["source"],
-            "first_control": item["target"],
-            "gap_dp": item["gap"],
-            "label_bounds": item["label_bounds"],
-            "control_bounds": item["control_bounds"],
-        }
-        for item in find_excessive_related_gaps(findings, maximum_gap_dp)
-    ]
+    return find_edge_alignment_drift(groups, tolerance_dp)
 
 def camera_permission_is_granted(command_output, package_dump):
     command = (command_output or "").lower()

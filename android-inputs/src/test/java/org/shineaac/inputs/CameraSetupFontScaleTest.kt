@@ -15,13 +15,12 @@ class CameraSetupFontScaleTest {
     }
 
     @Test
-    fun `compact labels leave measured room for controls`() {
-        assertEquals(172, compactControlLabelMaxWidthPx(336, 160, 4, 48))
-    }
-
-    @Test
-    fun `compact labels keep a usable minimum on narrow panes`() {
-        assertEquals(48, compactControlLabelMaxWidthPx(180, 160, 4, 48))
+    fun `compact labels retain action value and unit`() {
+        assertEquals("長眨眼 1200 毫秒", compactDurationLabel("長眨眼", 1200, "毫秒"))
+        assertEquals("縮放 1.6×", compactZoomLabel("縮放", 1.6f))
+        assertEquals("前置相機 1/4", compactCameraPositionLabel("前置相機", 1, 4))
+        assertEquals("Long blink 1200 ms", compactDurationLabel("Long blink", 1200, "ms"))
+        assertEquals("Rear camera 4/4", compactCameraPositionLabel("Rear camera", 4, 4))
     }
 
     @Test

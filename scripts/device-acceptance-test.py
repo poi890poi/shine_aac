@@ -49,7 +49,7 @@ from pathlib import Path
 
 from device_test_common import (
     ThermalGovernor,
-    camera_setup_excessive_label_control_gaps,
+    camera_setup_control_group_alignment_drift,
     camera_setup_excessively_padded_buttons,
     camera_permission_is_granted,
     find_geometry_drift,
@@ -663,16 +663,14 @@ class DeepTest:
                         "dumpsys/%s_layout.json" % name,
                     ]
                 )
-            label_gaps = camera_setup_excessive_label_control_gaps(
-                nodes,
-                self.density,
-                text_size_sp=18.0 if "font200" in name else 15.0,
+            alignment_drift = camera_setup_control_group_alignment_drift(
+                nodes, self.density
             )
-            layout_metrics["excessive_label_control_gaps"] = label_gaps
-            if label_gaps:
+            layout_metrics["control_group_alignment_drift"] = alignment_drift
+            if alignment_drift:
                 self.add_layout_observation(
-                    "P3", "Camera setup labels are separated from their controls",
-                    len(label_gaps), name,
+                    "P3", "Camera setup control groups break the trailing grid edge",
+                    len(alignment_drift), name,
                     [
                         "ui/%s.xml" % name,
                         "screenshots/%s.png" % name,

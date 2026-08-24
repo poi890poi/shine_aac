@@ -299,16 +299,17 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "", requir
       return { name: name(element), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
     }).filter((item) => inViewport(item));
 
-    const relationships = [...root.querySelectorAll('label[for]')].filter(visible).map((label) => {
-      const control = document.getElementById(label.htmlFor);
-      if (!control || !root.contains(control) || !visible(control) || label.contains(control)) return null;
-      const source = textInkRect(label);
+    const relationships = [...root.querySelectorAll('[data-layout-adjacent-to]')].filter(visible).map((element) => {
+      const targetSelector = element.dataset.layoutAdjacentTo;
+      const control = targetSelector ? root.querySelector(targetSelector) : null;
+      if (!control || !visible(control)) return null;
+      const source = textInkRect(element);
       const target = control.getBoundingClientRect();
       if (!source) return null;
       const verticalOverlap = Math.min(source.bottom, target.bottom) - Math.max(source.top, target.top);
       if (verticalOverlap <= Math.min(source.bottom - source.top, target.height) * 0.5 || target.left < source.right) return null;
       return {
-        source: name(label),
+        source: name(element),
         target: name(control),
         sourceEndPx: source.right,
         targetStartPx: target.left,

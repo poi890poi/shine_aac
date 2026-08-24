@@ -343,7 +343,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         holdView = compactValueLabel()
         zoomView = compactValueLabel()
         cameraView = compactValueLabel().apply {
-            text = tr("Camera: finding available cameras", "相機：正在尋找可用相機")
+            text = tr("Finding cameras…", "正在搜尋相機…")
         }
 
         val previewFrame = FrameLayout(this).apply {
@@ -424,14 +424,12 @@ class CameraSwitchCalibrationActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
             },
             buttons = listOf(blinkGestureButton, cheekGestureButton),
-            labelWeight = 0.8f,
-            compactLabel = !wideLayout
+            labelWeight = 0.8f
         )
         val cameraRow = controlRow(
             cameraView,
             listOf(changeCameraButton),
-            labelWeight = 1.4f,
-            compactLabel = !wideLayout
+            labelWeight = 1.4f
         )
         val holdRow = controlRow(
             holdView,
@@ -443,8 +441,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                     setOnClickListener { adjustHoldMs(100L) }
                 }
             ),
-            labelWeight = 1.4f,
-            compactLabel = !wideLayout
+            labelWeight = 1.4f
         )
         val zoomRow = controlRow(
             zoomView,
@@ -456,8 +453,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                     setOnClickListener { adjustZoomRatio(0.2f) }
                 }
             ),
-            labelWeight = 1.4f,
-            compactLabel = !wideLayout
+            labelWeight = 1.4f
         )
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -523,8 +519,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun controlRow(
         label: View?,
         buttons: List<Button?>,
-        labelWeight: Float,
-        compactLabel: Boolean
+        labelWeight: Float
     ): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
@@ -532,35 +527,14 @@ class CameraSwitchCalibrationActivity : Activity() {
             button to compactControlButtonParams(button)
         }
         if (label != null) {
-            val labelParams = if (compactLabel) {
-                val buttonWidth = buttonLayouts.sumOf { (_, params) ->
-                    params.width + params.leftMargin + params.rightMargin
-                }
-                val availableWidth =
-                    resources.displayMetrics.widthPixels - dp(24)
-                if (label is TextView) {
-                    label.maxWidth = compactControlLabelMaxWidthPx(
-                        containerWidthPx = availableWidth,
-                        buttonCellsWidthPx = buttonWidth,
-                        labelToControlsGapPx = dp(4),
-                        minimumLabelWidthPx = dp(48)
-                    )
-                    label.maxLines = 2
-                }
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    marginEnd = dp(4)
-                }
-            } else {
+            addView(
+                label,
                 LinearLayout.LayoutParams(
                     0,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     labelWeight
                 )
-            }
-            addView(label, labelParams)
+            )
         }
         buttonLayouts.forEach { (button, params) ->
             addView(button, params)
@@ -998,14 +972,16 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun updateHoldUi() {
         holdView?.text = when (selectedGesture) {
             OpticalSwitchGesture.LongBlink ->
-                tr(
-                    "Long blink hold: ${calibratedLongBlinkHoldMs} ms",
-                    "長眨眼時間：${calibratedLongBlinkHoldMs} 毫秒"
+                compactDurationLabel(
+                    tr("Long blink", "長眨眼"),
+                    calibratedLongBlinkHoldMs,
+                    tr("ms", "毫秒")
                 )
             OpticalSwitchGesture.CheekTwitch ->
-                tr(
-                    "Cheek hold: ${cheekHoldMs} ms",
-                    "臉頰抽動維持時間：${cheekHoldMs} 毫秒"
+                compactDurationLabel(
+                    tr("Cheek hold", "臉頰維持"),
+                    cheekHoldMs,
+                    tr("ms", "毫秒")
                 )
         }
     }
@@ -1024,9 +1000,8 @@ class CameraSwitchCalibrationActivity : Activity() {
     }
 
     private fun updateZoomUi() {
-        zoomView?.text = tr(
-            "Camera zoom: ${"%.1f".format(calibratedZoomRatio)}x",
-            "相機縮放：${"%.1f".format(calibratedZoomRatio)} 倍"
+        zoomView?.text = compactZoomLabel(
+            tr("Zoom", "縮放"), calibratedZoomRatio
         )
     }
 
@@ -1730,8 +1705,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val camera = selectedCamera
         if (camera == null) {
             cameraView?.text = tr(
-                "Camera: none available",
-                "相機：沒有可用相機"
+                "No camera available",
+                "沒有可用相機"
             )
             changeCameraButton?.text = tr(
                 "Refresh cameras",
@@ -1739,10 +1714,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             )
             return
         }
-        val sameFacing = availableCameras.filter {
-            it.lensFacing == camera.lensFacing
-        }
-        val ordinal = sameFacing.indexOfFirst {
+        val ordinal = availableCameras.indexOfFirst {
             it.cameraId == camera.cameraId
         }.coerceAtLeast(0) + 1
         val kind = when (camera.lensFacing) {
@@ -1754,10 +1726,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                 tr("USB / external camera", "USB／外接相機")
             else -> tr("Camera", "相機")
         }
-        val suffix = if (sameFacing.size > 1) " $ordinal" else ""
-        cameraView?.text = tr(
-            "Camera: $kind$suffix (${availableCameras.size} available)",
-            "相機：$kind$suffix（共 ${availableCameras.size} 個）"
+        cameraView?.text = compactCameraPositionLabel(
+            kind, ordinal, availableCameras.size
         )
         changeCameraButton?.text =
             if (availableCameras.size > 1) {
@@ -2067,15 +2037,14 @@ internal fun compactControlWidthPx(
     ceil(textWidthPx).toInt() + horizontalPaddingPx
 )
 
-internal fun compactControlLabelMaxWidthPx(
-    containerWidthPx: Int,
-    buttonCellsWidthPx: Int,
-    labelToControlsGapPx: Int,
-    minimumLabelWidthPx: Int
-): Int = max(
-    minimumLabelWidthPx,
-    containerWidthPx - buttonCellsWidthPx - labelToControlsGapPx
-)
+internal fun compactDurationLabel(action: String, durationMs: Long, unit: String): String =
+    "$action $durationMs $unit"
+
+internal fun compactZoomLabel(label: String, ratio: Float): String =
+    "$label ${String.format(Locale.US, "%.1f", ratio)}×"
+
+internal fun compactCameraPositionLabel(kind: String, ordinal: Int, total: Int): String =
+    "$kind $ordinal/$total"
 
 internal fun cameraSetupFontScale(systemFontScale: Float): Float =
     if (systemFontScale.isFinite() && systemFontScale > 0f) {
