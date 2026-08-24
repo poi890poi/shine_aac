@@ -15,6 +15,16 @@ class CameraSetupFontScaleTest {
     }
 
     @Test
+    fun `compact labels leave measured room for controls`() {
+        assertEquals(172, compactControlLabelMaxWidthPx(336, 160, 4, 48))
+    }
+
+    @Test
+    fun `compact labels keep a usable minimum on narrow panes`() {
+        assertEquals(48, compactControlLabelMaxWidthPx(180, 160, 4, 48))
+    }
+
+    @Test
     fun `ordinary font scaling remains unchanged`() {
         assertEquals(1f, cameraSetupFontScale(1f), 0.001f)
         assertEquals(1.15f, cameraSetupFontScale(1.15f), 0.001f)

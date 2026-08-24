@@ -333,10 +333,10 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         metricsView = TextView(this).apply {
             text = tr("Waiting for camera", "等待相機")
-            setTextColor(Color.rgb(159, 173, 188))
+            setTextColor(Color.rgb(226, 234, 242))
             textSize = 13f
-            setPadding(0, 0, 0, dp(4))
-            minLines = 2
+            setPadding(dp(6), dp(3), dp(6), dp(3))
+            background = roundedBackground(Color.argb(190, 15, 23, 42), dp(6))
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
@@ -349,6 +349,8 @@ class CameraSwitchCalibrationActivity : Activity() {
         val previewFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             background = roundedBackground(Color.BLACK, dp(8), Color.rgb(58, 70, 82))
+            contentDescription = tr("Camera preview", "相機預覽")
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         }
         textureView = TextureView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -378,6 +380,16 @@ class CameraSwitchCalibrationActivity : Activity() {
         }
         previewFrame.addView(textureView)
         previewFrame.addView(overlayView)
+        previewFrame.addView(
+            metricsView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP
+            ).apply {
+                setMargins(dp(6), dp(6), dp(6), 0)
+            }
+        )
 
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -412,12 +424,14 @@ class CameraSwitchCalibrationActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
             },
             buttons = listOf(blinkGestureButton, cheekGestureButton),
-            labelWeight = 0.8f
+            labelWeight = 0.8f,
+            compactLabel = !wideLayout
         )
         val cameraRow = controlRow(
             cameraView,
             listOf(changeCameraButton),
-            labelWeight = 1.4f
+            labelWeight = 1.4f,
+            compactLabel = !wideLayout
         )
         val holdRow = controlRow(
             holdView,
@@ -429,7 +443,8 @@ class CameraSwitchCalibrationActivity : Activity() {
                     setOnClickListener { adjustHoldMs(100L) }
                 }
             ),
-            labelWeight = 1.4f
+            labelWeight = 1.4f,
+            compactLabel = !wideLayout
         )
         val zoomRow = controlRow(
             zoomView,
@@ -441,13 +456,13 @@ class CameraSwitchCalibrationActivity : Activity() {
                     setOnClickListener { adjustZoomRatio(0.2f) }
                 }
             ),
-            labelWeight = 1.4f
+            labelWeight = 1.4f,
+            compactLabel = !wideLayout
         )
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(title)
             addView(statusView)
-            addView(metricsView)
             addView(previewFrame)
         }
         val controlsColumn = LinearLayout(this).apply {
@@ -508,22 +523,47 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun controlRow(
         label: View?,
         buttons: List<Button?>,
-        labelWeight: Float
+        labelWeight: Float,
+        compactLabel: Boolean
     ): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        val buttonLayouts = buttons.filterNotNull().map { button ->
+            button to compactControlButtonParams(button)
+        }
         if (label != null) {
-            addView(
-                label,
+            val labelParams = if (compactLabel) {
+                val buttonWidth = buttonLayouts.sumOf { (_, params) ->
+                    params.width + params.leftMargin + params.rightMargin
+                }
+                val availableWidth =
+                    resources.displayMetrics.widthPixels - dp(24)
+                if (label is TextView) {
+                    label.maxWidth = compactControlLabelMaxWidthPx(
+                        containerWidthPx = availableWidth,
+                        buttonCellsWidthPx = buttonWidth,
+                        labelToControlsGapPx = dp(4),
+                        minimumLabelWidthPx = dp(48)
+                    )
+                    label.maxLines = 2
+                }
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = dp(4)
+                }
+            } else {
                 LinearLayout.LayoutParams(
                     0,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     labelWeight
                 )
-            )
+            }
+            addView(label, labelParams)
         }
-        buttons.filterNotNull().forEach {
-            addView(it, compactControlButtonParams(it))
+        buttonLayouts.forEach { (button, params) ->
+            addView(button, params)
         }
     }
 
@@ -1758,7 +1798,7 @@ class CameraSwitchCalibrationActivity : Activity() {
     private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = Button(this).apply {
         this.text = text
         isAllCaps = false
-        minHeight = dp(44)
+        minHeight = dp(48)
         minWidth = dp(48)
         textSize = 14f
         maxLines = 2
@@ -1788,7 +1828,7 @@ class CameraSwitchCalibrationActivity : Activity() {
         ),
         LinearLayout.LayoutParams.WRAP_CONTENT
     ).apply {
-        setMargins(dp(4), dp(4), dp(4), dp(4))
+        setMargins(dp(4), dp(2), dp(4), dp(2))
     }
 
     private fun roundedBackground(color: Int, radius: Int, strokeColor: Int? = null): GradientDrawable =
@@ -2025,6 +2065,16 @@ internal fun compactControlWidthPx(
 ): Int = max(
     minimumTargetPx,
     ceil(textWidthPx).toInt() + horizontalPaddingPx
+)
+
+internal fun compactControlLabelMaxWidthPx(
+    containerWidthPx: Int,
+    buttonCellsWidthPx: Int,
+    labelToControlsGapPx: Int,
+    minimumLabelWidthPx: Int
+): Int = max(
+    minimumLabelWidthPx,
+    containerWidthPx - buttonCellsWidthPx - labelToControlsGapPx
 )
 
 internal fun cameraSetupFontScale(systemFontScale: Float): Float =
