@@ -64,6 +64,17 @@ sealed class CheekCalibrationOutcome {
     data class Failure(val reason: String, val diagnosticModel: CheekGestureModel? = null) : CheekCalibrationOutcome()
 }
 
+/**
+ * A permissive, rest-adaptive gate used only to collect calibration examples.
+ * Runtime activation remains governed by the default or learned detector
+ * threshold. Final model quality checks reject noisy or inseparable trials.
+ */
+internal fun cheekCalibrationCandidateThreshold(neutralScores: List<Double>): Double {
+    val quietHigh = if (neutralScores.isEmpty()) 0.0
+    else CheekGestureCalibrator.percentile(neutralScores, 0.99)
+    return (quietHigh + 0.08).coerceIn(0.28, 0.50)
+}
+
 class CheekGestureCalibrator(private val candidateFeatures: List<String> = CheekFeatureSpace.names) {
     private val neutralFrames = mutableListOf<Map<String, Double>>()
     private val activeTrials = linkedMapOf<Int, MutableList<Map<String, Double>>>()

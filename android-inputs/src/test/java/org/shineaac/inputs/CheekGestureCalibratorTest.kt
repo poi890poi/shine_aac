@@ -41,4 +41,15 @@ class CheekGestureCalibratorTest {
         repeat(6) { trial -> repeat(8) { calibrator.addActive(trial, mapOf("cheekSquintLeft" to 0.10)) } }
         assertTrue(calibrator.build() is CheekCalibrationOutcome.Failure)
     }
+
+    @Test
+    fun calibrationCandidateGateIsLowerThanRuntimeAndAdaptsToRestNoise() {
+        val quiet = cheekCalibrationCandidateThreshold(List(40) { 0.08 + (it % 3) * 0.005 })
+        val noisier = cheekCalibrationCandidateThreshold(List(40) { 0.24 + (it % 4) * 0.01 })
+
+        assertEquals(0.28, quiet, 0.0001)
+        assertTrue(noisier > quiet)
+        assertTrue(noisier <= 0.50)
+        assertTrue(noisier < CheekTwitchDetector.DefaultEnterThreshold)
+    }
 }
