@@ -134,16 +134,29 @@ function speechAfterReadModeOptionsHtml(selected) {
 }
 
 function applyContrastTheme(theme) {
-  if (theme && theme !== "default") {
-    document.documentElement.dataset.contrast = theme;
-  } else {
+  const normalizedTheme = ContrastThemes.includes(theme) ? theme : defaultUiConfig.contrastTheme;
+  if (normalizedTheme === "standard") {
     delete document.documentElement.dataset.contrast;
+  } else {
+    document.documentElement.dataset.contrast = normalizedTheme;
   }
+  document.documentElement.dataset.systemAppearance = systemAppearance();
+}
+
+function systemAppearance() {
+  try {
+    const nativeAppearance = globalThis.ShineAacAndroid?.getSystemAppearance?.();
+    if (nativeAppearance === "dark" || nativeAppearance === "light") return nativeAppearance;
+  } catch {
+    // Browser builds and older native bridges fall back to the media query.
+  }
+  return globalThis.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
 }
 
 function contrastThemeOptionsHtml(selected) {
   const labels = {
-    default: uiText("Default", "預設"),
+    system: uiText("Follow system", "跟隨系統"),
+    standard: uiText("Standard light", "標準淺色"),
     "high-contrast": uiText("High contrast (light)", "高對比（淺色）"),
     "high-contrast-dark": uiText("High contrast (dark)", "高對比（深色）")
   };
@@ -158,6 +171,9 @@ let uiConfig = loadUiConfig(uiStorageKey);
 let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
 if (uiConfig.speechAfterReadMode === "off") session.speechLockMessage = null;
 applyContrastTheme(uiConfig.contrastTheme);
+globalThis.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
+  if (uiConfig.contrastTheme === "system") applyContrastTheme("system");
+});
 let highlightStartedAt = performance.now();
 let highlightDeadlineAt = highlightStartedAt;
 let timerId = 0;

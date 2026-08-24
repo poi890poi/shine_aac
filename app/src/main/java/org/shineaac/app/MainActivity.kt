@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -28,6 +29,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.content.ContextCompat
 import org.shineaac.inputs.CameraSwitchCalibrationActivity
 import org.shineaac.inputs.CameraSwitchInputAdapter
 import org.shineaac.inputs.CameraSwitchPreferences
@@ -181,7 +183,7 @@ class MainActivity : ComponentActivity() {
 
     private fun createInsetAwareWebViewHost(shineWebView: WebView): FrameLayout {
         return FrameLayout(this).apply {
-            setBackgroundColor(android.graphics.Color.rgb(246, 244, 238))
+            setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.board_system_background))
             addView(
                 shineWebView,
                 FrameLayout.LayoutParams(
@@ -655,8 +657,16 @@ class MainActivity : ComponentActivity() {
                 .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
                 .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))
+                .put("contrastTheme", prefs.getString("contrastTheme", "system"))
                 .toString()
         }
+
+        @JavascriptInterface
+        fun getSystemAppearance(): String =
+            if (
+                resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+            ) "dark" else "light"
 
         @Suppress("DEPRECATION")
         @JavascriptInterface

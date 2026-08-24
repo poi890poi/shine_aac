@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  ContrastThemes,
   currentUiConfigVersion,
   defaultUiConfig,
   moeBopomofoVoiceName,
@@ -31,6 +32,34 @@ test("an explicitly selected Android voice is preserved", () => {
     normalizeUiConfig({ speechVoiceName: "cmn-tw-x-ctc-local" }).speechVoiceName,
     "cmn-tw-x-ctc-local"
   );
+});
+
+test("the custom board follows system appearance by default without losing explicit presets", () => {
+  assert.equal(defaultUiConfig.contrastTheme, "system");
+  assert.deepEqual(ContrastThemes, [
+    "system",
+    "standard",
+    "high-contrast",
+    "high-contrast-dark"
+  ]);
+  assert.equal(normalizeUiConfig({}).contrastTheme, "system");
+  assert.equal(normalizeUiConfig({ contrastTheme: "default" }).contrastTheme, "standard");
+  assert.equal(normalizeUiConfig({ contrastTheme: "high-contrast-dark" }).contrastTheme, "high-contrast-dark");
+  assert.match(appSource, /getSystemAppearance/);
+  assert.match(appSource, /dataset\.systemAppearance\s*=\s*systemAppearance\(\)/);
+  assert.match(styles, /\[data-contrast="system"\]\[data-system-appearance="dark"\]/);
+});
+
+test("system dark appearance adapts neutral surfaces but retains custom scan-state tokens", () => {
+  const systemDark = styles.match(
+    /\[data-contrast="system"\]\[data-system-appearance="dark"\]\s*\{([\s\S]*?)\n\}/
+  )?.[1] ?? "";
+  assert.match(systemDark, /--color-app-bg:\s*#121416/);
+  assert.match(systemDark, /--color-tile-bg:\s*#1b1f22/);
+  assert.match(systemDark, /--color-tile-active-block-bg:\s*#3d2e66/);
+  assert.match(systemDark, /--color-tile-active-row-bg:\s*#16504a/);
+  assert.match(systemDark, /--color-tile-active-cell-bg:\s*#5f4a00/);
+  assert.match(styles, /\.tile\.active-cell[\s\S]*?outline:\s*3px solid var\(--color-tile-active-cell-border\)/);
 });
 
 test("the existing switch-input selector offers an explicit volume-key mode", () => {

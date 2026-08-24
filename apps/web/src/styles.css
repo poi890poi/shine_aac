@@ -78,6 +78,88 @@
   color: var(--color-text);
 }
 
+/*
+ * The System preset follows Android's light/dark appearance, but it remains a
+ * purpose-built AAC board. Neutral surfaces adapt here; group, row, cell,
+ * selection, warning, and destructive states keep explicit semantic tokens.
+ * This prevents wallpaper or OEM accent colors from changing scan meaning.
+ */
+[data-contrast="system"] {
+  color-scheme: light;
+}
+
+[data-contrast="system"][data-system-appearance="dark"] {
+  color-scheme: dark;
+  --color-app-bg: #121416;
+  --color-text: #f1f4f5;
+  --color-text-muted: #c2cbd0;
+  --color-panel-bg: #1b1f22;
+  --color-panel-border: #69747c;
+  --color-message-bg: #20262a;
+  --color-border: #87929a;
+  --color-border-strong: #aeb8c0;
+  --color-accent: #66d9cf;
+  --color-accent-on: #00201d;
+  --color-accent-2: #c6b3ff;
+  --color-tile-bg: #1b1f22;
+  --color-tile-border: #87929a;
+  --color-tile-text: #f4f7f8;
+  --color-tile-command-bg: #252b2f;
+  --color-tile-command-border: #9aa5ac;
+  --color-tile-function-bg: #173847;
+  --color-tile-function-border: #8fd6ff;
+  --color-tile-function-shadow: #5594b5;
+  --color-tile-replacement-bg: #4a3c00;
+  --color-tile-replacement-border: #ffd54a;
+  --color-tile-replacement-shadow: #a98600;
+  --color-tile-active-block-bg: #3d2e66;
+  --color-tile-active-block-border: #c6b3ff;
+  --color-tile-active-row-bg: #16504a;
+  --color-tile-active-row-border: #66d9cf;
+  --color-tile-active-cell-bg: #5f4a00;
+  --color-tile-active-cell-border: #ffe066;
+  --color-camera-status-bg: #20262a;
+  --color-camera-status-border: #87929a;
+  --color-camera-status-live: #62d98b;
+  --color-camera-status-blink-bg: #103a36;
+  --color-camera-status-blink-border: #66d9cf;
+  --color-camera-status-warn: #ffb84d;
+  --color-camera-status-stale-bg: #3a1712;
+  --color-camera-status-stale-border: #ff9b8a;
+  --color-camera-status-stale-dot: #ff6b5b;
+  --color-surface-muted: #252b2f;
+  --color-surface-selected: #30244f;
+  --color-surface-success: #10351f;
+  --color-surface-warning: #3d2900;
+  --color-border-subtle: #69747c;
+  --color-border-soft: #4f5960;
+  --color-accent-soft: #103a36;
+  --color-accent-soft-text: #f1f4f5;
+  --color-danger: #ff9b8a;
+  --color-danger-on: #2b0904;
+  --color-success: #7ee2a8;
+  --color-warning: #ffd080;
+  --color-disabled: #aeb8c0;
+  --color-review-border: #66d9cf;
+  --color-review-bg: #102d2a;
+  --color-review-tile-border: #87929a;
+  --color-tone-bg: #30244f;
+  --color-tone-border: #c6b3ff;
+  --color-tone-text: #f4f7f8;
+  --color-tone-shadow: #806eb7;
+  --color-backspace-bg: #3a1712;
+  --color-backspace-border: #ff9b8a;
+  --color-clear-bg: #541c14;
+  --color-clear-border: #ff9b8a;
+  --color-clear-shadow: #a85f54;
+  --color-deferred-text: #c2cbd0;
+  --color-deferred-border: #87929a;
+  --color-deferred-bg-1: #252b2f;
+  --color-deferred-bg-2: #30383e;
+  --color-export-file-bg: #252b2f;
+  --color-meter-bg: #30383e;
+}
+
 [data-contrast="high-contrast"] {
   --color-app-bg: #ffffff;
   --color-text: #000000;
@@ -150,6 +232,7 @@
 }
 
 [data-contrast="high-contrast-dark"] {
+  color-scheme: dark;
   --color-app-bg: #000000;
   --color-text: #ffffff;
   --color-text-muted: #d8dee3;

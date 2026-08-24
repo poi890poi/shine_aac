@@ -15,10 +15,15 @@ export const defaultUiConfig = Object.freeze({
   hardwareButtons: true,
   cameraSwitch: false,
   switchInputProfile: "hardware-buttons",
-  contrastTheme: "default"
+  contrastTheme: "system"
 });
 
-export const ContrastThemes = Object.freeze(["default", "high-contrast", "high-contrast-dark"]);
+export const ContrastThemes = Object.freeze([
+  "system",
+  "standard",
+  "high-contrast",
+  "high-contrast-dark"
+]);
 
 export function loadUiConfig(storageKey) {
   const nativeConfig = loadNativeUiConfig();
@@ -63,8 +68,14 @@ export function normalizeUiConfig(config) {
     ? config.speechVoiceName.slice(0, 200)
     : "";
   const speechVoiceName = requestedSpeechVoiceName || moeBopomofoVoiceName;
-  const contrastTheme = ContrastThemes.includes(config.contrastTheme)
-    ? config.contrastTheme
+  // "default" was the original fixed light palette. Keep that explicit
+  // choice stable for existing users while new installs follow Android's
+  // light/dark appearance through the custom System board preset.
+  const requestedContrastTheme = config.contrastTheme === "default"
+    ? "standard"
+    : config.contrastTheme;
+  const contrastTheme = ContrastThemes.includes(requestedContrastTheme)
+    ? requestedContrastTheme
     : defaultUiConfig.contrastTheme;
   const speechAfterReadMode = SpeechAfterReadModes.includes(config.speechAfterReadMode)
     ? config.speechAfterReadMode
