@@ -117,12 +117,63 @@ export function findControlOverlaps(controls, minimumOverlapAreaPx = 4) {
   return findings;
 }
 
+export function findExcessiveRelatedGaps(relationships, maximumGapPx = 20) {
+  return (relationships ?? []).filter((relationship) => {
+    const gap = relationship.targetStartPx - relationship.sourceEndPx;
+    return Number.isFinite(gap) && gap > maximumGapPx;
+  }).map((relationship) => ({
+    ...relationship,
+    gapPx: round(relationship.targetStartPx - relationship.sourceEndPx),
+  }));
+}
+
+export function findGeometryDrift(snapshots, tolerancePx = 1) {
+  const grouped = new Map();
+  for (const snapshot of snapshots ?? []) {
+    if (!snapshot?.name || !snapshot?.bounds) continue;
+    if (!grouped.has(snapshot.name)) grouped.set(snapshot.name, []);
+    grouped.get(snapshot.name).push(snapshot);
+  }
+  const findings = [];
+  for (const [name, samples] of grouped) {
+    const baseline = samples[0];
+    for (const sample of samples.slice(1)) {
+      const delta = baseline.bounds.map((value, index) => sample.bounds[index] - value);
+      if (delta.some((value) => Math.abs(value) > tolerancePx)) {
+        findings.push({
+          name,
+          baselineState: baseline.state,
+          state: sample.state,
+          baselineBounds: baseline.bounds,
+          bounds: sample.bounds,
+          delta,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+export function findRegionAllocationViolations(regions) {
+  return (regions ?? []).filter((region) => {
+    if (!Number.isFinite(region.fraction)) return false;
+    return (Number.isFinite(region.minimumFraction) && region.fraction < region.minimumFraction)
+      || (Number.isFinite(region.maximumFraction) && region.fraction > region.maximumFraction);
+  }).map((region) => ({
+    name: region.name,
+    role: region.role,
+    fraction: round(region.fraction),
+    minimumFraction: region.minimumFraction,
+    maximumFraction: region.maximumFraction,
+  }));
+}
+
 export function cameraPreviewFraction(previewHeightPx, screenHeightPx) {
   if (!(screenHeightPx > 0) || !(previewHeightPx >= 0)) return null;
   return previewHeightPx / screenHeightPx;
 }
 
-export function cameraPreviewIsTooSmall(previewHeightPx, screenHeightPx, minimumFraction = 0.25) {
+export function cameraPreviewIsTooSmall(previewHeightPx, screenHeightPx, minimumFraction = 0.4) {
   const fraction = cameraPreviewFraction(previewHeightPx, screenHeightPx);
   return fraction != null && fraction < minimumFraction;
 }

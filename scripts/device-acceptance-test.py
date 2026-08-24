@@ -49,8 +49,11 @@ from pathlib import Path
 
 from device_test_common import (
     ThermalGovernor,
+    camera_setup_excessive_label_control_gaps,
     camera_setup_excessively_padded_buttons,
     camera_permission_is_granted,
+    find_geometry_drift,
+    find_region_allocation_violations,
     infer_camera_preview_metrics,
     power_state_is_noninteractive,
     touch_target_size_exemption,
@@ -471,6 +474,28 @@ class DeepTest:
         ).stdout or ""
         return len(re.findall(r"OPTICAL_CAMERA\s+runtimeId=", text))
 
+    def camera_gesture_preference(self):
+        result = self.shell(
+            "run-as", PACKAGE, "cat",
+            "shared_prefs/shine_aac_camera_switch.xml",
+            check=False,
+        )
+        match = re.search(
+            r'<string\s+name="gesture">([^<]+)</string>',
+            result.stdout or "",
+        )
+        return match.group(1) if match else "long-blink"
+
+    def camera_preview_bounds(self, xml_path):
+        metrics = infer_camera_preview_metrics(
+            self.xml_nodes(xml_path), self.screen_h
+        )
+        if not metrics:
+            return None
+        return (
+            metrics["top"], metrics["bottom"], metrics["height"]
+        )
+
     def is_config_ui(self, xml):
         texts = "\n".join(self.visible_strings(xml)).lower()
         has_camera_setup = ("camera setup" in texts or "相機設定" in texts)
@@ -609,9 +634,16 @@ class DeepTest:
             preview = infer_camera_preview_metrics(nodes, self.screen_h)
             if preview:
                 layout_metrics["camera_preview"] = preview
-                if preview["screen_fraction"] < 0.25:
+                allocation_findings = find_region_allocation_violations([{
+                    "name": "camera-preview",
+                    "role": "primary-visual",
+                    "fraction": preview["screen_fraction"],
+                    "minimum_fraction": 0.40,
+                }])
+                layout_metrics["region_allocation_findings"] = allocation_findings
+                if allocation_findings:
                     self.add_layout_observation(
-                        "P2", "Camera preview occupies less than 25% of the screen",
+                        "P2", "Camera preview occupies less than 40% of the screen",
                         1, name,
                         [
                             "ui/%s.xml" % name,
@@ -625,6 +657,22 @@ class DeepTest:
                 self.add_layout_observation(
                     "P3", "Camera setup secondary controls use over-expanded cells",
                     len(padded_buttons), name,
+                    [
+                        "ui/%s.xml" % name,
+                        "screenshots/%s.png" % name,
+                        "dumpsys/%s_layout.json" % name,
+                    ]
+                )
+            label_gaps = camera_setup_excessive_label_control_gaps(
+                nodes,
+                self.density,
+                text_size_sp=18.0 if "font200" in name else 15.0,
+            )
+            layout_metrics["excessive_label_control_gaps"] = label_gaps
+            if label_gaps:
+                self.add_layout_observation(
+                    "P3", "Camera setup labels are separated from their controls",
+                    len(label_gaps), name,
                     [
                         "ui/%s.xml" % name,
                         "screenshots/%s.png" % name,
@@ -864,6 +912,87 @@ class DeepTest:
                      "screenshots/cycle%02d_camera_setup.png" % cycle]
                 )
 
+            if cycle == 1:
+                original_gesture = self.camera_gesture_preference()
+                if original_gesture == "cheek-twitch":
+                    alternate_patterns = ["long blink", "長眨眼"]
+                    restore_patterns = ["cheek twitch", "臉頰抽動"]
+                else:
+                    alternate_patterns = ["cheek twitch", "臉頰抽動"]
+                    restore_patterns = ["long blink", "長眨眼"]
+                initial_bounds = self.camera_preview_bounds(cam_xml)
+                initial_text = set(self.visible_strings(cam_xml))
+                original_node = self.find_node(
+                    cam_xml, restore_patterns, visible_only=True
+                )
+                alternate = self.find_node(
+                    cam_xml, alternate_patterns, visible_only=True
+                )
+                changed_xml = None
+                restored_xml = None
+                geometry_drift = []
+                if alternate and self.tap_node(alternate):
+                    time.sleep(0.6)
+                    _, changed_xml = self.checkpoint(
+                        "cycle01_camera_setup_message_change"
+                    )
+                    restore = (
+                        self.find_node(
+                            changed_xml, restore_patterns, visible_only=True
+                        )
+                        if changed_xml else None
+                    ) or original_node
+                    if restore and self.tap_node(restore):
+                        time.sleep(0.6)
+                        _, restored_xml = self.checkpoint(
+                            "cycle01_camera_setup_message_restored"
+                        )
+                changed_bounds = self.camera_preview_bounds(changed_xml)
+                restored_bounds = self.camera_preview_bounds(restored_xml)
+                changed_text = (
+                    set(self.visible_strings(changed_xml))
+                    if changed_xml else set()
+                )
+                evidence = [
+                    "ui/cycle01_camera_setup.xml",
+                    "ui/cycle01_camera_setup_message_change.xml",
+                    "ui/cycle01_camera_setup_message_restored.xml",
+                    "screenshots/cycle01_camera_setup.png",
+                    "screenshots/cycle01_camera_setup_message_change.png",
+                    "screenshots/cycle01_camera_setup_message_restored.png",
+                ]
+                if not initial_bounds or not changed_bounds or not restored_bounds:
+                    self.add(
+                        "P2", "Camera preview stability could not be measured",
+                        "The test could not obtain preview bounds before, during, and after a setup message/mode change.",
+                        evidence,
+                    )
+                elif initial_text == changed_text:
+                    self.add(
+                        "P2", "Camera preview message-change scenario was inconclusive",
+                        "Switching optical modes did not expose a different visible message state.",
+                        evidence,
+                    )
+                else:
+                    geometry_drift = find_geometry_drift([
+                        {"name": "camera-preview", "state": "initial", "bounds": initial_bounds},
+                        {"name": "camera-preview", "state": "message-change", "bounds": changed_bounds},
+                        {"name": "camera-preview", "state": "restored", "bounds": restored_bounds},
+                    ])
+                if (initial_bounds and changed_bounds and restored_bounds
+                        and initial_text != changed_text and not geometry_drift):
+                    self.passed(
+                        "camera preview bounds stable across message/mode change",
+                        "bounds=%s; original gesture restored" % (initial_bounds,)
+                    )
+                elif (initial_bounds and changed_bounds and restored_bounds
+                        and initial_text != changed_text):
+                    self.add(
+                        "P2", "Camera preview moves when setup messages change",
+                        "Named-region geometry drift: %s" % geometry_drift,
+                        evidence,
+                    )
+
             # Native Back must return to config, not board.  Preserve a log
             # watermark so an enabled optical input can prove that MainActivity
             # deliberately rebound the runtime camera after setup.
@@ -1101,12 +1230,31 @@ class DeepTest:
                         "%d distinct screenshots over %.1fs" %
                         (len(set(hashes)), 0.55 * max(0, len(hashes)-1)))
         else:
-            self.add(
-                "P2", "Board scan/progress feedback not observed",
-                "Six screenshots were byte-identical. This may mean scanning is intentionally "
-                "paused, but it also catches a missing/highlight-stuck regression.",
-                ["screenshots/%s" % p.name for p in paths]
+            # Initial/review/stopped holds are intentional static states. One
+            # switch activation must resume them, while an already-running
+            # scanner will simply enter its next stage. Only fail if feedback
+            # remains static after that explicit activation.
+            self.shell(
+                "input", "tap",
+                str(self.screen_w // 2), str(self.screen_h // 2),
+                check=False,
             )
+            time.sleep(0.25)
+            resumed_hashes, resumed_paths = self.screenshot_hash_sequence(
+                "scan_motion_after_activation", count=6, interval=0.55
+            )
+            if len(set(resumed_hashes)) >= 2:
+                self.passed(
+                    "board scan/progress resumes from a static hold",
+                    "%d distinct screenshots after one switch activation" %
+                    len(set(resumed_hashes))
+                )
+            else:
+                self.add(
+                    "P2", "Board scan/progress feedback not observed",
+                    "The board remained byte-identical both before and after one explicit switch activation.",
+                    ["screenshots/%s" % p.name for p in paths + resumed_paths]
+                )
 
         if not self.open_config(90):
             self.add("P1", "Configuration pause test skipped", "Could not open configuration.")

@@ -12,7 +12,9 @@ import {
   findBrightDarkThemeSurfaces,
   findControlOverlaps,
   findExcessiveCellPadding,
+  findExcessiveRelatedGaps,
   findLooseLineHeights,
+  findRegionAllocationViolations,
   findRepeatedRowAlignmentDrift,
   findRepeatedRowGaps,
 } from "./layout-quality-heuristics.mjs";
@@ -220,6 +222,23 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "", requir
       const height = Math.max(0, Math.min(rect.bottom, rootRect.bottom, innerHeight) - Math.max(rect.top, rootRect.top, 0));
       return width * height;
     };
+    const textInkRect = (element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const rects = [];
+      while (walker.nextNode()) {
+        if (!walker.currentNode.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(walker.currentNode);
+        rects.push(...range.getClientRects());
+      }
+      if (!rects.length) return null;
+      return {
+        left: Math.min(...rects.map((rect) => rect.left)),
+        top: Math.min(...rects.map((rect) => rect.top)),
+        right: Math.max(...rects.map((rect) => rect.right)),
+        bottom: Math.max(...rects.map((rect) => rect.bottom)),
+      };
+    };
 
     const repeatedRows = [];
     if (${JSON.stringify(repeatedRowSelector)}) {
@@ -280,6 +299,33 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "", requir
       return { name: name(element), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
     }).filter((item) => inViewport(item));
 
+    const relationships = [...root.querySelectorAll('label[for]')].filter(visible).map((label) => {
+      const control = document.getElementById(label.htmlFor);
+      if (!control || !root.contains(control) || !visible(control) || label.contains(control)) return null;
+      const source = textInkRect(label);
+      const target = control.getBoundingClientRect();
+      if (!source) return null;
+      const verticalOverlap = Math.min(source.bottom, target.bottom) - Math.max(source.top, target.top);
+      if (verticalOverlap <= Math.min(source.bottom - source.top, target.height) * 0.5 || target.left < source.right) return null;
+      return {
+        source: name(label),
+        target: name(control),
+        sourceEndPx: source.right,
+        targetStartPx: target.left,
+      };
+    }).filter(Boolean);
+
+    const declaredRegions = [...root.querySelectorAll('[data-layout-role]')].filter(visible).map((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        name: selector(element),
+        role: element.dataset.layoutRole,
+        fraction: rect.height / Math.max(1, Math.min(rootRect.height, innerHeight)),
+        minimumFraction: Number.parseFloat(element.dataset.minHeightFraction),
+        maximumFraction: Number.parseFloat(element.dataset.maxHeightFraction),
+      };
+    });
+
     const requiredVisibility = ${JSON.stringify(requiredVisibleSelectors)}.map((requiredSelector) => {
       const element = root.querySelector(requiredSelector);
       if (!element) return { selector: requiredSelector, present: false, visible: false };
@@ -302,6 +348,8 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "", requir
       backgroundSamples,
       cellSamples,
       controls,
+      relationships,
+      declaredRegions,
       requiredVisibility,
     };
   })()`);
@@ -313,6 +361,8 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "", requir
     excessiveCellPadding: findExcessiveCellPadding(raw.cellSamples),
     brightDarkSurfaces: findBrightDarkThemeSurfaces(raw.backgroundSamples, raw.rootArea),
     controlOverlaps: findControlOverlaps(raw.controls),
+    excessiveRelatedGaps: findExcessiveRelatedGaps(raw.relationships),
+    regionAllocationViolations: findRegionAllocationViolations(raw.declaredRegions),
     raw,
   };
 }
@@ -341,6 +391,12 @@ function recordVisualQuality(label, quality, evidence, options = {}) {
   if (quality.controlOverlaps.length) {
     add("P2", `${label} contains overlapping controls`, `${quality.controlOverlaps.length} control pair(s) overlap.`, evidence);
   }
+  if (quality.excessiveRelatedGaps.length) {
+    add("P3", `${label} separates related labels and controls`, `${quality.excessiveRelatedGaps.length} semantic relationship(s) exceed a 20 CSS px gap.`, evidence);
+  }
+  if (quality.regionAllocationViolations.length) {
+    add("P3", `${label} allocates space poorly between major regions`, `${quality.regionAllocationViolations.length} declared layout region(s) fall outside their relative allocation range.`, evidence);
+  }
   const hiddenRequired = quality.raw.requiredVisibility.filter((item) => !item.visible);
   if (hiddenRequired.length) {
     add("P2", `${label} persistent actions are outside the viewport`, `${hiddenRequired.length} required action region(s) are absent or outside the visible panel.`, evidence);
@@ -352,9 +408,11 @@ function recordVisualQuality(label, quality, evidence, options = {}) {
     !quality.repeatedRowAlignmentDrift.length &&
     (!options.darkTheme || !quality.brightDarkSurfaces.length) &&
     !quality.controlOverlaps.length &&
+    !quality.excessiveRelatedGaps.length &&
+    !quality.regionAllocationViolations.length &&
     !hiddenRequired.length
   ) {
-    pass(`${label} visual geometry`, "no excessive repeated-row gaps, loose leading, padded cells, alignment drift, bright dark-theme patches, or control overlaps detected");
+    pass(`${label} visual geometry`, "no excessive repeated-row gaps, loose leading, padded cells, alignment drift, bright dark-theme patches, control overlaps, semantic gaps, or region-allocation violations detected");
   }
 }
 

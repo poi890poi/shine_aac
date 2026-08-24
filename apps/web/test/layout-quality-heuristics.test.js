@@ -6,7 +6,10 @@ import {
   findBrightDarkThemeSurfaces,
   findControlOverlaps,
   findExcessiveCellPadding,
+  findExcessiveRelatedGaps,
+  findGeometryDrift,
   findLooseLineHeights,
+  findRegionAllocationViolations,
   findRepeatedRowAlignmentDrift,
   findRepeatedRowGaps,
 } from "../../../scripts/layout-quality-heuristics.mjs";
@@ -80,7 +83,26 @@ test("overlap audit reports intersecting controls", () => {
 
 test("camera-preview audit is calibrated by the captured before and after geometry", () => {
   assert.equal(cameraPreviewIsTooSmall(205, 2168), true);
-  assert.equal(cameraPreviewIsTooSmall(850, 2168), false);
+  assert.equal(cameraPreviewIsTooSmall(850, 2168), true);
+  assert.equal(cameraPreviewIsTooSmall(1070, 2400), false);
   assert.ok(Math.abs(cameraPreviewFraction(205, 2168) - 0.0946) < 0.001);
   assert.ok(Math.abs(cameraPreviewFraction(850, 2168) - 0.3921) < 0.001);
+});
+
+test("layout graph rules detect semantic gaps, region under-allocation, and state drift", () => {
+  assert.deepEqual(findExcessiveRelatedGaps([
+    { source: "label", target: "control", sourceEndPx: 50, targetStartPx: 58 },
+    { source: "waste", target: "control", sourceEndPx: 50, targetStartPx: 100 },
+  ]).map((item) => item.source), ["waste"]);
+
+  assert.deepEqual(findRegionAllocationViolations([
+    { name: "preview", role: "primary-visual", fraction: 0.45, minimumFraction: 0.4 },
+    { name: "tiny", role: "primary-visual", fraction: 0.2, minimumFraction: 0.4 },
+  ]).map((item) => item.name), ["tiny"]);
+
+  assert.equal(findGeometryDrift([
+    { name: "preview", state: "idle", bounds: [0, 100, 300, 500] },
+    { name: "preview", state: "active", bounds: [0, 100, 300, 500] },
+    { name: "preview", state: "error", bounds: [0, 130, 300, 500] },
+  ]).length, 1);
 });

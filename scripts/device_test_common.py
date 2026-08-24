@@ -27,6 +27,28 @@ def infer_camera_preview_metrics(nodes, screen_height):
     """
     if not screen_height:
         return None
+    described_previews = [
+        node for node in (nodes or [])
+        if (node.get("desc") or "").strip().lower() in (
+            "camera preview", "相機預覽"
+        )
+        and node.get("bounds")
+    ]
+    if described_previews:
+        left, top, right, bottom = max(
+            described_previews,
+            key=lambda node: (
+                (node["bounds"][2] - node["bounds"][0])
+                * (node["bounds"][3] - node["bounds"][1])
+            ),
+        )["bounds"]
+        return {
+            "top": top,
+            "bottom": bottom,
+            "height": max(0, bottom - top),
+            "screen_fraction": float(max(0, bottom - top)) / float(screen_height),
+            "source": "accessibility-frame",
+        }
     scrolls = [
         node for node in (nodes or [])
         if node.get("cls", "").endswith("ScrollView") and node.get("bounds")
@@ -34,11 +56,18 @@ def infer_camera_preview_metrics(nodes, screen_height):
     if not scrolls:
         return None
     controls_top = min(node["bounds"][1] for node in scrolls)
-    header_bottoms = [
-        node["bounds"][3] for node in nodes
+    header_texts = [
+        node for node in nodes
         if node.get("cls", "").endswith("TextView")
         and node.get("bounds")
         and node["bounds"][3] <= controls_top
+    ]
+    if not header_texts:
+        return None
+    header_left = min(node["bounds"][0] for node in header_texts)
+    header_bottoms = [
+        node["bounds"][3] for node in header_texts
+        if node["bounds"][0] <= header_left + 2
     ]
     if not header_bottoms:
         return None
@@ -49,6 +78,7 @@ def infer_camera_preview_metrics(nodes, screen_height):
         "bottom": controls_top,
         "height": preview_height,
         "screen_fraction": float(preview_height) / float(screen_height),
+        "source": "inferred-landmarks",
     }
 
 def touch_target_size_exemption(surface, node, viewport_bounds=None):
@@ -85,6 +115,65 @@ def _rendered_text_width_units(text):
         else:
             units += 0.55
     return units
+
+def find_excessive_related_gaps(relationships, maximum_gap=20.0):
+    """Evaluate semantic source→target spacing in any rendered layout graph."""
+    findings = []
+    for relationship in relationships or []:
+        gap = relationship.get("target_start", 0) - relationship.get("source_end", 0)
+        if gap > maximum_gap:
+            item = dict(relationship)
+            item["gap"] = round(gap, 1)
+            findings.append(item)
+    return findings
+
+def find_geometry_drift(snapshots, tolerance=1):
+    """Compare named region bounds across locale, scale, or interaction states."""
+    grouped = {}
+    for snapshot in snapshots or []:
+        name = snapshot.get("name")
+        bounds = snapshot.get("bounds")
+        if not name or not bounds:
+            continue
+        grouped.setdefault(name, []).append(snapshot)
+    findings = []
+    for name, samples in grouped.items():
+        baseline = samples[0]
+        for sample in samples[1:]:
+            delta = tuple(
+                sample["bounds"][index] - baseline["bounds"][index]
+                for index in range(len(baseline["bounds"]))
+            )
+            if any(abs(value) > tolerance for value in delta):
+                findings.append({
+                    "name": name,
+                    "baseline_state": baseline.get("state"),
+                    "state": sample.get("state"),
+                    "baseline_bounds": baseline["bounds"],
+                    "bounds": sample["bounds"],
+                    "delta": delta,
+                })
+    return findings
+
+def find_region_allocation_violations(regions):
+    """Check declared region allocation ranges without screen-specific pixels."""
+    findings = []
+    for region in regions or []:
+        fraction = region.get("fraction")
+        if fraction is None:
+            continue
+        minimum = region.get("minimum_fraction")
+        maximum = region.get("maximum_fraction")
+        if ((minimum is not None and fraction < minimum)
+                or (maximum is not None and fraction > maximum)):
+            findings.append({
+                "name": region.get("name"),
+                "role": region.get("role"),
+                "fraction": round(fraction, 4),
+                "minimum_fraction": minimum,
+                "maximum_fraction": maximum,
+            })
+    return findings
 
 def camera_setup_excessively_padded_buttons(nodes, density_dpi, text_size_sp=14.0):
     """
@@ -128,6 +217,91 @@ def camera_setup_excessively_padded_buttons(nodes, density_dpi, text_size_sp=14.
                 "compact_width_dp": round(compact_width_dp, 1),
             })
     return findings
+
+def camera_setup_excessive_label_control_gaps(
+    nodes, density_dpi, text_size_sp=15.0, maximum_gap_dp=20.0
+):
+    """Find native setup rows with disproportionate empty space after labels."""
+    if not density_dpi:
+        return []
+    density = float(density_dpi) / 160.0
+    buttons = [
+        node for node in (nodes or [])
+        if node.get("cls", "").endswith("Button")
+        and node.get("bounds")
+    ]
+    labels = [
+        node for node in (nodes or [])
+        if node.get("cls", "").endswith("TextView")
+        and (node.get("text") or "").strip()
+        and node.get("bounds")
+    ]
+    if not buttons or not labels:
+        return []
+    bottom_center = max(
+        (node["bounds"][1] + node["bounds"][3]) / 2.0 for node in buttons
+    )
+    primary_tolerance_px = 48.0 * density
+    row_tolerance_px = 24.0 * density
+    rows = []
+    for button in sorted(
+        buttons,
+        key=lambda node: (
+            (node["bounds"][1] + node["bounds"][3]) / 2.0,
+            node["bounds"][0],
+        ),
+    ):
+        center = (button["bounds"][1] + button["bounds"][3]) / 2.0
+        if abs(center - bottom_center) <= primary_tolerance_px:
+            continue
+        row = next(
+            (item for item in rows if abs(item["center"] - center) <= row_tolerance_px),
+            None,
+        )
+        if row is None:
+            row = {"center": center, "buttons": []}
+            rows.append(row)
+        row["buttons"].append(button)
+    findings = []
+    for row in rows:
+        first_button = min(row["buttons"], key=lambda node: node["bounds"][0])
+        button_left_dp = first_button["bounds"][0] / density
+        row_top = min(node["bounds"][1] for node in row["buttons"])
+        row_bottom = max(node["bounds"][3] for node in row["buttons"])
+        candidates = []
+        for label in labels:
+            x1, y1, x2, y2 = label["bounds"]
+            if x1 >= first_button["bounds"][0]:
+                continue
+            if min(y2, row_bottom) <= max(y1, row_top):
+                continue
+            text = label["text"].strip()
+            content_right_dp = (
+                x1 / density
+                + _rendered_text_width_units(text) * text_size_sp
+            )
+            candidates.append((content_right_dp, label))
+        if not candidates:
+            continue
+        content_right_dp, label = max(candidates, key=lambda item: item[0])
+        findings.append({
+            "source": label["text"].strip(),
+            "target": first_button.get("text", "").strip(),
+            "source_end": content_right_dp,
+            "target_start": button_left_dp,
+            "label_bounds": label["bounds"],
+            "control_bounds": first_button["bounds"],
+        })
+    return [
+        {
+            "label": item["source"],
+            "first_control": item["target"],
+            "gap_dp": item["gap"],
+            "label_bounds": item["label_bounds"],
+            "control_bounds": item["control_bounds"],
+        }
+        for item in find_excessive_related_gaps(findings, maximum_gap_dp)
+    ]
 
 def camera_permission_is_granted(command_output, package_dump):
     command = (command_output or "").lower()

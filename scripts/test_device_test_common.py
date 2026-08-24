@@ -1,8 +1,12 @@
 import unittest
 
 from scripts.device_test_common import (
+    camera_setup_excessive_label_control_gaps,
     camera_setup_excessively_padded_buttons,
     camera_permission_is_granted,
+    find_excessive_related_gaps,
+    find_geometry_drift,
+    find_region_allocation_violations,
     infer_camera_preview_metrics,
     power_state_is_noninteractive,
     touch_target_size_exemption,
@@ -26,6 +30,52 @@ class CameraPreviewGeometryTest(unittest.TestCase):
         metrics = infer_camera_preview_metrics(self.nodes(512, 1362), 2168)
         self.assertEqual(metrics["height"], 850)
         self.assertGreater(metrics["screen_fraction"], 0.25)
+
+    def test_accessible_preview_frame_provides_exact_bounds(self):
+        nodes = self.nodes(340, 1362) + [{
+            "cls": "android.widget.FrameLayout",
+            "desc": "相機預覽",
+            "bounds": (36, 340, 1044, 1450),
+        }]
+        metrics = infer_camera_preview_metrics(nodes, 2400)
+        self.assertEqual(metrics["top"], 340)
+        self.assertEqual(metrics["bottom"], 1450)
+        self.assertEqual(metrics["source"], "accessibility-frame")
+
+    def test_inset_preview_banner_is_not_mistaken_for_header(self):
+        nodes = self.nodes(340, 1362) + [{
+            "cls": "android.widget.TextView",
+            "bounds": (54, 360, 1026, 420),
+        }]
+        metrics = infer_camera_preview_metrics(nodes, 2400)
+        self.assertEqual(metrics["top"], 340)
+
+
+class GeneralLayoutGraphTest(unittest.TestCase):
+    def test_semantic_gap_rule_is_screen_agnostic(self):
+        relationships = [
+            {"source": "label", "target": "control", "source_end": 40, "target_start": 48},
+            {"source": "waste", "target": "control", "source_end": 40, "target_start": 90},
+        ]
+        findings = find_excessive_related_gaps(relationships, maximum_gap=20)
+        self.assertEqual([item["source"] for item in findings], ["waste"])
+
+    def test_geometry_drift_compares_named_regions_across_states(self):
+        snapshots = [
+            {"name": "primary-visual", "state": "idle", "bounds": (0, 100, 300, 500)},
+            {"name": "primary-visual", "state": "active", "bounds": (0, 100, 300, 500)},
+            {"name": "primary-visual", "state": "error", "bounds": (0, 130, 300, 500)},
+        ]
+        findings = find_geometry_drift(snapshots, tolerance=1)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["state"], "error")
+
+    def test_region_allocation_uses_relative_ranges(self):
+        findings = find_region_allocation_violations([
+            {"name": "preview", "role": "primary-visual", "fraction": 0.45, "minimum_fraction": 0.40},
+            {"name": "tiny", "role": "primary-visual", "fraction": 0.18, "minimum_fraction": 0.40},
+        ])
+        self.assertEqual([item["name"] for item in findings], ["tiny"])
 
 
 class EffectiveTouchTargetTest(unittest.TestCase):
@@ -107,6 +157,41 @@ class CameraControlPaddingTest(unittest.TestCase):
         ]
         self.assertEqual(
             camera_setup_excessively_padded_buttons(nodes, density_dpi=480),
+            [],
+        )
+
+    def test_weighted_label_cell_with_large_visual_gap_is_flagged(self):
+        nodes = [
+            {
+                "cls": "android.widget.TextView",
+                "text": "動作",
+                "bounds": (36, 1425, 468, 1491),
+            },
+            self.button("長眨眼", (480, 1386, 744, 1530)),
+            self.button("臉頰抽動", (768, 1386, 1032, 1530)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        findings = camera_setup_excessive_label_control_gaps(
+            nodes, density_dpi=480
+        )
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["label"], "動作")
+
+    def test_content_following_label_with_small_gap_passes(self):
+        nodes = [
+            {
+                "cls": "android.widget.TextView",
+                "text": "動作",
+                "bounds": (36, 1467, 122, 1533),
+            },
+            self.button("長眨眼", (146, 1428, 314, 1572)),
+            self.button("臉頰抽動", (338, 1428, 546, 1572)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        self.assertEqual(
+            camera_setup_excessive_label_control_gaps(nodes, density_dpi=480),
             [],
         )
 
