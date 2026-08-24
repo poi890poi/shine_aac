@@ -11,7 +11,7 @@ const artifactDir = join(repoRoot, "e2e-artifacts");
 mkdirSync(artifactDir, { recursive: true });
 
 const webPort = Number(process.env.SHINE_AAC_WEB_PORT ?? 5173);
-const debugPort = Number(process.env.SHINE_AAC_CDP_PORT ?? 9223);
+const requestedDebugPort = Number(process.env.SHINE_AAC_CDP_PORT ?? 0);
 const edgePath = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const profileDir = join(process.env.TEMP ?? artifactDir, `shine-aac-edge-${Date.now()}`);
 const packagedWebViewMode = process.argv.includes("--packaged-webview");
@@ -43,9 +43,11 @@ const steps = [];
 let serverProcess;
 let edgeProcess;
 let cdp;
+let debugPort;
 
 async function main() {
 try {
+  debugPort = requestedDebugPort || await findAvailablePort();
   if (packagedWebViewMode) {
     const buildResult = spawnSync(process.execPath, [join(repoRoot, "scripts/build-webview-assets.mjs")], {
       cwd: repoRoot,
@@ -251,6 +253,8 @@ try {
   process.exitCode = 1;
 } finally {
   cdp?.close();
+  edgeProcess?.stderr?.destroy();
+  edgeProcess?.stdout?.destroy();
   edgeProcess?.kill();
   serverProcess?.kill();
   try {
@@ -259,6 +263,23 @@ try {
     // best effort cleanup
   }
 }
+}
+
+async function findAvailablePort() {
+  return new Promise((resolvePort, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close((error) => {
+        if (error) reject(error);
+        else if (port > 0) resolvePort(port);
+        else reject(new Error("Could not allocate an isolated DevTools port"));
+      });
+    });
+  });
 }
 
 async function scenarioPhraseAndUndo() {
