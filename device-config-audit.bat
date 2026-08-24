@@ -1,4 +1,4 @@
 @echo off
 setlocal
-node --experimental-websocket "%~dp0scripts\device-config-audit.mjs" %*
+python "%~dp0scripts\device-native-settings-audit.py" %*
 exit /b %ERRORLEVEL%
