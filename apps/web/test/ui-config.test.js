@@ -140,6 +140,10 @@ test("configuration form controls retain 48px targets on short screens", () => {
   assert.match(styles, /\.config-panel \.secondary-button,[\s\S]*?\.config-panel \.primary-button\s*\{[\s\S]*?min-height:\s*48px/);
 });
 
+test("consecutive phone checkbox rows do not inherit the form block gap", () => {
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.config-grid > \.check-field \+ \.check-field\s*\{[\s\S]*?margin-block-start:\s*-12px/);
+});
+
 test("phone configuration actions do not cover form controls", () => {
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.config-panel:not\(\.calibration-panel\) \.config-actions\s*\{[\s\S]*?position:\s*static/);
   assert.match(styles, /\.config-actions\s*\{[\s\S]*?position:\s*sticky/);

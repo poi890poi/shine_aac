@@ -1559,6 +1559,10 @@ body.demo-active .phase::after {
     grid-template-columns: 1fr;
   }
 
+  .config-grid > .check-field + .check-field {
+    margin-block-start: -12px;
+  }
+
   .config-backdrop {
     padding: 10px;
   }
