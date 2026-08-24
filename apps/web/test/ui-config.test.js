@@ -152,6 +152,15 @@ test("vertical block and row progress is optional while cell progress remains ho
   assert.match(styles, /\.progress-fill\[data-progress-direction="down"\]\s*\{[\s\S]*?transform-origin:\s*center top/);
 });
 
+test("progress hints retain a high-contrast moving edge over every scan-state fill", () => {
+  assert.match(styles, /--color-progress-edge:\s*#111111/);
+  assert.match(styles, /\[data-contrast="system"\]\[data-system-appearance="dark"\][\s\S]*?--color-progress-edge:\s*#f4f7f8/);
+  assert.match(styles, /\[data-contrast="high-contrast"\][\s\S]*?--color-progress-edge:\s*#000000/);
+  assert.match(styles, /\[data-contrast="high-contrast-dark"\][\s\S]*?--color-progress-edge:\s*#ffffff/);
+  assert.match(styles, /\.progress-fill\s*\{[\s\S]*?border-right:\s*6px solid var\(--color-progress-edge\)/);
+  assert.match(styles, /\.progress-fill\[data-progress-direction="down"\][\s\S]*?border-bottom:\s*6px solid var\(--color-progress-edge\)/);
+});
+
 test("automatic suggestion-page progress remains horizontal", () => {
   const directionStages = appSource.match(/const progressDirection = \[([\s\S]*?)\]\.includes\(scanner\.stage\) \? "down" : "right";/)?.[1] ?? "";
 
