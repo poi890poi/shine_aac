@@ -28,7 +28,7 @@ Useful docs:
 - [Architecture](docs/ARCHITECTURE.md)
 - [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
 - [Release Process](docs/RELEASE_PROCESS.md)
-- [v0.3.4 Release Notes](docs/releases/v0.3.4.md)
+- [v0.4.0 Release Notes](docs/releases/v0.4.0.md)
 - [User Guide (zh-TW)](docs/index.html)
 - [Camera Gesture Switch Guide (zh-TW)](docs/camera-switch/index.html)
 - [Advanced Scanning and Settings Guide (zh-TW)](docs/advanced-settings/index.html)
@@ -107,6 +107,9 @@ Camera2 external-camera support remains available on devices whose Android
 camera provider exposes the webcam itself. Actual UVC formats, USB bandwidth,
 power, and OTG support vary by camera and Android device, so calibration and
 the physical camera test remain required for each supported pairing.
+
+See the dedicated [USB UVC camera guide](docs/uvc-camera/index.html) for
+permission, connection, selection, calibration, and troubleshooting steps.
 
 ## Switch Scanning Design
 This app targets automatic scanning for users who may have only one reliable action, such as a touch, switch, blink, or other binary signal. The communication surface intentionally avoids direct cell tapping: the same single action is used everywhere on the main board. Row/column scanning remains available, while block/row/column scanning can reduce long row searches without changing the communication layout.

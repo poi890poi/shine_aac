@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="我想說 0.4.0 USB UVC 外接相機連接、權限、選擇、校正與問題排除。">
+  <title>USB UVC 外接相機｜我想說</title>
+  <link rel="stylesheet" href="../assets/help-pages.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+  <header><div class="wrap header-inner">
+    <p class="eyebrow">我想說 0.4.0</p>
+    <h1>USB UVC 外接相機</h1>
+    <p class="subtitle">在支援 USB Host／OTG 的 Android 裝置上，以外接網路攝影機進行長眨眼或臉頰抽動偵測。</p>
+  </div></header>
+  <nav aria-label="本頁段落"><div class="wrap">
+    <a href="../">返回操作說明</a>
+    <a href="#requirements">準備硬體</a>
+    <a href="#connect">連接與選擇</a>
+    <a href="#verify">校正與驗證</a>
+    <a href="#troubleshooting">問題排除</a>
+  </div></nav>
+
+  <main id="main" class="wrap">
+    <div class="warning">
+      <strong>每一組硬體都要實測。</strong>
+      <p>UVC 只代表通用的 USB 影像類別，不保證每一台相機、OTG 轉接器、集線器與 Android 裝置都能搭配。請保留內建相機或實體開關作為備用方式。</p>
+    </div>
+
+    <h2 id="requirements">準備硬體</h2>
+    <ul>
+      <li>支援 USB Host／OTG 的 Android 手機或平板。</li>
+      <li>標示支援 UVC 的 USB 網路攝影機。</li>
+      <li>正確的 USB-C／Micro-USB OTG 轉接器；相機耗電較高時使用有外接電源的 USB 集線器。</li>
+      <li>穩固的手機與相機支架，讓臉部維持在固定位置。</li>
+    </ul>
+
+    <h2 id="connect">連接與選擇</h2>
+    <ol>
+      <li>先固定裝置與外接相機，再接上 OTG 轉接器或有供電的集線器。</li>
+      <li>開啟「設定」，把「開關輸入」設為「相機動作」或「按鍵＋相機動作」。</li>
+      <li>選擇「相機設定」。第一次使用相機功能時允許 Android 相機權限。</li>
+      <li>使用「下一個相機」切換，直到相機標示顯示 USB／UVC 且預覽來自外接相機。</li>
+      <li>Android 顯示 USB 裝置權限視窗時選擇允許。App 只有在選到 USB 相機後才會要求這項裝置權限。</li>
+      <li>若拔除後重新接上，相機的 USB 位址可能改變；App 會嘗試尋找相同類型的 UVC 裝置，但仍要確認預覽來源。</li>
+    </ol>
+
+    <div class="callout">
+      <strong>隱私與網路</strong>
+      <p>USB 與內建相機影像都只在 Android 裝置上分析，不會由我想說儲存或上傳。App 不需要網路權限。</p>
+    </div>
+
+    <h2 id="verify">校正與驗證</h2>
+    <ol>
+      <li>調整實際相機位置與正常縮放，讓臉部置中並完整顯示雙眼、鼻子與臉頰。</li>
+      <li>選擇長眨眼或臉頰抽動，依提示完成新的個人化校正。不要沿用另一個相機角度的結果作為唯一依據。</li>
+      <li>在相機設定頁測試數次有意動作，並自然休息至少一分鐘觀察誤觸。</li>
+      <li>回到溝通板，以正常掃描速度完成一段完整訊息及朗讀；短時間連續觸發測試不能取代這一步。</li>
+      <li>重新插拔 USB 相機後，再次確認來源、取景、校正表現與長時間穩定性。</li>
+    </ol>
+
+    <h2 id="troubleshooting">問題排除</h2>
+    <details><summary>相機清單沒有 USB／UVC</summary><ul>
+      <li>確認 Android 裝置支援 USB Host／OTG，並嘗試品質良好的 OTG 轉接器。</li>
+      <li>若相機沒有亮燈或反覆連線，改用有外接電源的 USB 集線器。</li>
+      <li>拔除後重新接上，再回到相機設定重新切換相機。</li>
+      <li>確認相機明確支援 UVC；需要專用 Windows 驅動的相機通常不適用。</li>
+    </ul></details>
+    <details><summary>已選 USB，但沒有影像或影像中斷</summary><ul>
+      <li>確認已允許 Android 的 USB 裝置權限；拒絕後可重新拔插再選一次。</li>
+      <li>降低同一集線器上的其他 USB 負載，並檢查接頭是否鬆動。</li>
+      <li>改試可提供穩定電力的集線器；USB 頻寬或供電不足都可能使串流中斷。</li>
+      <li>若該相機提供特殊格式而無法開啟，改用常見支援 640×480 MJPEG 或 YUYV 的 UVC 相機。</li>
+    </ul></details>
+    <details><summary>預覽正常，但動作不穩定</summary><p>先固定外接相機、改善正面光線、重新調整正常縮放，再為此相機角度重新校正。請同時驗證有意動作、自然休息與完整正常使用流程。</p></details>
+
+    <div class="warning"><strong>安全提醒</strong><p>外接相機可能因接頭、供電或裝置休眠而中斷。相機動作輸入不能作為唯一或緊急溝通方式。</p></div>
+  </main>
+  <footer><div class="wrap"><a href="../">返回操作說明</a> · <a href="../camera-switch/">相機動作開關</a> · <a href="../advanced-settings/">進階掃描與設定</a></div></footer>
+</body>
+</html>

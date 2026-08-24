@@ -7,8 +7,8 @@ SHINE AAC uses one release version for source, APK metadata, tags, and release f
 Edit `version.properties`:
 
 ```properties
-versionName=0.3.4
-versionCode=58
+versionName=0.4.0
+versionCode=59
 ```
 
 - `versionName`: public SemVer version.
@@ -48,10 +48,10 @@ Build and package a versioned debug APK:
 This creates ignored local artifacts:
 
 ```text
-.artifacts\releases\v0.3.4\shine-aac-v0.3.4-code58-debug.apk
-.artifacts\releases\v0.3.4\shine-aac-v0.3.4-code58-debug.zip
-.artifacts\releases\v0.3.4\SHA256SUMS.txt
-.artifacts\releases\v0.3.4\RELEASE_NOTES.md
+.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.apk
+.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.zip
+.artifacts\releases\v0.4.0\SHA256SUMS.txt
+.artifacts\releases\v0.4.0\RELEASE_NOTES.md
 ```
 
 Packaging verifies the APK signing certificate against
@@ -80,9 +80,9 @@ Generate an upload keystore outside Git, then build and package the signed AAB w
 The versioned artifacts and checksums are created at:
 
 ```text
-.artifacts\releases\v0.3.4\shine-aac-v0.3.4-code58-release.aab
-.artifacts\releases\v0.3.4\PLAY_AAB_SHA256SUMS.txt
-.artifacts\releases\v0.3.4\RELEASE_NOTES.md
+.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-release.aab
+.artifacts\releases\v0.4.0\PLAY_AAB_SHA256SUMS.txt
+.artifacts\releases\v0.4.0\RELEASE_NOTES.md
 ```
 
 The AAB under `app\build\outputs` is an overwriteable intermediate output.
@@ -107,19 +107,19 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
     testers. Do not upload the debug APK to Play.
 
 ```powershell
-git tag -a v0.3.4 -m "SHINE AAC v0.3.4"
-git push origin v0.3.4
+git tag -a v0.4.0 -m "SHINE AAC v0.4.0"
+git push origin v0.4.0
 ```
 
 Example host-side GitHub publication after the tag validation succeeds:
 
 ```powershell
-gh release create v0.3.4 `
-  .artifacts\releases\v0.3.4\shine-aac-v0.3.4-code58-debug.apk `
-  .artifacts\releases\v0.3.4\shine-aac-v0.3.4-code58-debug.zip `
-  .artifacts\releases\v0.3.4\SHA256SUMS.txt `
-  --title "SHINE AAC v0.3.4" `
-  --notes-file .artifacts\releases\v0.3.4\RELEASE_NOTES.md
+gh release create v0.4.0 `
+  .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.apk `
+  .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.zip `
+  .artifacts\releases\v0.4.0\SHA256SUMS.txt `
+  --title "SHINE AAC v0.4.0" `
+  --notes-file .artifacts\releases\v0.4.0\RELEASE_NOTES.md
 ```
 
 If the release already exists, use `gh release upload ... --clobber` and then

@@ -8,7 +8,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current source release: `0.3.4`, Android version code `58`, target SDK `36`
+- Current source release: `0.4.0`, Android version code `59`, target SDK `36`
 - Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing
@@ -38,6 +38,8 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - 可調整掃描速度與語音回饋設定
 - 可選擇列格或區塊列格掃描 並使用預設速度或進階時間微調
 - 可選用長眨眼或臉頰抽動作為相機開關 影像只在裝置上處理
+- 可在支援 USB Host OTG 的裝置選用相容 USB UVC 外接相機
+- 原生協助者設定與獨立進階時間設定頁
 - 朗讀後可顯示重播控制或放大對話內容 也可維持原本的繼續輸入方式
 - 一般 高對比亮色與高對比暗色顯示預設
 - 讓照顧者 協助者與專業人員更容易一起測試
@@ -48,12 +50,12 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 ### Release Notes For Internal Testing
 
-0.3.4:
+0.4.0:
 
-- 相機動作新增臉頰抽動 並改善長眨眼 個人化校正 預覽與相機可靠度
-- 朗讀後可選擇重播控制或放大對話顯示 避免誤改已說出的訊息
-- 改善設定版面 重設確認 大字體 高對比 文字與觸控標示
-- 新增相機動作及進階掃描設定專頁 授權改為 Apache License 2.0
+- 新增 USB UVC 外接相機 支援長眨眼與臉頰抽動掃描 影像只在裝置處理
+- 新增原生協助者設定與獨立進階時間設定頁
+- 改善相機選擇 權限 重新連接 預覽 校正與偵測可靠度
+- 新增 USB 相機 相機動作 進階設定與語音下載專頁
 - 仍是早期開發版本 不能作為唯一或緊急溝通方式
 
 0.2.44:
