@@ -4,6 +4,7 @@
 import csv
 import re
 import time
+import unicodedata
 from pathlib import Path
 
 THERMAL_NAMES = {
@@ -70,6 +71,63 @@ def touch_target_size_exemption(surface, node, viewport_bounds=None):
             # clipped node cannot establish the control's laid-out target size.
             return "accessibility-bounds-clipped-at-viewport-edge"
     return None
+
+def _rendered_text_width_units(text):
+    """Approximate glyph width in em without assuming one language or font."""
+    units = 0.0
+    for character in text or "":
+        if character.isspace():
+            units += 0.35
+        elif unicodedata.east_asian_width(character) in ("W", "F"):
+            units += 1.0
+        elif character.isupper():
+            units += 0.65
+        else:
+            units += 0.55
+    return units
+
+def camera_setup_excessively_padded_buttons(nodes, density_dpi, text_size_sp=14.0):
+    """
+    Find secondary camera-setup buttons whose cells are much wider than their text.
+
+    This uses dp, glyph-width classes, and the bottom action row's geometry. It
+    deliberately does not use a captured device's screen width or fixed x/y
+    coordinates, so the check applies across resolutions and localizations.
+    """
+    if not density_dpi:
+        return []
+    buttons = [
+        node for node in (nodes or [])
+        if node.get("cls", "").endswith("Button")
+        and (node.get("text") or "").strip()
+        and node.get("bounds")
+    ]
+    if not buttons:
+        return []
+    density = float(density_dpi) / 160.0
+    row_tolerance_px = 48.0 * density
+    bottom_center = max(
+        (node["bounds"][1] + node["bounds"][3]) / 2.0 for node in buttons
+    )
+    findings = []
+    for node in buttons:
+        x1, y1, x2, y2 = node["bounds"]
+        center = (y1 + y2) / 2.0
+        if abs(center - bottom_center) <= row_tolerance_px:
+            # The bottom Start/Done pair are intentionally prominent actions.
+            continue
+        width_dp = (x2 - x1) / density
+        text = node["text"].strip()
+        estimated_text_dp = _rendered_text_width_units(text) * text_size_sp
+        compact_width_dp = max(48.0, estimated_text_dp + 16.0)
+        if width_dp > compact_width_dp * 1.4:
+            findings.append({
+                "name": text,
+                "bounds": node["bounds"],
+                "width_dp": round(width_dp, 1),
+                "compact_width_dp": round(compact_width_dp, 1),
+            })
+    return findings
 
 def camera_permission_is_granted(command_output, package_dump):
     command = (command_output or "").lower()

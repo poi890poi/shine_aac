@@ -1,6 +1,7 @@
 import unittest
 
 from scripts.device_test_common import (
+    camera_setup_excessively_padded_buttons,
     camera_permission_is_granted,
     infer_camera_preview_metrics,
     power_state_is_noninteractive,
@@ -67,6 +68,47 @@ class EffectiveTouchTargetTest(unittest.TestCase):
             (0, 0, 1080, 2168),
         )
         self.assertIsNone(reason)
+
+
+class CameraControlPaddingTest(unittest.TestCase):
+    def button(self, text, bounds):
+        return {
+            "cls": "android.widget.Button",
+            "text": text,
+            "bounds": bounds,
+        }
+
+    def test_equal_weight_cells_from_captured_layout_are_flagged(self):
+        nodes = [
+            self.button("長眨眼", (322, 1386, 665, 1530)),
+            self.button("臉頰抽動", (689, 1386, 1032, 1530)),
+            self.button("下一個相機", (621, 1554, 1031, 1698)),
+            self.button("-100", (443, 1722, 725, 1866)),
+            self.button("+100", (749, 1722, 1032, 1866)),
+            self.button("縮小", (443, 1890, 725, 2034)),
+            self.button("放大", (749, 1890, 1032, 2034)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        findings = camera_setup_excessively_padded_buttons(nodes, density_dpi=480)
+        self.assertEqual(
+            {item["name"] for item in findings},
+            {"長眨眼", "臉頰抽動", "下一個相機", "-100", "+100", "縮小", "放大"},
+        )
+
+    def test_content_sized_controls_and_primary_actions_pass(self):
+        nodes = [
+            self.button("長眨眼", (498, 1386, 714, 1530)),
+            self.button("臉頰抽動", (738, 1386, 1002, 1530)),
+            self.button("-100", (684, 1722, 834, 1866)),
+            self.button("+100", (858, 1722, 1008, 1866)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        self.assertEqual(
+            camera_setup_excessively_padded_buttons(nodes, density_dpi=480),
+            [],
+        )
 
 
 class DeviceStateParserTest(unittest.TestCase):
