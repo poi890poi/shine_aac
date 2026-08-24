@@ -3,6 +3,7 @@
 
 import datetime as dt
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -19,12 +20,23 @@ INPUT_TEST_ACTIVITY = "InputTestActivity"
 
 
 def find_adb():
-    candidates = [shutil.which("adb")]
+    candidates = []
+    if os.environ.get("ADB"):
+        candidates.append(os.environ["ADB"])
+    for name in ("ANDROID_SDK_ROOT", "ANDROID_HOME"):
+        if os.environ.get(name):
+            candidates.append(str(Path(os.environ[name]) / "platform-tools" / "adb.exe"))
+    candidates.append(shutil.which("adb"))
     for drive in "CDEFG":
         candidates.append("%s:/Android/Sdk/platform-tools/adb.exe" % drive)
     for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return str(Path(candidate))
+        try:
+            if candidate and Path(candidate).is_file():
+                return str(Path(candidate))
+        except OSError:
+            # An inaccessible SDK on one drive must not prevent probing the
+            # configured or fixed-path SDK on a later drive.
+            continue
     raise RuntimeError("adb.exe not found")
 
 
@@ -48,7 +60,8 @@ class NativeSettingsAudit:
     def adb_run(self, *args, binary=False, check=True):
         result = subprocess.run(
             [self.adb] + list(args), cwd=str(ROOT), capture_output=True,
-            text=not binary, check=False,
+            text=not binary, encoding="utf-8" if not binary else None,
+            errors="replace" if not binary else None, check=False,
         )
         if check and result.returncode:
             raise RuntimeError("adb failed: %s" % ((result.stderr or result.stdout) if not binary else args))
@@ -134,10 +147,18 @@ class NativeSettingsAudit:
                     continue
                 x1, y1, x2, y2 = rectangle
                 if x2 > x1 and y2 > y1:
-                    candidates.append((node.get("clickable") == "true", (x2-x1)*(y2-y1), rectangle))
+                    candidates.append((
+                        y1 >= 72 * self.density,
+                        label.casefold() in aliases,
+                        node.get("clickable") == "true",
+                        (x2-x1)*(y2-y1),
+                        rectangle,
+                    ))
             if candidates:
-                candidates.sort(key=lambda item: (not item[0], -item[1]))
-                x1, y1, x2, y2 = candidates[0][2]
+                # Exact title matches beat summaries that merely mention the
+                # same word. Content rows beat an identical toolbar title.
+                candidates.sort(key=lambda item: (not item[0], not item[1], not item[2], -item[3]))
+                x1, y1, x2, y2 = candidates[0][4]
                 self.shell("input", "tap", str((x1+x2)//2), str((y1+y2)//2), check=False)
                 time.sleep(0.7)
                 return True
@@ -204,8 +225,10 @@ class NativeSettingsAudit:
             self.add("P2", page + " rows waste vertical space", str(oversized[:8]), evidence)
 
     def open_section(self, aliases, key):
-        if not self.back_to_root():
-            self.open_settings()
+        # Start each inventory case from a fresh root. PreferenceFragmentCompat
+        # preserves each list's scroll position; trying to reverse a prior
+        # audit swipe can otherwise miss a valid section that is above it.
+        self.open_settings()
         if not self.tap_text(aliases, "section_" + key, 5):
             raise RuntimeError("Could not open Settings section " + key)
 
@@ -231,15 +254,15 @@ class NativeSettingsAudit:
         root_texts, root_heights, root_evidence = self.collect_page("settings-root", 2)
         sections = {
             "communication": (["Communication", "溝通"], [
-                ["Language", "語言"], ["Columns", "欄"], ["Board symbols", "溝通版面"],
+                ["Language", "語言"], ["Columns", "欄"], ["Board symbols", "版面內容"],
             ]),
             "scanning": (["Scanning", "掃描"], [
-                ["Scan method", "掃描方式"], ["Timing", "速度"], ["pass", "輪"],
+                ["Scan mode", "掃描模式"], ["Timing", "速度"], ["pass", "輪"],
                 ["Advanced timing", "進階時間"],
             ]),
             "speech": (["Speech", "語音"], [
                 ["row", "列"], ["symbol", "格"], ["activation", "選定"],
-                ["voice", "聲音"], ["after reading", "朗讀後"],
+                ["voice", "聲音", "語音"], ["after reading", "朗讀後"],
             ]),
             "input": (["Input", "輸入"], [
                 ["Switch input", "開關輸入"], ["Camera setup", "相機設定"],
@@ -261,7 +284,7 @@ class NativeSettingsAudit:
 
         dialog_cases = [
             (sections["communication"][0], "communication", ["Language", "語言"], "language"),
-            (sections["scanning"][0], "scanning", ["Scan method", "掃描方式"], "scan-method"),
+            (sections["scanning"][0], "scanning", ["Scan mode", "掃描模式"], "scan-method"),
             (sections["scanning"][0], "scanning", ["Timing preset", "速度"], "timing-preset"),
             (sections["speech"][0], "speech", ["after reading", "朗讀後"], "after-reading"),
             (sections["input"][0], "input", ["Switch input", "開關輸入"], "switch-input"),
@@ -274,12 +297,12 @@ class NativeSettingsAudit:
         if self.tap_text(["Advanced timing", "進階時間"], "advanced_timing", 4):
             texts, _, evidence = self.collect_page("advanced-timing", 1)
             self.require_labels("Advanced timing", texts, [
-                ["Scan interval", "掃描間隔"], ["Transition", "切換"],
+                ["Scan interval", "開關掃描速度"], ["Transition", "換列停頓"],
                 ["First", "第一"], ["latency", "延遲"],
             ], evidence)
 
         self.open_section(sections["speech"][0], "speech")
-        if self.tap_text(["voice", "聲音"], "speech_voice", 3):
+        if self.tap_text(["voice", "聲音", "語音"], "speech_voice", 3):
             texts, _, evidence = self.collect_page("speech-voice", 1)
             self.require_labels("Speech voice", texts, [["Preview", "試聽"], ["Manage", "管理"]], evidence)
 
