@@ -125,7 +125,7 @@ function speechLockEnabled() {
 function speechAfterReadModeOptionsHtml(selected) {
   const labels = {
     off: uiText("Keep entering (not locked)", "繼續輸入（不鎖定）"),
-    replay: uiText("Lock board · replay controls", "鎖定版面（重播控制）"),
+    replay: uiText("Lock board · Speak / Clear / Edit", "鎖定版面（朗讀／清除／修改）"),
     conversation: uiText("Lock board · conversation display", "鎖定版面（對話顯示）")
   };
   return SpeechAfterReadModes.map((mode) => {

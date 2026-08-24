@@ -953,8 +953,8 @@ export function speechLockRows(profileId = DefaultProfileId, columns = DefaultCo
   });
   return Object.freeze([
     Object.freeze([
-      command(zhTw ? "重播" : "Replay", "SAY", TileAction.Speak, zhTw ? "重播" : "replay", "▶"),
-      command(zhTw ? "下一句" : "Next message", "CLR", TileAction.Clear, zhTw ? "下一句" : "next message", "→"),
+      command(zhTw ? "朗讀" : "Speak", "SAY", TileAction.Speak, zhTw ? "朗讀" : "speak", "▶"),
+      command(zhTw ? "清除" : "Clear", "CLR", TileAction.Clear, zhTw ? "清除" : "clear", "✕"),
       command(zhTw ? "修改" : "Edit", "EDIT", TileAction.UnlockMessage, zhTw ? "修改" : "edit", "✎")
     ])
   ]);

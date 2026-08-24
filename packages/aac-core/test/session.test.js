@@ -479,7 +479,7 @@ test("undo repairs the previous message state with one selection", () => {
   assert.equal(session.message, "I ");
 });
 
-test("a locked spoken message flat-scans replay, next-message, and edit without escape layers", () => {
+test("a locked spoken message flat-scans speak, clear, and edit without escape layers", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   const base = createSession({
     config,
@@ -491,7 +491,7 @@ test("a locked spoken message flat-scans replay, next-message, and edit without 
 
   assert.deepEqual(
     visibleBoard(base).map((row) => row.map((candidate) => candidate.label)),
-    [["重播", "下一句", "修改"]]
+    [["朗讀", "清除", "修改"]]
   );
 
   let advanced = advanceSession(base);
