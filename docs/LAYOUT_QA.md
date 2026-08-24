@@ -20,6 +20,9 @@ modify normal app behavior to satisfy a test.
      exposed to accessibility tools.
    - Infer the camera-preview band from the accessible header/status and
      controls-panel landmarks. Flag a preview below 25% of screen height.
+   - Normalize native button widths to dp and compare secondary control cells
+     with Unicode glyph-width estimates. Identify the primary action row from
+     geometry so prominent Start/Done actions are not treated as wasted space.
 4. **Screenshot review**
    - Capture every major surface with state, locale, theme, font scale, and
      build identity in its filename/manifest.
@@ -37,6 +40,10 @@ invented examples:
   gaps between consecutive 48px targets. A compact list has at most 4px.
 - Camera preview at 200% font: the broken capture used 205/2168 (9.5%) of
   screen height; the corrected capture uses 850/2168 (39.2%).
+- Camera Setup controls: the equal-weight layout stretched short secondary
+  labels to 88-137dp cells. The corrected app uses Android's measured text
+  width plus 16dp padding, with a 48dp minimum touch width; the independent
+  UIAutomator audit reports no disproportionately padded secondary cells.
 - Dark theme: a large opaque white surface is a finding; a small bright
   checkbox is not.
 
