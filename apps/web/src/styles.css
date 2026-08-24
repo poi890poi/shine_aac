@@ -880,6 +880,11 @@ body.demo-active .phase::after {
   overflow-wrap: anywhere;
 }
 
+[data-speech-voice-summary] {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
 .settings-row-arrow {
   color: #6750a4;
   font-size: 32px;

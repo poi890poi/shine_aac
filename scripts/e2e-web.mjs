@@ -1619,6 +1619,7 @@ async function scenarioSpeechVoiceSettings() {
       };
       document.querySelector(".config-button")?.click();
       const setting = document.querySelector('[data-action="speech-voices"]');
+      const summaryFontSize = parseFloat(getComputedStyle(setting?.querySelector('[data-speech-voice-summary]')).fontSize);
       setting?.click();
       const page = document.querySelector('[data-testid="speech-voice-page"]');
       return {
@@ -1630,6 +1631,7 @@ async function scenarioSpeechVoiceSettings() {
         previewButtons: page?.querySelectorAll('[data-speech-action="preview"]').length,
         downloadButtons: page?.querySelectorAll('[data-speech-action="download"]').length,
         hasSelect: Boolean(page?.querySelector("select")),
+        summaryFontSize,
         smallestActionHeight: Math.min(...[...page.querySelectorAll("button")].map((node) => node.getBoundingClientRect().height))
       };
     })()
@@ -1660,6 +1662,7 @@ async function scenarioSpeechVoiceSettings() {
     opened.previewButtons !== 8 ||
     opened.downloadButtons !== 1 ||
     opened.hasSelect ||
+    opened.summaryFontSize < 14 ||
     opened.smallestActionHeight < 48
   ) {
     throw new Error(`Speech voice page does not match the accessible list design: ${JSON.stringify(opened)}`);
