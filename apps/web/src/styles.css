@@ -1569,8 +1569,11 @@ body.demo-active .phase::after {
   }
 
   .config-actions {
-    position: static;
     flex-wrap: wrap;
+  }
+
+  .config-panel:not(.calibration-panel) .config-actions {
+    position: static;
   }
 
   .config-actions .secondary-button,

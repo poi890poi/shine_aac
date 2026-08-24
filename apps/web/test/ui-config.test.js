@@ -141,7 +141,8 @@ test("configuration form controls retain 48px targets on short screens", () => {
 });
 
 test("phone configuration actions do not cover form controls", () => {
-  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.config-actions\s*\{[\s\S]*?position:\s*static/);
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.config-panel:not\(\.calibration-panel\) \.config-actions\s*\{[\s\S]*?position:\s*static/);
+  assert.match(styles, /\.config-actions\s*\{[\s\S]*?position:\s*sticky/);
 });
 
 test("configuration reset requires an explicit, scoped confirmation", () => {
