@@ -134,6 +134,12 @@ test("high-contrast presets cover board and secondary app surfaces", () => {
   assert.match(styles, /\.calibration-intro\s*\{[\s\S]*?background:\s*var\(--color-accent-soft\)[\s\S]*?color:\s*var\(--color-text\)/);
 });
 
+test("configuration form controls retain 48px targets on short screens", () => {
+  assert.match(styles, /\.field input,[\s\S]*?\.field textarea\s*\{[\s\S]*?min-height:\s*48px/);
+  assert.match(styles, /\.check-field\s*\{[\s\S]*?min-height:\s*48px/);
+  assert.match(styles, /\.config-panel \.secondary-button,[\s\S]*?\.config-panel \.primary-button\s*\{[\s\S]*?min-height:\s*48px/);
+});
+
 test("English suggestion sizing runs at the top level of both scanning modes", () => {
   assert.match(
     appSource,

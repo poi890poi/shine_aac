@@ -915,6 +915,7 @@ body.demo-active .phase::after {
 .field select,
 .field textarea {
   width: 100%;
+  min-height: 48px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 9px;
@@ -933,7 +934,7 @@ body.demo-active .phase::after {
 .check-field {
   grid-template-columns: auto 1fr;
   align-items: center;
-  min-height: 42px;
+  min-height: 48px;
 }
 
 .check-field input {
@@ -943,6 +944,11 @@ body.demo-active .phase::after {
 
 .wide {
   grid-column: 1 / -1;
+}
+
+.config-panel .secondary-button,
+.config-panel .primary-button {
+  min-height: 48px;
 }
 
 .settings-row {
