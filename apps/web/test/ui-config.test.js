@@ -43,6 +43,11 @@ test("the existing switch-input selector offers an explicit volume-key mode", ()
   assert.doesNotMatch(appSource, /name="volumeButtons/);
 });
 
+test("camera input labels cover every configured optical gesture", () => {
+  assert.match(appSource, /\["camera-long-blink",\s*uiText\("Camera gesture", "相機動作"\)\]/);
+  assert.match(appSource, /\["hardware-and-camera",\s*uiText\("Buttons \+ camera gesture", "按鍵＋相機動作"\)\]/);
+});
+
 test("the Web UI does not reserve native Android system insets a second time", () => {
   assert.doesNotMatch(styles, /safe-area-inset-/);
   assert.match(styles, /\.shell\s*\{[\s\S]*?height:\s*var\(--app-viewport-height\)/);

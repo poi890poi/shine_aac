@@ -2837,8 +2837,8 @@ function switchInputProfileOptionsHtml(selectedProfile) {
   const options = [
     ["hardware-buttons", uiText("Buttons — keep volume control", "按鍵—保留音量控制")],
     ["volume-buttons", uiText("Buttons — volume activates", "按鍵—音量鍵啟動")],
-    ["camera-long-blink", uiText("Camera long blink", "相機長眨眼")],
-    ["hardware-and-camera", uiText("Buttons + camera", "按鍵＋相機")],
+    ["camera-long-blink", uiText("Camera gesture", "相機動作")],
+    ["hardware-and-camera", uiText("Buttons + camera gesture", "按鍵＋相機動作")],
     ["off", uiText("Off", "關閉")]
   ];
   return options
