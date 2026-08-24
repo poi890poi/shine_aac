@@ -3944,10 +3944,10 @@ class OpticalRig:
                     item["priority"] in ("P0", "P1") for item in self.findings
                 ) else 0
 
+            self.clear_optical_camera_log()
             if not self.camera_setup_to_board():
                 self.write_report(calibration); return 2
             self.device.dump_prefs()
-            self.clear_optical_camera_log()
             if not self.verify_runtime_camera_selection():
                 self.write_report(calibration); return 2
 
@@ -3990,8 +3990,8 @@ class OpticalRig:
                                     "cheek-calibration.json",
                                 ],
                             )
+                        self.clear_optical_camera_log()
                         if self.camera_setup_to_board():
-                            self.clear_optical_camera_log()
                             if not self.verify_runtime_camera_selection():
                                 self.write_report(calibration)
                                 return 2
