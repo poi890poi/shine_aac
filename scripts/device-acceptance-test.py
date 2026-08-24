@@ -533,25 +533,29 @@ class DeepTest:
 
     def open_config(self, cycle):
         xml = self.ui_dump("cycle%02d_board_before_config" % cycle)
-        node = self.find_node(xml, ["⚙ 設定", "settings", "設定"])
-        if node:
-            self.tap_node(node)
-        else:
-            # Board config button is top-right in current UI; accessibility failure
-            # gets recorded separately, but continue with a geometric fallback.
-            self.add(
-                "P2", "Settings button not exposed to UIAutomator",
-                "Used top-right coordinate fallback; accessibility automation is weaker.",
-                ["ui/cycle%02d_board_before_config.xml" % cycle]
-            )
-            self.shell(
-                "input", "tap",
-                str(int(self.screen_w*0.90)), str(int(self.screen_h*0.09)),
-                check=False
-            )
-        # Repeated Camera2 teardown can delay the native destination launch.
-        # Wait for SettingsActivity instead of sampling at a fixed delay.
-        self.wait_activity(SETTINGS_ACTIVITY_FRAGMENT, 5)
+        for attempt in range(2):
+            if attempt:
+                xml = self.ui_dump("cycle%02d_board_settings_retry" % cycle)
+            node = self.find_node(xml, ["⚙ 設定", "settings", "設定"])
+            if node:
+                self.tap_node(node)
+            else:
+                # Board config button is top-right in current UI; accessibility
+                # failure gets recorded separately, but continue geometrically.
+                if attempt == 0:
+                    self.add(
+                        "P2", "Settings button not exposed to UIAutomator",
+                        "Used top-right coordinate fallback; accessibility automation is weaker.",
+                        ["ui/cycle%02d_board_before_config.xml" % cycle]
+                    )
+                self.shell(
+                    "input", "tap",
+                    str(int(self.screen_w*0.90)), str(int(self.screen_h*0.09)),
+                    check=False
+                )
+            # Repeated Camera2 teardown can delay the native destination launch.
+            if self.wait_activity(SETTINGS_ACTIVITY_FRAGMENT, 6):
+                break
         xml2 = self.ui_dump("cycle%02d_config" % cycle)
         self.screenshot("cycle%02d_config" % cycle)
         return self.is_config_ui(xml2)
