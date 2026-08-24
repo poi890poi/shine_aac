@@ -184,6 +184,22 @@ class CameraControlPaddingTest(unittest.TestCase):
             [],
         )
 
+    def test_toolbar_and_preview_overlay_buttons_are_not_parameter_grid_rows(self):
+        nodes = [
+            self.button("", (36, 124, 204, 268)),
+            self.button("後置 4/4", (762, 423, 1026, 567)),
+            self.button("長眨眼", (633, 1680, 801, 1824)),
+            self.button("臉頰抽動", (825, 1680, 1032, 1824)),
+            self.button("-100", (684, 1848, 834, 1992)),
+            self.button("+100", (858, 1848, 1032, 1992)),
+            self.button("開始設定", (48, 2064, 528, 2208)),
+            self.button("完成", (552, 2064, 1032, 2208)),
+        ]
+        self.assertEqual(
+            camera_setup_control_group_alignment_drift(nodes, density_dpi=480),
+            [],
+        )
+
     def test_control_group_pulled_to_the_left_is_flagged(self):
         nodes = [
             self.button("長眨眼", (146, 1428, 314, 1572)),

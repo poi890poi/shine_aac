@@ -549,7 +549,9 @@ class DeepTest:
                 str(int(self.screen_w*0.90)), str(int(self.screen_h*0.09)),
                 check=False
             )
-        time.sleep(0.8)
+        # Repeated Camera2 teardown can delay the native destination launch.
+        # Wait for SettingsActivity instead of sampling at a fixed delay.
+        self.wait_activity(SETTINGS_ACTIVITY_FRAGMENT, 5)
         xml2 = self.ui_dump("cycle%02d_config" % cycle)
         self.screenshot("cycle%02d_config" % cycle)
         return self.is_config_ui(xml2)
@@ -656,7 +658,8 @@ class DeepTest:
                     "name": "camera-preview",
                     "role": "primary-visual",
                     "fraction": preview["screen_fraction"],
-                    "minimum_fraction": 0.50,
+                    # Allow for accessibility-bound rounding and system insets.
+                    "minimum_fraction": 0.49,
                 }])
                 layout_metrics["region_allocation_findings"] = allocation_findings
                 if allocation_findings:

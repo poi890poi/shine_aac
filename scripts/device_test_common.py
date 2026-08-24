@@ -252,6 +252,13 @@ def camera_setup_control_group_alignment_drift(
     bottom_center = max(
         (node["bounds"][1] + node["bounds"][3]) / 2.0 for node in buttons
     )
+    # Toolbar navigation and camera-selector overlays are also Android Buttons,
+    # but they are not members of the lower parameter grid. Restrict alignment
+    # comparison to the lower control region without localized label matching.
+    buttons = [
+        node for node in buttons
+        if (node["bounds"][1] + node["bounds"][3]) / 2.0 >= bottom_center * 0.55
+    ]
     primary_tolerance_px = 48.0 * density
     row_tolerance_px = 24.0 * density
     rows = []
