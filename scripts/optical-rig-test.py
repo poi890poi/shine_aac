@@ -678,6 +678,23 @@ def e2e_input_count(log_text, intent, source):
     return count
 
 
+def android_preferences_with_boolean(xml_text, name, value):
+    """Return Android SharedPreferences XML with one boolean changed."""
+    root = ET.fromstring(xml_text)
+    if root.tag != "map":
+        raise ValueError("SharedPreferences root must be <map>")
+    item = next(
+        (child for child in root if child.get("name") == name), None
+    )
+    if item is None:
+        item = ET.SubElement(root, "boolean", {"name": name})
+    elif item.tag != "boolean":
+        raise ValueError("SharedPreferences %s is not boolean" % name)
+    item.set("value", "true" if value else "false")
+    body = ET.tostring(root, encoding="utf-8").decode("utf-8")
+    return "<?xml version='1.0' encoding='utf-8'?>\n" + body
+
+
 def demo_activation_result(before, after):
     """Classify one presented gesture; normal use must produce exactly one input."""
     delta = after - before
@@ -1573,6 +1590,50 @@ class OpticalRig:
             self.add("P0", "Demo board unavailable", "zh-TW demo profile did not launch.")
             return False
         self.pass_("temporary demo profile", "zh-TW camera input with E2E timing only")
+        return True
+
+    def enable_e2e_telemetry(self):
+        """Enable diagnostic events without changing any user-facing test setting."""
+        self.device.shell("am", "force-stop", PACKAGE, check=False)
+        original = self.device.shell(
+            "run-as", PACKAGE, "cat", CONFIG_PREFS, check=False
+        )
+        if original.returncode != 0 or not (original.stdout or "").strip():
+            self.add(
+                "P0", "Could not enable optical telemetry",
+                "The existing app preferences could not be read without replacing them."
+            )
+            return False
+        self.demo_config_existed = True
+        self.demo_config_original = original.stdout or ""
+        try:
+            profile = android_preferences_with_boolean(
+                self.demo_config_original, "e2eEnabled", True
+            )
+        except (ET.ParseError, ValueError) as error:
+            self.add("P0", "Could not enable optical telemetry", str(error))
+            return False
+        local_path = self.outdir / "e2e-telemetry-config.applied.xml"
+        local_path.write_text(profile, encoding="utf-8")
+        remote = "/data/local/tmp/shine-aac-e2e-telemetry.xml"
+        pushed = self.device.adb_cmd(
+            "push", str(local_path), remote, check=False, timeout=30
+        )
+        copied = self.device.shell(
+            "run-as", PACKAGE, "cp", remote, CONFIG_PREFS,
+            check=False, timeout=30,
+        ) if pushed.returncode == 0 else pushed
+        self.device.shell("rm", "-f", remote, check=False)
+        if copied.returncode != 0:
+            self.add("P0", "Could not enable optical telemetry", "run-as copy failed.")
+            return False
+        if not self.device.launch() or not self.device.ensure_board():
+            self.add("P0", "Optical telemetry board unavailable", "App did not relaunch.")
+            return False
+        self.pass_(
+            "temporary E2E telemetry",
+            "only e2eEnabled changed; original preferences will be restored"
+        )
         return True
 
     def restore_demo_profile(self):
@@ -3628,6 +3689,7 @@ class OpticalRig:
                      "False optical activation: "+label,
                      "%d activation(s) during negative stimulus."%observed_activations,
                      [
+                         "case-%s.log" % label,
                          "device/screenshots/case_%s_before.png" % label,
                          "device/screenshots/case_%s_after.png" % label,
                      ])
@@ -3637,6 +3699,7 @@ class OpticalRig:
                      "Observed %d activation(s); expected at least %d."
                      % (observed_activations, min_activations),
                      [
+                         "case-%s.log" % label,
                          "device/screenshots/case_%s_before.png" % label,
                          "device/screenshots/case_%s_after.png" % label,
                      ])
@@ -3647,6 +3710,7 @@ class OpticalRig:
                 "Observed %d activation(s); expected no more than %d."
                 % (observed_activations, max_activations),
                 [
+                    "case-%s.log" % label,
                     "device/screenshots/case_%s_before.png" % label,
                     "device/screenshots/case_%s_after.png" % label,
                 ]
@@ -4098,6 +4162,9 @@ class OpticalRig:
                         item["priority"] in ("P0", "P1")
                         for item in self.findings
                     ) else 0
+                if not self.enable_e2e_telemetry():
+                    self.write_report(calibration)
+                    return 2
                 if not self.verify_runtime_camera_selection():
                     self.write_report(calibration)
                     return 2

@@ -86,6 +86,21 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertEqual("PASS", RIG.demo_activation_result(4, 5))
         self.assertEqual("DUPLICATE", RIG.demo_activation_result(4, 6))
 
+    def test_e2e_telemetry_toggle_preserves_other_preferences(self):
+        source = (
+            "<?xml version='1.0' encoding='utf-8'?><map>"
+            "<string name='profileId'>zh-TW</string>"
+            "<boolean name='e2eEnabled' value='false'/>"
+            "<float name='scanIntervalMs' value='2400.0'/></map>"
+        )
+        changed = RIG.android_preferences_with_boolean(
+            source, "e2eEnabled", True
+        )
+        values = RIG.android_preference_values(changed)
+        self.assertEqual("zh-TW", values["profileId"])
+        self.assertEqual("true", values["e2eEnabled"])
+        self.assertEqual("2400.0", values["scanIntervalMs"])
+
     def test_latest_e2e_state_preserves_log_epoch_for_fresh_target_waits(self):
         log = (
             '1787515415.700 14353 I ShineAacE2E: SHINE_AAC_E2E_STATE '
