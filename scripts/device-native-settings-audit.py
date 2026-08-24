@@ -82,7 +82,11 @@ class NativeSettingsAudit:
     def top_activity(self):
         text = self.shell("dumpsys", "activity", "activities", check=False) or ""
         for line in text.splitlines():
-            if "topResumedActivity=" in line or "mResumedActivity:" in line:
+            if (
+                "topResumedActivity=" in line or
+                "mResumedActivity:" in line or
+                "ResumedActivity:" in line
+            ):
                 return line.strip()
         return ""
 
@@ -93,6 +97,13 @@ class NativeSettingsAudit:
                 return True
             time.sleep(0.25)
         return False
+
+    def ensure_interactive(self):
+        """Recover from the preceding acceptance test's display-off checkpoint."""
+        self.shell("input", "keyevent", "224", check=False)  # KEYCODE_WAKEUP
+        self.shell("wm", "dismiss-keyguard", check=False)
+        self.shell("input", "keyevent", "82", check=False)  # KEYCODE_MENU fallback
+        time.sleep(0.8)
 
     def dump(self, name):
         self.dump_index += 1
@@ -247,6 +258,7 @@ class NativeSettingsAudit:
         time.sleep(0.4)
 
     def run(self):
+        self.ensure_interactive()
         density_text = self.shell("wm", "density", check=False) or "density: 160"
         match = re.search(r"(\d+)", density_text)
         self.density = (int(match.group(1)) / 160.0) if match else 1.0
