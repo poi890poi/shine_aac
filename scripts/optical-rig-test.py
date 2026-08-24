@@ -104,6 +104,50 @@ def scan_mode_from_settings_xml(xml_path):
     return None
 
 
+SWITCH_INPUT_LABELS = (
+    "Buttons — keep volume control",
+    "按鍵—保留音量控制",
+    "Buttons — volume activates",
+    "按鍵—音量鍵啟動",
+    "Camera gesture",
+    "相機動作",
+    "Camera long blink",
+    "相機長眨眼",
+    "Buttons + camera gesture",
+    "按鍵＋相機動作",
+    "Buttons + camera",
+    "按鍵＋相機",
+    "Off",
+    "關閉",
+)
+
+
+def switch_input_label_from_settings_xml(xml_path):
+    """Return the exact visible value of Settings' Switch input select."""
+    labels = set(SWITCH_INPUT_LABELS)
+    try:
+        tree = ET.parse(xml_path)
+    except (ET.ParseError, OSError):
+        return None
+    for node in tree.iter("node"):
+        attributes = node.attrib
+        if attributes.get("bounds") == "[0,0][0,0]":
+            continue
+        label = attributes.get("text", "").strip()
+        if label in labels and attributes.get("clickable") == "true":
+            return label
+    return None
+
+
+def is_camera_switch_input_label(label):
+    return label in {
+        "Camera gesture", "相機動作",
+        "Camera long blink", "相機長眨眼",
+        "Buttons + camera gesture", "按鍵＋相機動作",
+        "Buttons + camera", "按鍵＋相機",
+    }
+
+
 def visible_activation_count(before_phase, after_phase, scan_mode):
     """Infer 0..2 inputs from the normal board's deterministic review reset."""
     if before_phase != "review":
@@ -2098,47 +2142,38 @@ class OpticalRig:
         return True
 
     def select_runtime_optical_profile(self):
-        """Select the real Camera long blink option in SHINE Settings."""
+        """Ensure a real camera-gesture input option is selected in Settings."""
         for attempt in range(7):
             xml = self.device.ui_dump(
                 "rig_switch_input_nav_%02d" % attempt
             )
-            node = self.device.find_node(
-                xml, ["switch input", "開關輸入"], visible_only=True
-            )
-            if node and self.device.tap_node(node):
+            current = switch_input_label_from_settings_xml(xml)
+            if current:
+                if self.original_switch_input_label is None:
+                    self.original_switch_input_label = current
+                if is_camera_switch_input_label(current):
+                    print(
+                        "runtime input navigation: existing %s already enables camera gestures"
+                        % current
+                    )
+                    return True
+            selector = self.device.find_node(
+                xml, [current] if current else [], visible_only=True
+            ) if current else None
+            if selector and self.device.tap_node(selector):
                 time.sleep(0.6)
                 dialog = self.device.ui_dump("rig_switch_input_dialog")
-                if self.original_switch_input_label is None:
-                    try:
-                        tree = ET.parse(dialog)
-                        checked = next((
-                            node.attrib.get("text", "")
-                            for node in tree.iter("node")
-                            if node.attrib.get("checked") == "true"
-                        ), "")
-                    except (ET.ParseError, OSError):
-                        checked = ""
-                    if not checked:
-                        self.device.shell("input", "keyevent", "4", check=False)
-                        self.add(
-                            "P0", "Could not snapshot Switch input",
-                            "The selector exposed no checked option, so the rig cannot guarantee exact cleanup.",
-                            ["device/ui/rig_switch_input_dialog.xml"]
-                        )
-                        return False
-                    self.original_switch_input_label = checked
                 option = self.device.find_node(
                     dialog,
-                    ["camera long blink", "相機長眨眼"],
+                    ["camera gesture", "相機動作", "camera long blink", "相機長眨眼"],
                     visible_only=True
                 )
                 if option and self.device.tap_node(option):
-                    self.switch_input_changed = self.original_switch_input_label.casefold() not in {
-                        "camera long blink", "相機長眨眼"
-                    }
+                    self.switch_input_changed = not is_camera_switch_input_label(
+                        self.original_switch_input_label
+                    )
                     print(
-                        "runtime input navigation: selected Camera long blink "
+                        "runtime input navigation: selected Camera gesture "
                         "through SHINE Settings"
                     )
                     time.sleep(0.5)
@@ -2147,7 +2182,7 @@ class OpticalRig:
                 self.add(
                     "P0",
                     "Camera input option unavailable",
-                    "The real Switch input selector opened, but Camera long blink was not available.",
+                    "The real Switch input selector opened, but Camera gesture was not available.",
                     ["device/ui/rig_switch_input_dialog.xml"]
                 )
                 return False
@@ -2264,9 +2299,10 @@ class OpticalRig:
         time.sleep(0.6)
         for attempt in range(7):
             xml = self.device.ui_dump("rig_restore_switch_nav_%02d" % attempt)
+            current = switch_input_label_from_settings_xml(xml)
             selector = self.device.find_node(
-                xml, ["switch input", "開關輸入"], visible_only=True
-            )
+                xml, [current], visible_only=True
+            ) if current else None
             if selector and self.device.tap_node(selector):
                 time.sleep(0.5)
                 dialog = self.device.ui_dump("rig_restore_switch_dialog")

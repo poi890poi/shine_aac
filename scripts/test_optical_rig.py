@@ -211,6 +211,36 @@ class OpticalOracleTest(unittest.TestCase):
                 "row-column", RIG.scan_mode_from_settings_xml(path)
             )
 
+    def test_reads_current_camera_input_without_opening_select_dialog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.xml"
+            path.write_text(
+                '<hierarchy><node text="開關輸入" clickable="false" '
+                'bounds="[66,853][249,913]" />'
+                '<node text="相機動作" clickable="true" '
+                'bounds="[66,931][1014,1078]" /></hierarchy>',
+                encoding="utf-8",
+            )
+            label = RIG.switch_input_label_from_settings_xml(path)
+            self.assertEqual("相機動作", label)
+            self.assertTrue(RIG.is_camera_switch_input_label(label))
+
+    def test_switch_input_reader_ignores_hidden_and_unrelated_off_labels(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.xml"
+            path.write_text(
+                '<hierarchy><node text="Off" clickable="true" '
+                'bounds="[0,0][0,0]" />'
+                '<node text="Continue input (off)" clickable="true" '
+                'bounds="[66,400][1014,540]" />'
+                '<node text="Buttons — keep volume control" clickable="true" '
+                'bounds="[66,931][1014,1078]" /></hierarchy>',
+                encoding="utf-8",
+            )
+            label = RIG.switch_input_label_from_settings_xml(path)
+            self.assertEqual("Buttons — keep volume control", label)
+            self.assertFalse(RIG.is_camera_switch_input_label(label))
+
 
 class CoordinateAtlasDecoderTest(unittest.TestCase):
     def _decode(self, pixel, size=(512, 384)):
