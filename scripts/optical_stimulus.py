@@ -17,6 +17,14 @@ IDLE_WINDOW_TITLE = "SHINE AAC Optical Rig - Idle"
 PRESENTER_REGISTRY = Path(".tmp/optical-rig-presenter.json")
 
 
+def video_frames_due(now, deadline, period, maximum=60):
+    """Return frames to advance so playback follows wall time instead of drifting."""
+    if period <= 0:
+        return 1
+    late = max(0.0, now - deadline)
+    return max(1, min(int(maximum), int(late / period) + 1))
+
+
 def presenter_registry_path(root):
     return Path(root) / PRESENTER_REGISTRY
 
@@ -400,14 +408,21 @@ class OpenCvStimulus:
             start = max(0.0, float(state.get("start", 0.0)))
             capture.set(self.cv2.CAP_PROP_POS_MSEC, start * 1000.0)
             fps = capture.get(self.cv2.CAP_PROP_FPS) or 30.0
+            rate = max(0.01, float(state.get("rate", 1.0)))
+            now = time.perf_counter()
             end = state.get("end")
             return {
                 "capture": capture,
                 "fps": fps,
-                "next": time.perf_counter(),
+                "period": 1.0 / (fps * rate),
+                "next": now,
+                "started": now,
                 "frame": None,
                 "ended": False,
                 "end": max(start, float(end)) if end is not None else None,
+                "decoded_frames": 0,
+                "dropped_frames": 0,
+                "max_late_ms": 0.0,
             }
         return {}
 
@@ -442,22 +457,38 @@ class OpenCvStimulus:
         if mode == "video":
             now = time.perf_counter()
             if now >= prepared["next"] and not prepared["ended"]:
-                if (
-                    prepared.get("end") is not None and
-                    prepared["capture"].get(self.cv2.CAP_PROP_POS_MSEC) / 1000.0 >= prepared["end"]
-                ):
-                    prepared["ended"] = True
-                    ok, frame = False, None
-                else:
-                    ok, frame = prepared["capture"].read()
-                if ok:
-                    prepared["frame"] = frame
-                    rate = max(0.01, float(state.get("rate", 1.0)))
-                    prepared["next"] = now + 1.0 / (prepared["fps"] * rate)
-                elif state.get("loop") and prepared.get("end") is None:
-                    prepared["capture"].set(self.cv2.CAP_PROP_POS_FRAMES, 0)
-                else:
-                    prepared["ended"] = True
+                prepared["max_late_ms"] = max(
+                    prepared["max_late_ms"], (now - prepared["next"]) * 1000.0
+                )
+                due = video_frames_due(now, prepared["next"], prepared["period"])
+                for _ in range(due - 1):
+                    if (
+                        prepared.get("end") is not None and
+                        prepared["capture"].get(self.cv2.CAP_PROP_POS_MSEC) / 1000.0 >= prepared["end"]
+                    ):
+                        prepared["ended"] = True
+                        break
+                    if not prepared["capture"].grab():
+                        prepared["ended"] = True
+                        break
+                    prepared["dropped_frames"] += 1
+                if not prepared["ended"]:
+                    if (
+                        prepared.get("end") is not None and
+                        prepared["capture"].get(self.cv2.CAP_PROP_POS_MSEC) / 1000.0 >= prepared["end"]
+                    ):
+                        prepared["ended"] = True
+                        ok, frame = False, None
+                    else:
+                        ok, frame = prepared["capture"].read()
+                    if ok:
+                        prepared["frame"] = frame
+                        prepared["decoded_frames"] += 1
+                    elif state.get("loop") and prepared.get("end") is None:
+                        prepared["capture"].set(self.cv2.CAP_PROP_POS_FRAMES, 0)
+                    else:
+                        prepared["ended"] = True
+                prepared["next"] += due * prepared["period"]
             return self._composite_intrinsic(canvas, prepared.get("frame"), state.get("center")), prepared["ended"]
         return canvas, False
 
@@ -501,7 +532,15 @@ class OpenCvStimulus:
                         self._emit(token, "playing")
                     applied = True
                 if ended and not ended_sent:
-                    self._emit(token, "ended")
+                    metrics = {}
+                    if state.get("mode") == "video":
+                        metrics = {
+                            "playback_s": round(time.perf_counter() - prepared["started"], 4),
+                            "decoded_frames": prepared["decoded_frames"],
+                            "dropped_frames": prepared["dropped_frames"],
+                            "max_late_ms": round(prepared["max_late_ms"], 3),
+                        }
+                    self._emit(token, "ended", **metrics)
                     ended_sent = True
                 time.sleep(0.004)
         except Exception as error:

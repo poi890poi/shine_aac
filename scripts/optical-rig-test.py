@@ -678,6 +678,20 @@ def e2e_input_count(log_text, intent, source):
     return count
 
 
+def observed_case_activations(log_text, source, before_phase, after_phase, scan_mode):
+    """Prefer exact diagnostic events; fall back to visible scan displacement."""
+    if re.search(
+        r'SHINE_AAC_E2E_INPUT\s+\{[^\r\n]*"source"\s*:\s*"%s"'
+        % re.escape(source),
+        log_text or "",
+    ):
+        return e2e_input_count(log_text, "activate", source), "e2e-exact"
+    return (
+        visible_activation_count(before_phase, after_phase, scan_mode),
+        "visible-board-stage",
+    )
+
+
 def android_preferences_with_boolean(xml_text, name, value):
     """Return Android SharedPreferences XML with one boolean changed."""
     root = ET.fromstring(xml_text)
@@ -3636,14 +3650,21 @@ class OpticalRig:
         time.sleep(1.0)
         after_xml = self.device.ui_dump("case_%s_after" % label)
         self.device.screenshot("case_%s_after" % label)
+        log = self.runtime_log()
+        expected_source = (
+            "android-camera-cheek-twitch"
+            if case.get("gesture") == "cheek"
+            else "android-camera-long-blink"
+        )
         try:
             after_phase = board_phase_from_xml(after_xml)
-            observed_activations = visible_activation_count(
-                before_phase, after_phase, self.scan_mode
+            observed_activations, activation_oracle = observed_case_activations(
+                log, expected_source, before_phase, after_phase, self.scan_mode
             )
         except (ET.ParseError, OSError, ValueError) as error:
             after_phase = None
             observed_activations = None
+            activation_oracle = "unavailable"
             self.add(
                 "P0", "Uncertain visible activation result: " + label,
                 str(error),
@@ -3654,19 +3675,14 @@ class OpticalRig:
                     "device/screenshots/case_%s_after.png" % label,
                 ]
             )
-        log = self.runtime_log()
         (self.outdir/("case-%s.log"%label)).write_text(log,encoding="utf-8")
-        expected_source = (
-            "android-camera-cheek-twitch"
-            if case.get("gesture") == "cheek"
-            else "android-camera-long-blink"
-        )
         perf = cheek_performance_samples(log)
         result = {
             "id":label,
             "expect":case.get("expect","observe"),
             "activations": observed_activations,
-            "oracle": "visible-board-stage",
+            "oracle": activation_oracle,
+            "presenter": ended or {},
             "before_phase": before_phase,
             "after_phase": after_phase,
             "elapsed_s":time.time()-t0,

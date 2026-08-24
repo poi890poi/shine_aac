@@ -101,6 +101,18 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertEqual("true", values["e2eEnabled"])
         self.assertEqual("2400.0", values["scanIntervalMs"])
 
+    def test_case_oracle_prefers_exact_e2e_count_over_wrapped_board_phase(self):
+        log = "\n".join([
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"cameraStatus","source":"android-camera-long-blink"}',
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"activate","source":"android-camera-long-blink"}',
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"activate","source":"android-camera-long-blink"}',
+        ])
+        count, oracle = RIG.observed_case_activations(
+            log, "android-camera-long-blink", "review", "review", "row-column"
+        )
+        self.assertEqual(2, count)
+        self.assertEqual("e2e-exact", oracle)
+
     def test_latest_e2e_state_preserves_log_epoch_for_fresh_target_waits(self):
         log = (
             '1787515415.700 14353 I ShineAacE2E: SHINE_AAC_E2E_STATE '
@@ -443,6 +455,10 @@ class CameraZoomGeometryTest(unittest.TestCase):
 
 
 class OpenCvFramebufferTest(unittest.TestCase):
+    def test_video_scheduler_drops_late_frames_without_accumulating_drift(self):
+        self.assertEqual(1, optical_stimulus.video_frames_due(10.0, 10.0, 1 / 30))
+        self.assertEqual(3, optical_stimulus.video_frames_due(10.1, 10.0, 1 / 30))
+
     def test_presenter_registry_is_owned_and_removed_by_exact_pid(self):
         with tempfile.TemporaryDirectory() as directory:
             optical_stimulus.register_presenter(directory, "idle", "test title")
