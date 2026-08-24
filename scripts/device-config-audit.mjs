@@ -193,7 +193,7 @@ async function auditLayout() {
   })()`);
 }
 
-async function auditVisualQuality(rootSelector, repeatedRowSelector = "") {
+async function auditVisualQuality(rootSelector, repeatedRowSelector = "", requiredVisibleSelectors = []) {
   const raw = await evaluate(`(() => {
     const root = document.querySelector(${JSON.stringify(rootSelector)});
     if (!root) return null;
@@ -280,6 +280,21 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "") {
       return { name: name(element), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
     }).filter((item) => inViewport(item));
 
+    const requiredVisibility = ${JSON.stringify(requiredVisibleSelectors)}.map((requiredSelector) => {
+      const element = root.querySelector(requiredSelector);
+      if (!element) return { selector: requiredSelector, present: false, visible: false };
+      const rect = element.getBoundingClientRect();
+      const viewportBottom = Math.min(innerHeight, rootRect.bottom);
+      return {
+        selector: requiredSelector,
+        present: true,
+        visible: rect.width > 0 && rect.height > 0 && rect.left >= 0 && rect.right <= innerWidth && rect.top >= Math.max(0, rootRect.top) && rect.bottom <= viewportBottom,
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportBottom,
+      };
+    });
+
     return {
       rootArea: Math.max(0, Math.min(rootRect.width, innerWidth) * Math.min(rootRect.height, innerHeight)),
       repeatedRows,
@@ -287,6 +302,7 @@ async function auditVisualQuality(rootSelector, repeatedRowSelector = "") {
       backgroundSamples,
       cellSamples,
       controls,
+      requiredVisibility,
     };
   })()`);
   if (!raw) return null;
@@ -325,13 +341,18 @@ function recordVisualQuality(label, quality, evidence, options = {}) {
   if (quality.controlOverlaps.length) {
     add("P2", `${label} contains overlapping controls`, `${quality.controlOverlaps.length} control pair(s) overlap.`, evidence);
   }
+  const hiddenRequired = quality.raw.requiredVisibility.filter((item) => !item.visible);
+  if (hiddenRequired.length) {
+    add("P2", `${label} persistent actions are outside the viewport`, `${hiddenRequired.length} required action region(s) are absent or outside the visible panel.`, evidence);
+  }
   if (
     (!options.spacing || !quality.repeatedRowGaps.length) &&
     !quality.looseLineHeights.length &&
     !quality.excessiveCellPadding.length &&
     !quality.repeatedRowAlignmentDrift.length &&
     (!options.darkTheme || !quality.brightDarkSurfaces.length) &&
-    !quality.controlOverlaps.length
+    !quality.controlOverlaps.length &&
+    !hiddenRequired.length
   ) {
     pass(`${label} visual geometry`, "no excessive repeated-row gaps, loose leading, padded cells, alignment drift, bright dark-theme patches, or control overlaps detected");
   }
@@ -577,7 +598,7 @@ async function main() {
     ".calibration-panel h1", ".calibration-intro", ".calibration-intro span", ".mode-button",
     ".calibration-step", ".calibration-step small", ".calibration-live", ".calibration-live span"
   ], ["screenshots/input-test.png"]);
-  const inputTestQuality = await auditVisualQuality(".calibration-panel");
+  const inputTestQuality = await auditVisualQuality(".calibration-panel", "", [".config-actions"]);
   recordVisualQuality("High-contrast dark Input Test", inputTestQuality, ["screenshots/input-test.png", "matrix.json"], { darkTheme: true });
   const inputTest = await evaluate(`document.querySelector('.calibration-panel')?.innerText ?? ''`);
   if (!inputTest) add("P1", "Input Test did not open", "No calibration panel appeared", ["screenshots/input-test.png"]);
