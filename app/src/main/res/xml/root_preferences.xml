@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/settings_category_communication">
+        <ListPreference
+            app:key="profileId"
+            app:title="@string/settings_language" />
+        <EditTextPreference
+            app:key="columns"
+            app:title="@string/settings_columns" />
+        <EditTextPreference
+            app:key="suggestionDictionary"
+            app:title="@string/settings_suggestion_dictionary" />
+        <EditTextPreference
+            app:key="symbols"
+            app:title="@string/settings_board_symbols" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_category_scanning">
+        <ListPreference
+            app:key="scanMode"
+            app:title="@string/settings_scan_mode" />
+        <ListPreference
+            app:key="scanTimingPreset"
+            app:title="@string/settings_scan_preset" />
+        <ListPreference
+            app:key="scanPassLimit"
+            app:title="@string/settings_scan_pass_limit" />
+        <SwitchPreferenceCompat
+            app:key="autoScanSuggestionPages"
+            app:title="@string/settings_auto_scan_more" />
+        <SwitchPreferenceCompat
+            app:key="deferUnsupportedZhuyinOnFirstPass"
+            app:title="@string/settings_defer_zhuyin" />
+        <SwitchPreferenceCompat
+            app:key="restartScanFromTop"
+            app:title="@string/settings_restart_scan" />
+        <SwitchPreferenceCompat
+            app:key="verticalGroupProgress"
+            app:title="@string/settings_vertical_progress" />
+        <Preference
+            app:key="advancedTiming"
+            app:fragment="org.shineaac.app.AdvancedTimingPreferenceFragment"
+            app:title="@string/settings_advanced_timing"
+            app:summary="@string/settings_advanced_timing_summary" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_category_speech">
+        <SwitchPreferenceCompat
+            app:key="rowScanVoice"
+            app:title="@string/settings_row_voice" />
+        <SwitchPreferenceCompat
+            app:key="scanVoice"
+            app:title="@string/settings_symbol_voice" />
+        <SwitchPreferenceCompat
+            app:key="activationVoice"
+            app:title="@string/settings_activation_voice" />
+        <ListPreference
+            app:key="speechVoiceName"
+            app:title="@string/settings_speech_voice" />
+        <ListPreference
+            app:key="speechAfterReadMode"
+            app:title="@string/settings_after_reading" />
+        <Preference
+            app:key="manageSpeech"
+            app:persistent="false"
+            app:title="@string/settings_manage_speech"
+            app:summary="@string/settings_manage_speech_summary" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_category_input">
+        <ListPreference
+            app:key="switchInputProfile"
+            app:title="@string/settings_switch_input" />
+        <Preference
+            app:key="cameraSetup"
+            app:persistent="false"
+            app:title="@string/settings_camera_setup" />
+        <Preference
+            app:key="inputTest"
+            app:persistent="false"
+            app:title="@string/settings_input_test" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_category_display">
+        <ListPreference
+            app:key="contrastTheme"
+            app:title="@string/settings_display_contrast" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_category_data_support">
+        <Preference
+            app:key="exportText"
+            app:persistent="false"
+            app:title="@string/settings_export_text" />
+        <Preference
+            app:key="appInfo"
+            app:persistent="false"
+            app:title="@string/settings_app_info" />
+        <Preference
+            app:key="reset"
+            app:persistent="false"
+            app:title="@string/settings_reset"
+            app:summary="@string/settings_reset_summary" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

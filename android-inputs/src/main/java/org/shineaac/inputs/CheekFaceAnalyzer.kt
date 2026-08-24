@@ -127,6 +127,24 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         }
     }
 
+    /** Direct-USB path after the UVC NV21 callback has been decoded. */
+    fun analyzeBitmapForCamera(
+        bitmap: Bitmap,
+        timestampMs: Long
+    ): CheekFaceObservation? {
+        val mpImage = BitmapImageBuilder(bitmap).build()
+        return try {
+            analyzeMpImage(
+                mpImage = mpImage,
+                rotationDegrees = 0,
+                timestampMs = timestampMs,
+                mirrorFrontCameraOutput = false
+            )
+        } finally {
+            mpImage.close()
+        }
+    }
+
     private fun orientCamera(
         bitmap: Bitmap,
         rotationDegrees: Int,

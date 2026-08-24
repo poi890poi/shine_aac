@@ -1194,6 +1194,7 @@ function cameraStatusLabel(state) {
   switch (state) {
     case "starting":
       return zhTw ? "相機啟動" : "Cam start";
+    case "active":
     case "live":
       return zhTw ? "相機正常" : "Cam live";
     case "analysis":
@@ -1208,6 +1209,10 @@ function cameraStatusLabel(state) {
       return zhTw ? "相機中斷" : "Cam stale";
     case "permissionDenied":
       return zhTw ? "需要相機權限" : "Camera permission";
+    case "usbPermission":
+      return zhTw ? "等待 USB 權限" : "USB permission";
+    case "usbPermissionDenied":
+      return zhTw ? "需要 USB 權限" : "USB permission";
     case "stale":
       return zhTw ? "偵測中斷" : "Detect stale";
     case "stopped":
@@ -1418,7 +1423,7 @@ function renderFull(board, boardKey) {
       suppressNextConfigClick = false;
       return;
     }
-    openConfig();
+    if (!openNativeSettings()) openConfig();
   });
   attachDemoLongPress(configButton);
 
@@ -2037,6 +2042,187 @@ function voiceStatusLabel() {
   if (session.config.profileId === "zh-TW") return enabled ? "語音：開" : "語音：關";
   return enabled ? "Voice: on" : "Voice: off";
 }
+
+function settingsSelectOptions(optionsHtml) {
+  const select = document.createElement("select");
+  select.innerHTML = optionsHtml;
+  return Array.from(select.options, (option) => ({
+    label: option.textContent?.trim() || option.value,
+    value: option.value
+  }));
+}
+
+function openNativeSettings() {
+  const bridge = globalThis.ShineAacAndroid;
+  if (typeof bridge?.openSettings !== "function") return false;
+  const englishDefaults = createBoardConfig({ profileId: "en-US" });
+  const taiwanDefaults = createBoardConfig({ profileId: "zh-TW" });
+  const timingPresetOptions = settingsSelectOptions(scanTimingPresetOptionsHtml(session.config));
+  if (!timingPresetOptions.some(({ value }) => value === "custom")) {
+    timingPresetOptions.push({ label: uiText("Custom", "自訂"), value: "custom" });
+  }
+  const timingPresets = {};
+  timingPresetOptions.forEach(({ value }) => {
+    const presetConfig = value === "custom"
+      ? session.config
+      : applyScanTimingPreset(session.config, value);
+    timingPresets[value] = {
+      scanIntervalMs: presetConfig.scanIntervalMs,
+      transitionPauseMs: presetConfig.transitionPauseMs,
+      firstCellPauseMs: presetConfig.firstCellPauseMs,
+      inputLatencyCompensationMs: presetConfig.inputLatencyCompensationMs
+    };
+  });
+
+  const configPayload = {
+    configVersion: webConfigVersion,
+    profileId: session.config.profileId,
+    columns: session.config.columns,
+    scanMode: session.config.scanMode,
+    scanTimingPreset: scanTimingPresetIdForConfig(session.config),
+    scanIntervalMs: session.config.scanIntervalMs,
+    transitionPauseMs: session.config.transitionPauseMs,
+    firstCellPauseMs: session.config.firstCellPauseMs,
+    inputLatencyCompensationMs: session.config.inputLatencyCompensationMs,
+    scanPassLimit: session.config.scanPassLimit,
+    autoScanSuggestionPages: session.config.autoScanSuggestionPages,
+    deferUnsupportedZhuyinOnFirstPass: session.config.deferUnsupportedZhuyinOnFirstPass,
+    suggestionDictionary: serializeDictionary(session.config.suggestionDictionary),
+    symbols: serializeSymbols(session.config.symbols),
+    timingPresets,
+    profileContents: {
+      "en-US": {
+        columns: englishDefaults.columns,
+        scanMode: englishDefaults.scanMode,
+        scanTimingPreset: scanTimingPresetIdForConfig(englishDefaults),
+        scanIntervalMs: englishDefaults.scanIntervalMs,
+        transitionPauseMs: englishDefaults.transitionPauseMs,
+        firstCellPauseMs: englishDefaults.firstCellPauseMs,
+        inputLatencyCompensationMs: englishDefaults.inputLatencyCompensationMs,
+        scanPassLimit: englishDefaults.scanPassLimit,
+        autoScanSuggestionPages: englishDefaults.autoScanSuggestionPages,
+        deferUnsupportedZhuyinOnFirstPass: englishDefaults.deferUnsupportedZhuyinOnFirstPass,
+        suggestionDictionary: serializeDictionary(englishDefaults.suggestionDictionary),
+        symbols: serializeSymbols(englishDefaults.symbols)
+      },
+      "zh-TW": {
+        columns: taiwanDefaults.columns,
+        scanMode: taiwanDefaults.scanMode,
+        scanTimingPreset: scanTimingPresetIdForConfig(taiwanDefaults),
+        scanIntervalMs: taiwanDefaults.scanIntervalMs,
+        transitionPauseMs: taiwanDefaults.transitionPauseMs,
+        firstCellPauseMs: taiwanDefaults.firstCellPauseMs,
+        inputLatencyCompensationMs: taiwanDefaults.inputLatencyCompensationMs,
+        scanPassLimit: taiwanDefaults.scanPassLimit,
+        autoScanSuggestionPages: taiwanDefaults.autoScanSuggestionPages,
+        deferUnsupportedZhuyinOnFirstPass: taiwanDefaults.deferUnsupportedZhuyinOnFirstPass,
+        suggestionDictionary: serializeDictionary(taiwanDefaults.suggestionDictionary),
+        symbols: serializeSymbols(taiwanDefaults.symbols)
+      }
+    },
+    choices: {
+      profileId: settingsSelectOptions(profileOptionsHtml(session.config.profileId)),
+      scanMode: settingsSelectOptions(scanModeOptionsHtml(session.config.scanMode)),
+      scanTimingPreset: timingPresetOptions,
+      scanPassLimit: settingsSelectOptions(scanPassLimitOptionsHtml(session.config.scanPassLimit)),
+      speechAfterReadMode: settingsSelectOptions(speechAfterReadModeOptionsHtml(uiConfig.speechAfterReadMode)),
+      switchInputProfile: settingsSelectOptions(switchInputProfileOptionsHtml(uiConfig.switchInputProfile)),
+      contrastTheme: settingsSelectOptions(contrastThemeOptionsHtml(uiConfig.contrastTheme))
+    }
+  };
+
+  try {
+    configOpen = true;
+    reviewHoldActive = false;
+    cancelScheduledScan();
+    bridge.openSettings(JSON.stringify(configPayload), JSON.stringify(uiConfig));
+    return true;
+  } catch (_error) {
+    configOpen = false;
+    resetClock();
+    scheduleScan();
+    return false;
+  }
+}
+
+function applyNativeSettings(configJson, uiConfigJson, action = "") {
+  let storedConfig;
+  let storedUiConfig;
+  try {
+    storedConfig = JSON.parse(configJson);
+    storedUiConfig = JSON.parse(uiConfigJson);
+  } catch (_error) {
+    return false;
+  }
+
+  const profileId = String(storedConfig.profileId || session.config.profileId || "en-US");
+  const profileDefaults = createBoardConfig({ profileId });
+  configOpen = false;
+  calibrationOpen = false;
+  appInfoOpen = false;
+  speechVoicesOpen = false;
+
+  if (action === "reset") {
+    const resetConfig = profileDefaults;
+    saveConfig(resetConfig);
+    uiConfig = normalizeUiConfig(defaultUiConfig);
+    saveUiConfig(uiStorageKey, uiConfig);
+    applyContrastTheme(uiConfig.contrastTheme);
+    session = createSession({ config: resetConfig });
+    clearSessionDraft();
+    reviewHoldActive = true;
+    render();
+    resetClock();
+    scheduleScan();
+    return true;
+  }
+
+  const sameContentProfile = profileId === String(storedConfig.sourceProfileId || session.config.profileId);
+  let config = createBoardConfig({
+    ...profileDefaults,
+    profileId,
+    columns: clamp(Number(storedConfig.columns), 2, 8),
+    scanIntervalMs: clamp(Number(storedConfig.scanIntervalMs), 300, 5000),
+    transitionPauseMs: clamp(Number(storedConfig.transitionPauseMs), 0, 4000),
+    firstCellPauseMs: clamp(Number(storedConfig.firstCellPauseMs), 300, 6000),
+    inputLatencyCompensationMs: clamp(Number(storedConfig.inputLatencyCompensationMs), 0, 1200),
+    scanMode: String(storedConfig.scanMode || profileDefaults.scanMode),
+    scanPassLimit: normalizeStoredScanPassLimit(storedConfig.scanPassLimit, profileDefaults.scanPassLimit),
+    autoScanSuggestionPages: storedConfig.autoScanSuggestionPages === true,
+    deferUnsupportedZhuyinOnFirstPass:
+      profileId === "zh-TW" && storedConfig.deferUnsupportedZhuyinOnFirstPass === true,
+    suggestionDictionary: sameContentProfile
+      ? parseDictionary(String(storedConfig.suggestionDictionary || ""))
+      : profileDefaults.suggestionDictionary,
+    symbols: sameContentProfile
+      ? parseSymbols(String(storedConfig.symbols || ""))
+      : profileDefaults.symbols
+  });
+
+  const timingPreset = String(storedConfig.scanTimingPreset || "custom");
+  if (timingPreset !== "custom") config = applyScanTimingPreset(config, timingPreset);
+
+  saveConfig(config);
+  uiConfig = normalizeUiConfig({ ...uiConfig, ...storedUiConfig });
+  saveUiConfig(uiStorageKey, uiConfig);
+  applyContrastTheme(uiConfig.contrastTheme);
+  session = {
+    ...session,
+    config,
+    scannerState: createScannerState({ scanMode: config.scanMode }),
+    lockedRow: null
+  };
+  reviewHoldActive = true;
+  render();
+  resetClock();
+  scheduleScan();
+
+  if (action === "input-test") openCalibration();
+  if (action === "export-text") exportTextHistory();
+  return true;
+}
+
+globalThis.ShineAacSettings = { applyNativeSettings };
 
 function openConfig() {
   closeTextExportResult();

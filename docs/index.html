@@ -466,6 +466,7 @@
         <a href="#switch">開關掃描</a>
         <a href="#buttons">常用按鈕</a>
         <a href="#settings">必要設定</a>
+        <a href="#speech-setup">語音下載</a>
         <a href="#export-text">文字匯出</a>
         <a href="#help">問題排除</a>
         <a href="./releases/v0.3.1.html">0.3.1 更新內容</a>
@@ -615,11 +616,11 @@
             <div>
               <h3>朗讀語音需要調整時</h3>
               <ol>
-                <li>選擇 <strong>台灣語音</strong>。</li>
-                <li>按播放鍵試聽，再選擇要使用的語音。</li>
-                <li>若語音尚未安裝，依畫面指示開啟 Android 語音下載設定。</li>
+                <li>在<strong>語音</strong>區選擇<strong>語音</strong>；若版本顯示<strong>台灣語音</strong>，請選擇該項目。</li>
+                <li>選擇已下載的台灣中文語音；有播放鍵時，先按播放鍵試聽。</li>
+                <li>若沒有合適的語音，選擇<strong>管理語音</strong>，依 Android 畫面下載語音資料。</li>
               </ol>
-              <p>語音選擇會立即套用，不必再按<strong>儲存</strong>。</p>
+              <p>完整步驟請見下方的<a href="#speech-setup">語音下載與離線設定</a>。</p>
             </div>
             <div>
               <h3>版本與基本資訊</h3>
@@ -630,7 +631,50 @@
       </div>
     </section>
 
-    <section class="guide-section" id="export-text">
+    <section class="guide-section" id="speech-setup">
+      <div class="section-inner">
+        <h2>語音下載與離線設定</h2>
+        <p class="section-lead">一般訊息由 Android 的文字轉語音（TTS）引擎朗讀。第一次使用前，建議由協助者下載所需語言的語音資料並完成離線測試；不同品牌手機、Android 版本及語音引擎的選單名稱可能稍有不同。</p>
+
+        <div class="instruction-grid">
+          <div class="steps">
+            <h3>下載並選用語音</h3>
+            <ol>
+              <li>先連上 Wi-Fi，並確認裝置有足夠的儲存空間。</li>
+              <li>在主畫面選擇 <strong>⚙ 設定</strong>，到<strong>語音</strong>區選擇<strong>管理語音</strong>。Android 會開啟目前使用中的文字轉語音設定或語音資料安裝畫面。</li>
+              <li>確認已選擇要使用的語音引擎，再選擇<strong>安裝語音資料</strong>、<strong>安裝語音數據</strong>或名稱相近的選項。有些裝置要先按語音引擎旁的齒輪。</li>
+              <li>下載<strong>中文（台灣）／繁體中文（台灣）／zh-TW</strong>。若會使用英文版面，也下載<strong>英文（美國）／en-US</strong>。</li>
+              <li>下載完成後返回「我想說」，重新開啟<strong>設定</strong>。選擇<strong>語音</strong>（舊版介面為<strong>台灣語音</strong>），再選擇剛下載的語音或<strong>Android 系統預設</strong>。</li>
+              <li>若畫面提供播放鍵，先試聽；接著回主畫面輸入短句並選擇<strong>朗讀</strong>，確認音量、語言和發音。</li>
+            </ol>
+
+            <div class="callout">
+              <strong>需要離線使用？</strong><br>
+              請選擇標示「已下載」或未標示「需要網路」的語音。完成設定後關閉 Wi-Fi 與行動網路，再朗讀一次短句；只有實際通過這項測試，才能確認該裝置與語音可離線使用。
+            </div>
+          </div>
+          <div class="steps">
+            <h3>畫面上的語音類型</h3>
+            <ul>
+              <li><strong>內建台灣華語語音：</strong>內附教育部人聲注音，用於注音符號；一般中文字句仍交由裝置的 Android 語音朗讀。</li>
+              <li><strong>Android 系統預設：</strong>由目前的 Android 語音引擎決定實際聲音；更換系統引擎或系統預設語音後，聲音可能改變。</li>
+              <li><strong>已下載／可用：</strong>通常可離線使用，但仍應依上方步驟實測。</li>
+              <li><strong>需要網路／線上語音：</strong>朗讀時需要網路，資料處理由該語音服務供應者決定；不適合必須離線或網路不穩定的情境。</li>
+              <li><strong>可下載：</strong>先按下載圖示。若數秒後仍未開始，選擇<strong>開啟語音下載設定</strong>，在 Android 畫面完成安裝，返回 App 後再開啟語音清單。</li>
+            </ul>
+
+            <h3>設定前注意</h3>
+            <ul>
+              <li>下載語音可能需要較多網路流量，建議使用 Wi-Fi。</li>
+              <li>語音引擎、可用聲音、下載大小和資料處理方式由 Android 裝置及語音供應者決定，不是由本 App 提供。</li>
+              <li>Android 的<a href="https://support.google.com/accessibility/android/answer/6006983">文字轉語音輸出說明</a>也列出選擇引擎、語言及安裝語音資料的一般步驟。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-section alt" id="export-text">
       <div class="section-inner">
         <h2>匯出並開啟文字記錄</h2>
         <p class="section-lead">App 會把每次完成的訊息保留在這台裝置內。需要交給家人、老師或治療師查看時，可由協助者主動匯出成 UTF-8 純文字檔；App 不會自動上傳或分享內容。</p>
@@ -667,7 +711,7 @@
       </div>
     </section>
 
-    <section class="guide-section alt" id="help">
+    <section class="guide-section" id="help">
       <div class="section-inner">
         <h2>常見問題排除</h2>
         <details>
@@ -689,7 +733,9 @@
             <li>確認媒體音量不是零。</li>
             <li>主畫面的 <strong>語音：開／語音：關</strong> 是狀態顯示，不是按鈕。</li>
             <li>在設定頁開啟需要的<strong>選列時朗讀</strong>、<strong>選格時朗讀</strong>或<strong>選定後朗讀</strong>，再按<strong>儲存</strong>。</li>
-            <li>朗讀語音不合適時，進入 <strong>台灣語音</strong> 試聽並選擇其他語音。</li>
+            <li>到<strong>設定</strong>的<strong>語音</strong>區選擇<strong>管理語音</strong>，確認 Android 語音引擎已啟用並已安裝目前語言的語音資料。</li>
+            <li>返回 App 後重新開啟設定，進入<strong>語音</strong>（舊版為<strong>台灣語音</strong>）選擇並試聽其他語音。</li>
+            <li>若只在線上有聲音，請改選已下載且未標示「需要網路」的語音，並依<a href="#speech-setup">離線設定步驟</a>重新測試。</li>
           </ul>
         </details>
         <details>

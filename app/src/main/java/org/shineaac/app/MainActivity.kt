@@ -2,6 +2,7 @@ package org.shineaac.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
@@ -87,6 +88,23 @@ class MainActivity : ComponentActivity() {
                 fileName = suggestedFileName,
                 canOpen = false,
                 message = "文字檔沒有儲存，請返回設定後再試一次。",
+            )
+        }
+    }
+    private val settingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val action = result.data?.getStringExtra(SettingsActivity.ResultActionExtra).orEmpty()
+        val configJson = SettingsStore.configJson(this)
+        val uiConfigJson = SettingsStore.uiConfigJson(this)
+        webView?.post {
+            webView?.evaluateJavascript(
+                "globalThis.ShineAacSettings?.applyNativeSettings?.(" +
+                    "${JSONObject.quote(configJson)}," +
+                    "${JSONObject.quote(uiConfigJson)}," +
+                    "${JSONObject.quote(action)})",
+                null,
             )
         }
     }
@@ -576,6 +594,14 @@ class MainActivity : ComponentActivity() {
                     Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
                 ).firstOrNull { it.resolveActivity(packageManager) != null }
                 if (intent != null) startActivity(intent)
+            }
+        }
+
+        @JavascriptInterface
+        fun openSettings(configJson: String, uiConfigJson: String) {
+            SettingsStore.importFromWeb(this@MainActivity, configJson, uiConfigJson)
+            runOnUiThread {
+                settingsLauncher.launch(Intent(this@MainActivity, SettingsActivity::class.java))
             }
         }
 

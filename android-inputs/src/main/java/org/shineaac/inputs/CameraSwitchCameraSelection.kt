@@ -5,9 +5,20 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 
+enum class CameraSwitchCameraSource(val storedValue: String) {
+    Camera2("camera2"),
+    Uvc("uvc");
+
+    companion object {
+        fun fromStored(value: String?): CameraSwitchCameraSource? =
+            entries.firstOrNull { it.storedValue == value }
+    }
+}
+
 data class CameraSwitchCamera(
     val cameraId: String,
-    val lensFacing: Int?
+    val lensFacing: Int?,
+    val source: CameraSwitchCameraSource = CameraSwitchCameraSource.Camera2
 )
 
 object CameraSwitchCameraSelection {
@@ -32,10 +43,17 @@ object CameraSwitchCameraSelection {
     fun choose(
         cameras: List<CameraSwitchCamera>,
         preferredCameraId: String?,
-        preferredLensFacing: Int?
+        preferredLensFacing: Int?,
+        preferredSource: CameraSwitchCameraSource? = null
     ): CameraSwitchCamera? {
         if (cameras.isEmpty()) return null
         cameras.firstOrNull { it.cameraId == preferredCameraId }?.let { return it }
+        if (preferredSource != null) {
+            cameras.firstOrNull {
+                it.source == preferredSource &&
+                    (preferredLensFacing == null || it.lensFacing == preferredLensFacing)
+            }?.let { return it }
+        }
         if (preferredLensFacing != null) {
             cameras.firstOrNull { it.lensFacing == preferredLensFacing }?.let { return it }
         }
