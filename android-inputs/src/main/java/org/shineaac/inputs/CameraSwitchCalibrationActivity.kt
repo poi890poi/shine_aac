@@ -66,6 +66,25 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
 
+internal fun cheekCalibrationMoveInstruction(
+    acceptedTrials: Int,
+    zhTw: Boolean
+): String {
+    val accepted = acceptedTrials.coerceIn(0, 5)
+    val next = accepted + 1
+    return if (zhTw) {
+        if (accepted == 0) {
+            "校正：請做第 1 / 6 次臉頰抽動，完成後放鬆。"
+        } else {
+            "校正：已接受 $accepted / 6。請先放鬆，再做第 $next / 6 次臉頰抽動。"
+        }
+    } else if (accepted == 0) {
+        "Calibration: make cheek twitch 1 of 6, then relax."
+    } else {
+        "Calibration: accepted $accepted of 6. Relax, then make twitch $next of 6."
+    }
+}
+
 class CameraSwitchCalibrationActivity : Activity() {
     private val analysisSize = Size(480, 360)
     private var textureView: TextureView? = null
@@ -941,9 +960,9 @@ class CameraSwitchCalibrationActivity : Activity() {
                     cheekCalibrationStage = CheekCalibrationStage.Move
                     cheekCalibrationBuffer.clear()
                     cheekCalibrationPeak = 0.0
-                    statusView?.text = tr(
-                        "Now make six cheek twitches whenever you are ready; relax between each one.",
-                        "現在請自行做六次臉頰抽動；每次之間放鬆。"
+                    statusView?.text = cheekCalibrationMoveInstruction(
+                        acceptedTrials = 0,
+                        zhTw = zhTwUi
                     )
                 }
                 metricsView?.text = tr("Relaxed frames $count / 36", "放鬆影像 $count / 36")
@@ -965,7 +984,14 @@ class CameraSwitchCalibrationActivity : Activity() {
                 cheekCalibrationBuffer.clear()
                 cheekCalibrationPeak = 0.0
                 metricsView?.text = tr("Accepted movements $cheekCalibrationTrial / 6", "已接受動作 $cheekCalibrationTrial / 6")
-                if (cheekCalibrationTrial >= 6) finishCheekCalibration()
+                if (cheekCalibrationTrial >= 6) {
+                    finishCheekCalibration()
+                } else if (accepted) {
+                    statusView?.text = cheekCalibrationMoveInstruction(
+                        acceptedTrials = cheekCalibrationTrial,
+                        zhTw = zhTwUi
+                    )
+                }
                 return accepted
             }
         }
@@ -1659,6 +1685,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             val values = observation?.takeIf { it.usable }?.blendshapes
             val defaultScore = values?.let { cheekDetector.observe(it) }
             val score = values?.let { cheekModel?.score(it) } ?: defaultScore
+            val calibrationWasActive = cheekCalibrationStage != CheekCalibrationStage.Idle
             val calibrationAccepted = values?.let {
                 processCheekCalibration(it, defaultScore)
             } ?: false
@@ -1682,14 +1709,14 @@ class CameraSwitchCalibrationActivity : Activity() {
                     threshold = threshold,
                     hasSignal = observation?.usable == true
                 )
-                if (activated) {
+                if (activated && !calibrationWasActive) {
                     playLongAcceptedCue()
                     statusView?.text = tr(
                         "Cheek twitch accepted. Current position works.",
                         "臉頰抽動已接受。目前位置合適。"
                     )
                 }
-                metricsView?.text = when {
+                if (!calibrationWasActive) metricsView?.text = when {
                     observation == null -> tr("Face not detected", "未偵測到臉部")
                     !observation.usable -> tr("Adjust face position", "請調整臉部位置")
                     !cheekDetector.ready -> tr(
@@ -1916,6 +1943,7 @@ class CameraSwitchCalibrationActivity : Activity() {
             val values = observation?.takeIf { it.usable }?.blendshapes
             val defaultScore = values?.let { cheekDetector.observe(it) }
             val score = values?.let { cheekModel?.score(it) } ?: defaultScore
+            val calibrationWasActive = cheekCalibrationStage != CheekCalibrationStage.Idle
             val calibrationAccepted = values?.let { processCheekCalibration(it, defaultScore) } ?: false
 
             var activated = calibrationAccepted
@@ -1940,7 +1968,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                     hasSignal = observation?.usable == true
                 )
 
-                if (activated) {
+                if (activated && !calibrationWasActive) {
                     playLongAcceptedCue()
                     statusView?.text = tr(
                         "Cheek twitch accepted. Current position works.",
@@ -1948,7 +1976,7 @@ class CameraSwitchCalibrationActivity : Activity() {
                     )
                 }
 
-                metricsView?.text = when {
+                if (!calibrationWasActive) metricsView?.text = when {
                     observation == null ->
                         tr("Face not detected", "未偵測到臉部")
                     !observation.usable ->

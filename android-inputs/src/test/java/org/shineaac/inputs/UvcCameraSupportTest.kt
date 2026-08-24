@@ -45,4 +45,20 @@ class UvcCameraSupportTest {
             ranked.first()
         )
     }
+
+    @Test
+    fun cheekCalibrationInstructionKeepsExplicitTrialProgress() {
+        assertEquals(
+            "校正：請做第 1 / 6 次臉頰抽動，完成後放鬆。",
+            cheekCalibrationMoveInstruction(0, zhTw = true)
+        )
+        assertEquals(
+            "校正：已接受 3 / 6。請先放鬆，再做第 4 / 6 次臉頰抽動。",
+            cheekCalibrationMoveInstruction(3, zhTw = true)
+        )
+        assertEquals(
+            "Calibration: accepted 5 of 6. Relax, then make twitch 6 of 6.",
+            cheekCalibrationMoveInstruction(5, zhTw = false)
+        )
+    }
 }
