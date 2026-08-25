@@ -9,9 +9,9 @@ submission of version 0.4.0. The Taiwan listing uses the localized name
 - Track: Internal testing first; promote to Closed testing only after review.
 - Package id: `org.shineaac.app`
 - Version name: `0.4.0`
-- Version code: `59`
+- Version code: `60`
 - Compile and target SDK: `36`
-- Upload artifact: `shine-aac-v0.4.0-code59-release.aab`
+- Upload artifact: `shine-aac-v0.4.0-code60-release.aab`
 - Checksum: recorded in `PLAY_AAB_SHA256SUMS.txt` after the final build.
 - Upload key: the existing private SayToMe upload key; never commit its
   keystore or properties file.
@@ -19,7 +19,7 @@ submission of version 0.4.0. The Taiwan listing uses the localized name
 Only the signed AAB belongs in Google Play. The versioned debug APK is for
 direct device installation and must not be uploaded to Play.
 
-Before upload, the Play Console owner must confirm that version code 59 has
+Before upload, the Play Console owner must confirm that version code 60 has
 not already been used. Google Play does not permit reusing a version code,
 even when the earlier bundle was only a draft or test release.
 
@@ -89,10 +89,10 @@ gesture input is optional; the board can be used without camera permission.
 
 ## Required owner actions
 
-1. Confirm version code 59 is unused in Play Console.
+1. Confirm version code 60 is unused in Play Console.
 2. Verify the final AAB filename, SHA-256, version metadata, and upload-key
    signing identity against the generated release report.
-3. Upload only the versioned code-59 AAB to Internal testing.
+3. Upload only the versioned code-60 AAB to Internal testing.
 4. Add the `zh-TW` and English listings with the correct localized names.
 5. Paste the matching 0.4.0 release notes for each locale.
 6. Upload reviewed icon, feature graphic, and current screenshots.
@@ -105,4 +105,4 @@ gesture input is optional; the board can be used without camera permission.
 
 The package is ready for upload only when the generated 0.4.0 Play report says
 all automated gates passed, the signed AAB verification passed, no unresolved
-P0/P1 release findings remain, and the owner confirms code 59 is unused.
+P0/P1 release findings remain, and the owner confirms code 60 is unused.

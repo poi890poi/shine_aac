@@ -20,7 +20,7 @@ Useful options:
 
 ```text
 --cycles 10
---apk .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.apk
+--apk .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code60-debug.apk
 --no-build
 --no-install
 --skip-font-200

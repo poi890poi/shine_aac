@@ -8,7 +8,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - Taiwan zh-TW listing name: `我想說`
 - Project/repository name: `SHINE AAC`
 - Android package id: `org.shineaac.app`
-- Current source release: `0.4.0`, Android version code `59`, target SDK `36`
+- Current source release: `0.4.0`, Android version code `60`, target SDK `36`
 - Current Play Internal testing AAB is recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
 ## Taiwan zh-TW Listing
@@ -163,4 +163,4 @@ Please keep another reliable communication method available during testing, espe
 - Phone screenshots: `store-assets/screenshots/phone/*.png`
 - Screenshot source captures: `store-assets/screenshots/source/*.jpg`
 - Screenshot cleanup script: `scripts/clean-store-screenshots.ps1`
-- Signed Play AAB: `.artifacts/releases/v0.4.0/shine-aac-v0.4.0-code59-release.aab`
+- Signed Play AAB: `.artifacts/releases/v0.4.0/shine-aac-v0.4.0-code60-release.aab`

@@ -8,7 +8,7 @@ Edit `version.properties`:
 
 ```properties
 versionName=0.4.0
-versionCode=59
+versionCode=60
 ```
 
 - `versionName`: public SemVer version.
@@ -48,8 +48,8 @@ Build and package a versioned debug APK:
 This creates ignored local artifacts:
 
 ```text
-.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.apk
-.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.zip
+.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code60-debug.apk
+.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code60-debug.zip
 .artifacts\releases\v0.4.0\SHA256SUMS.txt
 .artifacts\releases\v0.4.0\RELEASE_NOTES.md
 ```
@@ -80,7 +80,7 @@ Generate an upload keystore outside Git, then build and package the signed AAB w
 The versioned artifacts and checksums are created at:
 
 ```text
-.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-release.aab
+.artifacts\releases\v0.4.0\shine-aac-v0.4.0-code60-release.aab
 .artifacts\releases\v0.4.0\PLAY_AAB_SHA256SUMS.txt
 .artifacts\releases\v0.4.0\RELEASE_NOTES.md
 ```
@@ -115,8 +115,8 @@ Example host-side GitHub publication after the tag validation succeeds:
 
 ```powershell
 gh release create v0.4.0 `
-  .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.apk `
-  .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code59-debug.zip `
+  .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code60-debug.apk `
+  .artifacts\releases\v0.4.0\shine-aac-v0.4.0-code60-debug.zip `
   .artifacts\releases\v0.4.0\SHA256SUMS.txt `
   --title "SHINE AAC v0.4.0" `
   --notes-file .artifacts\releases\v0.4.0\RELEASE_NOTES.md
