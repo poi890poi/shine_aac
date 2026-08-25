@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.material)
     implementation("com.github.ernestp.AndroidUSBCamera:libuvc:3.6.0")
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mediapipe:tasks-vision:1.0.0")

@@ -41,7 +41,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -51,8 +50,13 @@ import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.AppCompatButton
-import androidx.appcompat.widget.Toolbar
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.textview.MaterialTextView
 import java.util.concurrent.Executor
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -97,10 +101,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var gestureView: TextView? = null
     private var holdView: TextView? = null
     private var zoomView: TextView? = null
-    private var startButton: Button? = null
-    private var changeCameraButton: Button? = null
-    private var blinkGestureButton: Button? = null
-    private var cheekGestureButton: Button? = null
+    private var startButton: MaterialButton? = null
+    private var changeCameraButton: MaterialButton? = null
+    private var blinkGestureButton: MaterialButton? = null
+    private var cheekGestureButton: MaterialButton? = null
+    private var gestureToggleGroup: MaterialButtonToggleGroup? = null
     private var cameraDevice: CameraDevice? = null
     private var cameraOpening = false
     private var cameraOpenGeneration = 0
@@ -194,6 +199,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         mainHandler = Handler(mainLooper)
         val profileId = intent.getStringExtra(ExtraProfileId) ?: "en-US"
@@ -232,15 +238,13 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun createInsetAwareContentHost(content: View): FrameLayout {
+        val contentLayoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
         return FrameLayout(this).apply {
             setBackgroundColor(Color.rgb(19, 24, 31))
-            addView(
-                content,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
+            addView(content, contentLayoutParams)
             setOnApplyWindowInsetsListener { view, insets ->
                 val padding = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val systemInsets = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
@@ -254,7 +258,15 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                         insets.systemWindowInsetBottom
                     )
                 }
-                view.setPadding(padding[0], padding[1], padding[2], padding[3])
+                contentLayoutParams.setMargins(padding[0], padding[1], padding[2], padding[3])
+                content.layoutParams = contentLayoutParams
+                view.post {
+                    val availableHeight = view.height - padding[1] - padding[3]
+                    if (availableHeight > 0 && contentLayoutParams.height != availableHeight) {
+                        contentLayoutParams.height = availableHeight
+                        content.layoutParams = contentLayoutParams
+                    }
+                }
                 insets
             }
         }
@@ -340,15 +352,17 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun createContentView(): View {
-        val wideLayout = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
-            resources.configuration.screenWidthDp >= 600
+        val wideLayout = resources.configuration.screenWidthDp >= 600
         val root = LinearLayout(this).apply {
             orientation = if (wideLayout) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(19, 24, 31))
-            setPadding(dp(12), dp(12), dp(12), dp(12))
+            // AppCompat offsets this content below the status bar on target-35 devices,
+            // while the weighted child can still be measured against the full decor height.
+            // Reserve that inset at the far edge so bottom controls are not clipped.
+            setPadding(dp(12), 0, dp(12), statusBarHeightPx())
         }
 
-        val toolbar = Toolbar(this).apply {
+        val toolbar = MaterialToolbar(this).apply {
             title = tr("Optical switch setup", "光學開關設定")
             setTitleTextColor(Color.WHITE)
             setNavigationIcon(R.drawable.ic_camera_setup_back)
@@ -358,21 +372,28 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             setContentInsetsRelative(0, 0)
             minimumHeight = dp(48)
         }
-        statusView = TextView(this).apply {
+        statusView = MaterialTextView(this).apply {
             text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
             setTextColor(Color.rgb(220, 227, 235))
             textSize = 15f
             setPadding(0, dp(4), 0, dp(2))
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dp(52)
+            maxHeight = dp(52)
             minLines = 2
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
-        metricsView = TextView(this).apply {
+        metricsView = MaterialTextView(this).apply {
             text = tr("Waiting for camera", "等待相機")
             setTextColor(Color.rgb(226, 234, 242))
             textSize = 13f
             setPadding(dp(6), dp(3), dp(6), dp(3))
             background = roundedBackground(Color.argb(190, 15, 23, 42), dp(6))
+            maxWidth = dp(
+                if (wideLayout) 360
+                else (resources.configuration.screenWidthDp - 124).coerceAtLeast(168)
+            )
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
@@ -380,12 +401,23 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         zoomView = compactValueLabel()
         changeCameraButton = actionButton(tr("Finding…", "搜尋中…"), primary = false) {
             textSize = 13f
+            icon = ContextCompat.getDrawable(this@CameraSwitchCalibrationActivity, R.drawable.ic_camera_setup_switch)
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            iconPadding = dp(4)
+            cornerRadius = dp(24)
+            strokeWidth = 0
+            backgroundTintList = ColorStateList.valueOf(Color.argb(225, 42, 52, 64))
             setOnClickListener { changeCamera() }
         }
 
-        val previewFrame = FrameLayout(this).apply {
+        val previewFrame = MaterialCardView(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            background = roundedBackground(Color.BLACK, dp(8), Color.rgb(58, 70, 82))
+            radius = dp(12).toFloat()
+            strokeWidth = dp(1)
+            strokeColor = Color.rgb(58, 70, 82)
+            setCardBackgroundColor(Color.BLACK)
+            cardElevation = 0f
+            clipToOutline = true
             contentDescription = tr("Camera preview", "相機預覽")
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         }
@@ -417,11 +449,21 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         }
         previewFrame.addView(textureView)
         previewFrame.addView(overlayView)
+        val metricsSlot = FrameLayout(this).apply {
+            addView(
+                metricsView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.START or Gravity.TOP
+                )
+            )
+        }
         val previewTopBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.TOP
             addView(
-                metricsView,
+                metricsSlot,
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             )
             addView(
@@ -445,6 +487,40 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             }
         )
 
+        val zoomOutButton = overlayStepperButton(
+            symbol = "−",
+            description = tr("Zoom out", "縮小")
+        ) { adjustZoomRatio(-0.2f) }
+        val zoomInButton = overlayStepperButton(
+            symbol = "+",
+            description = tr("Zoom in", "放大")
+        ) { adjustZoomRatio(0.2f) }
+        val zoomControls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            background = roundedBackground(Color.argb(220, 15, 23, 42), dp(28))
+            addView(zoomOutButton, LinearLayout.LayoutParams(dp(48), dp(48)))
+            addView(
+                zoomView,
+                LinearLayout.LayoutParams(dp(72), dp(48)).apply {
+                    marginStart = dp(2)
+                    marginEnd = dp(2)
+                }
+            )
+            addView(zoomInButton, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
+        previewFrame.addView(
+            zoomControls,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            ).apply {
+                bottomMargin = dp(14)
+            }
+        )
+
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -456,8 +532,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         val closeButton = actionButton(tr("Done", "完成"), primary = false) {
             setOnClickListener { finish() }
         }
-        actions.addView(startButton, actionButtonParams(horizontal = true))
-        actions.addView(closeButton, actionButtonParams(horizontal = true))
+        actions.addView(startButton, weightedActionButtonParams(weight = 2f))
+        actions.addView(closeButton, weightedActionButtonParams(weight = 1f))
 
         blinkGestureButton = actionButton(tr("Long blink", "長眨眼"), primary = false) {
             setOnClickListener { selectGesture(OpticalSwitchGesture.LongBlink) }
@@ -466,55 +542,30 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             setOnClickListener { selectGesture(OpticalSwitchGesture.CheekTwitch) }
         }
 
-        val gestureRow = controlRow(
-            label = TextView(this).apply {
-                text = tr("Gesture", "動作")
-                setTextColor(Color.rgb(226, 234, 242))
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                gravity = Gravity.CENTER_VERTICAL
-            },
-            buttons = listOf(blinkGestureButton, cheekGestureButton),
-            labelWeight = 0.8f
-        )
-        val holdGroup = parameterGroup(
-            value = holdView,
-            buttons = listOf(
-                actionButton(tr("-100", "-100"), primary = false) {
-                    setOnClickListener { adjustHoldMs(-100L) }
-                },
-                actionButton(tr("+100", "+100"), primary = false) {
-                    setOnClickListener { adjustHoldMs(100L) }
-                }
-            )
-        )
-        val zoomGroup = parameterGroup(
-            value = zoomView,
-            buttons = listOf(
-                actionButton(tr("Zoom -", "縮小"), primary = false) {
-                    setOnClickListener { adjustZoomRatio(-0.2f) }
-                },
-                actionButton(tr("Zoom +", "放大"), primary = false) {
-                    setOnClickListener { adjustZoomRatio(0.2f) }
-                }
-            )
-        )
-        val parametersRow = LinearLayout(this).apply {
+        gestureToggleGroup = MaterialButtonToggleGroup(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.TOP
+            isSingleSelection = true
+            isSelectionRequired = true
             addView(
-                holdGroup,
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    marginEnd = dp(2)
-                }
+                blinkGestureButton,
+                LinearLayout.LayoutParams(0, dp(48), 1f)
             )
             addView(
-                zoomGroup,
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    marginStart = dp(2)
-                }
+                cheekGestureButton,
+                LinearLayout.LayoutParams(0, dp(48), 1f)
             )
         }
+        val holdRow = compactSettingRow(
+            value = holdView,
+            decreaseButton = actionButton("−", primary = false) {
+                    contentDescription = tr("Shorter hold", "縮短維持時間")
+                    setOnClickListener { adjustHoldMs(-100L) }
+                },
+            increaseButton = actionButton("+", primary = false) {
+                    contentDescription = tr("Longer hold", "延長維持時間")
+                    setOnClickListener { adjustHoldMs(100L) }
+                }
+        )
         val previewPane = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(
@@ -524,14 +575,28 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     dp(48)
                 )
             )
-            addView(statusView)
+            addView(
+                statusView,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(52)
+                )
+            )
             addView(previewFrame)
         }
         val controlsColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(if (wideLayout) dp(12) else 0, dp(4), 0, 0)
-            addView(gestureRow)
-            addView(parametersRow)
+            setPadding(if (wideLayout) dp(12) else 0, 0, 0, 0)
+            addView(
+                gestureToggleGroup,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(48)
+                ).apply {
+                    setMargins(dp(4), 0, dp(4), 0)
+                }
+            )
+            addView(holdRow)
             addView(
                 actions,
                 LinearLayout.LayoutParams(
@@ -561,7 +626,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 controlsArea,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
+                    dp(154)
                 )
             )
         }
@@ -571,70 +636,69 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         return root
     }
 
-    private fun compactValueLabel(): TextView = TextView(this).apply {
+    private fun compactValueLabel(): TextView = MaterialTextView(this).apply {
         setTextColor(Color.rgb(226, 234, 242))
-        textSize = 15f
+        textSize = 14f
         typeface = Typeface.DEFAULT_BOLD
-        gravity = Gravity.CENTER_VERTICAL
+        gravity = Gravity.CENTER
         maxLines = 2
         ellipsize = android.text.TextUtils.TruncateAt.END
     }
 
-    private fun controlRow(
-        label: View?,
-        buttons: List<Button?>,
-        labelWeight: Float
+    private fun compactSettingRow(
+        value: TextView?,
+        decreaseButton: MaterialButton,
+        increaseButton: MaterialButton
     ): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        val buttonLayouts = buttons.filterNotNull().map { button ->
-            button to compactControlButtonParams(button)
-        }
-        if (label != null) {
-            addView(
-                label,
-                LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    labelWeight
-                )
-            )
-        }
-        buttonLayouts.forEach { (button, params) ->
-            addView(button, params)
-        }
-    }
-
-    private fun parameterGroup(
-        value: TextView?,
-        buttons: List<Button?>
-    ): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER_HORIZONTAL
+        background = roundedBackground(Color.rgb(27, 34, 43), dp(12), Color.rgb(49, 60, 72))
+        setPadding(dp(4), 0, dp(4), 0)
         value?.let {
-            it.gravity = Gravity.CENTER
+            it.gravity = Gravity.START or Gravity.CENTER_VERTICAL
             it.maxLines = 1
             addView(
                 it,
                 LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
+                    0,
+                    dp(52),
+                    1f
                 )
             )
         }
-        addView(
-            LinearLayout(this@CameraSwitchCalibrationActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                buttons.filterNotNull().forEach { button ->
-                    addView(button, compactControlButtonParams(button))
+        for (button in listOf(decreaseButton, increaseButton)) {
+            button.textSize = 20f
+            button.cornerRadius = dp(22)
+            button.insetTop = 0
+            button.insetBottom = 0
+            addView(
+                button,
+                LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+                    marginStart = dp(4)
                 }
-            },
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
             )
-        )
+        }
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(52)
+        ).apply {
+            setMargins(dp(4), 0, dp(4), 0)
+        }
+    }
+
+    private fun overlayStepperButton(
+        symbol: String,
+        description: String,
+        onClick: () -> Unit
+    ): MaterialButton = actionButton(symbol, primary = false) {
+        contentDescription = description
+        textSize = 20f
+        cornerRadius = dp(24)
+        insetTop = 0
+        insetBottom = 0
+        strokeWidth = 0
+        backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+        setOnClickListener { onClick() }
     }
 
     private fun updateSavedCalibrationUi() {
@@ -932,11 +996,18 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyGestureButtonStyle(button: Button?, selected: Boolean) {
+    private fun applyGestureButtonStyle(button: MaterialButton?, selected: Boolean) {
         button ?: return
+        button.isChecked = selected
         button.setTextColor(if (selected) Color.WHITE else Color.rgb(226, 234, 242))
         button.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-        button.backgroundTintList = actionButtonTint(primary = selected)
+        button.backgroundTintList = ColorStateList.valueOf(
+            if (selected) Color.rgb(35, 122, 110) else Color.rgb(42, 52, 64)
+        )
+        button.strokeColor = ColorStateList.valueOf(
+            if (selected) Color.rgb(52, 211, 153) else Color.rgb(73, 87, 102)
+        )
+        button.strokeWidth = dp(1)
     }
 
     private fun startCheekCalibration() {
@@ -1067,16 +1138,16 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private fun updateHoldUi() {
         holdView?.text = when (selectedGesture) {
             OpticalSwitchGesture.LongBlink ->
-                compactDurationLabel(
+                compactSecondsLabel(
                     tr("Hold", "維持"),
                     calibratedLongBlinkHoldMs,
-                    tr("ms", "毫秒")
+                    tr("s", "秒")
                 )
             OpticalSwitchGesture.CheekTwitch ->
-                compactDurationLabel(
+                compactSecondsLabel(
                     tr("Hold", "維持"),
                     cheekHoldMs,
-                    tr("ms", "毫秒")
+                    tr("s", "秒")
                 )
         }
     }
@@ -1101,9 +1172,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun updateZoomUi() {
-        zoomView?.text = compactZoomLabel(
-            tr("Zoom", "縮放"), calibratedZoomRatio
-        )
+        zoomView?.text = compactZoomValueLabel(calibratedZoomRatio)
     }
 
     private fun calibrationQuality(): CalibrationQuality {
@@ -2290,6 +2359,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToLong().toInt()
 
+    private fun statusBarHeightPx(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
+    }
+
     private fun tr(english: String, traditionalChinese: String): String =
         if (zhTwUi) traditionalChinese else english
 
@@ -2308,7 +2382,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             .replace("x", " 倍")
     }
 
-    private fun actionButton(text: String, primary: Boolean, configure: Button.() -> Unit) = AppCompatButton(this).apply {
+    private fun actionButton(
+        text: String,
+        primary: Boolean,
+        configure: MaterialButton.() -> Unit
+    ) = MaterialButton(this).apply {
         this.text = text
         isAllCaps = false
         minHeight = dp(48)
@@ -2316,8 +2394,15 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         textSize = 14f
         maxLines = 2
         setPadding(dp(8), 0, dp(8), 0)
+        insetTop = 0
+        insetBottom = 0
+        cornerRadius = dp(12)
         setTextColor(if (primary) Color.WHITE else Color.rgb(226, 234, 242))
         backgroundTintList = actionButtonTint(primary)
+        strokeColor = ColorStateList.valueOf(
+            if (primary) Color.TRANSPARENT else Color.rgb(73, 87, 102)
+        )
+        strokeWidth = if (primary) 0 else dp(1)
         configure()
     }
 
@@ -2334,21 +2419,10 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         )
     )
 
-    private fun actionButtonParams(horizontal: Boolean) = LinearLayout.LayoutParams(
-        if (horizontal) 0 else LinearLayout.LayoutParams.MATCH_PARENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT,
-        if (horizontal) 1f else 0f
-    ).apply {
-        setMargins(dp(4), dp(4), dp(4), dp(4))
-    }
-
-    private fun compactControlButtonParams(button: Button) = LinearLayout.LayoutParams(
-        compactControlWidthPx(
-            textWidthPx = button.paint.measureText(button.text.toString()),
-            horizontalPaddingPx = button.paddingLeft + button.paddingRight,
-            minimumTargetPx = dp(48)
-        ),
-        LinearLayout.LayoutParams.WRAP_CONTENT
+    private fun weightedActionButtonParams(weight: Float) = LinearLayout.LayoutParams(
+        0,
+        dp(48),
+        weight
     ).apply {
         setMargins(dp(4), dp(2), dp(4), dp(2))
     }
@@ -2592,8 +2666,18 @@ internal fun compactControlWidthPx(
 internal fun compactDurationLabel(action: String, durationMs: Long, unit: String): String =
     "$action $durationMs $unit"
 
+internal fun compactSecondsLabel(action: String, durationMs: Long, unit: String): String {
+    val seconds = String.format(Locale.US, "%.2f", durationMs / 1000.0)
+        .trimEnd('0')
+        .trimEnd('.')
+    return "$action $seconds $unit"
+}
+
 internal fun compactZoomLabel(label: String, ratio: Float): String =
     "$label ${String.format(Locale.US, "%.1f", ratio)}×"
+
+internal fun compactZoomValueLabel(ratio: Float): String =
+    "${String.format(Locale.US, "%.1f", ratio)}×"
 
 internal fun compactCameraPositionLabel(kind: String, ordinal: Int, total: Int): String =
     "$kind $ordinal/$total"

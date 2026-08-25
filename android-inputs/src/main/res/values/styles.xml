@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ShineAac.CameraSetup" parent="Theme.AppCompat.NoActionBar">
+    <style name="Theme.ShineAac.CameraSetup" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">#237A6E</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#34D399</item>
         <item name="colorAccent">#34D399</item>
+        <item name="colorSurface">#13181F</item>
+        <item name="colorOnSurface">#E2EAF2</item>
+        <item name="colorSurfaceVariant">#2A3440</item>
+        <item name="colorOnSurfaceVariant">#CBD5E1</item>
+        <item name="android:colorControlHighlight">#4034D399</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowBackground">#13181F</item>
         <item name="android:navigationBarColor">#000000</item>
