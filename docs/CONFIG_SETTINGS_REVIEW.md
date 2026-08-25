@@ -27,7 +27,7 @@ Use a native `SettingsActivity` with `PreferenceFragmentCompat` and a `Preferenc
 2. Scanning: preset, voice feedback, restart behavior, advanced timing.
 3. Speech: Taiwan voice destination and speech feedback.
 4. Input: switch source, camera setup, input test.
-5. Data and support: export text, app information, reset.
+5. Data and support: offline resources, export text, app information, reset.
 
 The dynamic voice catalog can use a RecyclerView-backed native subpage with standard radio buttons and trailing icon buttons. There is no maintained Android component that supplies a cross-engine voice catalog or download manager; those parts must continue to use the Android TTS contract and a small provider metadata adapter.
 

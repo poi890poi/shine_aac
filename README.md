@@ -92,6 +92,15 @@ User-facing download, voice selection, offline verification, and troubleshooting
 instructions are maintained in the published
 [Traditional Chinese operation guide](docs/index.html#speech-setup).
 
+### Offline models and resource management
+
+Open `Settings` → `Data and support` → `Offline resources` to review included
+models and speech packs or manage verified model updates. Version 0.4.0 keeps
+the cheek-twitch model in the app as an offline fallback while introducing the
+versioned download path. See the dedicated
+[offline resource management guide](docs/OFFLINE_RESOURCES.md) for integrity,
+storage, removal, migration, and caregiver verification details.
+
 ### USB UVC cameras
 
 Connect a UVC-compatible webcam through a powered USB hub or OTG adapter, then
