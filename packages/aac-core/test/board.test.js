@@ -996,6 +996,33 @@ test("zh-TW English spelling category stays open while composing", () => {
   assert.equal(result.activeCategory, "english");
 });
 
+test("zh-TW English clear empties the message without acting as category close", () => {
+  const config = createBoardConfig({ profileId: "zh-TW" });
+  let state = applyTile("", [], findActionTile(boardRows(config), "英文", TileAction.OpenCategory), config, {});
+
+  for (const label of ["H", "I"]) {
+    const rows = boardRows(config, state.message, state.messageHistory.length > 0, state);
+    state = applyTile(
+      state.message,
+      state.messageHistory,
+      findActionTile(rows, label, TileAction.Append),
+      config,
+      state
+    );
+  }
+  const rows = boardRows(config, state.message, true, state);
+  state = applyTile(
+    state.message,
+    state.messageHistory,
+    findActionTile(rows, "清除", TileAction.Clear),
+    config,
+    state
+  );
+
+  assert.equal(state.message, "");
+  assert.equal(state.activeCategory, "english");
+});
+
 test("zh-TW English recommendations do not repeat static letters or the localized space key", () => {
   const config = createBoardConfig({ profileId: "zh-TW" });
   let state = applyTile("", [], findActionTile(boardRows(config), "英文", TileAction.OpenCategory), config, {});

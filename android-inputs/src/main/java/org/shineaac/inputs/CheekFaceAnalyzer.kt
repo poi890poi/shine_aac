@@ -239,12 +239,7 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         maxY: Float
     ): Pair<Boolean, String> {
         if (landmarks.size < 468 * 2) return false to "Face landmarks unavailable"
-        if (maxX - minX < 0.22f || maxY - minY < 0.28f) {
-            return false to "Move the camera closer"
-        }
-        if (minX < -0.02f || maxX > 1.02f || minY < -0.02f || maxY > 1.02f) {
-            return false to "Center the whole face"
-        }
+        cheekFaceBoundsQuality(minX, minY, maxX, maxY)?.let { return false to it }
         val eyeAx = landmarks[33 * 2]
         val eyeAy = landmarks[33 * 2 + 1]
         val eyeBx = landmarks[263 * 2]
@@ -267,6 +262,29 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
     private companion object {
         const val ModelAsset = "face_landmarker.task"
     }
+}
+
+/**
+ * Keeps enough background around the face for stable landmarks and comfortable positioning.
+ * A face around 70% of preview height is the target; near-full-frame faces are deliberately
+ * rejected instead of silently encouraging the user to fill the camera view.
+ */
+internal fun cheekFaceBoundsQuality(
+    minX: Float,
+    minY: Float,
+    maxX: Float,
+    maxY: Float
+): String? {
+    val width = maxX - minX
+    val height = maxY - minY
+    if (width < 0.22f || height < 0.28f) return "Move the camera closer"
+    if (minX < -0.02f || maxX > 1.02f || minY < -0.02f || maxY > 1.02f) {
+        return "Center the whole face"
+    }
+    if (width > 0.82f || height > 0.82f) {
+        return "Move the camera farther away; keep your face around 70% of the view"
+    }
+    return null
 }
 
 internal fun frontCameraMirroredBlendshapeName(name: String): String = when {

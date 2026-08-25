@@ -47,18 +47,14 @@ class UvcCameraSupportTest {
     }
 
     @Test
-    fun cheekCalibrationInstructionKeepsExplicitTrialProgress() {
+    fun cheekCalibrationInstructionExplainsAutomaticSampleDiscovery() {
         assertEquals(
-            "校正：請做第 1 / 6 次臉頰抽動，完成後放鬆。",
-            cheekCalibrationMoveInstruction(0, zhTw = true)
+            "校正：請自然抽動臉頰後放鬆。系統會自動從影像找出動作樣本，不需要先成功觸發。",
+            cheekCalibrationMoveInstruction(zhTw = true)
         )
         assertEquals(
-            "校正：已接受 3 / 6。請先放鬆，再做第 4 / 6 次臉頰抽動。",
-            cheekCalibrationMoveInstruction(3, zhTw = true)
-        )
-        assertEquals(
-            "Calibration: accepted 5 of 6. Relax, then make twitch 6 of 6.",
-            cheekCalibrationMoveInstruction(5, zhTw = false)
+            "Calibration: move your cheek naturally, then relax. Samples are found automatically; the twitch does not need to activate first.",
+            cheekCalibrationMoveInstruction(zhTw = false)
         )
     }
 }

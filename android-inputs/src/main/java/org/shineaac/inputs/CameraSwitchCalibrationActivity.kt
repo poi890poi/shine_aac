@@ -73,24 +73,12 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
 
-internal fun cheekCalibrationMoveInstruction(
-    acceptedTrials: Int,
-    zhTw: Boolean
-): String {
-    val accepted = acceptedTrials.coerceIn(0, 5)
-    val next = accepted + 1
-    return if (zhTw) {
-        if (accepted == 0) {
-            "校正：請做第 1 / 6 次臉頰抽動，完成後放鬆。"
-        } else {
-            "校正：已接受 $accepted / 6。請先放鬆，再做第 $next / 6 次臉頰抽動。"
-        }
-    } else if (accepted == 0) {
-        "Calibration: make cheek twitch 1 of 6, then relax."
+internal fun cheekCalibrationMoveInstruction(zhTw: Boolean): String =
+    if (zhTw) {
+        "校正：請自然抽動臉頰後放鬆。系統會自動從影像找出動作樣本，不需要先成功觸發。"
     } else {
-        "Calibration: accepted $accepted of 6. Relax, then make twitch $next of 6."
+        "Calibration: move your cheek naturally, then relax. Samples are found automatically; the twitch does not need to activate first."
     }
-}
 
 class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val analysisSize = Size(480, 360)
@@ -180,10 +168,10 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var selectedGesture = OpticalSwitchGesture.LongBlink
     private var cheekHoldMs = CameraSwitchSettings.DefaultCheekHoldMs
     private var cheekModel: CheekGestureModel? = null
-    private val cheekCalibrator = CheekGestureCalibrator()
     private var cheekCalibrationStage = CheekCalibrationStage.Idle
-    private var cheekCalibrationTrial = 0
-    private var cheekCalibrationBuffer = mutableListOf<ScoredCheekCalibrationFrame>()
+    private val cheekCalibrationNeutralFrames = mutableListOf<Map<String, Double>>()
+    private val cheekCalibrationFrames = mutableListOf<Map<String, Double>>()
+    private var cheekCalibrationFramesSeen = 0
     private var calibratedZoomRatio = 1.6f
     private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
@@ -968,9 +956,9 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     private fun resetCheekCalibrationProgress() {
         cheekCalibrationStage = CheekCalibrationStage.Idle
-        cheekCalibrationTrial = 0
-        cheekCalibrationBuffer.clear()
-        cheekCalibrator.reset()
+        cheekCalibrationNeutralFrames.clear()
+        cheekCalibrationFrames.clear()
+        cheekCalibrationFramesSeen = 0
         cheekDetector.reset()
         cheekPreviewActivations = 0
         resetCheekClassifier()
@@ -1011,11 +999,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun startCheekCalibration() {
-        cheekCalibrator.reset()
         cheekDetector.reset()
         cheekCalibrationStage = CheekCalibrationStage.Rest
-        cheekCalibrationTrial = 0
-        cheekCalibrationBuffer.clear()
+        cheekCalibrationNeutralFrames.clear()
+        cheekCalibrationFrames.clear()
+        cheekCalibrationFramesSeen = 0
         cheekPreviewActivations = 0
         statusView?.text = tr(
             "Calibration: relax your face. We will continue automatically when enough resting frames are collected.",
@@ -1025,77 +1013,73 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         startButton?.isEnabled = false
     }
 
-    private fun processCheekCalibration(values: Map<String, Double>, liveScore: Double?): Boolean {
+    private fun processCheekCalibration(values: Map<String, Double>): Boolean {
         when (cheekCalibrationStage) {
             CheekCalibrationStage.Idle -> return false
             CheekCalibrationStage.Rest -> {
-                cheekCalibrator.addNeutral(values)
-                val count = cheekCalibrator.neutralCount()
+                cheekCalibrationNeutralFrames += values.toMap()
+                val count = cheekCalibrationNeutralFrames.size
                 if (count >= 36 && cheekDetector.ready) {
                     cheekCalibrationStage = CheekCalibrationStage.Move
-                    cheekCalibrationBuffer.clear()
-                    statusView?.text = cheekCalibrationMoveInstruction(
-                        acceptedTrials = 0,
-                        zhTw = zhTwUi
-                    )
+                    cheekCalibrationFrames.clear()
+                    cheekCalibrationFramesSeen = 0
+                    statusView?.text = cheekCalibrationMoveInstruction(zhTw = zhTwUi)
                 }
                 metricsView?.text = tr("Relaxed frames $count / 36", "放鬆影像 $count / 36")
                 return false
             }
             CheekCalibrationStage.Move -> {
-                val score = liveScore ?: return false
-                if (score >= CheekTwitchDetector.DefaultExitThreshold * 0.5) {
-                    cheekCalibrationBuffer.add(ScoredCheekCalibrationFrame(values, score))
+                cheekCalibrationFrames += values.toMap()
+                cheekCalibrationFramesSeen += 1
+                while (cheekCalibrationFrames.size > MaximumCheekCalibrationCaptureFrames) {
+                    cheekCalibrationFrames.removeAt(0)
+                }
+                if (cheekCalibrationFramesSeen % CheekCalibrationEvaluationIntervalFrames != 0) {
                     return false
                 }
-                val positiveFrames = selectCheekCalibrationPositiveFrames(cheekCalibrationBuffer)
-                val accepted = positiveFrames.size >= 3
-                if (accepted) {
-                    cheekCalibrationTrial += 1
-                    positiveFrames.forEach { cheekCalibrator.addActive(cheekCalibrationTrial, it.values) }
-                    playLongAcceptedCue()
-                }
-                cheekCalibrationBuffer.clear()
-                metricsView?.text = tr("Accepted movements $cheekCalibrationTrial / 6", "已接受動作 $cheekCalibrationTrial / 6")
-                if (cheekCalibrationTrial >= 6) {
-                    finishCheekCalibration()
-                } else if (accepted) {
-                    statusView?.text = cheekCalibrationMoveInstruction(
-                        acceptedTrials = cheekCalibrationTrial,
-                        zhTw = zhTwUi
+                val attempt = buildCheekCalibrationFromUnlabeledSamples(
+                    neutralFrames = cheekCalibrationNeutralFrames,
+                    capturedFrames = cheekCalibrationFrames
+                )
+                val outcome = attempt.outcome
+                metricsView?.text = when {
+                    outcome is CheekCalibrationOutcome.Success -> tr(
+                        "Clear movement samples found automatically.",
+                        "已自動找到清楚的動作樣本。"
+                    )
+                    attempt.positiveFrameCount > 0 -> tr(
+                        "Learning automatically: ${attempt.positiveFrameCount} movement-like frames, separation ${"%.1f".format(attempt.clusterSeparation)}.",
+                        "自動學習中：找到 ${attempt.positiveFrameCount} 張動作影像，分離度 ${"%.1f".format(attempt.clusterSeparation)}。"
+                    )
+                    else -> tr(
+                        "Learning automatically from ${attempt.capturedFrameCount} live frames; move naturally and relax.",
+                        "正從 ${attempt.capturedFrameCount} 張即時影像自動學習；請自然動作後放鬆。"
                     )
                 }
-                return accepted
+                if (outcome is CheekCalibrationOutcome.Success) {
+                    finishCheekCalibration(outcome.model)
+                    return true
+                }
+                return false
             }
         }
     }
 
-    private fun finishCheekCalibration() {
-        when (val outcome = cheekCalibrator.build()) {
-            is CheekCalibrationOutcome.Success -> {
-                cheekModel = outcome.model
-                val quality = outcome.model.quality
-                CameraSwitchPreferences.saveCheekCalibration(
-                    context = this, model = outcome.model, cheekHoldMs = cheekHoldMs,
-                    zoomRatio = calibratedZoomRatio, qualityLabel = tr("Quality good", "品質良好"),
-                    qualityDetail = quality.message
-                )
-                cheekCalibrationStage = CheekCalibrationStage.Idle
-                resetCheekClassifier()
-                startButton?.isEnabled = true
-                statusView?.text = tr("Cheek calibration saved.", "臉頰校正已儲存。")
-                metricsView?.text = tr("${quality.message} Learned ${outcome.model.summary()}.", "${quality.message} 已學習 ${outcome.model.summary()}。")
-            }
-            is CheekCalibrationOutcome.Failure -> {
-                cheekCalibrationStage = CheekCalibrationStage.Idle
-                startButton?.isEnabled = true
-                statusView?.text = tr(
-                    "Calibration was not reliable enough; the default detector remains usable.",
-                    "校正可靠度不足；仍可繼續使用預設偵測。"
-                )
-                metricsView?.text = outcome.reason
-            }
-        }
+    private fun finishCheekCalibration(model: CheekGestureModel) {
+        cheekModel = model
+        val quality = model.quality
+        CameraSwitchPreferences.saveCheekCalibration(
+            context = this, model = model, cheekHoldMs = cheekHoldMs,
+            zoomRatio = calibratedZoomRatio, qualityLabel = tr("Quality good", "品質良好"),
+            qualityDetail = quality.message
+        )
+        cheekCalibrationStage = CheekCalibrationStage.Idle
+        cheekCalibrationFrames.clear()
+        resetCheekClassifier()
+        startButton?.isEnabled = true
+        playLongAcceptedCue()
+        statusView?.text = tr("Cheek calibration saved automatically.", "臉頰校正已自動儲存。")
+        metricsView?.text = tr("${quality.message} Learned ${model.summary()}.", "${quality.message} 已學習 ${model.summary()}。")
     }
 
     private fun adjustHoldMs(deltaMs: Long) {
@@ -1757,14 +1741,14 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             val defaultScore = values?.let { cheekDetector.observe(it) }
             val score = values?.let { cheekModel?.score(it) } ?: defaultScore
             val calibrationWasActive = cheekCalibrationStage != CheekCalibrationStage.Idle
-            val calibrationAccepted = values?.let {
-                processCheekCalibration(it, defaultScore)
-            } ?: false
-            var activated = calibrationAccepted
-            cheekClassifier.onScore(score, now).forEach { event ->
-                if (event is BinarySwitchClassifier.Event.Activated) {
-                    activated = true
-                    cheekPreviewActivations += 1
+            val calibrationCompleted = values?.let(::processCheekCalibration) ?: false
+            var activated = calibrationCompleted
+            if (!calibrationWasActive) {
+                cheekClassifier.onScore(score, now).forEach { event ->
+                    if (event is BinarySwitchClassifier.Event.Activated) {
+                        activated = true
+                        cheekPreviewActivations += 1
+                    }
                 }
             }
             val warmupPercent = (cheekDetector.warmupProgress * 100f).toInt()
@@ -1778,7 +1762,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     frameHeight = imageHeight,
                     score = score,
                     threshold = threshold,
-                    hasSignal = observation?.usable == true
+                    hasSignal = observation?.usable == true,
+                    showThreshold = !calibrationWasActive
                 )
                 if (activated && !calibrationWasActive) {
                     playLongAcceptedCue()
@@ -1787,7 +1772,13 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                         "臉頰抽動已接受。目前位置合適。"
                     )
                 }
-                if (!calibrationWasActive) metricsView?.text = when {
+                if (calibrationWasActive && observation?.usable == false) {
+                    metricsView?.text = if (zhTwUi) {
+                        "校正暫停：${observation.qualityMessage}。臉部約佔畫面 70%。"
+                    } else {
+                        "Calibration paused: ${observation.qualityMessage}. Keep your face around 70% of the view."
+                    }
+                } else if (!calibrationWasActive) metricsView?.text = when {
                     observation == null -> tr("Face not detected", "未偵測到臉部")
                     !observation.usable -> tr("Adjust face position", "請調整臉部位置")
                     !cheekDetector.ready -> tr(
@@ -2015,13 +2006,15 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             val defaultScore = values?.let { cheekDetector.observe(it) }
             val score = values?.let { cheekModel?.score(it) } ?: defaultScore
             val calibrationWasActive = cheekCalibrationStage != CheekCalibrationStage.Idle
-            val calibrationAccepted = values?.let { processCheekCalibration(it, defaultScore) } ?: false
+            val calibrationCompleted = values?.let(::processCheekCalibration) ?: false
 
-            var activated = calibrationAccepted
-            cheekClassifier.onScore(score, now).forEach { event ->
-                if (event is BinarySwitchClassifier.Event.Activated) {
-                    activated = true
-                    cheekPreviewActivations += 1
+            var activated = calibrationCompleted
+            if (!calibrationWasActive) {
+                cheekClassifier.onScore(score, now).forEach { event ->
+                    if (event is BinarySwitchClassifier.Event.Activated) {
+                        activated = true
+                        cheekPreviewActivations += 1
+                    }
                 }
             }
 
@@ -2036,7 +2029,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     frameHeight = imageSize.height,
                     score = score,
                     threshold = threshold,
-                    hasSignal = observation?.usable == true
+                    hasSignal = observation?.usable == true,
+                    showThreshold = !calibrationWasActive
                 )
 
                 if (activated && !calibrationWasActive) {
@@ -2047,7 +2041,13 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     )
                 }
 
-                if (!calibrationWasActive) metricsView?.text = when {
+                if (calibrationWasActive && observation?.usable == false) {
+                    metricsView?.text = if (zhTwUi) {
+                        "校正暫停：${observation.qualityMessage}。臉部約佔畫面 70%。"
+                    } else {
+                        "Calibration paused: ${observation.qualityMessage}. Keep your face around 70% of the view."
+                    }
+                } else if (!calibrationWasActive) metricsView?.text = when {
                     observation == null ->
                         tr("Face not detected", "未偵測到臉部")
                     !observation.usable ->
@@ -2466,6 +2466,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         private var hasSignal = false
         private var score: Double? = null
         private var threshold = 1.0
+        private var showThreshold = true
         private var mirrorPixelFace = true
 
         fun clearDetection() {
@@ -2474,6 +2475,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             landmarks = null
             score = null
             hasSignal = false
+            showThreshold = true
             mirrorPixelFace = true
             invalidate()
         }
@@ -2485,7 +2487,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             score: Double?,
             threshold: Double,
             hasSignal: Boolean,
-            mirrorHorizontally: Boolean
+            mirrorHorizontally: Boolean,
+            showThreshold: Boolean = true
         ) {
             pixelFace = face
             normalizedFace = null
@@ -2495,6 +2498,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             this.score = score
             this.threshold = threshold
             this.hasSignal = hasSignal
+            this.showThreshold = showThreshold
             mirrorPixelFace = mirrorHorizontally
             invalidate()
         }
@@ -2506,7 +2510,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             frameHeight: Int,
             score: Double?,
             threshold: Double,
-            hasSignal: Boolean
+            hasSignal: Boolean,
+            showThreshold: Boolean = true
         ) {
             pixelFace = null
             normalizedFace = face
@@ -2516,6 +2521,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             this.score = score
             this.threshold = threshold
             this.hasSignal = hasSignal
+            this.showThreshold = showThreshold
             invalidate()
         }
 
@@ -2612,9 +2618,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 )
             }
 
-            val thresholdX = meterLeft +
-                meterWidth * (threshold.coerceIn(0.0, maxScore) / maxScore).toFloat()
-            canvas.drawLine(thresholdX, meterTop - 4f, thresholdX, meterBottom + 4f, thresholdPaint)
+            if (showThreshold) {
+                val thresholdX = meterLeft +
+                    meterWidth * (threshold.coerceIn(0.0, maxScore) / maxScore).toFloat()
+                canvas.drawLine(thresholdX, meterTop - 4f, thresholdX, meterBottom + 4f, thresholdPaint)
+            }
         }
     }
 
@@ -2628,6 +2636,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         const val CameraSetupLogTag = "ShineCameraSetup"
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
+        const val MaximumCheekCalibrationCaptureFrames = 180
+        const val CheekCalibrationEvaluationIntervalFrames = 3
         const val PreviewBufferWidth = 640
         const val PreviewBufferHeight = 480
         const val MlKitFrameIntervalMs = 200L

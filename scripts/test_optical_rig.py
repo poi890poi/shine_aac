@@ -57,6 +57,22 @@ class CameraIdentityTest(unittest.TestCase):
 
 
 class OpticalOracleTest(unittest.TestCase):
+    def test_demo_state_wait_uses_bounded_recent_log(self):
+        rig = object.__new__(RIG.OpticalRig)
+        fresh = (
+            '1.000 I ShineAacE2E: SHINE_AAC_E2E_STATE '
+            '{"message":"","stage":"Cells","rowIndex":2,"cellIndex":3}'
+        )
+        rig.e2e_recent_log = mock.Mock(return_value=fresh)
+        rig.e2e_log = mock.Mock(side_effect=AssertionError("full log must not aim a gesture"))
+
+        state = rig.wait_demo_state(
+            timeout=0.1, stage="Cells", row_index=2, cell_index=3
+        )
+
+        self.assertEqual(3, state["cellIndex"])
+        rig.e2e_recent_log.assert_called()
+
     def test_cheek_performance_telemetry_is_structured(self):
         samples = RIG.cheek_performance_samples(
             "I/ShineCameraSwitch: CHEEK_PERF path=rgba-mediaimage "
@@ -355,6 +371,14 @@ class OpticalOracleTest(unittest.TestCase):
     def test_builds_downloaded_cheek_calibration_pack_without_private_frames(self):
         rig = object.__new__(RIG.OpticalRig)
         manifest = {
+            "sources": [{
+                "id": "public-video",
+                "url": "https://example.org/public.webm",
+                "page": "https://example.org/source",
+                "license": "CC BY 4.0",
+                "author": "Example author",
+                "sha1": "0123456789abcdef0123456789abcdef01234567",
+            }],
             "cheek_cases": [{
                 "id": "public-positive",
                 "source": "public-video",
@@ -368,6 +392,35 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertTrue(all(case["source"] == "public-video" for case in cases))
         self.assertTrue(all("frames" not in case for case in cases))
         self.assertEqual(6, sum(case["expect"] == "activate" for case in cases))
+
+    def test_rejects_unlicensed_or_unverified_cheek_calibration_source(self):
+        rig = object.__new__(RIG.OpticalRig)
+        manifest = {
+            "sources": [{"id": "private-video", "url": "C:/upload.mp4"}],
+            "cheek_cases": [{
+                "id": "private-positive",
+                "source": "private-video",
+                "expect": "activate",
+            }],
+        }
+        self.assertEqual([], rig.downloaded_cheek_calibration_cases(manifest))
+
+    def test_public_face_scale_tracks_camera_zoom_for_seventy_percent_target(self):
+        rig = object.__new__(RIG.OpticalRig)
+        case = {"face_height_at_zoom_1x": 0.26, "target_face_height": 0.70}
+        rig.active_zoom_ratio = 2.4
+        self.assertAlmostEqual(1.1218, rig.case_display_scale(case), places=3)
+        rig.active_zoom_ratio = 4.0
+        self.assertAlmostEqual(0.6731, rig.case_display_scale(case), places=3)
+
+    def test_face_overlay_measurement_excludes_bottom_progress_meter(self):
+        preview = (36, 388, 1044, 1706)
+        face = [(x, y) for x in range(300, 700, 10) for y in (600, 1520)]
+        face += [(x, y) for x in (300, 690) for y in range(600, 1521, 10)]
+        progress = [(x, 1668) for x in range(90, 190)]
+        measured = RIG.face_overlay_coverage_from_points(face + progress, preview)
+        self.assertAlmostEqual(920 / 1318, measured["height_fraction"], places=3)
+        self.assertEqual([300, 600, 690, 1520], measured["bounds"])
 
 
 class CoordinateAtlasDecoderTest(unittest.TestCase):
@@ -510,9 +563,38 @@ class CameraZoomGeometryTest(unittest.TestCase):
 
 
 class OpenCvFramebufferTest(unittest.TestCase):
+    def test_default_input_desktop_is_interactive_even_if_gdi_capture_probe_fails(self):
+        with mock.patch.object(RIG, "windows_input_desktop_name", return_value="Default"):
+            with mock.patch.object(RIG, "windows_desktop_pixels_available", return_value=False):
+                self.assertTrue(RIG.windows_desktop_is_interactive())
+
+    def test_secure_input_desktop_is_not_interactive(self):
+        with mock.patch.object(RIG, "windows_input_desktop_name", return_value="Winlogon"):
+            self.assertFalse(RIG.windows_desktop_is_interactive())
+
+    def test_release_runner_has_no_private_cheek_replay_switch(self):
+        runner = (SCRIPT_DIR / "optical-rig-test.py").read_text(encoding="utf-8")
+        self.assertNotIn("--with-local-cheek", runner)
+        self.assertNotIn("testdata/optical-rig/local", runner)
+        self.assertNotIn("load_local_cheek", runner)
+        self.assertFalse((SCRIPT_DIR / "import-cheek-calibration.py").exists())
+
     def test_video_scheduler_drops_late_frames_without_accumulating_drift(self):
         self.assertEqual(1, optical_stimulus.video_frames_due(10.0, 10.0, 1 / 30))
         self.assertEqual(3, optical_stimulus.video_frames_due(10.1, 10.0, 1 / 30))
+
+    def test_presenter_resolves_only_verified_media_cache_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+            presenter.media_root = Path(directory)
+            self.assertEqual(
+                Path(directory).resolve() / "public.webm",
+                presenter._resolve("/media/public.webm"),
+            )
+            with self.assertRaisesRegex(ValueError, "open-data media cache"):
+                presenter._resolve("/local/private-face.mp4")
+            with self.assertRaisesRegex(ValueError, "open-data media cache"):
+                presenter._resolve("C:/private-face.mp4")
 
     def test_presenter_registry_is_owned_and_removed_by_exact_pid(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -555,8 +637,16 @@ class OpenCvFramebufferTest(unittest.TestCase):
         )
         cases = {case["id"]: case for case in manifest["blink_cases"]}
         sources = {source["id"]: source for source in manifest["sources"]}
+        cheek_cases = {case["id"]: case for case in manifest["cheek_cases"]}
         self.assertEqual(0.75, sources["commons_blinking"]["rest_at_s"])
         self.assertEqual(0.0, sources["commons_smiling"]["rest_at_s"])
+        self.assertEqual(0.26, cheek_cases["cheek_smile_positive"]["face_height_at_zoom_1x"])
+        self.assertEqual(0.70, cheek_cases["cheek_smile_positive"]["target_face_height"])
+        for source in sources.values():
+            self.assertTrue(source["url"].startswith("https://"))
+            self.assertTrue(all(source.get(field) for field in (
+                "page", "license", "author", "sha1"
+            )))
         self.assertEqual(
             [0.75, 0.25, 0.75, 2.0, 0.75],
             [item["start"] for item in cases["blink_two_gestures_recovery"]["stills"]],

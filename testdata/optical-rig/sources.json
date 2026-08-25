@@ -131,6 +131,8 @@
       "id": "cheek_smile_positive",
       "source": "commons_smiling",
       "rest_at": 0.0,
+      "face_height_at_zoom_1x": 0.26,
+      "target_face_height": 0.70,
       "rate": 1.0,
       "expect": "activate",
       "severity": "P1",
