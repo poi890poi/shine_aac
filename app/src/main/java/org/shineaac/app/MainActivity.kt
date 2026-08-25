@@ -12,6 +12,8 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -57,6 +59,12 @@ class MainActivity : ComponentActivity() {
     @Volatile private var webViewPageReady = false
     private val pendingInputEvents = mutableListOf<Pair<InputEvent, Int?>>()
     private var cameraSwitchInput: CameraSwitchInputAdapter? = null
+    private val idleHandler = Handler(Looper.getMainLooper())
+    @Volatile private var communicationPaused = false
+    @Volatile private var powerSavingIdle = false
+    private var idleTimeoutMinutes = 0
+    private var brightnessBeforeIdle = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+    private val enterPowerSavingIdleRunnable = Runnable { enterPowerSavingIdle() }
     private var pendingTextHistoryExport: String? = null
     private var pendingTextHistoryExportFileName: String? = null
     private var lastTextHistoryExportUri: Uri? = null
@@ -125,6 +133,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applyOrientationPolicy()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        idleTimeoutMinutes = normalizedIdleTimeoutMinutes(
+            getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
+                .all["idleTimeoutMinutes"],
+        )
         moeBopomofoVoicePack = TaiwanVoicePack(
             this,
             "voice-packs/moe-bopomofo/manifest.json",
@@ -168,7 +180,7 @@ class MainActivity : ComponentActivity() {
                 CameraSwitchPreferences.read(this, enabled = cameraSwitchEnabled)
             },
             sink = InputSink { event ->
-                sendInputEvent(event)
+                handleCameraInput(event)
             }
         )
     }
@@ -232,10 +244,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        idleTimeoutMinutes = normalizedIdleTimeoutMinutes(
+            getSharedPreferences("shine_aac_config", Context.MODE_PRIVATE)
+                .all["idleTimeoutMinutes"],
+        )
         notifySpeechVoicesChanged()
         if (cameraSwitchEnabled && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             cameraSwitchInput?.start()
         }
+        scheduleIdleCountdown()
     }
 
     private fun notifySpeechVoicesChanged() {
@@ -272,6 +289,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        cancelIdleCountdown()
+        exitPowerSavingIdle()
         cameraSwitchInput?.stop()
         super.onPause()
     }
@@ -312,6 +331,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        cancelIdleCountdown()
+        exitPowerSavingIdle()
         cameraSwitchInput?.stop()
         cameraSwitchInput = null
         moeBopomofoVoicePack.close()
@@ -326,6 +347,69 @@ class MainActivity : ComponentActivity() {
         }
         ttsExecutor.shutdown()
         super.onDestroy()
+    }
+
+    private fun handleCameraInput(event: InputEvent) {
+        if (event.intent == "activate" && powerSavingIdle) {
+            runOnUiThread {
+                exitPowerSavingIdle()
+                sendInputEvent(event)
+            }
+            return
+        }
+        sendInputEvent(event)
+    }
+
+    private fun updateCommunicationPaused(paused: Boolean) {
+        communicationPaused = paused
+        cancelIdleCountdown()
+        if (!paused) {
+            exitPowerSavingIdle()
+            return
+        }
+        scheduleIdleCountdown()
+    }
+
+    private fun updateIdleTimeout(minutes: Int) {
+        idleTimeoutMinutes = normalizedIdleTimeoutMinutes(minutes)
+        cancelIdleCountdown()
+        if (idleTimeoutMinutes == 0) {
+            exitPowerSavingIdle()
+        } else {
+            scheduleIdleCountdown()
+        }
+    }
+
+    private fun scheduleIdleCountdown() {
+        cancelIdleCountdown()
+        if (!communicationPaused || idleTimeoutMinutes <= 0 || isFinishing) return
+        idleHandler.postDelayed(
+            enterPowerSavingIdleRunnable,
+            idleTimeoutMinutes * 60_000L,
+        )
+    }
+
+    private fun cancelIdleCountdown() {
+        idleHandler.removeCallbacks(enterPowerSavingIdleRunnable)
+    }
+
+    private fun enterPowerSavingIdle() {
+        if (!communicationPaused || idleTimeoutMinutes <= 0 || powerSavingIdle) return
+        powerSavingIdle = true
+        brightnessBeforeIdle = window.attributes.screenBrightness
+        window.attributes = window.attributes.apply {
+            screenBrightness = IdleWindowBrightness
+        }
+        cameraSwitchInput?.setPowerSavingIdle(true)
+    }
+
+    private fun exitPowerSavingIdle() {
+        if (!powerSavingIdle) return
+        powerSavingIdle = false
+        window.attributes = window.attributes.apply {
+            screenBrightness = brightnessBeforeIdle
+        }
+        cameraSwitchInput?.setPowerSavingIdle(false)
     }
 
     private fun sendInputEvent(event: InputEvent, keyCode: Int? = null) {
@@ -655,6 +739,10 @@ class MainActivity : ComponentActivity() {
                 .put("speechAfterReadMode", prefs.getString("speechAfterReadMode", "off"))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
                 .put("holdToAdvance", prefs.getBoolean("holdToAdvance", false))
+                .put(
+                    "idleTimeoutMinutes",
+                    normalizedIdleTimeoutMinutes(prefs.all["idleTimeoutMinutes"]),
+                )
                 .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
                 .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))
@@ -724,10 +812,14 @@ class MainActivity : ComponentActivity() {
                 JSONObject()
             }
             val nextInputProfile = normalizedInputProfile(config)
+            val nextIdleTimeoutMinutes = normalizedIdleTimeoutMinutes(
+                config.opt("idleTimeoutMinutes"),
+            )
             preferredSpeechVoiceName = normalizedSpeechVoiceName(
                 config.optString("speechVoiceName", "").take(200),
             )
             runOnUiThread {
+                updateIdleTimeout(nextIdleTimeoutMinutes)
                 switchInputProfile = nextInputProfile
                 hardwareButtonsEnabled = hardwareEnabledForProfile(switchInputProfile)
                 volumeButtonsEnabled = volumeEnabledForProfile(switchInputProfile)
@@ -746,6 +838,11 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+
+        @JavascriptInterface
+        fun setCommunicationPaused(paused: Boolean) {
+            runOnUiThread { updateCommunicationPaused(paused) }
         }
 
         @JavascriptInterface
@@ -817,6 +914,7 @@ class MainActivity : ComponentActivity() {
         const val MoeBopomofoVoiceName = "shine-aac-moe-bopomofo"
         const val AndroidSystemVoiceName = "android-system-default"
         const val SpeechPreviewText = "你好，我想喝水。"
+        const val IdleWindowBrightness = 0.12f
         const val E2ELogTag = "ShineAacE2E"
         const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
@@ -870,6 +968,17 @@ class MainActivity : ComponentActivity() {
 
 internal fun webTextZoomPercent(fontScale: Float): Int =
     (fontScale * 100f).roundToInt().coerceIn(50, 200)
+
+internal fun normalizedIdleTimeoutMinutes(value: Any?): Int {
+    val minutes = when (value) {
+        is Number -> value.toInt()
+        is String -> value.toIntOrNull()
+        else -> null
+    }
+    return minutes?.takeIf { it in IdleTimeoutMinuteOptions } ?: 0
+}
+
+private val IdleTimeoutMinuteOptions = setOf(0, 1, 5, 15, 30)
 
 internal fun hardwareActivationSource(keyCode: Int, volumeButtonsEnabled: Boolean = false): String? = when (keyCode) {
     KeyEvent.KEYCODE_VOLUME_UP -> if (volumeButtonsEnabled) "android-volume-up" else null

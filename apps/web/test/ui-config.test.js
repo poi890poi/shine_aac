@@ -5,6 +5,7 @@ import {
   ContrastThemes,
   currentUiConfigVersion,
   defaultUiConfig,
+  IdleTimeoutMinutes,
   moeBopomofoVoiceName,
   normalizeUiConfig,
   normalizeSwitchInputProfile,
@@ -94,6 +95,17 @@ test("camera hold-through is explicit, bounded, and disabled by default", () => 
   assert.match(appSource, /stage === ScanStage\.Rows[\s\S]*?ScanStage\.FirstCell/);
   assert.match(appSource, /selection \|\|[\s\S]*?!uiConfig\.holdToAdvance/);
   assert.match(appSource, /detail:\s*"holdToAdvance=1"/);
+});
+
+test("idle timeout is a short, bounded, opt-in setting", () => {
+  assert.deepEqual(IdleTimeoutMinutes, [0, 1, 5, 15, 30]);
+  assert.equal(defaultUiConfig.idleTimeoutMinutes, 0);
+  assert.equal(normalizeUiConfig({ idleTimeoutMinutes: 5 }).idleTimeoutMinutes, 5);
+  assert.equal(normalizeUiConfig({ idleTimeoutMinutes: "15" }).idleTimeoutMinutes, 15);
+  assert.equal(normalizeUiConfig({ idleTimeoutMinutes: 2 }).idleTimeoutMinutes, 0);
+  assert.match(appSource, /name="idleTimeoutMinutes"/);
+  assert.match(appSource, /session\.scannerState\.stage === ScanStage\.Stopped/);
+  assert.match(appSource, /setCommunicationPaused\?\.\(paused\)/);
 });
 
 test("replay and conversation display share the same locked subset", () => {

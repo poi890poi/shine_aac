@@ -3019,6 +3019,12 @@ async function scenarioVisibleEscapeLadder() {
     location.reload();
   `);
   await waitForUi();
+  await evaluate(`
+    globalThis.__communicationPausedStates = [];
+    globalThis.ShineAacAndroid = {
+      setCommunicationPaused: (paused) => globalThis.__communicationPausedStates.push(paused)
+    };
+  `);
 
   const stopped = await waitForActive(
     (snapshot) => snapshot.phase === "Stopped",
@@ -3038,6 +3044,10 @@ async function scenarioVisibleEscapeLadder() {
   ) {
     throw new Error(`Stopped scan state is not explicit and inert: ${JSON.stringify({ stopped, stoppedUi })}`);
   }
+  const pausedStates = await evaluate(`globalThis.__communicationPausedStates`);
+  if (JSON.stringify(pausedStates) !== JSON.stringify([true])) {
+    throw new Error(`Only stopped scanning should start native idle countdown: ${JSON.stringify(pausedStates)}`);
+  }
 
   await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "escape-ladder-e2e" })`);
   const resumed = await waitForActive(
@@ -3045,6 +3055,10 @@ async function scenarioVisibleEscapeLadder() {
     "wake activation to resume without selection"
   );
   if (resumed.message !== "") throw new Error(`Wake activation selected content: ${JSON.stringify(resumed)}`);
+  const resumedPausedStates = await evaluate(`globalThis.__communicationPausedStates`);
+  if (JSON.stringify(resumedPausedStates) !== JSON.stringify([true, false])) {
+    throw new Error(`Wake activation did not cancel native idle countdown: ${JSON.stringify(resumedPausedStates)}`);
+  }
 
   await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "escape-ladder-e2e" })`);
   const returned = await waitForActive(
@@ -3056,6 +3070,10 @@ async function scenarioVisibleEscapeLadder() {
   if (!returnedLabel.startsWith("Back to rows · Pass 1 / 2") || returned.message !== "") {
     throw new Error(`Cell escape did not return visibly and safely: ${JSON.stringify({ returned, returnedLabel })}`);
   }
+  await evaluate(`
+    delete globalThis.ShineAacAndroid;
+    delete globalThis.__communicationPausedStates;
+  `);
   steps.push(pass("visible-escape-ladder", "two missed item passes return to the same row; two board passes stop; wake activation only resumes"));
 
   await evaluate(`

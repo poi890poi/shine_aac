@@ -59,6 +59,7 @@ internal object SettingsStore {
         putBoolean(editor, uiConfig, "restartScanFromTop", true)
         putBoolean(editor, uiConfig, "verticalGroupProgress", false)
         putBoolean(editor, uiConfig, "holdToAdvance", false)
+        putString(editor, uiConfig, "idleTimeoutMinutes", "0")
         putString(editor, uiConfig, "switchInputProfile", "hardware-buttons")
         putString(editor, uiConfig, "contrastTheme", "system")
         editor.apply()
@@ -103,6 +104,10 @@ internal object SettingsStore {
             .put("restartScanFromTop", booleanValue(prefs, "restartScanFromTop", true))
             .put("verticalGroupProgress", booleanValue(prefs, "verticalGroupProgress", false))
             .put("holdToAdvance", booleanValue(prefs, "holdToAdvance", false))
+            .put(
+                "idleTimeoutMinutes",
+                stringValue(prefs, "idleTimeoutMinutes", "0").toIntOrNull() ?: 0,
+            )
             .put("switchInputProfile", stringValue(prefs, "switchInputProfile", "hardware-buttons"))
             .put("contrastTheme", stringValue(prefs, "contrastTheme", "system"))
             .toString()

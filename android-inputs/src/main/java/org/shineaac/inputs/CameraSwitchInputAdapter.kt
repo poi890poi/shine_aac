@@ -16,8 +16,11 @@ import android.util.Range
 import android.util.Size
 import android.view.Surface
 import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -47,6 +50,8 @@ class CameraSwitchInputAdapter(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val mainExecutor = Executor { command -> mainHandler.post(command) }
     private var cameraProvider: ProcessCameraProvider? = null
+    private var activeCamera: Camera? = null
+    private var activeCameraId: String? = null
     private var imageAnalysis: ImageAnalysis? = null
     private var usbMonitor: USBMonitor? = null
     private var uvcCamera: UVCCamera? = null
@@ -90,6 +95,17 @@ class CameraSwitchInputAdapter(
     private var generation = 0
     private var watchdogScheduled = false
     private var running = false
+    @Volatile private var powerSavingIdle = false
+
+    fun setPowerSavingIdle(enabled: Boolean) {
+        if (powerSavingIdle == enabled) return
+        powerSavingIdle = enabled
+        mainHandler.post {
+            if (!running) return@post
+            applyTargetCameraFps()
+            sendStatus(if (enabled) "powerSaving" else "active", force = true)
+        }
+    }
 
     @SuppressLint("MissingPermission")
     override fun start() {
@@ -179,6 +195,8 @@ class CameraSwitchInputAdapter(
             }
         }
         imageAnalysis = null
+        activeCamera = null
+        activeCameraId = null
         cameraProvider = null
         stopUvcCamera()
         detector?.close()
@@ -247,7 +265,7 @@ class CameraSwitchInputAdapter(
                 .setBackpressureStrategy(
                     ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
                 )
-            targetFpsRange(selectedCamera.cameraId)?.let { range ->
+            targetFpsRange(selectedCamera.cameraId, requestedCameraFps())?.let { range ->
                 Camera2Interop.Extender(builder).setCaptureRequestOption(
                     CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
                     range
@@ -264,6 +282,8 @@ class CameraSwitchInputAdapter(
                 checkNotNull(selectedCamera.selector),
                 analysis
             )
+            activeCamera = camera
+            activeCameraId = selectedCamera.cameraId
             applyZoom(camera, settingsProvider().zoomRatio)
             Log.i(
                 Tag,
@@ -456,10 +476,7 @@ class CameraSwitchInputAdapter(
         }
         val settings = settingsProvider()
         val now = System.currentTimeMillis()
-        val interval = when (settings.gesture) {
-            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
-            OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
-        }
+        val interval = cameraAnalysisIntervalMs(settings.gesture, powerSavingIdle)
         if (!settings.enabled || now - lastFrameAt < interval) {
             uvcFrameQueued = false
             return
@@ -639,7 +656,7 @@ class CameraSwitchInputAdapter(
         )
     }
 
-    private fun targetFpsRange(cameraId: String): Range<Int>? {
+    private fun targetFpsRange(cameraId: String, targetFps: Int): Range<Int>? {
         val manager =
             context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val ranges = manager.getCameraCharacteristics(cameraId)
@@ -652,12 +669,31 @@ class CameraSwitchInputAdapter(
             }
             .minWithOrNull(
                 compareBy<Range<Int>> {
-                    kotlin.math.abs(it.upper - TargetCameraFps)
+                    kotlin.math.abs(it.upper - targetFps)
                 }.thenBy { it.lower }
             )
             ?: ranges.minWithOrNull(
                 compareBy<Range<Int>> { it.upper }.thenBy { it.lower }
             )
+    }
+
+    private fun requestedCameraFps(): Int =
+        if (powerSavingIdle) IdleTargetCameraFps else TargetCameraFps
+
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    private fun applyTargetCameraFps() {
+        val camera = activeCamera ?: return
+        val cameraId = activeCameraId ?: return
+        val range = targetFpsRange(cameraId, requestedCameraFps()) ?: return
+        try {
+            Camera2CameraControl.from(camera.cameraControl).setCaptureRequestOptions(
+                CaptureRequestOptions.Builder()
+                    .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+                    .build()
+            )
+        } catch (error: Exception) {
+            Log.w(Tag, "Unable to adjust camera FPS for idle state", error)
+        }
     }
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
@@ -674,10 +710,7 @@ class CameraSwitchInputAdapter(
         }
 
         val now = System.currentTimeMillis()
-        val detectorIntervalMs = when (settings.gesture) {
-            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
-            OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
-        }
+        val detectorIntervalMs = cameraAnalysisIntervalMs(settings.gesture, powerSavingIdle)
         if (now - lastFrameAt < detectorIntervalMs) {
             imageProxy.close()
             return
@@ -906,14 +939,20 @@ class CameraSwitchInputAdapter(
 
     private fun sendStatus(state: String, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (!force && now - lastStatusSentAt < StatusIntervalMs) return
+        val intervalMs = if (powerSavingIdle) IdleStatusIntervalMs else StatusIntervalMs
+        if (!force && now - lastStatusSentAt < intervalMs) return
         lastStatusSentAt = now
+        val reportedState = if (powerSavingIdle && state in setOf("active", "analysis")) {
+            "powerSaving"
+        } else {
+            state
+        }
         sink.onInput(
             InputEvent(
                 intent = "cameraStatus",
                 source = activeSource,
                 detail = buildString {
-                    append("state=").append(state)
+                    append("state=").append(reportedState)
                     lastReportedScore?.let { append(";score=").append("%.4f".format(it)) }
                     append(";threshold=").append("%.4f".format(activeEnterThreshold))
                 }
@@ -945,12 +984,11 @@ class CameraSwitchInputAdapter(
     )
     private companion object {
         const val NoFrame = -1L
-        // Match the requested 10 fps camera stream. At 5 fps, rapid ordinary
-        // blinks can alias into consecutive closed samples and look like one
-        // long hold; KEEP_ONLY_LATEST still prevents analysis backlogs.
-        const val MlKitFrameIntervalMs = 100L
-        const val CheekFrameIntervalMs = 66L
+        // Active input keeps the physically verified cadence. Opt-in idle
+        // halves capture and analysis work but keeps the camera available for
+        // a wake-only gesture.
         const val TargetCameraFps = 10
+        const val IdleTargetCameraFps = 5
         const val MinCameraFps = 5
         const val MaxCameraFps = 15
         const val MlKitTimeoutMs = 2500L
@@ -958,7 +996,17 @@ class CameraSwitchInputAdapter(
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
+        const val IdleStatusIntervalMs = 2000L
         const val CheekPerfLogFrames = 50
         const val Tag = "ShineCameraSwitch"
     }
+}
+
+internal fun cameraAnalysisIntervalMs(
+    gesture: OpticalSwitchGesture,
+    powerSavingIdle: Boolean,
+): Long = when {
+    powerSavingIdle -> 200L
+    gesture == OpticalSwitchGesture.LongBlink -> 100L
+    else -> 66L
 }

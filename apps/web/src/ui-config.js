@@ -2,6 +2,7 @@ export const moeBopomofoVoiceName = "shine-aac-moe-bopomofo";
 export const androidSystemVoiceName = "android-system-default";
 export const currentUiConfigVersion = 1;
 export const SpeechAfterReadModes = Object.freeze(["off", "replay", "conversation"]);
+export const IdleTimeoutMinutes = Object.freeze([0, 1, 5, 15, 30]);
 
 export const defaultUiConfig = Object.freeze({
   uiConfigVersion: currentUiConfigVersion,
@@ -13,6 +14,7 @@ export const defaultUiConfig = Object.freeze({
   restartScanFromTop: true,
   verticalGroupProgress: false,
   holdToAdvance: false,
+  idleTimeoutMinutes: 0,
   hardwareButtons: true,
   cameraSwitch: false,
   switchInputProfile: "hardware-buttons",
@@ -81,6 +83,10 @@ export function normalizeUiConfig(config) {
   const speechAfterReadMode = SpeechAfterReadModes.includes(config.speechAfterReadMode)
     ? config.speechAfterReadMode
     : defaultUiConfig.speechAfterReadMode;
+  const requestedIdleTimeoutMinutes = Number(config.idleTimeoutMinutes);
+  const idleTimeoutMinutes = IdleTimeoutMinutes.includes(requestedIdleTimeoutMinutes)
+    ? requestedIdleTimeoutMinutes
+    : defaultUiConfig.idleTimeoutMinutes;
   const normalized = {
     ...defaultUiConfig,
     ...config,
@@ -90,6 +96,7 @@ export function normalizeUiConfig(config) {
     speechVoiceName,
     speechAfterReadMode,
     holdToAdvance: config.holdToAdvance === true,
+    idleTimeoutMinutes,
     switchInputProfile: profile,
     contrastTheme,
     hardwareButtons: profile === "hardware-buttons" ||

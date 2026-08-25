@@ -145,6 +145,7 @@ class SectionSettingsPreferenceFragment : PreferenceFragmentCompat() {
         configureList("speechAfterReadMode")
         configureList("switchInputProfile")
         configureList("contrastTheme")
+        configureList("idleTimeoutMinutes")
         configureNumericEditor("columns")
         configureLargeTextEditor("suggestionDictionary", R.string.settings_dictionary_summary)
         configureLargeTextEditor("symbols", R.string.settings_symbols_summary)
@@ -245,6 +246,13 @@ class SectionSettingsPreferenceFragment : PreferenceFragmentCompat() {
             getString(R.string.settings_language_taiwan) to "zh-TW",
         )
         "scanTimingPreset" -> listOf(getString(R.string.settings_custom) to "custom")
+        "idleTimeoutMinutes" -> listOf(
+            getString(R.string.settings_idle_off) to "0",
+            getString(R.string.settings_idle_1_minute) to "1",
+            getString(R.string.settings_idle_5_minutes) to "5",
+            getString(R.string.settings_idle_15_minutes) to "15",
+            getString(R.string.settings_idle_30_minutes) to "30",
+        )
         else -> emptyList()
     }
 

@@ -42,6 +42,7 @@ import {
   androidSystemVoiceName,
   ContrastThemes,
   defaultUiConfig,
+  IdleTimeoutMinutes,
   loadUiConfig,
   normalizeUiConfig,
   saveUiConfig,
@@ -170,6 +171,20 @@ function contrastThemeOptionsHtml(selected) {
   }).join("");
 }
 
+function idleTimeoutOptionsHtml(selected) {
+  const labels = {
+    0: uiText("Off", "關閉"),
+    1: uiText("1 minute", "1 分鐘"),
+    5: uiText("5 minutes", "5 分鐘"),
+    15: uiText("15 minutes", "15 分鐘"),
+    30: uiText("30 minutes", "30 分鐘")
+  };
+  return IdleTimeoutMinutes.map((minutes) => {
+    const isSelected = minutes === selected ? " selected" : "";
+    return `<option value="${minutes}"${isSelected}>${escapeHtml(labels[minutes])}</option>`;
+  }).join("");
+}
+
 const initialConfig = loadConfig();
 let uiConfig = loadUiConfig(uiStorageKey);
 let session = createSession({ config: initialConfig, ...loadSessionDraft(initialConfig) });
@@ -229,6 +244,7 @@ let animationFrameId = 0;
 let scanScheduleToken = 0;
 let cameraStatus = { state: "off", label: "Camera off", updatedAt: 0 };
 let cameraStatusTimerId = 0;
+let lastNativeCommunicationPaused = null;
 let opticalScore = null;
 let opticalThreshold = null;
 let calibrationState = createCalibrationState();
@@ -1304,6 +1320,8 @@ function cameraStatusLabel(state) {
       return zhTw ? "相機正常" : "Cam live";
     case "analysis":
       return zhTw ? "相機正常" : "Cam live";
+    case "powerSaving":
+      return zhTw ? "待機" : "Idle";
     case "blink":
       return zhTw ? "偵測眨眼" : "Blink";
     case "restarting":
@@ -1325,6 +1343,18 @@ function cameraStatusLabel(state) {
       return zhTw ? "相機關閉" : "Camera off";
     default:
       return zhTw ? "相機狀態" : "Camera status";
+  }
+}
+
+function syncNativeCommunicationPaused() {
+  const paused = currentAppPage() === "board" &&
+    session.scannerState.stage === ScanStage.Stopped;
+  if (paused === lastNativeCommunicationPaused) return;
+  lastNativeCommunicationPaused = paused;
+  try {
+    globalThis.ShineAacAndroid?.setCommunicationPaused?.(paused);
+  } catch {
+    // The browser build and older Android shells do not expose this lifecycle bridge.
   }
 }
 
@@ -1425,6 +1455,7 @@ function isZhuyinSpeechTile(tile) {
 }
 
 function render() {
+  syncNativeCommunicationPaused();
   const board = visibleBoard(session);
   const boardKey = boardSignature(board);
   const canPatch =
@@ -2647,6 +2678,11 @@ function renderConfig() {
           ${contrastThemeOptionsHtml(uiConfig.contrastTheme)}
         </select>
       </label>
+      <label class="field">${uiText("Idle timeout", "待機時間")}
+        <select name="idleTimeoutMinutes">
+          ${idleTimeoutOptionsHtml(uiConfig.idleTimeoutMinutes)}
+        </select>
+      </label>
       <div class="field">
         <button class="secondary-button" type="button" data-action="camera-calibration">${uiText("Camera setup", "相機設定")}</button>
       </div>
@@ -2786,7 +2822,8 @@ function renderConfig() {
       verticalGroupProgress: data.get("verticalGroupProgress") === "on",
       holdToAdvance: data.get("holdToAdvance") === "on",
       switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
-      contrastTheme: String(data.get("contrastTheme") ?? uiConfig.contrastTheme)
+      contrastTheme: String(data.get("contrastTheme") ?? uiConfig.contrastTheme),
+      idleTimeoutMinutes: Number(data.get("idleTimeoutMinutes") ?? 0)
     });
     applyContrastTheme(uiConfig.contrastTheme);
     saveUiConfig(uiStorageKey, uiConfig);
