@@ -1,18 +1,19 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-20T12:26:57.729Z
+Generated: 2026-08-25T04:11:10.429Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| server | PASS | served http://127.0.0.1:5173/apps/web/ |
+| packaged-webview-build | PASS | built Android WebView assets with esbuild |
+| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":61.09999996423721,"resetTargetToProgressMs":24.5,"rowDeadlineDriftMs":-19.899999976158142,"nextRowTargetToProgressMs":19.100000023841858,"activationToTargetMs":1.9000000357627869,"activationTargetToProgressMs":31.80000001192093,"firstDeadlineDriftMs":-21.30000001192093,"secondTargetToProgressMs":21.5,"laterDeadlineDriftMs":-16.100000023841858,"thirdTargetToProgressMs":31.80000001192093,"selectionToHoldMs":7.100000023841858,"holdReleaseToTargetMs":0.699999988079071,"selectionTargetToProgressMs":31.400000035762787} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":72.79999999701977,"resetTargetToProgressMs":32.599999994039536,"rowDeadlineDriftMs":-29.5,"nextRowTargetToProgressMs":29,"activationToTargetMs":1.5,"activationTargetToProgressMs":31.700000002980232,"firstDeadlineDriftMs":-26.599999994039536,"secondTargetToProgressMs":26.200000002980232,"laterDeadlineDriftMs":-22.5,"thirdTargetToProgressMs":23.19999998807907,"selectionToHoldMs":4.4000000059604645,"holdReleaseToTargetMs":0.8999999910593033,"selectionTargetToProgressMs":23.900000005960464} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
@@ -28,8 +29,11 @@ Result: PASS
 | undo-completion | PASS | selected UNDO and restored the spelling before whole-word completion |
 | text-history-reset | PASS | started a new history line only after CLR and kept later edits on that line |
 | text-history-migration | PASS | compacted version 1 and code-42 version 2 per-input snapshots into one live line |
+| speech-lock-conversation-display | PASS | fits 1 rows in 851px viewport without scrolling |
+| speech-lock-conversation | PASS | enhanced mode shows two prior spoken messages, excludes drafts, and keeps Speak/Clear/Edit in one compact row |
 | review-hold | PASS | state changes always hold row 1 and resume on the next activation |
 | input-calibration | PASS | records reliable switch activations and noisy sensor rest/trial diagnostics without changing the message |
+| config-profile-relevance | PASS | shows the Zhuyin-only option only for zh-TW and resets it when returning to English |
 | app-info | PASS | shows version, user data facts, and help links without diagnostics or release-test instructions |
 | text-export-result | PASS | shows the saved filename, opens the exact Android document directly, and reports write failures |
 | speech-voice-settings | PASS | uses a dedicated accessible list with engine, ready/downloadable states, inline preview, immediate selection, and refresh |
@@ -65,7 +69,7 @@ Result: PASS
 | zh-tw-demo-mode | PASS | greedily completed a visible candidate after direct first-layer Zhuyin input (1 matched characters) |
 | singleton-row-auto-activation | PASS | both modes skip redundant singleton item activation; block mode also skips redundant activation for a one-row block |
 | block-row-column | PASS | reused the exact en-US and zh-TW suggestions/layout, showed downward block/row progress, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit |
-| screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
+| screenshot | PASS | E:\workspace\shine_aac\.tmp\release-v034-head\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:
 

@@ -1,6 +1,6 @@
 # zh-TW Phonetic Access Report
 
-Generated: 2026-08-13T14:22:19.386Z
+Generated: 2026-08-25T03:30:16.685Z
 
 This report treats Zhuyin input as an AAC access graph with a complete, stable first-layer symbol inventory.
 It measures whether all phonetic paths and dictionary-backed candidates remain reachable without hidden symbols or hand-crafted phrase shortcuts.
@@ -11,7 +11,7 @@ It measures whether all phonetic paths and dictionary-backed candidates remain r
 - First-layer Zhuyin columns: 6
 - Static Zhuyin symbols: 37 / 37
 - Static symbol set: ㄅ ㄆ ㄇ ㄈ ㄉ ㄊ ㄋ ㄌ ㄍ ㄎ ㄏ ㄐ ㄑ ㄒ ㄓ ㄔ ㄕ ㄖ ㄗ ㄘ ㄙ ㄧ ㄨ ㄩ ㄚ ㄛ ㄜ ㄝ ㄞ ㄟ ㄠ ㄡ ㄢ ㄣ ㄤ ㄥ ㄦ
-- Dictionary entries analyzed: 60000
+- Dictionary entries analyzed: 60513
 - Weighted first-symbol coverage: 100.00%
 - Hidden continuation symbols with dictionary prefixes: 0
 - Hidden continuation symbols with at least one blocked prefix: 0
@@ -22,22 +22,22 @@ It measures whether all phonetic paths and dictionary-backed candidates remain r
 
 | Symbol | Static | Entries | Weight |
 | --- | --- | ---: | ---: |
-| ㄧ | yes | 3843 | 6854236.00 |
-| ㄐ | yes | 4524 | 6753670.00 |
-| ㄕ | yes | 4146 | 6171006.00 |
-| ㄒ | yes | 3739 | 5941008.00 |
-| ㄓ | yes | 3870 | 5818278.00 |
-| ㄉ | yes | 3653 | 5371430.00 |
-| ㄍ | yes | 3032 | 4271002.00 |
-| ㄅ | yes | 3524 | 4071870.00 |
-| ㄊ | yes | 2460 | 3928947.00 |
-| ㄨ | yes | 2128 | 3406720.00 |
-| ㄌ | yes | 2756 | 3350392.00 |
-| ㄏ | yes | 2935 | 3342284.00 |
-| ㄑ | yes | 2217 | 3340220.00 |
-| ㄗ | yes | 1755 | 3002579.00 |
-| ㄈ | yes | 2120 | 2695200.00 |
-| ㄔ | yes | 2225 | 2656625.00 |
+| ㄧ | yes | 3871 | 6855320.00 |
+| ㄐ | yes | 4553 | 6748757.00 |
+| ㄕ | yes | 4165 | 6171725.00 |
+| ㄒ | yes | 3758 | 5941082.00 |
+| ㄓ | yes | 3906 | 5819875.00 |
+| ㄉ | yes | 3673 | 5372496.00 |
+| ㄍ | yes | 3062 | 4272281.00 |
+| ㄅ | yes | 3544 | 4072674.00 |
+| ㄊ | yes | 2481 | 3929836.00 |
+| ㄨ | yes | 2146 | 3407641.00 |
+| ㄌ | yes | 2795 | 3351486.00 |
+| ㄏ | yes | 2962 | 3343684.00 |
+| ㄑ | yes | 2235 | 3340827.00 |
+| ㄗ | yes | 1762 | 3002892.00 |
+| ㄈ | yes | 2132 | 2695736.00 |
+| ㄔ | yes | 2247 | 2657466.00 |
 
 ## Hidden Continuation Symbols
 
