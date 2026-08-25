@@ -685,6 +685,28 @@ def e2e_input_count(log_text, intent, source):
     return count
 
 
+def e2e_camera_statuses(log_text, source):
+    states = []
+    for payload in re.findall(r"SHINE_AAC_E2E_INPUT\s+(\{[^\r\n]+\})", log_text or ""):
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if event.get("intent") != "cameraStatus" or event.get("source") != source:
+            continue
+        match = re.search(r"(?:^|;)state=([^;]+)", str(event.get("detail", "")))
+        if match:
+            states.append(match.group(1))
+    return states
+
+
+def window_brightness_values(dumpsys_text):
+    return [
+        float(value)
+        for value in re.findall(r"screenBrightness=([-+]?[0-9]*\.?[0-9]+)", dumpsys_text or "")
+    ]
+
+
 def observed_case_activations(log_text, source, before_phase, after_phase, scan_mode):
     """Prefer exact diagnostic events; fall back to visible scan displacement."""
     if re.search(
@@ -1642,6 +1664,68 @@ class OpticalRig:
             self.add("P0", "Demo board unavailable", "zh-TW demo profile did not launch.")
             return False
         self.pass_("temporary demo profile", "zh-TW camera input with E2E timing only")
+        return True
+
+    def install_feature_profile(self, feature):
+        """Install a temporary profile for one focused physical feature test."""
+        if feature not in ("hold-advance", "idle-wake"):
+            raise ValueError("unknown focused feature: " + str(feature))
+        self.device.shell("am", "force-stop", PACKAGE, check=False)
+        original = self.device.shell(
+            "run-as", PACKAGE, "cat", CONFIG_PREFS, check=False
+        )
+        self.demo_config_existed = original.returncode == 0
+        self.demo_config_original = original.stdout or ""
+        hold_advance = feature == "hold-advance"
+        profile = """<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <int name="columns" value="6" />
+    <int name="configVersion" value="33" />
+    <int name="scanPassLimit" value="%d" />
+    <string name="profileId">zh-TW</string>
+    <string name="scanMode">%s</string>
+    <string name="scanTimingPreset">custom</string>
+    <string name="idleTimeoutMinutes">%s</string>
+    <boolean name="e2eEnabled" value="true" />
+    <boolean name="rowScanVoice" value="false" />
+    <boolean name="scanVoice" value="false" />
+    <boolean name="activationVoice" value="false" />
+    <boolean name="restartScanFromTop" value="true" />
+    <boolean name="holdToAdvance" value="%s" />
+    <string name="switchInputProfile">camera-long-blink</string>
+    <boolean name="hardwareButtons" value="false" />
+    <boolean name="cameraSwitch" value="true" />
+    <float name="scanIntervalMs" value="%s" />
+    <float name="transitionPauseMs" value="0.0" />
+    <float name="firstCellPauseMs" value="%s" />
+    <float name="inputLatencyCompensationMs" value="250.0" />
+</map>
+""" % (
+            0 if hold_advance else 1,
+            "block-row-column" if hold_advance else "row-column",
+            "0" if hold_advance else "1",
+            "true" if hold_advance else "false",
+            "4000.0" if hold_advance else "300.0",
+            "8000.0" if hold_advance else "300.0",
+        )
+        local_path = self.outdir / ("%s-config.applied.xml" % feature)
+        local_path.write_text(profile, encoding="utf-8")
+        remote = "/data/local/tmp/shine-aac-%s-config.xml" % feature
+        pushed = self.device.adb_cmd(
+            "push", str(local_path), remote, check=False, timeout=30
+        )
+        copied = self.device.shell(
+            "run-as", PACKAGE, "cp", remote, CONFIG_PREFS,
+            check=False, timeout=30,
+        ) if pushed.returncode == 0 else pushed
+        self.device.shell("rm", "-f", remote, check=False)
+        if copied.returncode != 0:
+            self.add("P0", "Could not install focused feature profile", feature)
+            return False
+        self.pass_(
+            "temporary focused profile",
+            "%s settings only; original preferences will be restored" % feature,
+        )
         return True
 
     def enable_e2e_telemetry(self):
@@ -3663,6 +3747,200 @@ class OpticalRig:
             return None
         return phase
 
+    def focused_positive_case(self, gesture, manifest):
+        if gesture == "cheek":
+            candidates = [
+                dict(case, gesture="cheek")
+                for case in manifest.get("cheek_cases", [])
+                if case.get("expect") == "activate"
+            ]
+            return candidates[0] if candidates else None
+        case = next((
+            dict(item, gesture="blink")
+            for item in manifest.get("blink_cases", [])
+            if item.get("id") == "blink_long_positive_01"
+        ), None)
+        return case
+
+    def run_hold_advance_feature(self, manifest, source_by_id):
+        case = self.focused_positive_case("blink", manifest)
+        if not case:
+            self.add("P0", "No blink stimulus for Hold to advance", "")
+            return False
+        if not self.wait_demo_state(stage="Blocks", timeout=12.0):
+            self.add("P0", "Hold test did not start in block scanning", "")
+            return False
+        if not self.demo_show_rest(case, source_by_id, "HOLD INITIAL REST"):
+            return False
+        if not self.demo_activate_with_retries(
+            case, source_by_id, "HOLD RELEASE INITIAL REVIEW"
+        ):
+            return False
+        time.sleep(1.0)
+        self.clear_runtime_log()
+        if not self.demo_show_rest(case, source_by_id, "HOLD PRE-ROLL"):
+            return False
+        time.sleep(0.8)
+        before = latest_e2e_state(self.e2e_log()) or {}
+        before_message = str(before.get("message", ""))
+        source = source_by_id[case["source"]]
+        if not self.show_video_still(
+            source, 3.00, "HOLD TO ADVANCE — KEEP CLOSED"
+        ):
+            return False
+        source_name = "android-camera-long-blink"
+        selected = None
+        deadline = time.time() + 7.0
+        while time.time() < deadline:
+            state = latest_e2e_state(self.e2e_log()) or {}
+            if str(state.get("message", "")) != before_message:
+                selected = state
+                break
+            time.sleep(0.2)
+        self.device.screenshot("hold_advance_leaf_while_closed")
+        if not selected:
+            self.add(
+                "P1", "Sustained gesture did not reach a leaf",
+                "One real long blink did not change the message through block, first row, and first cell.",
+                ["device/screenshots/hold_advance_leaf_while_closed.png"],
+            )
+            self.show_video_still(source, 0.75, "HOLD RELEASE")
+            return False
+        selected_message = str(selected.get("message", ""))
+        first_count = e2e_input_count(self.e2e_log(), "activate", source_name)
+        time.sleep(1.5)
+        latched = latest_e2e_state(self.e2e_log()) or {}
+        latched_count = e2e_input_count(self.e2e_log(), "activate", source_name)
+        self.device.screenshot("hold_advance_latched_while_closed")
+        self.show_video_still(source, 0.75, "HOLD RELEASE")
+        time.sleep(1.0)
+        result = {
+            "before_message": before_message,
+            "selected_message": selected_message,
+            "latched_message": str(latched.get("message", "")),
+            "native_activation_count_at_leaf": first_count,
+            "native_activation_count_while_latched": latched_count,
+            "final_stage": latched.get("stage"),
+        }
+        (self.outdir / "hold-advance-feature.json").write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        if (
+            not selected_message or
+            str(latched.get("message", "")) != selected_message or
+            first_count != 1 or latched_count != 1
+        ):
+            self.add(
+                "P1", "Hold to advance was not bounded",
+                json.dumps(result, ensure_ascii=False),
+                [
+                    "hold-advance-feature.json",
+                    "device/screenshots/hold_advance_leaf_while_closed.png",
+                    "device/screenshots/hold_advance_latched_while_closed.png",
+                ],
+            )
+            return False
+        self.pass_(
+            "physical Hold to advance",
+            "one real sustained blink selected one leaf and remained latched until release",
+        )
+        return True
+
+    def run_idle_wake_feature(self, gesture, manifest, source_by_id):
+        case = self.focused_positive_case(gesture, manifest)
+        if not case:
+            self.add("P0", "No positive stimulus for idle wake", gesture)
+            return False
+        source_name = (
+            "android-camera-cheek-twitch"
+            if gesture == "cheek" else "android-camera-long-blink"
+        )
+        if not self.wait_demo_state(stage="Rows", timeout=12.0):
+            self.add("P0", "Idle test did not start in row scanning", gesture)
+            return False
+        if not self.demo_show_rest(case, source_by_id, "IDLE INITIAL REST"):
+            return False
+        if not self.demo_activate_with_retries(
+            case, source_by_id, "IDLE RELEASE INITIAL REVIEW"
+        ):
+            return False
+        stopped = self.wait_demo_state(stage="Stopped", timeout=18.0)
+        if not stopped:
+            self.add(
+                "P1", "Scanner did not stop before idle countdown",
+                "The focused profile uses one scan pass, but no Stopped state appeared.",
+            )
+            return False
+        stopped_message = str(stopped.get("message", ""))
+        self.clear_runtime_log()
+        if not self.demo_show_rest(case, source_by_id, "IDLE WAIT"):
+            return False
+        idle_log = ""
+        idle_deadline = time.time() + 75.0
+        while time.time() < idle_deadline:
+            idle_log = self.e2e_log()
+            if "powerSaving" in e2e_camera_statuses(idle_log, source_name):
+                break
+            time.sleep(0.5)
+        (self.outdir / "idle-camera.log").write_text(
+            idle_log, encoding="utf-8", errors="replace"
+        )
+        idle_statuses = e2e_camera_statuses(idle_log, source_name)
+        if "powerSaving" not in idle_statuses:
+            self.add(
+                "P1", "Paused idle did not engage",
+                "No powerSaving camera status appeared after a full Stopped-only timeout.",
+                ["idle-camera.log"],
+            )
+            return False
+        brightness_result = self.device.shell(
+            "dumpsys", "window", "windows", check=False
+        )
+        brightness_text = brightness_result.stdout or ""
+        (self.outdir / "idle-window.txt").write_text(
+            brightness_text, encoding="utf-8", errors="replace"
+        )
+        brightness_values = window_brightness_values(brightness_text)
+        self.device.screenshot("idle_power_saving")
+        activation_started = time.time()
+        if not self.demo_activate(case, source_by_id, "IDLE OPTICAL WAKE"):
+            return False
+        resumed = self.wait_demo_state(
+            stage="Rows", message=stopped_message, timeout=12.0,
+            not_before_epoch_s=activation_started,
+        )
+        wake_log = self.e2e_log()
+        wake_statuses = e2e_camera_statuses(wake_log, source_name)
+        self.device.screenshot("idle_resumed")
+        result = {
+            "gesture": gesture,
+            "stopped_message": stopped_message,
+            "idle_statuses": idle_statuses,
+            "window_brightness_values": brightness_values,
+            "resumed_stage": (resumed or {}).get("stage"),
+            "resumed_message": (resumed or {}).get("message"),
+            "wake_statuses": wake_statuses,
+        }
+        (self.outdir / "idle-wake-feature.json").write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        if not resumed:
+            self.add(
+                "P1", "Idle optical activation did not wake safely",
+                json.dumps(result, ensure_ascii=False),
+                [
+                    "idle-wake-feature.json", "idle-camera.log",
+                    "device/screenshots/idle_power_saving.png",
+                    "device/screenshots/idle_resumed.png",
+                ],
+            )
+            return False
+        self.pass_(
+            "physical paused idle wake",
+            "%s entered powerSaving only after Stopped; one gesture resumed without selection" % gesture,
+        )
+        return True
+
     def play_case(self, case, source_by_id=None, retry=0):
         label = case["id"]
         cooled = self.guard("optical-case-"+label)
@@ -4270,10 +4548,38 @@ class OpticalRig:
                     return 1 if any(
                         item["priority"] in ("P0", "P1") for item in self.findings
                     ) else 0
+                if self.args.test_hold_advance:
+                    if not self.install_feature_profile("hold-advance"):
+                        self.write_report(calibration)
+                        return 2
+                elif self.args.test_idle_wake:
+                    if not self.install_feature_profile("idle-wake"):
+                        self.write_report(calibration)
+                        return 2
                 self.clear_optical_camera_log()
                 if not self.prepare_runtime_from_session():
                     self.write_report(calibration)
                     return 2
+                if self.args.test_hold_advance:
+                    if not self.verify_runtime_camera_selection():
+                        self.write_report(calibration)
+                        return 2
+                    self.run_hold_advance_feature(manifest, source_by_id)
+                    self.write_report(calibration)
+                    return 1 if any(
+                        item["priority"] in ("P0", "P1") for item in self.findings
+                    ) else 0
+                if self.args.test_idle_wake:
+                    if not self.verify_runtime_camera_selection():
+                        self.write_report(calibration)
+                        return 2
+                    self.run_idle_wake_feature(
+                        session_gesture, manifest, source_by_id
+                    )
+                    self.write_report(calibration)
+                    return 1 if any(
+                        item["priority"] in ("P0", "P1") for item in self.findings
+                    ) else 0
                 if self.args.trace_hold:
                     if not self.install_demo_profile():
                         self.write_report(calibration)
@@ -4540,6 +4846,10 @@ def main():
                     help="with --runtime-only, create a reusable cheek session from downloaded public video")
     ap.add_argument("--demo-phrase", action="store_true",
                     help="with --runtime-only, run the extended normal-use scenario using physical camera gestures")
+    ap.add_argument("--test-hold-advance", action="store_true",
+                    help="with --runtime-only blink, prove one sustained gesture selects one bounded leaf")
+    ap.add_argument("--test-idle-wake", action="store_true",
+                    help="with --runtime-only, prove Stopped-only idle and wake-only optical activation")
     ap.add_argument("--case", action="append", default=[],
                     help="with --runtime-only, run only this case ID (repeatable)")
     ap.add_argument("--repeat", type=int, default=1,
@@ -4568,6 +4878,10 @@ def main():
         ap.error("--calibrate-cheek-session starts from the reusable blink geometry fixture")
     if args.demo_phrase and not args.runtime_only:
         ap.error("--demo-phrase requires --runtime-only")
+    if (args.test_hold_advance or args.test_idle_wake) and not args.runtime_only:
+        ap.error("focused feature tests require --runtime-only")
+    if args.test_hold_advance and args.session_gesture != "blink":
+        ap.error("--test-hold-advance requires the blink session fixture")
     if args.case and not args.runtime_only:
         ap.error("--case requires --runtime-only")
     if args.repeat < 1 or (args.repeat > 1 and not args.runtime_only):
@@ -4582,8 +4896,14 @@ def main():
         ap.error("--inspect-blink-poses requires the blink session fixture")
     if args.calibrate_cheek_session and (args.case or args.repeat != 1 or args.trace_hold or args.inspect_blink_poses):
         ap.error("--calibrate-cheek-session cannot be combined with focused case options")
-    if args.demo_phrase and (args.case or args.repeat != 1 or args.trace_hold or args.inspect_blink_poses or args.calibrate_cheek_session):
+    if args.demo_phrase and (args.case or args.repeat != 1 or args.trace_hold or args.inspect_blink_poses or args.calibrate_cheek_session or args.test_hold_advance or args.test_idle_wake):
         ap.error("--demo-phrase cannot be combined with focused case/calibration options")
+    if (args.test_hold_advance or args.test_idle_wake) and (
+        args.test_hold_advance and args.test_idle_wake or
+        args.case or args.repeat != 1 or args.trace_hold or
+        args.inspect_blink_poses or args.calibrate_cheek_session
+    ):
+        ap.error("focused feature tests cannot be combined with other focused modes")
 
     if not SOURCES_PATH.exists():
         raise SystemExit("Optical rig is not installed; run the repo installer.")

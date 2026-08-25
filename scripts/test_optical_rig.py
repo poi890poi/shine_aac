@@ -86,6 +86,21 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertEqual("PASS", RIG.demo_activation_result(4, 5))
         self.assertEqual("DUPLICATE", RIG.demo_activation_result(4, 6))
 
+    def test_camera_status_parser_tracks_power_policy_for_one_source(self):
+        log = "\n".join([
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"cameraStatus","source":"android-camera-long-blink","detail":"state=active;score=0.1"}',
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"cameraStatus","source":"android-camera-cheek-twitch","detail":"state=analysis"}',
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"cameraStatus","source":"android-camera-long-blink","detail":"state=powerSaving;threshold=0.5"}',
+        ])
+        self.assertEqual(
+            ["active", "powerSaving"],
+            RIG.e2e_camera_statuses(log, "android-camera-long-blink"),
+        )
+
+    def test_window_brightness_parser_accepts_oem_window_dump_format(self):
+        dump = "mAttrs={(0,0)(fillxfill) sim={adjust=pan} screenBrightness=0.12}\nother screenBrightness=-1.0"
+        self.assertEqual([0.12, -1.0], RIG.window_brightness_values(dump))
+
     def test_e2e_telemetry_toggle_preserves_other_preferences(self):
         source = (
             "<?xml version='1.0' encoding='utf-8'?><map>"
