@@ -642,6 +642,12 @@ def semantic_board_target(state, labels):
     return None
 
 
+def board_uses_flat_cell_scan(state):
+    """Return true when the rendered surface has no separate row choice."""
+    rows = [row for row in (state or {}).get("rows", []) if row]
+    return len(rows) == 1
+
+
 PHYSICAL_NORMAL_USE_SCRIPT = (
     {"kind": "append", "concept": "help", "labels": ("幫忙", "幫我", "Help"), "message": "幫忙"},
     {"kind": "append", "concept": "drink water", "labels": ("喝水", "飲水", "Drink water", "Water"), "message": "幫忙喝水"},
@@ -3308,15 +3314,20 @@ class OpticalRig:
             )
             return None
         matched_label, row_index, cell_index = target
-        if not self.demo_show_rest(case, source_by_id, "WAIT ROW " + matched_label):
-            return None
-        def wait_row():
-            return bool(self.wait_demo_state(
-                stage="Rows", row_index=row_index, timeout=70.0,
-                not_before_epoch_s=time.time(),
-            ))
-        if not self.demo_activate_with_retries(
-            case, source_by_id, "ROW " + matched_label, target_wait=wait_row
+        if not board_uses_flat_cell_scan(state):
+            if not self.demo_show_rest(case, source_by_id, "WAIT ROW " + matched_label):
+                return None
+            def wait_row():
+                return bool(self.wait_demo_state(
+                    stage="Rows", row_index=row_index, timeout=70.0,
+                    not_before_epoch_s=time.time(),
+                ))
+            if not self.demo_activate_with_retries(
+                case, source_by_id, "ROW " + matched_label, target_wait=wait_row
+            ):
+                return None
+        elif not self.demo_show_rest(
+            case, source_by_id, "WAIT CELL " + matched_label
         ):
             return None
         def wait_cell():

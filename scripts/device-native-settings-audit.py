@@ -17,6 +17,7 @@ PACKAGE = "org.shineaac.app"
 MAIN_ACTIVITY = PACKAGE + "/.MainActivity"
 SETTINGS_ACTIVITY = "SettingsActivity"
 INPUT_TEST_ACTIVITY = "InputTestActivity"
+RESOURCE_ACTIVITY = "ResourceManagementActivity"
 
 
 def find_adb():
@@ -282,7 +283,8 @@ class NativeSettingsAudit:
             ]),
             "display": (["Display", "顯示"], [["contrast", "對比"]]),
             "data": (["Data and support", "資料與支援"], [
-                ["Export", "匯出"], ["App info", "關於"], ["Reset", "恢復預設"],
+                ["Offline resources", "離線資源"], ["Export", "匯出"],
+                ["App info", "關於"], ["Reset", "恢復預設"],
             ]),
         }
         self.require_labels("Settings index", root_texts, [value[0] for value in sections.values()], root_evidence)
@@ -323,6 +325,17 @@ class NativeSettingsAudit:
             path = self.dump("input_test")
             evidence = [self.screenshot("input-test"), str(path.relative_to(self.out)).replace("\\", "/")]
             self.require_labels("Input Test", set(self.texts(path)), [["Reset", "重設"], ["test", "測試"]], evidence)
+            self.shell("input", "keyevent", "4", check=False)
+
+        self.open_section(sections["data"][0], "data")
+        if self.tap_text(["Offline resources", "離線資源"], "offline_resources", 2) and self.wait_activity(RESOURCE_ACTIVITY, 5):
+            path = self.dump("offline_resources")
+            evidence = [self.screenshot("offline-resources"), str(path.relative_to(self.out)).replace("\\", "/")]
+            self.require_labels("Offline resources", set(self.texts(path)), [
+                ["Cheek-twitch model", "臉頰抽動模型"],
+                ["Long-blink face detection", "長眨眼臉部偵測"],
+                ["Taiwan Mandarin voice", "台灣華語語音"],
+            ], evidence)
             self.shell("input", "keyevent", "4", check=False)
 
         self.open_section(sections["data"][0], "data")

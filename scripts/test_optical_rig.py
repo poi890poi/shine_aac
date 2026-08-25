@@ -144,6 +144,14 @@ class OpticalOracleTest(unittest.TestCase):
             RIG.semantic_board_target(state, ["朗讀", "說出", "Speak"]),
         )
 
+    def test_flat_action_surface_skips_a_redundant_row_activation(self):
+        self.assertTrue(RIG.board_uses_flat_cell_scan({
+            "rows": [["朗讀", "清除", "編輯"]],
+        }))
+        self.assertFalse(RIG.board_uses_flat_cell_scan({
+            "rows": [["幫忙", "喝水"], ["朗讀", "清除"]],
+        }))
+
     def test_physical_normal_use_script_is_extended_and_covers_repair(self):
         script = RIG.PHYSICAL_NORMAL_USE_SCRIPT
         self.assertGreaterEqual(len(script), 20)

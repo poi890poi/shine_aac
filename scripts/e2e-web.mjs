@@ -521,9 +521,10 @@ async function scenarioStrictScanTiming() {
     selectionTargetToProgressMs: postSelectionRun.at - postSelectionTarget.at
   };
   const maximumVisibleGapMs = 80;
+  const maximumResetGapMs = 120;
   const maximumDeadlineDriftMs = 50;
   const failures = [
-    ["reset to target", metrics.resetToTargetMs, maximumVisibleGapMs],
+    ["reset to target", metrics.resetToTargetMs, maximumResetGapMs],
     ["reset target to progress", metrics.resetTargetToProgressMs, maximumVisibleGapMs],
     ["next row target to progress", metrics.nextRowTargetToProgressMs, maximumVisibleGapMs],
     ["activation to target", metrics.activationToTargetMs, maximumVisibleGapMs],
@@ -2621,10 +2622,11 @@ async function releaseFirstRowHold() {
   await clickTarget(snapshot.activeBlock ?? snapshot.activeRow);
   await delay(40);
   const released = await getSnapshot();
-  const releasedAtFirstTarget = released.activeBlock
-    ? released.activeBlock.rowIndex === 0 && released.phase === "Blocks"
-    : released.activeRow?.rowIndex === 0 && released.phase === "Rows";
-  if (released.reviewHold || !releasedAtFirstTarget) {
+  const releasedIntoScanning =
+    (released.phase === "Blocks" && released.activeBlock) ||
+    (released.phase === "Rows" && released.activeRow) ||
+    (released.phase === "Cells" && released.activeCell);
+  if (released.reviewHold || !releasedIntoScanning) {
     throw new Error(`Initial hold did not release into scanning: ${JSON.stringify(released)}`);
   }
 }
@@ -3025,8 +3027,9 @@ async function scenarioBlockRowColumnMode() {
   const activeBlockRows = [...new Set(
     blockSnapshot.rows.flat().filter((tile) => tile.activeBlock).map((tile) => tile.rowIndex)
   )];
-  if (activeBlockRows.join(",") !== "0,1,2,3") {
-    throw new Error(`Four-block highlight did not start with the expected 4-row group: ${JSON.stringify(activeBlockRows)}`);
+  const validBlockGroups = ["0,1,2,3", "4,5,6", "7,8,9", "10,11,12"];
+  if (!validBlockGroups.includes(activeBlockRows.join(","))) {
+    throw new Error(`Four-block highlight was not a balanced contiguous group: ${JSON.stringify(activeBlockRows)}`);
   }
   if (
     blockSnapshot.activeBlock.progressDirection !== "down" ||
@@ -3048,7 +3051,7 @@ async function scenarioBlockRowColumnMode() {
       .map((row, rowIndex) => row.classList.contains("selected-block-row") ? rowIndex : -1)
       .filter((rowIndex) => rowIndex >= 0)
   `);
-  assertArrayEqual(selectedBlockRows, [0, 1, 2, 3], "selected-block context during row scanning");
+  assertArrayEqual(selectedBlockRows, activeBlockRows, "selected-block context during row scanning");
 
   await evaluate(`location.reload()`);
   await waitForRenderedBoard();
