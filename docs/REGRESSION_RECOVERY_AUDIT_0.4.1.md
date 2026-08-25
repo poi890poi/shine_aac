@@ -97,4 +97,4 @@ data and are simply outside automated and release workflows.
   positives. The measured public face occupied 64.9% of preview height and 70.8% of
   width, inside the enforced 55-82% whole-face range.
 - `v0.4.0` was verified as an annotated local and remote tag peeled to
-  `b5b6aa22c8df139a1666065294135f4671ff00e4`.
+  `b5b6aa22ea080849392c6f33cf7d39fef0036a82`.
