@@ -337,6 +337,23 @@ class OpticalOracleTest(unittest.TestCase):
             self.assertEqual("Buttons — keep volume control", label)
             self.assertFalse(RIG.is_camera_switch_input_label(label))
 
+    def test_builds_downloaded_cheek_calibration_pack_without_private_frames(self):
+        rig = object.__new__(RIG.OpticalRig)
+        manifest = {
+            "cheek_cases": [{
+                "id": "public-positive",
+                "source": "public-video",
+                "rest_at": 0.25,
+                "expect": "activate",
+            }]
+        }
+        cases = rig.downloaded_cheek_calibration_cases(manifest)
+        self.assertEqual(7, len(cases))
+        self.assertEqual("no_activate", cases[0]["expect"])
+        self.assertTrue(all(case["source"] == "public-video" for case in cases))
+        self.assertTrue(all("frames" not in case for case in cases))
+        self.assertEqual(6, sum(case["expect"] == "activate" for case in cases))
+
 
 class CoordinateAtlasDecoderTest(unittest.TestCase):
     def _decode(self, pixel, size=(512, 384)):
@@ -425,6 +442,8 @@ class CameraZoomGeometryTest(unittest.TestCase):
         self.assertAlmostEqual(2.0, multiplier, places=5)
         self.assertEqual(3.4, RIG.round_camera_zoom_up(3.21))
         self.assertEqual(4.0, RIG.round_camera_zoom_up(5.0))
+        self.assertEqual(2.4, RIG.comfortable_camera_zoom(1.0, 3.4))
+        self.assertEqual(1.0, RIG.comfortable_camera_zoom(1.0, 1.0))
 
     def test_rejects_zoom_only_solution_when_monitor_misses_center(self):
         monitor = [(0, 0), (20, 0), (20, 20), (0, 20)]

@@ -53,6 +53,7 @@ SESSION_ROOT = ROOT / "testdata/optical-rig/session"
 APK = ROOT / "app/build/outputs/apk/debug/app-debug.apk"
 CAMERA_PREFS = "shared_prefs/shine_aac_camera_switch.xml"
 CONFIG_PREFS = "shared_prefs/shine_aac_config.xml"
+RIG_MONITOR_OCCUPANCY = 0.70
 
 
 def board_phase_from_xml(xml_path):
@@ -1231,6 +1232,11 @@ def round_camera_zoom_up(value, step=0.2, minimum=1.0, maximum=4.0):
     stepped = math.ceil((bounded - 1e-7) / step) * step
     return max(minimum, min(maximum, round(stepped, 1)))
 
+
+def comfortable_camera_zoom(current, fill_multiplier, occupancy=RIG_MONITOR_OCCUPANCY):
+    """Use normal app zoom while leaving realistic space around the monitor."""
+    return round_camera_zoom_up(float(current) * float(fill_multiplier) * occupancy)
+
 def latest_optical_camera_id(text, field):
     pattern = r"\bOPTICAL_CAMERA\s+%s=([^\s;]+)" % re.escape(field)
     matches = re.findall(pattern, text or "")
@@ -1771,7 +1777,10 @@ class OpticalRig:
             "later focused runs can reuse it without changing app defaults"
         )
 
-    def save_cheek_session_calibration(self, calibration, preferences_xml):
+    def save_cheek_session_calibration(
+        self, calibration, preferences_xml,
+        source="downloaded-test-video-calibration",
+    ):
         """Cache a personalized cheek model outside product defaults/state."""
         values = android_preference_values(preferences_xml)
         if not values.get("cheekCalibratedAtMs") or not values.get("cheekModel"):
@@ -1792,7 +1801,7 @@ class OpticalRig:
             "zoom_ratio": float(values["zoomRatio"]),
             "quality_label": values.get("cheekQualityLabel", "unknown"),
             "quality_detail": values.get("cheekQualityDetail", ""),
-            "source": "private-test-video-calibration",
+            "source": source,
         }
         (SESSION_ROOT / "cheek-fixture.json").write_text(
             json.dumps(fixture, indent=2), encoding="utf-8"
@@ -2844,8 +2853,8 @@ class OpticalRig:
         )
         return True
 
-    def calibrate_cheek(self, cases):
-        """Exercise native six-twitch personalization with imported real frames."""
+    def calibrate_cheek(self, cases, source_by_id=None):
+        """Exercise native six-movement personalization with real video or frames."""
         neutral = next((c for c in cases if c.get("expect") == "no_activate"), None)
         positives = [c for c in cases if c.get("expect") == "activate"][:6]
         if neutral is None or len(positives) < 6:
@@ -2857,14 +2866,22 @@ class OpticalRig:
         before_preferences = self.device.shell(
             "run-as", PACKAGE, "cat", CAMERA_PREFS, check=False
         ).stdout or ""
-        token = self.host.set_state(
-            mode="sequence", label="CHEEK CALIBRATION NEUTRAL",
-            frames=neutral["frames"], mirror=bool(neutral.get("mirror", False)),
-            loop=True,
-            center=self.stimulus_center,
-        )
-        if not self.ensure_stimulus_visible(token, "cheek calibration neutral"):
-            return False
+        if "frames" in neutral:
+            token = self.host.set_state(
+                mode="sequence", label="CHEEK CALIBRATION NEUTRAL",
+                frames=neutral["frames"], mirror=bool(neutral.get("mirror", False)),
+                loop=True,
+                center=self.stimulus_center,
+            )
+            if not self.ensure_stimulus_visible(token, "cheek calibration neutral"):
+                return False
+        else:
+            source = source_by_id[neutral["source"]]
+            if not self.show_video_still(
+                source, float(neutral.get("rest_at", source.get("rest_at_s", 0.0))),
+                "CHEEK CALIBRATION NEUTRAL",
+            ):
+                return False
         pid_result = self.device.shell("pidof", PACKAGE, check=False)
         app_pids = (pid_result.stdout or "").strip().split()
         app_pid = app_pids[0] if app_pids else None
@@ -2892,18 +2909,31 @@ class OpticalRig:
 
         started = time.time()
         for trial, case in enumerate(positives, 1):
-            token = self.host.set_state(
-                mode="sequence", label="CHEEK CALIBRATION %d/6" % trial,
-                frames=case["frames"], mirror=bool(case.get("mirror", False)),
-                center=self.stimulus_center,
-            )
+            if "frames" in case:
+                nominal = sum(float(f.get("ms", 100)) for f in case["frames"]) / 1000.0
+                token = self.host.set_state(
+                    mode="sequence", label="CHEEK CALIBRATION %d/6" % trial,
+                    frames=case["frames"], mirror=bool(case.get("mirror", False)),
+                    center=self.stimulus_center,
+                )
+            else:
+                source = source_by_id[case["source"]]
+                start = float(case.get("start", 0.0))
+                end_at = case.get("end")
+                source_end = float(end_at) if end_at is not None else float(source["duration_s"])
+                rate = float(case.get("rate", 1.0))
+                nominal = max(0.0, source_end - start) / max(rate, 0.01)
+                token = self.host.set_state(
+                    mode="video", label="CHEEK CALIBRATION %d/6" % trial,
+                    url="/media/" + source["filename"], rate=rate, loop=False,
+                    start=start, end=end_at, center=self.stimulus_center,
+                )
             if not self.ensure_stimulus_visible(token, "cheek calibration %d" % trial):
                 return False
-            nominal = sum(float(f.get("ms", 100)) for f in case["frames"]) / 1000.0
             if not self.host.wait_event(token, "ended", nominal + 5.0):
                 self.add(
                     "P1", "Cheek calibration replay stalled",
-                    "Imported trial %d did not finish in the OpenCV presenter." % trial
+                    "Downloaded trial %d did not finish in the OpenCV presenter." % trial
                 )
                 return False
             if not self.wait_for_app_audio_playback_starts(
@@ -2914,7 +2944,7 @@ class OpticalRig:
                 )
                 self.add(
                     "P1", "Cheek calibration missed a real twitch",
-                    "Native calibration emitted no SHINE-owned acceptance cue for imported trial %d."
+                    "Native calibration emitted no SHINE-owned acceptance cue for downloaded trial %d."
                     % trial,
                     [
                         "cheek-calibration-audio.log",
@@ -3268,6 +3298,31 @@ class OpticalRig:
         )
         return False
 
+    def demo_release_review_if_held(self, case, source_by_id, step_label):
+        """Wake a camera review hold only when scan motion does not resume itself."""
+        initial = latest_e2e_state(self.e2e_log()) or {}
+        initial_position = (
+            initial.get("stage"), initial.get("blockIndex"),
+            initial.get("rowIndex"), initial.get("cellIndex"),
+        )
+        initial_epoch = float(initial.get("_logEpochS", 0))
+        deadline = time.time() + 5.5
+        while time.time() < deadline:
+            current = latest_e2e_state(self.e2e_log()) or {}
+            current_position = (
+                current.get("stage"), current.get("blockIndex"),
+                current.get("rowIndex"), current.get("cellIndex"),
+            )
+            if (
+                float(current.get("_logEpochS", 0)) > initial_epoch and
+                current_position != initial_position
+            ):
+                return True
+            time.sleep(0.25)
+        return self.demo_activate_with_retries(
+            case, source_by_id, "WAKE REVIEW " + step_label
+        )
+
     def demo_show_rest(self, case, source_by_id, step_label):
         """Keep a real relaxed/open face visible between physical gestures."""
         if "frames" in case:
@@ -3428,8 +3483,8 @@ class OpticalRig:
                 "visible_label": matched_label,
             })
             message = ""
-            if not self.demo_activate_with_retries(
-                case, source_by_id, "RELEASE INITIAL CLEAR"
+            if not self.demo_release_review_if_held(
+                case, source_by_id, "INITIAL CLEAR"
             ):
                 return False
         current_state = latest_e2e_state(self.e2e_log()) or {}
@@ -3445,10 +3500,6 @@ class OpticalRig:
             )
             if not matched_label:
                 return False
-            if not self.demo_activate_with_retries(
-                case, source_by_id, "RELEASE INITIAL ZHUYIN"
-            ):
-                return False
             if not self.wait_demo_semantic_available(("幫忙", "幫我")):
                 self.add(
                     "P1", "Demo could not return to Chinese board",
@@ -3461,6 +3512,10 @@ class OpticalRig:
                 "concept": "normalize to Zhuyin",
                 "visible_label": matched_label,
             })
+            if not self.demo_release_review_if_held(
+                case, source_by_id, "INITIAL ZHUYIN"
+            ):
+                return False
         for index, step in enumerate(PHYSICAL_NORMAL_USE_SCRIPT, 1):
             before_message = message
             selected_at = time.time()
@@ -3534,8 +3589,8 @@ class OpticalRig:
                     return False
                 spoken_messages.append(message)
 
-            if not self.demo_activate_with_retries(
-                case, source_by_id, "RELEASE " + step["concept"]
+            if not self.demo_release_review_if_held(
+                case, source_by_id, step["concept"]
             ):
                 return False
 
@@ -3810,19 +3865,22 @@ class OpticalRig:
             return None
 
         current = geometry["zoom_ratio"]
-        requested = current * multiplier
-        target = round_camera_zoom_up(requested)
-        taps = max(0, int(round((target - current) / 0.2)))
+        fill_requested = current * multiplier
+        requested = fill_requested * RIG_MONITOR_OCCUPANCY
+        target = comfortable_camera_zoom(current, multiplier)
+        tap_delta = int(round((target - current) / 0.2))
+        taps = abs(tap_delta)
+        zoom_labels = ["Zoom +", "放大"] if tap_delta >= 0 else ["Zoom -", "縮小"]
         for index in range(taps):
             if not self.device.find_tap(
-                ["Zoom +", "放大"],
-                "rig_zoom_plus_%02d" % index,
+                zoom_labels,
+                "rig_zoom_%s_%02d" % ("plus" if tap_delta >= 0 else "minus", index),
                 swipes=3,
             ):
                 self.add(
                     "P0", "Camera zoom control was not reachable",
-                    "Atlas requested %.1fx, but the real Zoom + control stopped after %d tap(s)."
-                    % (target, index)
+                    "Atlas requested %.1fx, but the real %s control stopped after %d tap(s)."
+                    % (target, zoom_labels[0], index)
                 )
                 return None
             time.sleep(0.25)
@@ -3844,6 +3902,8 @@ class OpticalRig:
         result = {
             "initial_ratio": current,
             "required_multiplier": round(multiplier, 4),
+            "fill_target_ratio": round(fill_requested, 4),
+            "target_monitor_occupancy": RIG_MONITOR_OCCUPANCY,
             "unclamped_target_ratio": round(requested, 4),
             "applied_ratio": applied,
             "taps": taps,
@@ -3856,8 +3916,8 @@ class OpticalRig:
         )
         self.pass_(
             "atlas-calculated camera zoom",
-            "%.1fx -> %.1fx using %d real Zoom + tap(s)"
-            % (current, applied, taps)
+            "%.1fx -> %.1fx using %d real %s tap(s); monitor target %.0f%%"
+            % (current, applied, taps, zoom_labels[0], RIG_MONITOR_OCCUPANCY * 100)
         )
         if requested > 4.0 + 0.05:
             print(
@@ -3916,6 +3976,27 @@ class OpticalRig:
         path=manifests[-1]
         data=json.loads(path.read_text(encoding="utf-8"))
         return data.get("cases",[])
+
+    def downloaded_cheek_calibration_cases(self, manifest):
+        """Build six native setup trials from the public downloaded movement video."""
+        positive = next(
+            (case for case in manifest.get("cheek_cases", [])
+             if case.get("expect") == "activate"),
+            None,
+        )
+        if not positive:
+            return []
+        neutral = dict(
+            positive,
+            id="downloaded_cheek_neutral",
+            expect="no_activate",
+            rest_at=float(positive.get("rest_at", 0.0)),
+        )
+        trials = [
+            dict(positive, id="downloaded_cheek_trial_%02d" % index)
+            for index in range(1, 7)
+        ]
+        return [neutral] + trials
 
     def write_report(self, calibration):
         report = [
@@ -4048,7 +4129,7 @@ class OpticalRig:
             "- Repeated short sequences are detector stress checks and are reported separately; they do not substitute for a normal-use session.",
             "- `no_activate` cases are automated false-positive checks.",
             "- Deterministic blink cases hold real open/closed frames for known durations and enforce missed/duplicate activation counts.",
-            "- Imported cheek calibration trials first exercise native personalization, then enforce runtime missed/duplicate activation counts.",
+            "- Downloaded cheek-movement calibration trials first exercise native personalization, then enforce runtime missed/duplicate activation counts.",
             "- Test-video calibration values are session fixtures only; the rig restores SHINE's original camera/calibration preferences and Switch input choice after the run.",
             "- Replay uses one persistent full-screen host window. Media remains at intrinsic size and is centered at the atlas-projected camera aim; Camera Setup's normal zoom control supplies optical framing.",
             "- Passing this rig does not replace testing on a real user; it makes regressions reproducible.",
@@ -4104,11 +4185,11 @@ class OpticalRig:
                     "quality_label": fixture.get("quality_label", "unknown"),
                 }
                 if self.args.calibrate_cheek_session:
-                    local_cases = self.load_local_cheek_cases()
-                    if not local_cases:
+                    calibration_cases = self.downloaded_cheek_calibration_cases(manifest)
+                    if not calibration_cases:
                         self.add(
-                            "P0", "No local cheek calibration stimulus",
-                            "Run scripts/import-cheek-calibration.py <zip> first."
+                            "P0", "No downloaded cheek calibration stimulus",
+                            "The public test manifest needs a positive cheek movement video."
                         )
                         self.write_report(calibration)
                         return 2
@@ -4121,12 +4202,12 @@ class OpticalRig:
                         self.write_report(calibration)
                         return 2
                     positive = next(
-                        (case for case in local_cases if case.get("expect") == "activate"),
+                        (case for case in calibration_cases if case.get("expect") == "activate"),
                         None,
                     )
                     if positive:
-                        self.record_setup_evidence(positive)
-                    if not self.calibrate_cheek(local_cases):
+                        self.record_setup_evidence(positive, source_by_id)
+                    if not self.calibrate_cheek(calibration_cases, source_by_id):
                         self.write_report(calibration)
                         return 2
                     try:
@@ -4358,7 +4439,8 @@ class OpticalRig:
                                 self.outdir / "cheek-calibration-preferences.xml"
                             ).read_text(encoding="utf-8")
                             self.save_cheek_session_calibration(
-                                calibration, cheek_preferences
+                                calibration, cheek_preferences,
+                                source="local-imported-test-video-calibration",
                             )
                         except (ET.ParseError, OSError, ValueError) as error:
                             self.add(
@@ -4455,7 +4537,7 @@ def main():
     ap.add_argument("--session-gesture", choices=("blink", "cheek"), default="blink",
                     help="with --runtime-only, select the blink or cheek session fixture")
     ap.add_argument("--calibrate-cheek-session", action="store_true",
-                    help="with --runtime-only, create a reusable cheek session from the imported pack")
+                    help="with --runtime-only, create a reusable cheek session from downloaded public video")
     ap.add_argument("--demo-phrase", action="store_true",
                     help="with --runtime-only, run the extended normal-use scenario using physical camera gestures")
     ap.add_argument("--case", action="append", default=[],
