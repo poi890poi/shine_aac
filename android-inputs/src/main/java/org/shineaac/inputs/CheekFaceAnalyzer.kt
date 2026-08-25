@@ -24,6 +24,8 @@ import kotlin.math.atan2
  * not synchronized; callers must preserve that confinement.
  */
 class CheekFaceAnalyzer(context: Context) : AutoCloseable {
+    // Keep the direct buffer alive for the lifetime of the native task.
+    private val managedModelBuffer = CheekModelResource.loadManagedBuffer(context)
     private val landmarker = FaceLandmarker.createFromOptions(
         context.applicationContext,
         FaceLandmarker.FaceLandmarkerOptions.builder()
@@ -34,7 +36,13 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
                     // the same thread. Benchmark GPU separately on the physical
                     // device matrix before changing the accessibility default.
                     .setDelegate(Delegate.CPU)
-                    .setModelAssetPath(ModelAsset)
+                    .apply {
+                        if (managedModelBuffer != null) {
+                            setModelAssetBuffer(managedModelBuffer)
+                        } else {
+                            setModelAssetPath(ModelAsset)
+                        }
+                    }
                     .build()
             )
             .setRunningMode(RunningMode.VIDEO)
