@@ -2,7 +2,7 @@
 
 Date: 2026-08-25  
 Version: 0.4.0 (60)
-Candidate: `ca1c187` (`codex/release-v0.4.0-play`)
+Candidate: `b60007c` (`codex/release-v0.4.0-play`)
 
 ## Decision
 
@@ -23,7 +23,7 @@ failure.
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `shine-aac-v0.4.0-code60-debug.apk` | 106,379,645 | `A2452DBDB31310D28D191BD84075D78BDC80B2E7C1BB901EE803E3B3DEF0360D` |
-| `shine-aac-v0.4.0-code60-debug.zip` | 54,577,583 | `17D73E9836A0F5D4CA34D307A9C2510BC64529DC1A0B1A53DDF3A97E345493D8` |
+| `shine-aac-v0.4.0-code60-debug.zip` | 54,577,583 | `AA8ADD77C7026E289398F01D0FF724D390C4C1136AE0F30529BC9A3C1FF8B3C7` |
 | `shine-aac-v0.4.0-code60-release.aab` | 52,737,938 | `18AF40673B5E4D5877F52172DDF713515D0DAEAD623A9077D9C9D08B81B4D94` |
 
 The direct artifact is intentionally a debug-signed APK. Only the signed AAB is for
