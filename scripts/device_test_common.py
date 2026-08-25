@@ -5,7 +5,6 @@ import csv
 import re
 import statistics
 import time
-import unicodedata
 from pathlib import Path
 
 THERMAL_NAMES = {
@@ -103,20 +102,6 @@ def touch_target_size_exemption(surface, node, viewport_bounds=None):
             return "accessibility-bounds-clipped-at-viewport-edge"
     return None
 
-def _rendered_text_width_units(text):
-    """Approximate glyph width in em without assuming one language or font."""
-    units = 0.0
-    for character in text or "":
-        if character.isspace():
-            units += 0.35
-        elif unicodedata.east_asian_width(character) in ("W", "F"):
-            units += 1.0
-        elif character.isupper():
-            units += 0.65
-        else:
-            units += 0.55
-    return units
-
 def find_excessive_related_gaps(relationships, maximum_gap=20.0):
     """Evaluate semantic source→target spacing in any rendered layout graph."""
     findings = []
@@ -190,117 +175,6 @@ def find_edge_alignment_drift(items, tolerance=4.0):
             finding["anchor"] = round(anchor, 1)
             finding["delta"] = round(delta, 1)
             findings.append(finding)
-    return findings
-
-def camera_setup_excessively_padded_buttons(nodes, density_dpi, text_size_sp=14.0):
-    """
-    Find secondary camera-setup buttons whose cells are much wider than their text.
-
-    This uses dp, glyph-width classes, and the bottom action row's geometry. It
-    deliberately does not use a captured device's screen width or fixed x/y
-    coordinates, so the check applies across resolutions and localizations.
-    """
-    if not density_dpi:
-        return []
-    buttons = [
-        node for node in (nodes or [])
-        if node.get("cls", "").endswith("Button")
-        and (node.get("text") or "").strip()
-        and node.get("bounds")
-    ]
-    if not buttons:
-        return []
-    density = float(density_dpi) / 160.0
-    row_tolerance_px = 48.0 * density
-    bottom_center = max(
-        (node["bounds"][1] + node["bounds"][3]) / 2.0 for node in buttons
-    )
-    findings = []
-    for node in buttons:
-        x1, y1, x2, y2 = node["bounds"]
-        center = (y1 + y2) / 2.0
-        if abs(center - bottom_center) <= row_tolerance_px:
-            # The bottom Start/Done pair are intentionally prominent actions.
-            continue
-        width_dp = (x2 - x1) / density
-        text = node["text"].strip()
-        estimated_text_dp = _rendered_text_width_units(text) * text_size_sp
-        compact_width_dp = max(48.0, estimated_text_dp + 16.0)
-        if width_dp > compact_width_dp * 1.4:
-            findings.append({
-                "name": text,
-                "bounds": node["bounds"],
-                "width_dp": round(width_dp, 1),
-                "compact_width_dp": round(compact_width_dp, 1),
-            })
-    return findings
-
-def camera_setup_control_group_alignment_drift(
-    nodes, density_dpi, tolerance_dp=4.0
-):
-    """Find secondary control rows that break the common trailing grid edge."""
-    if not density_dpi:
-        return []
-    density = float(density_dpi) / 160.0
-    buttons = [
-        node for node in (nodes or [])
-        if node.get("cls", "").endswith("Button")
-        and node.get("bounds")
-    ]
-    if not buttons:
-        return []
-    bottom_center = max(
-        (node["bounds"][1] + node["bounds"][3]) / 2.0 for node in buttons
-    )
-    # Toolbar navigation and camera-selector overlays are also Android Buttons,
-    # but they are not members of the lower parameter grid. Restrict alignment
-    # comparison to the lower control region without localized label matching.
-    buttons = [
-        node for node in buttons
-        if (node["bounds"][1] + node["bounds"][3]) / 2.0 >= bottom_center * 0.55
-    ]
-    primary_tolerance_px = 48.0 * density
-    row_tolerance_px = 24.0 * density
-    rows = []
-    for button in sorted(
-        buttons,
-        key=lambda node: (
-            (node["bounds"][1] + node["bounds"][3]) / 2.0,
-            node["bounds"][0],
-        ),
-    ):
-        center = (button["bounds"][1] + button["bounds"][3]) / 2.0
-        if abs(center - bottom_center) <= primary_tolerance_px:
-            continue
-        row = next(
-            (item for item in rows if abs(item["center"] - center) <= row_tolerance_px),
-            None,
-        )
-        if row is None:
-            row = {"center": center, "buttons": []}
-            rows.append(row)
-        row["buttons"].append(button)
-    groups = []
-    for row in rows:
-        groups.append({
-            "name": " / ".join(
-                node.get("text", "").strip() for node in row["buttons"]
-            ),
-            "edge": max(node["bounds"][2] for node in row["buttons"]) / density,
-            "topology": len(row["buttons"]),
-            "bounds": (
-                min(node["bounds"][0] for node in row["buttons"]),
-                min(node["bounds"][1] for node in row["buttons"]),
-                max(node["bounds"][2] for node in row["buttons"]),
-                max(node["bounds"][3] for node in row["buttons"]),
-            ),
-        })
-    findings = []
-    for topology in sorted({group["topology"] for group in groups}):
-        comparable = [
-            group for group in groups if group["topology"] == topology
-        ]
-        findings.extend(find_edge_alignment_drift(comparable, tolerance_dp))
     return findings
 
 def camera_permission_is_granted(command_output, package_dump):

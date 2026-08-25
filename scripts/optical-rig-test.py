@@ -1261,39 +1261,65 @@ def camera_setup_geometry(xml_path):
         )
         if match:
             zoom_ratio = float(match.group(1))
+        elif node.get("class") == "android.widget.TextView":
+            compact_zoom = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*[×x]\s*", text_value, re.I)
+            if compact_zoom:
+                zoom_ratio = float(compact_zoom.group(1))
 
-    scrolls = [bounds for node, bounds in visible if node.get("class") == "android.widget.ScrollView"]
-    if not scrolls:
-        raise ValueError("Camera Setup controls area is not visible")
-    controls = max(scrolls, key=lambda value: (value[2] - value[0]) * (value[3] - value[1]))
-    explicit_previews = [
+    semantic_previews = [
         bounds for node, bounds in visible
-        if node.get("class") == "android.widget.FrameLayout"
-        and bounds[3] <= controls[1]
-        and bounds[0] >= controls[0]
-        and bounds[2] <= controls[2]
+        if (node.get("content-desc") or "").strip().lower()
+        in ("camera preview", "相機預覽")
         and bounds[2] - bounds[0] >= 100
         and bounds[3] - bounds[1] >= 100
     ]
-    if explicit_previews:
-        # Newer Camera Setup layouts expose the stable preview container
-        # directly. Prefer it over reconstructing a gap between header and
-        # controls; otherwise its bottom edge is mistaken for the preview top.
+    if semantic_previews:
+        # The accessibility role is the durable contract. The container may be
+        # a FrameLayout, CardView, Compose node, or another implementation.
         preview = max(
-            explicit_previews,
+            semantic_previews,
             key=lambda value: (value[2] - value[0]) * (value[3] - value[1])
         )
     else:
-        before_controls = [
+        scrolls = [
             bounds for node, bounds in visible
-            if bounds[3] <= controls[1]
+            if node.get("class") == "android.widget.ScrollView"
+        ]
+        if not scrolls:
+            raise ValueError(
+                "Camera Setup exposes neither a named preview nor usable layout landmarks"
+            )
+        controls = max(
+            scrolls,
+            key=lambda value: (value[2] - value[0]) * (value[3] - value[1])
+        )
+        explicit_previews = [
+            bounds for node, bounds in visible
+            if node.get("class") == "android.widget.FrameLayout"
+            and bounds[3] <= controls[1]
             and bounds[0] >= controls[0]
             and bounds[2] <= controls[2]
+            and bounds[2] - bounds[0] >= 100
+            and bounds[3] - bounds[1] >= 100
         ]
-        if not before_controls:
-            raise ValueError("Camera Setup preview boundary is not visible")
-        preview_top = max(bounds[3] for bounds in before_controls)
-        preview = (controls[0], preview_top, controls[2], controls[1])
+        if explicit_previews:
+            preview = max(
+                explicit_previews,
+                key=lambda value: (value[2] - value[0]) * (value[3] - value[1])
+            )
+        else:
+            # Compatibility fallback for old builds without a semantic preview
+            # name. It uses relative landmarks, not localized labels or pixels.
+            before_controls = [
+                bounds for node, bounds in visible
+                if bounds[3] <= controls[1]
+                and bounds[0] >= controls[0]
+                and bounds[2] <= controls[2]
+            ]
+            if not before_controls:
+                raise ValueError("Camera Setup preview boundary is not visible")
+            preview_top = max(bounds[3] for bounds in before_controls)
+            preview = (controls[0], preview_top, controls[2], controls[1])
     if preview[2] - preview[0] < 100 or preview[3] - preview[1] < 100:
         raise ValueError("Camera Setup preview is too small")
     if zoom_ratio is None:

@@ -453,6 +453,19 @@ class CameraZoomGeometryTest(unittest.TestCase):
         self.assertEqual((36, 340, 1044, 1656), geometry["preview_rect"])
         self.assertEqual(1.6, geometry["zoom_ratio"])
 
+    def test_reads_material_card_preview_and_compact_overlay_zoom(self):
+        xml = """<hierarchy><node class="android.widget.FrameLayout" bounds="[0,0][1080,2168]">
+          <node class="androidx.cardview.widget.CardView" content-desc="相機預覽" bounds="[36,388][1044,1706]">
+            <node class="android.widget.TextView" text="3.4×" bounds="[432,1514][648,1658]" />
+          </node>
+        </node></hierarchy>"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "setup.xml"
+            path.write_text(xml, encoding="utf-8")
+            geometry = RIG.camera_setup_geometry(path)
+        self.assertEqual((36, 388, 1044, 1706), geometry["preview_rect"])
+        self.assertEqual(3.4, geometry["zoom_ratio"])
+
 
 class OpenCvFramebufferTest(unittest.TestCase):
     def test_video_scheduler_drops_late_frames_without_accumulating_drift(self):

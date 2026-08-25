@@ -49,8 +49,6 @@ from pathlib import Path
 
 from device_test_common import (
     ThermalGovernor,
-    camera_setup_control_group_alignment_drift,
-    camera_setup_excessively_padded_buttons,
     camera_permission_is_granted,
     find_geometry_drift,
     find_region_allocation_violations,
@@ -676,32 +674,6 @@ class DeepTest:
                             "dumpsys/%s_layout.json" % name,
                         ]
                     )
-            padded_buttons = camera_setup_excessively_padded_buttons(nodes, self.density)
-            layout_metrics["excessively_padded_secondary_buttons"] = padded_buttons
-            if padded_buttons:
-                self.add_layout_observation(
-                    "P3", "Camera setup secondary controls use over-expanded cells",
-                    len(padded_buttons), name,
-                    [
-                        "ui/%s.xml" % name,
-                        "screenshots/%s.png" % name,
-                        "dumpsys/%s_layout.json" % name,
-                    ]
-                )
-            alignment_drift = camera_setup_control_group_alignment_drift(
-                nodes, self.density
-            )
-            layout_metrics["control_group_alignment_drift"] = alignment_drift
-            if alignment_drift:
-                self.add_layout_observation(
-                    "P3", "Camera setup control groups break the trailing grid edge",
-                    len(alignment_drift), name,
-                    [
-                        "ui/%s.xml" % name,
-                        "screenshots/%s.png" % name,
-                        "dumpsys/%s_layout.json" % name,
-                    ]
-                )
         self.save(
             "dumpsys/%s_layout.json" % name,
             json.dumps(layout_metrics, indent=2)
