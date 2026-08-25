@@ -64,7 +64,7 @@
   <main>
     <p><a href="../">← 回首頁</a></p>
     <h1>我想說 SayToMe AAC 隱私權政策</h1>
-    <p class="meta">生效日期：2026-07-10</p>
+    <p class="meta">生效日期：2026-08-25</p>
 
     <p>
       我想說 SayToMe AAC 是 SHINE AAC 專案的早期輔助溝通 AAC 測試應用程式。它主要面向有人陪同的小規模測試，包含使用者、家人、照顧者、語言治療師、醫療與照護相關專家、測試者與軟體貢獻者。
@@ -78,11 +78,12 @@
     <ul>
       <li>不需要帳號。</li>
       <li>沒有廣告。</li>
-      <li>沒有分析追蹤 SDK。</li>
+      <li>沒有 SHINE AAC 自有分析或廣告追蹤；Google ML Kit 會依其文件傳送診斷與使用量指標給 Google。</li>
       <li>不使用 SHINE AAC 伺服器。</li>
       <li>不會向我們收集、出售或分享個人資料。</li>
       <li>溝通內容與設定會在裝置本機處理。</li>
       <li>選用的相機開關輸入會在裝置本機處理，不會傳送給我們。</li>
+      <li>選用模型更新會透過 HTTPS 下載固定的公開檔案；請求中不包含溝通訊息、設定或相機畫面。</li>
     </ul>
 
     <h2>裝置本機處理的資訊</h2>
@@ -103,6 +104,17 @@
     </p>
     <p>
       本 app 不會把相機畫面上傳到 SHINE AAC，不會儲存照片，不會錄影，也不會把相機資料用於廣告、分析或遠端記錄。
+    </p>
+
+    <h2>ML Kit 診斷資訊</h2>
+    <p>
+      本 app 使用 Google 內建式 ML Kit 在裝置上進行臉部偵測。依 Google 文件，ML Kit 會為診斷與使用量分析收集裝置與 app 資訊、每次安裝識別碼、效能與 API 設定指標、功能事件類型及錯誤碼。Google 表示這些資料以 HTTPS 加密傳輸，且不會分享給第三方。Google 公開的 ML Kit 指標清單不包含相機影像或 AAC 溝通訊息。
+    </p>
+    <p><a href="https://developers.google.com/ml-kit/android-data-disclosure">Google ML Kit Android 資料揭露</a> · <a href="https://developers.google.com/ml-kit/terms">ML Kit 條款與隱私說明</a></p>
+
+    <h2>選用資源下載</h2>
+    <p>
+      使用者選擇可用的模型更新時，app 會透過 HTTPS 從 Google Cloud Storage 下載固定的公開模型檔，並在安裝前驗證預期大小與 SHA-256。請求不會附帶溝通訊息、app 設定、相機畫面、帳號資訊、廣告識別碼、分析或診斷紀錄。一般網路請求仍可能由託管與網路服務提供者依其條款處理網路層中繼資料。不下載更新時，app 仍可使用內建的離線備援版本。
     </p>
 
     <h2>語音輸出</h2>

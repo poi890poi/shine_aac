@@ -1,6 +1,6 @@
 # SayToMe AAC / 我想說 Privacy Policy
 
-Effective date: 2026-07-10
+Effective date: 2026-08-25
 
 SayToMe AAC / 我想說 is an early development augmentative and alternative communication app from the SHINE AAC project. It is intended for supervised testing with users, families, caregivers, therapists, clinicians, testers, and software contributors.
 
@@ -14,20 +14,24 @@ This app is not a finished clinical product, not medical advice, and not a subst
 
 - The app does not require an account.
 - The app does not contain ads.
-- The app does not include analytics tracking.
+- The app does not include SHINE AAC analytics or advertising tracking. Google
+  ML Kit sends documented diagnostic and usage metrics to Google.
 - The app does not use a SHINE AAC server.
 - The app does not collect, sell, or share personal data with us.
 - Communication content and settings are processed on the device.
 - Optional camera switch input is processed on the device and is not sent to us.
+- Optional model updates download a fixed public file over HTTPS; messages,
+  settings, and camera frames are not included in that request.
 
 ## 摘要
 
 - 不需要帳號。
 - 沒有廣告。
-- 沒有分析追蹤 SDK。
+- 沒有 SHINE AAC 自有分析或廣告追蹤。Google ML Kit 會依其文件傳送診斷與使用量指標給 Google。
 - 不使用 SHINE AAC 伺服器。
 - 不會向我們收集 出售 或分享個人資料。
 - 溝通內容與設定會在裝置本機處理。
+- 選用模型更新會透過 HTTPS 下載固定的公開檔案；請求中不包含溝通訊息、設定或相機畫面。
 
 ## Information Processed On The Device
 
@@ -47,6 +51,49 @@ This information is used for app functionality only. It is not transmitted to SH
 The app may request camera permission if a user or helper enables optional camera switch input, such as blink-based activation for scanning. Camera processing is used for local input detection only.
 
 The app does not upload camera frames to SHINE AAC, does not save photos, does not record video, and does not use camera data for ads, analytics, or remote logging.
+
+## ML Kit Diagnostics
+
+The app uses Google's bundled ML Kit for on-device face detection. Google
+documents that ML Kit collects device and app information, a per-installation
+identifier, performance and API-configuration metrics, feature event types,
+and error codes for diagnostics and usage analytics. Google states that this
+data is encrypted in transit and is not shared with third parties. Camera
+images and communication messages are not listed as collected ML Kit metrics.
+
+See Google's current disclosures:
+
+- https://developers.google.com/ml-kit/android-data-disclosure
+- https://developers.google.com/ml-kit/terms
+
+## ML Kit 診斷資訊
+
+本 app 使用 Google 內建式 ML Kit 在裝置上進行臉部偵測。依 Google 文件，
+ML Kit 會為診斷與使用量分析收集裝置與 app 資訊、每次安裝識別碼、效能與
+API 設定指標、功能事件類型及錯誤碼。Google 表示這些資料以 HTTPS 加密
+傳輸，且不會分享給第三方。Google 公開的 ML Kit 指標清單不包含相機影像
+或 AAC 溝通訊息。
+
+## Optional Resource Downloads
+
+If a user chooses an offered model update, the app downloads a fixed public
+model file over HTTPS from Google Cloud Storage. SHINE AAC verifies its expected
+size and SHA-256 digest before installation. The app does not attach
+communication messages, app settings, camera frames, account information,
+advertising identifiers, analytics, or diagnostic logs to this request.
+
+As with ordinary internet requests, the hosting and network providers may
+process network-layer metadata under their own terms. The included offline
+fallback remains available without making this download.
+
+## 選用資源下載
+
+使用者選擇可用的模型更新時，app 會透過 HTTPS 從 Google Cloud Storage
+下載固定的公開模型檔，並在安裝前驗證預期大小與 SHA-256。請求不會附帶
+溝通訊息、app 設定、相機畫面、帳號資訊、廣告識別碼、分析或診斷紀錄。
+
+一般網路請求仍可能由託管與網路服務提供者依其條款處理網路層中繼資料。
+不下載更新時，app 仍可使用內建的離線備援版本。
 
 ## 裝置本機處理的資訊
 

@@ -147,7 +147,10 @@ Please keep another reliable communication method available during testing, espe
 
 - Privacy policy draft: `docs/PRIVACY_POLICY.md`
 - Data Safety worksheet: `docs/PLAY_DATA_SAFETY.md`
-- Current declaration: the app does not collect or share user data with SHINE AAC.
+- Current draft: Google ML Kit collects documented encrypted diagnostics and
+  usage metrics and does not share them with third parties; SHINE AAC receives
+  no communication content, settings, or camera frames. Use
+  `docs/PLAY_DATA_SAFETY.md` for the exact Play form categories.
 - The app processes messages and settings locally on the device.
 - Text history is stored locally and can be exported by the user or helper.
 - Optional camera switch input uses camera permission for local switch/blink detection only.
@@ -160,4 +163,4 @@ Please keep another reliable communication method available during testing, espe
 - Phone screenshots: `store-assets/screenshots/phone/*.png`
 - Screenshot source captures: `store-assets/screenshots/source/*.jpg`
 - Screenshot cleanup script: `scripts/clean-store-screenshots.ps1`
-- Signed Play AAB: `.artifacts/releases/v0.2.43/shine-aac-v0.2.43-code46-release.aab`
+- Signed Play AAB: `.artifacts/releases/v0.4.0/shine-aac-v0.4.0-code59-release.aab`

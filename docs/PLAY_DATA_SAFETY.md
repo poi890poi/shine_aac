@@ -2,17 +2,23 @@
 
 This worksheet is for Play Console setup for `org.shineaac.app` / SayToMe AAC / 我想說.
 
-Reviewed app state on 2026-07-13:
+Reviewed app state on 2026-08-25:
 
 - Android manifest declares `android.permission.CAMERA` for the optional camera switch input.
 - `android.hardware.camera` is marked `required="false"`, so camera hardware is not required to install the app.
-- No `INTERNET`, `RECORD_AUDIO`, location, contacts, storage, advertising ID, or account permissions are declared.
+- The merged manifest includes `INTERNET` and `ACCESS_NETWORK_STATE` for user-initiated, verified optional-resource downloads. No `RECORD_AUDIO`, location, contacts, storage, advertising ID, or account permissions are declared.
 - No ads SDK is present.
-- No analytics SDK is present.
+- No advertising or SHINE AAC analytics SDK is present. The bundled Google ML
+  Kit SDK documents encrypted diagnostics and usage-metrics collection.
 - No account login is present.
 - App content, exportable text history, and configuration are handled locally in WebView/app storage.
 - Android cloud backup is disabled, and backup rules exclude all app-data domains. Some Android 12 or later manufacturers may still provide direct device-to-device transfer.
 - Optional camera switch processing runs locally on device. The app does not upload camera frames, save photos, record video, or share camera data with SHINE AAC.
+- An optional resource update downloads one fixed model file over HTTPS from Google Cloud Storage. The request does not include messages, settings, camera frames, advertising identifiers, accounts, or SHINE AAC telemetry.
+- ML Kit documents collection of device/app information, a per-installation
+  identifier, performance and API-configuration metrics, feature event types,
+  and error codes for diagnostics and usage analytics. Google states that this
+  data is encrypted in transit and is not shared with third parties.
 - Android Text-to-Speech may be invoked through the platform speech engine selected on the device.
 
 Google Play guidance reference:
@@ -26,15 +32,32 @@ Google Play guidance reference:
 
 | Play Console Question | Draft Answer | Rationale |
 | --- | --- | --- |
-| Does your app collect or share any of the required user data types? | No | The app does not transmit user data off device to SHINE AAC or third-party SDKs. |
-| Is all user data collected by your app encrypted in transit? | Not applicable | No user data is collected/transmitted by the app. |
+| Does your app collect or share any of the required user data types? | Yes: ML Kit diagnostics/usage metrics are collected; no data is shared | Use the ML Kit disclosure below. SHINE AAC itself has no analytics backend and sends no communication content or camera frames. |
+| Is all user data collected by your app encrypted in transit? | Yes, for the documented ML Kit collection | Google documents HTTPS encryption in transit. The optional model file also uses HTTPS. |
 | Does your app provide a way for users to request that their data is deleted? | Not applicable / No account data collected | Local app data can be cleared by Android settings or uninstalling. No server-side user data exists for SHINE AAC to delete. |
 | Is your app committed to follow the Google Play Families Policy? | No, unless you intentionally target children | The first Taiwan trial should be supervised testing, not a child-directed Play listing. |
 | Has your app been independently validated against a global security standard? | No | No MASA or other independent security review has been performed. |
 
 ## Data Types
 
-Recommended declaration: no collected/shared data types.
+Recommended declaration: collected, not shared. At minimum review and declare
+the ML Kit categories that map to **Device or other identifiers** and
+**Diagnostics** (including performance, configuration, event, and error data),
+for diagnostics and usage analytics. The bundled SDK initializes with the app,
+so do not mark this collection optional without first proving that collection
+cannot occur until a user opts into camera input.
+
+Version 0.4.0 can also make a user-initiated HTTPS request for a fixed public model
+file hosted on Google Cloud Storage. Ordinary network-layer request metadata may
+be processed by the hosting provider, but SHINE AAC sends no message, setting,
+camera, account, advertising-ID, analytics, or diagnostic payload. Reassess this
+draft against the current host behavior and Play's current definitions before
+submission; Play makes the developer responsible for the final declaration.
+
+Primary SDK disclosure:
+
+- https://developers.google.com/ml-kit/android-data-disclosure
+- https://developers.google.com/ml-kit/terms
 
 Important note: The app processes messages, symbols, settings, speech text, and exportable text history locally. Google's Data Safety definition of collection focuses on transmitting user data off device. Local-only processing does not need to be declared as collected, but it should be described in the privacy policy for transparency.
 
@@ -119,7 +142,9 @@ Recommended zh-TW wording:
 ## Verification Checklist Before Submitting The Form
 
 - Re-run `rg -n "uses-permission|android.permission|INTERNET|RECORD_AUDIO|CAMERA|ACCESS_|AD_ID" app/src/main app/build.gradle.kts gradle/libs.versions.toml`.
-- Confirm no network, ads, analytics, crash reporting, or third-party SDKs were added.
+- Reconcile the Play form with the current ML Kit data-disclosure page and all
+  other SDKs; confirm there are no ads, SHINE analytics, crash reporting, or
+  remote logging beyond the documented SDK metrics.
 - Confirm camera permission is still used only for optional local camera switch input.
 - Confirm privacy policy URL is public.
 - Confirm Play listing and release notes keep the early-development warning.

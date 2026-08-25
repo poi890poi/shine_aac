@@ -70,8 +70,10 @@ theme, undersized camera preview, or superseded settings layout.
 Use `docs/PLAY_DATA_SAFETY.md` as the Data Safety worksheet.
 
 - No account or sign-in.
-- No ads or analytics.
-- No SHINE/SayToMe server and no Internet permission.
+- No ads, SHINE analytics, or SHINE/SayToMe server.
+- Internet access supports verified optional-resource downloads. Google ML Kit
+  also sends its documented encrypted diagnostics/usage metrics to Google;
+  declare those categories using `docs/PLAY_DATA_SAFETY.md`.
 - Settings, message drafts, and text history stay on the device.
 - Text is exported only when the helper requests it.
 - Optional camera frames are processed locally and are not stored or uploaded.

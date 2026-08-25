@@ -30,6 +30,10 @@ expected byte length and SHA-256 digest before installing it in a versioned
 directory. An incomplete or modified file is rejected and never selected by
 the detector.
 
+The current cheek-model update URL is a fixed HTTPS object on Google Cloud
+Storage. The request does not include communication content, settings, camera
+frames, accounts, advertising identifiers, analytics, or diagnostic logs.
+
 The app does not request shared-storage permission. Android removes managed
 downloads when the app is uninstalled or its data is cleared. A running cheek
 detector holds its own direct model buffer, so removing an update cannot
