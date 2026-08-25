@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
     <ListPreference app:key="switchInputProfile" app:title="@string/settings_switch_input" />
+    <SwitchPreferenceCompat
+        app:key="holdToAdvance"
+        app:title="@string/settings_hold_to_advance"
+        app:summary="@string/settings_hold_to_advance_summary" />
     <Preference app:key="cameraSetup" app:persistent="false" app:title="@string/settings_camera_setup" />
     <Preference app:key="inputTest" app:persistent="false" app:title="@string/settings_input_test" />
 </PreferenceScreen>

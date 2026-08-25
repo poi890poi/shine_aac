@@ -38,6 +38,8 @@
     <string name="settings_manage_speech">Manage speech voices</string>
     <string name="settings_manage_speech_summary">Open Android text-to-speech settings</string>
     <string name="settings_switch_input">Switch input</string>
+    <string name="settings_hold_to_advance">Hold to advance</string>
+    <string name="settings_hold_to_advance_summary">Keep the camera gesture to choose the first item at the next scan level</string>
     <string name="settings_camera_setup">Camera setup</string>
     <string name="settings_input_test">Input test</string>
     <string name="settings_display_contrast">Display contrast</string>

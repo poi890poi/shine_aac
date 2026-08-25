@@ -1,23 +1,23 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-25T04:11:10.429Z
+Generated: 2026-08-25T06:40:30.009Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| packaged-webview-build | PASS | built Android WebView assets with esbuild |
-| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
+| server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":72.79999999701977,"resetTargetToProgressMs":32.599999994039536,"rowDeadlineDriftMs":-29.5,"nextRowTargetToProgressMs":29,"activationToTargetMs":1.5,"activationTargetToProgressMs":31.700000002980232,"firstDeadlineDriftMs":-26.599999994039536,"secondTargetToProgressMs":26.200000002980232,"laterDeadlineDriftMs":-22.5,"thirdTargetToProgressMs":23.19999998807907,"selectionToHoldMs":4.4000000059604645,"holdReleaseToTargetMs":0.8999999910593033,"selectionTargetToProgressMs":23.900000005960464} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":72.59999999403954,"resetTargetToProgressMs":27.100000008940697,"rowDeadlineDriftMs":-15,"nextRowTargetToProgressMs":30.599999994039536,"activationToTargetMs":1.2999999970197678,"activationTargetToProgressMs":27.799999997019768,"firstDeadlineDriftMs":-14.799999997019768,"secondTargetToProgressMs":31.299999997019768,"laterDeadlineDriftMs":-25.200000002980232,"thirdTargetToProgressMs":24.200000002980232,"selectionToHoldMs":4.399999991059303,"holdReleaseToTargetMs":0.8999999910593033,"selectionTargetToProgressMs":32.70000000298023} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
 | camera-hold-activation | PASS | accepted long blink activates from frozen scan position without a holdEnd resume delay |
+| camera-hold-to-advance | PASS | one sustained camera gesture advances block → first row → first cell, commits once, and remains latched until release |
 | english-filled-rows | PASS | filled both spare cells, kept ? at the bottom, and moved CLR to the matching final position |
 | phrase | PASS | entered I want water with automatic trailing space through visible row/column scanning |
 | undo-correction | PASS | undid WATER and selected FOOD |

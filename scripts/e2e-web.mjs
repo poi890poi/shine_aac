@@ -208,6 +208,7 @@ try {
   await scenarioFirstColumnProgressTiming();
   await scenarioCameraHoldPausesScan();
   await scenarioCameraHoldActivationIsImmediate();
+  await scenarioCameraHoldAdvancesHierarchy();
   await scenarioEnglishFilledRows();
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
@@ -2293,6 +2294,99 @@ async function scenarioSpeechLockConversationDisplay() {
     throw new Error("Clear did not leave the speech-lock conversation display");
   }
   steps.push(pass("speech-lock-conversation", "enhanced mode shows two prior spoken messages, excludes drafts, and keeps Speak/Clear/Edit in one compact row"));
+}
+
+async function scenarioCameraHoldAdvancesHierarchy() {
+  await evaluate(`
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
+      columns: 4,
+      scanMode: "block-row-column",
+      scanIntervalMs: 2500,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 2500,
+      inputLatencyCompensationMs: 250,
+      scanPassLimit: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      holdToAdvance: true,
+      switchInputProfile: "camera-long-blink"
+    }));
+    location.reload();
+  `);
+  await waitForUi();
+  await releaseFirstRowHold();
+  await delay(100);
+
+  const before = await getSnapshot();
+  if (!before.activeBlock) {
+    throw new Error(`Hold-to-advance test did not begin at block scanning: ${JSON.stringify(before)}`);
+  }
+
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "holdStart", source: "android-camera-long-blink" });
+    window.ShineAacInput.receive({ intent: "activate", source: "android-camera-long-blink", detail: "longBlinkMs=1200" });
+  `);
+  await delay(1150);
+  let snapshot = await getSnapshot();
+  if (!snapshot.activeCell || !snapshot.cameraHold || snapshot.message !== "") {
+    throw new Error(`Sustained gesture did not advance block to first row/first cell safely: ${JSON.stringify(snapshot)}`);
+  }
+
+  await delay(1100);
+  snapshot = await getSnapshot();
+  if (!snapshot.message || !snapshot.reviewHold || snapshot.cameraHold) {
+    throw new Error(`Sustained gesture did not commit exactly one first-cell leaf: ${JSON.stringify(snapshot)}`);
+  }
+  const selectedMessage = snapshot.message;
+
+  await delay(1200);
+  snapshot = await getSnapshot();
+  if (snapshot.message !== selectedMessage || !snapshot.reviewHold) {
+    throw new Error(`Held gesture repeated after its bounded leaf selection: ${JSON.stringify(snapshot)}`);
+  }
+
+  await evaluate(`
+    window.ShineAacInput.receive({ intent: "holdEnd", source: "android-camera-long-blink" });
+  `);
+  await delay(80);
+  snapshot = await getSnapshot();
+  if (snapshot.message !== selectedMessage || !snapshot.reviewHold) {
+    throw new Error(`Releasing the bounded gesture changed its final selection: ${JSON.stringify(snapshot)}`);
+  }
+  steps.push(pass(
+    "camera-hold-to-advance",
+    "one sustained camera gesture advances block → first row → first cell, commits once, and remains latched until release"
+  ));
+
+  await selectLabel("CLR", { occurrence: "last", activationDelayMs: 300 });
+  await assertMessage("");
+
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: ${BrowserSmokeScanMs},
+      transitionPauseMs: 0,
+      firstCellPauseMs: ${BrowserSmokeScanMs},
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
+  `);
+  await waitForUi();
 }
 
 async function scenarioConfigProfileRelevance() {

@@ -12,6 +12,7 @@ export const defaultUiConfig = Object.freeze({
   speechAfterReadMode: "off",
   restartScanFromTop: true,
   verticalGroupProgress: false,
+  holdToAdvance: false,
   hardwareButtons: true,
   cameraSwitch: false,
   switchInputProfile: "hardware-buttons",
@@ -88,6 +89,7 @@ export function normalizeUiConfig(config) {
     // lightweight Ministry of Education Bopomofo option.
     speechVoiceName,
     speechAfterReadMode,
+    holdToAdvance: config.holdToAdvance === true,
     switchInputProfile: profile,
     contrastTheme,
     hardwareButtons: profile === "hardware-buttons" ||

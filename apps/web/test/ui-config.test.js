@@ -85,6 +85,17 @@ test("after-read behavior is one normalized three-level option", () => {
   assert.match(appSource, /Keep entering \(not locked\)", "繼續輸入（不鎖定）"/);
 });
 
+test("camera hold-through is explicit, bounded, and disabled by default", () => {
+  assert.equal(defaultUiConfig.holdToAdvance, false);
+  assert.equal(normalizeUiConfig({ holdToAdvance: true }).holdToAdvance, true);
+  assert.equal(normalizeUiConfig({ holdToAdvance: "true" }).holdToAdvance, false);
+  assert.match(appSource, /HoldToAdvanceMaxExtraActivations\s*=\s*2/);
+  assert.match(appSource, /stage === ScanStage\.Blocks[\s\S]*?ScanStage\.Rows, ScanStage\.FirstCell/);
+  assert.match(appSource, /stage === ScanStage\.Rows[\s\S]*?ScanStage\.FirstCell/);
+  assert.match(appSource, /selection \|\|[\s\S]*?!uiConfig\.holdToAdvance/);
+  assert.match(appSource, /detail:\s*"holdToAdvance=1"/);
+});
+
 test("replay and conversation display share the same locked subset", () => {
   assert.match(appSource, /speechLockMessage:\s*session\.message/);
   assert.match(appSource, /uiConfig\.speechAfterReadMode === "conversation"/);

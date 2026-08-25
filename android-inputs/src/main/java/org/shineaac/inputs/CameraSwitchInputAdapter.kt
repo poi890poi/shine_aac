@@ -857,7 +857,10 @@ class CameraSwitchInputAdapter(
         playHoldReachedCue()
         if (now - lastActivationAt < settings.cooldownMs) return
         lastActivationAt = now
-        holdEventActive = false
+        // Keep the physical hold latched until the classifier reports a real
+        // reopen/relax event. The board may use that bounded pressed interval
+        // to advance through the first target of the next hierarchy level.
+        // It still receives exactly one detector activation per gesture.
         sink.onInput(InputEvent(intent = "activate", source = settings.source, detail = detail))
     }
 

@@ -38,6 +38,8 @@
     <string name="settings_manage_speech">管理語音</string>
     <string name="settings_manage_speech_summary">開啟 Android 文字轉語音設定</string>
     <string name="settings_switch_input">開關輸入</string>
+    <string name="settings_hold_to_advance">持續連選</string>
+    <string name="settings_hold_to_advance_summary">保持相機動作，選擇下一層的第一項</string>
     <string name="settings_camera_setup">相機設定</string>
     <string name="settings_input_test">輸入測試</string>
     <string name="settings_display_contrast">顯示對比</string>

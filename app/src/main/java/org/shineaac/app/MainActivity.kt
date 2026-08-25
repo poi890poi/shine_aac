@@ -654,6 +654,7 @@ class MainActivity : ComponentActivity() {
                 )
                 .put("speechAfterReadMode", prefs.getString("speechAfterReadMode", "off"))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
+                .put("holdToAdvance", prefs.getBoolean("holdToAdvance", false))
                 .put("switchInputProfile", prefs.getString("switchInputProfile", SwitchInputHardware))
                 .put("hardwareButtons", prefs.getBoolean("hardwareButtons", true))
                 .put("cameraSwitch", prefs.getBoolean("cameraSwitch", false))

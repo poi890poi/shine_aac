@@ -65,9 +65,12 @@ const ConfigCheckboxFieldNames = [
   "scanVoice",
   "activationVoice",
   "restartScanFromTop",
-  "verticalGroupProgress"
+  "verticalGroupProgress",
+  "holdToAdvance"
 ];
 const CameraStatusStaleMs = 2200;
+const HoldToAdvanceDelayMs = 1000;
+const HoldToAdvanceMaxExtraActivations = 2;
 const TextHistoryVersion = 3;
 const TextHistoryMaxEntries = 1000;
 const TextHistoryMaxChars = 220000;
@@ -197,6 +200,11 @@ let lastScanAnnouncementKey = "";
 let reviewHoldActive = true;
 let cameraHoldActive = false;
 let cameraHoldProgress = 0;
+let cameraGestureActive = false;
+let cameraGestureSource = "";
+let holdToAdvanceTimerId = 0;
+let holdToAdvanceExtraActivations = 0;
+let holdToAdvanceExpectedStages = [];
 let suppressNextConfigClick = false;
 let renderedBoardKey = "";
 let renderedMessage = "";
@@ -817,6 +825,7 @@ function setSession(nextSession) {
   reviewHoldActive = false;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
+  prepareHoldToAdvance();
   render();
   resetClock();
   scheduleScan();
@@ -866,6 +875,7 @@ function pauseCommunication() {
   cancelScheduledScan();
   cameraHoldActive = false;
   cameraHoldProgress = 0;
+  resetCameraGesture();
   reviewHoldActive = false;
   if (page !== "board") return true;
 
@@ -877,6 +887,9 @@ function pauseCommunication() {
 
 function activateSwitch(inputEvent = {}) {
   if (configOpen) return;
+  cancelHoldToAdvanceTimer();
+  const activationStage = session.scannerState.stage;
+  const holdToAdvanceActivation = detailValue(inputEvent.detail, "holdToAdvance") === "1";
   const speechLockWasActive = isSpeechLockActive(session);
   const cameraHoldWasActive = cameraHoldActive && isCameraInput(inputEvent.source);
   const frozenCameraProgress = cameraHoldProgress;
@@ -884,6 +897,7 @@ function activateSwitch(inputEvent = {}) {
   cameraHoldProgress = 0;
   cancelScheduledScan();
   if (reviewHoldActive) {
+    holdToAdvanceExpectedStages = [];
     reviewHoldActive = false;
     render();
     resetClock();
@@ -891,8 +905,10 @@ function activateSwitch(inputEvent = {}) {
     announceCurrentScanTarget();
     return;
   }
-  const elapsed = cameraHoldWasActive
-    ? frozenElapsedForCurrentScan(frozenCameraProgress)
+  const elapsed = holdToAdvanceActivation
+    ? session.config.inputLatencyCompensationMs + 1
+    : cameraHoldWasActive
+      ? frozenElapsedForCurrentScan(frozenCameraProgress)
     : performance.now() - highlightStartedAt;
   const baseConfig = session.config;
   const timedSession = { ...session, config: effectiveTimingConfigForInput(inputEvent.source) };
@@ -938,6 +954,12 @@ function activateSwitch(inputEvent = {}) {
     markCurrentTextHistoryLineSpoken(inputEvent.source ?? "switch");
   }
   reviewHoldActive = shouldHold;
+  holdToAdvanceExpectedStages = holdToAdvanceStagesAfter(
+    activationStage,
+    selection,
+    inputEvent.source,
+  );
+  prepareHoldToAdvance();
   render();
   resetClock();
   scheduleScan();
@@ -955,6 +977,13 @@ function activateSwitch(inputEvent = {}) {
 
 function startCameraHold(inputEvent = {}) {
   if (configOpen || !isCameraInput(inputEvent.source)) return false;
+  if (!cameraGestureActive) {
+    cameraGestureActive = true;
+    cameraGestureSource = String(inputEvent.source ?? "");
+    holdToAdvanceExtraActivations = 0;
+    holdToAdvanceExpectedStages = [];
+    cancelHoldToAdvanceTimer();
+  }
   if (reviewHoldActive) return true;
   if (cameraHoldActive) return true;
 
@@ -969,15 +998,69 @@ function startCameraHold(inputEvent = {}) {
 
 function endCameraHold(inputEvent = {}) {
   if (!isCameraInput(inputEvent.source)) return false;
-  if (!cameraHoldActive) return true;
-
   setCameraStatus("live", "Cam live", true);
   const resumeProgress = cameraHoldProgress;
+  const shouldResumeFrozenScan = cameraHoldActive;
   cameraHoldActive = false;
   cameraHoldProgress = 0;
+  resetCameraGesture();
+  if (!shouldResumeFrozenScan) return true;
   render();
   resumeScanFromProgress(resumeProgress);
   return true;
+}
+
+function holdToAdvanceStagesAfter(stage, selection, source) {
+  if (
+    selection ||
+    !uiConfig.holdToAdvance ||
+    !cameraGestureActive ||
+    !isCameraInput(source) ||
+    holdToAdvanceExtraActivations >= HoldToAdvanceMaxExtraActivations
+  ) return [];
+  if (stage === ScanStage.Blocks) return [ScanStage.Rows, ScanStage.FirstCell];
+  if (stage === ScanStage.Rows) return [ScanStage.FirstCell];
+  return [];
+}
+
+function prepareHoldToAdvance() {
+  cancelHoldToAdvanceTimer();
+  if (
+    !uiConfig.holdToAdvance ||
+    !cameraGestureActive ||
+    reviewHoldActive ||
+    configOpen ||
+    holdToAdvanceExpectedStages.length === 0 ||
+    !holdToAdvanceExpectedStages.includes(session.scannerState.stage)
+  ) return false;
+
+  holdToAdvanceExpectedStages = [];
+  cameraHoldActive = true;
+  cameraHoldProgress = 0;
+  holdToAdvanceTimerId = window.setTimeout(() => {
+    holdToAdvanceTimerId = 0;
+    if (!cameraGestureActive || !uiConfig.holdToAdvance || configOpen) return;
+    holdToAdvanceExtraActivations += 1;
+    activateSwitch({
+      intent: InputIntent.Activate,
+      source: cameraGestureSource,
+      detail: "holdToAdvance=1",
+    });
+  }, HoldToAdvanceDelayMs);
+  return true;
+}
+
+function cancelHoldToAdvanceTimer() {
+  window.clearTimeout(holdToAdvanceTimerId);
+  holdToAdvanceTimerId = 0;
+}
+
+function resetCameraGesture() {
+  cancelHoldToAdvanceTimer();
+  cameraGestureActive = false;
+  cameraGestureSource = "";
+  holdToAdvanceExtraActivations = 0;
+  holdToAdvanceExpectedStages = [];
 }
 
 function advanceScan() {
@@ -2555,6 +2638,10 @@ function renderConfig() {
           ${switchInputProfileOptionsHtml(uiConfig.switchInputProfile)}
         </select>
       </label>
+      <label class="field check-field">
+        <input name="holdToAdvance" type="checkbox" aria-label="${uiText("Hold to advance", "持續連選")}" ${uiConfig.holdToAdvance ? "checked" : ""}>
+        ${uiText("Hold to advance", "持續連選")}
+      </label>
       <label class="field">${uiText("Display contrast", "顯示對比")}
         <select name="contrastTheme">
           ${contrastThemeOptionsHtml(uiConfig.contrastTheme)}
@@ -2697,6 +2784,7 @@ function renderConfig() {
       speechAfterReadMode: String(data.get("speechAfterReadMode") ?? "off"),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
       verticalGroupProgress: data.get("verticalGroupProgress") === "on",
+      holdToAdvance: data.get("holdToAdvance") === "on",
       switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
       contrastTheme: String(data.get("contrastTheme") ?? uiConfig.contrastTheme)
     });
