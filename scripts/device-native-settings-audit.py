@@ -20,6 +20,20 @@ INPUT_TEST_ACTIVITY = "InputTestActivity"
 RESOURCE_ACTIVITY = "ResourceManagementActivity"
 
 
+def release_version(path=None):
+    values = {}
+    version_path = Path(path) if path else ROOT / "version.properties"
+    for line in version_path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if separator:
+            values[key.strip()] = value.strip()
+    version_name = values.get("versionName")
+    version_code = values.get("versionCode")
+    if not version_name or not version_code:
+        raise RuntimeError("version.properties is missing versionName or versionCode")
+    return version_name, version_code
+
+
 def find_adb():
     candidates = []
     if os.environ.get("ADB"):
@@ -341,7 +355,8 @@ class NativeSettingsAudit:
         self.open_section(sections["data"][0], "data")
         if self.tap_text(["App info", "關於"], "app_info", 2):
             texts, _, evidence = self.collect_page("app-info", 1)
-            self.require_labels("App info", texts, [["0.4.0"], ["59"]], evidence)
+            version_name, version_code = release_version()
+            self.require_labels("App info", texts, [[version_name], [version_code]], evidence)
 
         self.passed("native settings hierarchy", "six focused subpages; no tab misuse")
         self.write_report()
