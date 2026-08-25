@@ -17,10 +17,16 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:manageSpaceActivity=".ResourceManagementActivity"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SHINEAAC"
         tools:targetApi="31">
+        <activity
+            android:name=".ResourceManagementActivity"
+            android:exported="true"
+            android:label="@string/resources_title"
+            android:theme="@style/Theme.SHINEAAC.Resources" />
         <activity
             android:name=".InputTestActivity"
             android:exported="false"

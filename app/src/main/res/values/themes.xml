@@ -11,4 +11,10 @@
         <item name="colorAccent">#237F86</item>
         <item name="android:fontFamily">sans</item>
     </style>
+
+    <style name="Theme.SHINEAAC.Resources" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#237F86</item>
+        <item name="colorSecondary">#237F86</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
 </resources>

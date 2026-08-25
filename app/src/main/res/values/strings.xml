@@ -12,7 +12,7 @@
     <string name="settings_section_speech_summary">Speech feedback, voice, and after-reading behavior</string>
     <string name="settings_section_input_summary">Switch source, Camera Setup, and Input Test</string>
     <string name="settings_section_display_summary">Contrast and visual appearance</string>
-    <string name="settings_section_data_support_summary">Export, app information, and reset</string>
+    <string name="settings_section_data_support_summary">Offline resources, export, app information, and reset</string>
     <string name="settings_language">Language</string>
     <string name="settings_columns">Board columns</string>
     <string name="settings_suggestion_dictionary">Suggestion dictionary</string>
@@ -85,4 +85,27 @@
     <string name="settings_input_key_volume_down">Volume down</string>
     <string name="settings_input_key_external">External switch</string>
     <string name="settings_input_key_touch">Touch</string>
+    <string name="resources_title">Offline resources</string>
+    <string name="resources_settings_summary">Models, speech packs, downloads, and device storage</string>
+    <string name="resources_intro">Manage models and speech files used by optional features. Downloads are verified and stored privately on this device.</string>
+    <string name="resources_camera_input_heading">Camera input</string>
+    <string name="resources_cheek_model">Cheek-twitch model</string>
+    <string name="resources_cheek_model_summary">Recognizes cheek movement for camera switch input. The current release keeps an offline fallback.</string>
+    <string name="resources_core_heading">Included resources</string>
+    <string name="resources_face_detection">Long-blink face detection</string>
+    <string name="resources_face_detection_summary">Required for reliable long-blink setup and input.</string>
+    <string name="resources_taiwan_voice">Taiwan Mandarin voice</string>
+    <string name="resources_taiwan_voice_summary">Built-in offline speech for Traditional Chinese.</string>
+    <string name="resources_required_included">Included with app · required</string>
+    <string name="resources_status_included">Included with app · 3.6 MB</string>
+    <string name="resources_status_downloaded">Downloaded update · 3.6 MB</string>
+    <string name="resources_status_downloading">Downloading and verifying…</string>
+    <string name="resources_status_update_available">Update available · 3.6 MB</string>
+    <string name="resources_download_update">Download update</string>
+    <string name="resources_remove_download">Remove download</string>
+    <string name="resources_downloading">Downloading…</string>
+    <string name="resources_up_to_date_action">Check updates</string>
+    <string name="resources_up_to_date">Resources are up to date.</string>
+    <string name="resources_download_removed">Downloaded update removed. The included version will be used.</string>
+    <string name="resources_storage_note">Removing a downloaded update never removes the included offline fallback. Android can also open this page from App info › Storage.</string>
 </resources>

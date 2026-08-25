@@ -184,6 +184,10 @@ class SectionSettingsPreferenceFragment : PreferenceFragmentCompat() {
             startActivity(Intent(requireContext(), InputTestActivity::class.java))
             true
         }
+        findPreference<Preference>("manageResources")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), ResourceManagementActivity::class.java))
+            true
+        }
         findPreference<Preference>("exportText")?.setOnPreferenceClickListener {
             settingsActivity().finishWithAction(SettingsActivity.ActionExportText)
             true
