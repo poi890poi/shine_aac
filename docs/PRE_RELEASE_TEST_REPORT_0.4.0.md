@@ -1,8 +1,8 @@
 # SayToMe AAC / 我想說 0.4.0 pre-release report
 
 Date: 2026-08-25  
-Version: 0.4.0 (59)  
-Candidate: `340ebcb` (`codex/release-v0.4.0-play`)
+Version: 0.4.0 (60)
+Candidate: `ca1c187` (`codex/release-v0.4.0-play`)
 
 ## Decision
 
@@ -22,9 +22,9 @@ failure.
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `shine-aac-v0.4.0-code59-debug.apk` | 106,518,738 | `6AE2D816A22020930EE7972426F40E1F6E26745DC5FC33311ED113055DA251F9` |
-| `shine-aac-v0.4.0-code59-debug.zip` | 54,572,984 | `44B27387DD10260A122BF9F44A202375E288EC59DA0084399CCA9DA9CE9E3876` |
-| `shine-aac-v0.4.0-code59-release.aab` | 52,741,197 | `91147750CB882BBA1B2277605FDB9CC6B1CB33DF53615868D9EF6AACFA67A357` |
+| `shine-aac-v0.4.0-code60-debug.apk` | 106,379,645 | `A2452DBDB31310D28D191BD84075D78BDC80B2E7C1BB901EE803E3B3DEF0360D` |
+| `shine-aac-v0.4.0-code60-debug.zip` | 54,577,583 | `17D73E9836A0F5D4CA34D307A9C2510BC64529DC1A0B1A53DDF3A97E345493D8` |
+| `shine-aac-v0.4.0-code60-release.aab` | 52,737,938 | `18AF40673B5E4D5877F52172DDF713515D0DAEAD623A9077D9C9D08B81B4D94` |
 
 The direct artifact is intentionally a debug-signed APK. Only the signed AAB is for
 Google Play. The APK packaging rebuild reproduced the exact hash used by the physical
@@ -36,22 +36,29 @@ SHA-256 is `AF:52:D7:C1:6A:8A:15:57:62:C7:AD:81:BC:DC:67:B2:87:1A:86:CC:26:05:9E
 | Area | Evidence | Result |
 | --- | --- | --- |
 | Core/web logic | 314 tests | PASS |
-| Web configuration/layout/accessibility | 46 tests | PASS |
+| Web configuration/layout/accessibility | 48 tests | PASS |
 | Scan performance | 3 scenarios, including 1M-word cold preparation and 10k transitions | PASS |
 | Android JVM | app plus `android-inputs` debug unit tasks | PASS |
 | Android lint/build | `lintDebug testDebugUnitTest assembleDebug`; 0 errors, 13 non-blocking warnings | PASS |
 | Browser integration | source and packaged WebView runs, including clean dependency install | PASS |
-| Rig logic | 61 Python tests | PASS |
+| Rig logic | 65 Python tests | PASS |
 | Dependency security | `npm audit`; 0 vulnerabilities | PASS |
-| Physical Android regression | Samsung SM-G781B, Android 13/API 33; 33 checks | PASS, P0-P4 = 0 |
+| Physical Android regression | Samsung SM-G781B, Android 13/API 33; 48 checks | PASS, P0-P4 = 0 |
 | Native Settings/configuration | 19 inventory, dialog, hierarchy, Input Test, resource, voice and About checks | PASS, P0-P4 = 0 |
 | Long normal-use blink | 20 selections, 4 speech turns, correction, clear, language round-trip | PASS |
-| Long normal-use twitch | 21 selections, 4 speech turns, correction, clear, language round-trip | PASS |
-| Focused twitch | 3 positive + 6 frown/surprise controls | 9/9 PASS |
-| Focused blink | 27 natural/short/long/recovery/smile/surprise cases | 27/27 PASS |
+| Long normal-use twitch | 20 selections, 4 speech turns, correction, clear, language round-trip | PASS |
+| Physical Hold to advance | 1 sustained blink; block to first row to first cell; held latch | PASS |
+| Paused idle wake | 1-minute Stopped-only timeout; blink and downloaded twitch wake | 2/2 PASS |
+| Focused twitch | 1 positive + 2 frown/surprise controls | 3/3 PASS |
+| Focused blink | 9 natural/short/long/recovery/smile/surprise cases | 9/9 PASS |
 
-Physical device evidence: `test-results/device-20260825-103556`. The same APK also
-completed an earlier five-cycle run in `test-results/device-20260825-095417`.
+Physical device evidence: `test-results/device-20260825-151421`. Native Settings
+evidence: `test-results/native-config-20260825-152827`.
+
+The first Settings audit incorrectly reported a P1 because its App info oracle still
+hard-coded version code 59. The captured UI correctly showed `版本 0.4.0（60）`; only
+the harness was changed to read `version.properties` dynamically (`9ddc1a4`). The
+complete audit then passed 19/19. No app behavior was changed for that test failure.
 
 The physical suite verified install/launch, package/version/signature, locale, camera
 preview stability, background/display-off camera release, process recreation, 200%
@@ -60,24 +67,31 @@ bounds stayed stable across changing status text.
 
 ## Optical confidence and performance
 
-The required ordering was respected: complete normal-use sessions ran before focused
-repetition. The first blink run exposed three rig-created clear-row retries. Evidence
-showed the harness was injecting an unconditional extra activation after every camera
-selection. The app was not changed. The rig now observes scan motion and sends a wake
-gesture only when review remains held.
+The required ordering was respected: the complete blink normal-use session
+(`test-results/optical-20260825-153440`) and complete downloaded-video twitch session
+(`test-results/optical-20260825-160039`) ran before focused repetition. Each completed
+20 selections, four speech turns, a deliberate wrong choice and undo, clear operations,
+and a Traditional Chinese/English round-trip. Each used 57 physical camera activations
+with no timeout, miss, duplicate, or release-blocking finding.
 
-The corrected twitch session used the public downloaded movement video, not the private
-frame pack. Native setup accepted 6/6 registration trials in 28.4 seconds. It then
-completed 60/60 physical gesture steps: 43 selection gestures and 17 consumed review
-wake gestures, with zero timeout, miss, duplicate, or release-blocking finding. A
-50-frame normal-use analyzer window averaged 16.7 ms and peaked at 35.8 ms.
+The new bounded sustained-input gate (`test-results/optical-20260825-163217`) used one
+real continuous blink. It changed the message from empty to `是` through block, first
+row and first cell with exactly one native activation, then remained `是` for another
+1.5 seconds while the stimulus stayed closed. Release was required before another
+native activation.
 
-Focused twitch evidence (`test-results/optical-20260825-132204`) recorded exactly one
-activation for every positive repetition and zero for all frown/surprise controls.
-Across nine performance windows, analyzer mean was 36.2 ms and the worst observed frame
-was 68.4 ms.
+Paused-idle gates used a real one-minute timeout after the visible scanner reached
+`Stopped`. Blink (`test-results/optical-20260825-163323`) and downloaded twitch
+(`test-results/optical-20260825-163527`) both emitted `powerSaving`; one physical
+gesture then returned to `Rows` with the existing message unchanged. This proves the
+first gesture wakes rather than selects. The Samsung window dump did not expose app
+brightness, so panel dimming was not claimed as an automated optical measurement.
 
-Focused blink evidence (`test-results/optical-20260825-132615`) passed 27/27:
+Focused twitch evidence (`test-results/optical-20260825-164224`) passed 3/3: one
+positive activation and zero for frown/surprise controls. Analyzer windows averaged
+29.5-32.8 ms and the worst observed frame was 71.9 ms.
+
+Focused blink evidence (`test-results/optical-20260825-163810`) passed 9/9:
 
 - natural and short blinks: 0 activations;
 - four long/continuous positive variants: exactly 1 activation each;
@@ -157,4 +171,3 @@ P2 roadmap items requiring AAC/user validation, not safe release-eve special-cas
 - WCAG enhanced contrast: https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced.html
 - Google Play Data safety: https://support.google.com/googleplay/android-developer/answer/10787469
 - ML Kit Android data disclosure: https://developers.google.com/ml-kit/android-data-disclosure
-
