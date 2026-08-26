@@ -72,6 +72,15 @@ internal fun cheekCalibrationMoveInstruction(zhTw: Boolean): String =
         "Setup: move your cheek naturally, then relax. Samples are found automatically; the action does not need to activate first."
     }
 
+internal fun calibrationStepPendingText(stepLabel: String, zhTw: Boolean): String =
+    if (zhTw) "開始提示音後進行$stepLabel" else "$stepLabel starts after the start tone"
+
+internal fun calibrationFaceMissingText(zhTw: Boolean): String =
+    if (zhTw) "未偵測到臉部" else "Face not detected"
+
+internal fun calibrationWaitingScoreText(scoreText: String, zhTw: Boolean): String =
+    if (zhTw) "分數 $scoreText" else "Score $scoreText"
+
 class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val analysisSize = Size(480, 360)
     private var textureView: TextureView? = null
@@ -131,7 +140,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var phase = Phase.Idle
     private var captureEndsAtMs = 0L
     private var activeStepLabel = ""
-    private var ttsVoiceLabel = "Voice pending"
     private var calibrationRunId = 0
     private var analysisInFlight = false
     private var lastFrameAt = 0L
@@ -183,7 +191,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         val profileId = intent.getStringExtra(ExtraProfileId) ?: "en-US"
         cueSet = CalibrationCueText.forProfile(profileId)
         zhTwUi = profileId == "zh-TW"
-        ttsVoiceLabel = tr("Voice pending", "語音準備中")
         val savedSettings = CameraSwitchPreferences.read(this, enabled = false)
         selectedGesture = savedSettings.gesture
         cheekHoldMs = savedSettings.cheekHoldMs
@@ -717,24 +724,12 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             ?.firstOrNull { it.locale.toLanguageTag().equals(cueSet.locale.toLanguageTag(), ignoreCase = true) }
         if (exactVoice != null) {
             engine.setVoice(exactVoice)
-            ttsVoiceLabel = tr("Voice ${exactVoice.locale.toLanguageTag()}", "語音 ${exactVoice.locale.toLanguageTag()}")
         } else {
             val result = engine.setLanguage(cueSet.locale)
             if ((result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) &&
                 cueSet.locale.language == "zh"
             ) {
                 engine.setLanguage(Locale.TRADITIONAL_CHINESE)
-                ttsVoiceLabel = tr(
-                    "Voice ${engine.voice?.locale?.toLanguageTag() ?: Locale.TRADITIONAL_CHINESE.toLanguageTag()}",
-                    "語音 ${engine.voice?.locale?.toLanguageTag() ?: Locale.TRADITIONAL_CHINESE.toLanguageTag()}"
-                )
-            } else {
-                val actualTag = engine.voice?.locale?.toLanguageTag() ?: cueSet.locale.toLanguageTag()
-                ttsVoiceLabel = if (cueSet.locale.toLanguageTag() == "zh-TW" && actualTag != "zh-TW") {
-                    "語音 $actualTag；找不到台灣語音"
-                } else {
-                    tr("Voice $actualTag", "語音 $actualTag")
-                }
             }
         }
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -744,7 +739,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             override fun onError(utteranceId: String?) = finishSpeech(utteranceId)
             override fun onError(utteranceId: String?, errorCode: Int) = finishSpeech(utteranceId)
         })
-        runOnUiThread { metricsView?.text = ttsVoiceLabel }
     }
 
     private fun startAutoCalibration() {
@@ -788,10 +782,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         activeStepLabel = step.label
         captureEndsAtMs = 0L
         statusView?.text = step.cue
-        metricsView?.text = tr(
-            "$ttsVoiceLabel | ${step.label} starts after the start tone",
-            "$ttsVoiceLabel｜開始提示音後進行${step.label}"
-        )
+        metricsView?.text = calibrationStepPendingText(step.label, zhTwUi)
         speakThen(step.cue) {
             if (runId != calibrationRunId) return@speakThen
             if (step.durationMs <= 0L) {
@@ -1954,17 +1945,14 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         if (phase != Phase.Complete) {
             val remainingMs = max(0L, captureEndsAtMs - System.currentTimeMillis())
             metricsView?.text = if (score == null) {
-                tr("$ttsVoiceLabel | Face not detected", "$ttsVoiceLabel｜未偵測到臉部")
+                calibrationFaceMissingText(zhTwUi)
             } else if (captureEndsAtMs > 0L) {
                 tr(
                     "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | score ${"%.2f".format(score)} | long blinks ${longBlinkDurations.size}",
                     "$activeStepLabel 剩下 ${((remainingMs + 999L) / 1000L)} 秒｜分數 ${"%.2f".format(score)}｜長眨眼 ${longBlinkDurations.size}"
                 )
             } else {
-                tr(
-                    "$ttsVoiceLabel | score ${"%.2f".format(score)}",
-                    "$ttsVoiceLabel｜分數 ${"%.2f".format(score)}"
-                )
+                calibrationWaitingScoreText("%.2f".format(score), zhTwUi)
             }
         }
     }
