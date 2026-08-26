@@ -110,7 +110,7 @@ P0/P1 findings make the command return non-zero. Reports enumerate P0 through
 P4 so minor polish and consistency observations are retained instead of being
 discarded.
 
-## Optical switch regression
+## Camera-action regression
 
 Changes to long-blink/cheek detection should also run:
 

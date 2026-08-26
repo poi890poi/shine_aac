@@ -893,13 +893,13 @@ class DeepTest:
             cam_xml = self.outdir / "ui" / ("cycle%02d_camera_setup.xml" % cycle)
             cam_text = "\n".join(self.visible_strings(cam_xml)).lower()
             if ("long blink" in cam_text or "長眨眼" in cam_text) and (
-                "cheek twitch" in cam_text or "臉頰抽動" in cam_text
+                "cheek movement" in cam_text or "臉頰動作" in cam_text
             ):
                 self.passed("camera setup controls cycle %d" % cycle)
             else:
                 self.add(
                     "P1", "Camera setup mode controls missing",
-                    "Long blink/Cheek twitch controls were not both visible in UI hierarchy.",
+                    "Long blink/Cheek movement controls were not both visible in UI hierarchy.",
                     ["ui/cycle%02d_camera_setup.xml" % cycle,
                      "screenshots/cycle%02d_camera_setup.png" % cycle]
                 )
@@ -908,9 +908,9 @@ class DeepTest:
                 original_gesture = self.camera_gesture_preference()
                 if original_gesture == "cheek-twitch":
                     alternate_patterns = ["long blink", "長眨眼"]
-                    restore_patterns = ["cheek twitch", "臉頰抽動"]
+                    restore_patterns = ["cheek movement", "臉頰動作"]
                 else:
-                    alternate_patterns = ["cheek twitch", "臉頰抽動"]
+                    alternate_patterns = ["cheek movement", "臉頰動作"]
                     restore_patterns = ["long blink", "長眨眼"]
                 initial_bounds = self.camera_preview_bounds(cam_xml)
                 initial_text = set(self.visible_strings(cam_xml))
@@ -1549,7 +1549,7 @@ class DeepTest:
             "",
             "## Automated-test limitations",
             "",
-            "- ADB cannot generate a real cheek twitch or long blink.",
+            "- ADB cannot generate a real cheek movement or long blink.",
             "- CSS color/contrast and selected-button styling are captured in screenshots but are not reliably available in UIAutomator XML.",
             "- Dynamic suggestions can legitimately change some board labels across process recreation.",
         ]

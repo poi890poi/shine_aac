@@ -184,14 +184,20 @@ class OpticalOracleTest(unittest.TestCase):
             "rows": [["幫忙", "喝水"], ["朗讀", "清除"]],
         }))
 
-    def test_physical_normal_use_script_is_extended_and_covers_repair(self):
-        script = RIG.PHYSICAL_NORMAL_USE_SCRIPT
-        self.assertGreaterEqual(len(script), 20)
-        self.assertEqual(4, sum(step["kind"] == "speak" for step in script))
-        self.assertTrue(any(step["kind"] == "undo" for step in script))
-        self.assertTrue(any(step["kind"] == "append_wrong_dynamic" for step in script))
-        self.assertTrue(any(step["kind"] == "open_category" for step in script))
-        self.assertTrue(any(step["kind"] == "close_category" for step in script))
+    def test_physical_normal_use_scenarios_are_distinct_and_goal_based(self):
+        scenarios = RIG.PHYSICAL_NORMAL_USE_SCENARIOS
+        self.assertTrue(RIG.validate_physical_normal_use_scenarios(scenarios))
+        self.assertNotEqual(
+            scenarios["blink"]["goal"], scenarios["cheek"]["goal"]
+        )
+        for scenario in scenarios.values():
+            script = scenario["steps"]
+            self.assertGreaterEqual(len(script), 17)
+            self.assertEqual(4, sum(step["kind"] == "speak" for step in script))
+            self.assertTrue(any(step["kind"] == "undo" for step in script))
+            self.assertTrue(any(step["kind"] == "append_wrong_dynamic" for step in script))
+            self.assertTrue(any(step["kind"] == "open_category" for step in script))
+            self.assertTrue(any(step["kind"] == "close_category" for step in script))
 
     def test_blink_calibration_timeline_requires_five_long_closures(self):
         events = []
@@ -239,6 +245,18 @@ class OpticalOracleTest(unittest.TestCase):
     def test_weak_blink_calibration_is_not_a_rig_pass(self):
         self.assertFalse(RIG.blink_calibration_quality_is_good({"qualityLabel": "品質偏低"}))
         self.assertFalse(RIG.blink_calibration_quality_is_good({"qualityLabel": "Quality needs retry"}))
+
+    def test_blink_calibration_report_requires_good_saved_quality(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "blink-calibration.json"
+            path.write_text(json.dumps({
+                "saved_record": {"qualityLabel": "請重新設定"}
+            }), encoding="utf-8")
+            self.assertFalse(RIG.blink_calibration_artifact_passes(path))
+            path.write_text(json.dumps({
+                "saved_record": {"qualityLabel": "品質良好"}
+            }), encoding="utf-8")
+            self.assertTrue(RIG.blink_calibration_artifact_passes(path))
 
     def test_cheek_calibration_oracle_requires_new_complete_model(self):
         before = '<map><long name="cheekCalibratedAtMs" value="100" /></map>'

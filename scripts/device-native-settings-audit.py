@@ -346,8 +346,8 @@ class NativeSettingsAudit:
             path = self.dump("offline_resources")
             evidence = [self.screenshot("offline-resources"), str(path.relative_to(self.out)).replace("\\", "/")]
             self.require_labels("Offline resources", set(self.texts(path)), [
-                ["Cheek-twitch model", "臉頰抽動模型"],
-                ["Long-blink face detection", "長眨眼臉部偵測"],
+                ["Face-action model", "臉部動作模型"],
+                ["Recognizes long blinks and cheek movement", "辨識長眨眼與臉頰動作"],
                 ["Taiwan Mandarin voice", "台灣華語語音"],
             ], evidence)
             self.shell("input", "keyevent", "4", check=False)

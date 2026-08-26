@@ -96,6 +96,24 @@ function Convert-ToLocalPropertiesPath {
     return $Path.Replace("\", "\\").Replace(":", "\:")
 }
 
+function Get-DebugApks {
+    $debugOutput = Join-Path $repoRoot "app\build\outputs\apk\debug"
+    if (-not (Test-Path -LiteralPath $debugOutput)) {
+        return @()
+    }
+    return @(Get-ChildItem -LiteralPath $debugOutput -File -Filter "*.apk" |
+        Sort-Object Name)
+}
+
+function Select-DeviceApk {
+    param(
+        [Parameter(Mandatory = $true)]$Apks,
+        [Parameter(Mandatory = $true)][string]$DeviceAbi
+    )
+    $suffix = "-$DeviceAbi-debug.apk"
+    return $Apks | Where-Object { $_.Name.EndsWith($suffix) } | Select-Object -First 1
+}
+
 $sdkPath = Find-AndroidSdk -ExplicitSdkDir $SdkDir -SearchDrives:$DeepSearch
 
 if ((-not $sdkPath) -and $SetupSdk) {
@@ -173,11 +191,14 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$apkPath = Join-Path $repoRoot "app\build\outputs\apk\debug\app-debug.apk"
+$debugApks = @(Get-DebugApks)
 
-if ((-not $SkipAssemble) -and (Test-Path -LiteralPath $apkPath)) {
-    Write-Step "Debug APK created"
-    Write-Host $apkPath
+if (-not $SkipAssemble) {
+    if ($debugApks.Count -eq 0) {
+        throw "Gradle completed without producing a debug APK."
+    }
+    Write-Step "Debug APKs created"
+    $debugApks | ForEach-Object { Write-Host $_.FullName }
 }
 
 if ($Install) {
@@ -186,12 +207,21 @@ if ($Install) {
         throw "Cannot install: adb.exe was not found under $sdkPath\platform-tools."
     }
 
-    if (-not (Test-Path -LiteralPath $apkPath)) {
-        throw "Cannot install: debug APK does not exist. Run without -SkipAssemble."
+    if ($debugApks.Count -eq 0) {
+        throw "Cannot install: no debug APK exists. Run without -SkipAssemble."
     }
 
-    Write-Step "Installing debug APK on connected device"
-    & $adbPath install -r $apkPath
+    $deviceAbi = ((& $adbPath shell getprop ro.product.cpu.abi) | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $deviceAbi) {
+        throw "Cannot install: unable to read the connected device ABI."
+    }
+    $apk = Select-DeviceApk -Apks $debugApks -DeviceAbi $deviceAbi
+    if (-not $apk) {
+        throw "Cannot install: no debug APK matches connected device ABI '$deviceAbi'."
+    }
+
+    Write-Step "Installing $($apk.Name) on $deviceAbi device"
+    & $adbPath install -r $apk.FullName
 
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE

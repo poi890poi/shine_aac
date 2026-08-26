@@ -49,11 +49,11 @@ class UvcCameraSupportTest {
     @Test
     fun cheekCalibrationInstructionExplainsAutomaticSampleDiscovery() {
         assertEquals(
-            "校正：請自然抽動臉頰後放鬆。系統會自動從影像找出動作樣本，不需要先成功觸發。",
+            "設定：請自然動一下臉頰後放鬆。系統會自動找出動作樣本，不需要先成功觸發。",
             cheekCalibrationMoveInstruction(zhTw = true)
         )
         assertEquals(
-            "Calibration: move your cheek naturally, then relax. Samples are found automatically; the twitch does not need to activate first.",
+            "Setup: move your cheek naturally, then relax. Samples are found automatically; the action does not need to activate first.",
             cheekCalibrationMoveInstruction(zhTw = false)
         )
     }

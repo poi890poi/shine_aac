@@ -20,7 +20,7 @@ The current one-switch scanner only needs `activate`. Two-switch, group scanning
 - Touch anywhere on the communication screen: `activate`
 - Keyboard `Space` or `Enter`: `activate`
 - Android hardware buttons through the WebView shell: `activate`
-- Android optical switch: calibrated long blink or cheek twitch through a
+- Android camera actions: calibrated long blink or cheek movement through a
   built-in Camera2 camera, a Camera2-exposed external camera, or direct USB UVC
   capture
 

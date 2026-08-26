@@ -17,6 +17,39 @@ This document defines how SHINE AAC should be tested before release candidates. 
 - Treat failures as design information. A failing benchmark should usually trigger a general data, ranking, or access-rule improvement, not a special-case exception.
 - Report gaps honestly. A high glyph reachability score does not mean real daily conversation coverage is complete.
 
+## Scenario quality rule
+
+Every manual, browser, emulator, device, and optical scenario must declare a user or
+helper goal and finish with an observable outcome. Opening a page, scrolling through
+it, returning, or repeating a gesture is not a functional pass by itself.
+
+Page navigation is valid task evidence only when it is needed to do at least one of
+the following:
+
+- make and save a setting change, then verify its effect;
+- make and cancel a change, then verify that it did not persist;
+- complete a setup, permission, export, recovery, or removal action;
+- find information that supports an explicit user/helper decision.
+
+Repeated navigation or input may be used for lifecycle, memory, thermal, timing, or
+detector-reliability stress. Such cases must state the hypothesis, repetition count,
+and measured invariant, and must be reported separately from normal-use journeys.
+Harness setup and cleanup steps do not count as user-task coverage.
+
+For each scenario, record:
+
+```text
+id and title
+role and user goal
+starting state
+preconditions and data provenance
+meaningful action sequence
+expected user-visible outcome
+safety and false-positive assertions
+evidence to retain
+cleanup or state restoration
+```
+
 ## Test Layers
 
 | Layer | Purpose | Speed Model | Main Evidence |

@@ -242,6 +242,14 @@ def blink_calibration_quality_is_good(record):
     return label in {"quality good", "品質良好"}
 
 
+def blink_calibration_artifact_passes(path):
+    try:
+        result = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return blink_calibration_quality_is_good(result.get("saved_record"))
+
+
 def new_cheek_calibration_record(before_xml, after_xml):
     before = android_preference_values(before_xml)
     after = android_preference_values(after_xml)
@@ -672,28 +680,70 @@ def board_uses_flat_cell_scan(state):
     return len(rows) == 1
 
 
-PHYSICAL_NORMAL_USE_SCRIPT = (
-    {"kind": "append", "concept": "help", "labels": ("幫忙", "幫我", "Help"), "message": "幫忙"},
-    {"kind": "append", "concept": "drink water", "labels": ("喝水", "飲水", "Drink water", "Water"), "message": "幫忙喝水"},
-    {"kind": "speak", "concept": "speak request 1", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
-    {"kind": "clear", "concept": "clear request 1", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
-    {"kind": "append", "concept": "uncomfortable", "labels": ("不舒服", "不適", "Uncomfortable"), "message": "不舒服"},
-    {"kind": "append", "concept": "rest", "labels": ("休息", "Rest"), "message": "不舒服休息"},
-    {"kind": "speak", "concept": "speak request 2", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
-    {"kind": "clear", "concept": "clear request 2", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
-    {"kind": "append", "concept": "pain", "labels": ("痛", "疼痛", "Pain"), "message": "痛"},
-    {"kind": "append_wrong_dynamic", "concept": "wrong choice"},
-    {"kind": "undo", "concept": "correct wrong choice", "labels": ("復原", "撤銷", "Undo"), "message": "痛"},
-    {"kind": "append", "concept": "help after correction", "labels": ("幫忙", "幫我", "Help"), "message": "痛幫忙"},
-    {"kind": "speak", "concept": "speak corrected request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
-    {"kind": "clear", "concept": "clear corrected request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
-    {"kind": "open_category", "concept": "open English", "labels": ("英文", "English", "EN"), "reveals": ("注音", "Zhuyin")},
-    {"kind": "append_dynamic", "concept": "English H", "labels": ("H",)},
-    {"kind": "append_dynamic", "concept": "English I", "labels": ("I",)},
-    {"kind": "speak", "concept": "speak English request", "labels": ("朗讀", "說出", "Speak", "SAY")},
-    {"kind": "clear", "concept": "clear English request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
-    {"kind": "close_category", "concept": "return to Zhuyin", "labels": ("注音", "Zhuyin"), "reveals": ("英文", "English", "EN")},
-)
+PHYSICAL_NORMAL_USE_SCENARIOS = {
+    "blink": {
+        "role": "AAC user who operates the board with long blinks",
+        "goal": "ask for water and rest, repair a wrong choice, and say hi",
+        "steps": (
+            {"kind": "append", "concept": "help", "labels": ("幫忙", "幫我", "Help"), "message": "幫忙"},
+            {"kind": "append", "concept": "drink water", "labels": ("喝水", "飲水", "Drink water", "Water"), "message": "幫忙喝水"},
+            {"kind": "speak", "concept": "speak water request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+            {"kind": "clear", "concept": "clear water request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "append", "concept": "uncomfortable", "labels": ("不舒服", "不適", "Uncomfortable"), "message": "不舒服"},
+            {"kind": "append", "concept": "rest", "labels": ("休息", "Rest"), "message": "不舒服休息"},
+            {"kind": "speak", "concept": "speak rest request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+            {"kind": "clear", "concept": "clear rest request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "append", "concept": "pain", "labels": ("痛", "疼痛", "Pain"), "message": "痛"},
+            {"kind": "append_wrong_dynamic", "concept": "make a wrong choice"},
+            {"kind": "undo", "concept": "repair wrong choice", "labels": ("復原", "撤銷", "Undo"), "message": "痛"},
+            {"kind": "append", "concept": "help after repair", "labels": ("幫忙", "幫我", "Help"), "message": "痛幫忙"},
+            {"kind": "speak", "concept": "speak repaired request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+            {"kind": "clear", "concept": "clear repaired request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "open_category", "concept": "open English", "labels": ("英文", "English", "EN"), "reveals": ("注音", "Zhuyin")},
+            {"kind": "append_dynamic", "concept": "English H", "labels": ("H",)},
+            {"kind": "append_dynamic", "concept": "English I", "labels": ("I",)},
+            {"kind": "speak", "concept": "speak hi", "labels": ("朗讀", "說出", "Speak", "SAY")},
+            {"kind": "clear", "concept": "clear hi", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "close_category", "concept": "return to Zhuyin", "labels": ("注音", "Zhuyin"), "reveals": ("英文", "English", "EN")},
+        ),
+    },
+    "cheek": {
+        "role": "AAC user who operates the board with a cheek movement",
+        "goal": "ask for the toilet, report fatigue, call family, and confirm OK",
+        "steps": (
+            {"kind": "append", "concept": "toilet request", "labels": ("廁所", "Toilet"), "message": "廁所"},
+            {"kind": "speak", "concept": "speak toilet request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+            {"kind": "clear", "concept": "clear toilet request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "append", "concept": "report fatigue", "labels": ("累", "Tired"), "message": "累"},
+            {"kind": "speak", "concept": "speak fatigue report", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+            {"kind": "clear", "concept": "clear fatigue report", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "append", "concept": "call family", "labels": ("家人", "Family"), "message": "家人"},
+            {"kind": "append_wrong_dynamic", "concept": "make a wrong choice"},
+            {"kind": "undo", "concept": "repair wrong choice", "labels": ("復原", "撤銷", "Undo"), "message": "家人"},
+            {"kind": "speak", "concept": "speak family request", "labels": ("朗讀", "說出", "Speak", "Read aloud")},
+            {"kind": "clear", "concept": "clear family request", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "open_category", "concept": "open English", "labels": ("英文", "English", "EN"), "reveals": ("注音", "Zhuyin")},
+            {"kind": "append_dynamic", "concept": "English O", "labels": ("O",)},
+            {"kind": "append_dynamic", "concept": "English K", "labels": ("K",)},
+            {"kind": "speak", "concept": "speak OK", "labels": ("朗讀", "說出", "Speak", "SAY")},
+            {"kind": "clear", "concept": "clear OK", "labels": ("清除", "清空", "Clear", "CLR"), "message": ""},
+            {"kind": "close_category", "concept": "return to Zhuyin", "labels": ("注音", "Zhuyin"), "reveals": ("英文", "English", "EN")},
+        ),
+    },
+}
+
+
+def validate_physical_normal_use_scenarios(scenarios):
+    for gesture in ("blink", "cheek"):
+        scenario = scenarios.get(gesture) or {}
+        if not scenario.get("role") or not scenario.get("goal"):
+            return False
+        steps = scenario.get("steps") or ()
+        if sum(step.get("kind") == "speak" for step in steps) != 4:
+            return False
+        if not any(step.get("kind") == "undo" for step in steps):
+            return False
+    return scenarios["blink"]["steps"] != scenarios["cheek"]["steps"]
 
 
 def e2e_input_count(log_text, intent, source):
@@ -2438,7 +2488,7 @@ class OpticalRig:
             )
         elif gesture == "cheek":
             self.device.find_tap(
-                ["Cheek twitch", "臉頰抽動"],
+                ["Cheek movement", "臉頰動作"],
                 "rig_mode_cheek",
                 swipes=1
             )
@@ -3658,6 +3708,7 @@ class OpticalRig:
 
     def run_physical_demo(self, gesture, manifest, source_by_id):
         started_at = time.time()
+        scenario = PHYSICAL_NORMAL_USE_SCENARIOS[gesture]
         if gesture == "cheek":
             cases = [
                 dict(case, gesture="cheek") for case in manifest.get("cheek_cases", [])
@@ -3749,7 +3800,7 @@ class OpticalRig:
                 case, source_by_id, "INITIAL ZHUYIN"
             ):
                 return False
-        for index, step in enumerate(PHYSICAL_NORMAL_USE_SCRIPT, 1):
+        for index, step in enumerate(scenario["steps"], 1):
             before_message = message
             selected_at = time.time()
             labels = step.get("labels")
@@ -3850,6 +3901,8 @@ class OpticalRig:
         result = {
             "gesture": gesture,
             "scenario": "extended-normal-use",
+            "role": scenario["role"],
+            "goal": scenario["goal"],
             "spoken_messages": spoken_messages,
             "selections": selections,
             "selection_count": len(selections),
@@ -3865,8 +3918,8 @@ class OpticalRig:
         )
         self.pass_(
             "physical %s demo" % gesture,
-            "%d selections, four speech turns, correction, clear, and language round-trip through real camera activations"
-            % len(selections),
+            "%d selections completed goal %r through real camera activations"
+            % (len(selections), scenario["goal"]),
         )
         return True
 
@@ -4411,7 +4464,7 @@ class OpticalRig:
             "",
             "## Calibration",
             "",
-            "- Result: %s" % ("PASS" if calibration else "FAIL"),
+            "- Geometry/atlas result: %s" % ("PASS" if calibration else "FAIL"),
         ]
         if calibration:
             report += [
@@ -4442,7 +4495,9 @@ class OpticalRig:
                     )
         report += [
             "- Native long-blink calibration: `%s`" % (
-                "PASS" if (self.outdir / "blink-calibration.json").exists()
+                "PASS" if blink_calibration_artifact_passes(
+                    self.outdir / "blink-calibration.json"
+                )
                 else ("REUSED SESSION FIXTURE" if self.args.runtime_only
                       else ("NOT RUN" if self.args.geometry_only else "FAIL"))
             ),
@@ -4453,8 +4508,10 @@ class OpticalRig:
                     if self.args.runtime_only and self.args.session_gesture == "cheek"
                     else (
                         "NOT RUN"
-                        if self.args.geometry_only or self.args.calibration_only
-                        else "FAIL"
+                        if (
+                            self.args.geometry_only or self.args.calibration_only or
+                            not (self.outdir / "cheek-calibration-preferences.xml").exists()
+                        ) else "FAIL"
                     )
                 )
             ),
@@ -4536,7 +4593,7 @@ class OpticalRig:
         report += [
             "## Interpretation",
             "",
-            "- Functional confidence comes first from two complete board sessions: compose a request and invoke Speak once with long blink and once with cheek twitch.",
+            "- Functional confidence comes first from two distinct complete board sessions with four useful speech turns each: one using long blink and one using cheek movement.",
             "- Repeated short sequences are detector stress checks and are reported separately; they do not substitute for a normal-use session.",
             "- `no_activate` cases are automated false-positive checks.",
             "- Deterministic blink cases hold real open/closed frames for known durations and enforce missed/duplicate activation counts.",
@@ -4617,7 +4674,7 @@ class OpticalRig:
                     if not self.open_camera_setup("cheek"):
                         self.add(
                             "P0", "Could not open cheek Camera Setup",
-                            "The native setup page did not expose Cheek twitch."
+                            "The native setup page did not expose Cheek movement."
                         )
                         self.write_report(calibration)
                         return 2
@@ -4925,7 +4982,7 @@ class OpticalRig:
                     return 2
             else:
                 self.add("P0","Could not switch to cheek mode",
-                         "Camera setup did not expose Cheek twitch.")
+                         "Camera setup did not expose Cheek movement.")
                 self.write_report(calibration)
                 return 2
 
