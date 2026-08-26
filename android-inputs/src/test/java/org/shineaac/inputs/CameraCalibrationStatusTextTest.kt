@@ -12,8 +12,10 @@ class CameraCalibrationStatusTextTest {
             calibrationStepPendingText("放鬆", zhTw = true),
             calibrationFaceMissingText(zhTw = false),
             calibrationFaceMissingText(zhTw = true),
-            calibrationWaitingScoreText("0.00", zhTw = false),
-            calibrationWaitingScoreText("0.00", zhTw = true)
+            calibrationFaceReadyText(zhTw = false),
+            calibrationFaceReadyText(zhTw = true),
+            savedCalibrationQualityText("Quality good", zhTw = false),
+            savedCalibrationQualityText("品質良好", zhTw = true)
         )
 
         messages.forEach { message ->
@@ -21,6 +23,10 @@ class CameraCalibrationStatusTextTest {
             assertFalse(message.contains("語音"))
             assertFalse(message.contains("zh-TW", ignoreCase = true))
             assertFalse(message.contains("zho-default", ignoreCase = true))
+            assertFalse(message.contains("score", ignoreCase = true))
+            assertFalse(message.contains("分數"))
+            assertFalse(message.contains("threshold", ignoreCase = true))
+            assertFalse(message.contains("門檻"))
         }
     }
 
@@ -30,7 +36,15 @@ class CameraCalibrationStatusTextTest {
         assertEquals("開始提示音後進行放鬆", calibrationStepPendingText("放鬆", true))
         assertEquals("Face not detected", calibrationFaceMissingText(false))
         assertEquals("未偵測到臉部", calibrationFaceMissingText(true))
-        assertEquals("Score 0.00", calibrationWaitingScoreText("0.00", false))
-        assertEquals("分數 0.00", calibrationWaitingScoreText("0.00", true))
+        assertEquals("Face detected. Follow the instruction above.", calibrationFaceReadyText(false))
+        assertEquals("已偵測到臉部。請依照畫面指示操作。", calibrationFaceReadyText(true))
+        assertEquals(
+            "This setup was not reliable enough. Run setup again.",
+            savedCalibrationQualityText("Quality needs retry", false)
+        )
+        assertEquals(
+            "這次設定不夠可靠。請重新設定。",
+            savedCalibrationQualityText("請重新設定", true)
+        )
     }
 }

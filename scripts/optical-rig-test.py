@@ -3113,7 +3113,7 @@ class OpticalRig:
             )
             return False
         completed = self.wait_setup_text(
-            ["camera thresholds updated", "門檻已更新"], 18,
+            ["calibration complete", "校準完成"], 18,
             "rig_blink_calibration_complete"
         )
         self.device.screenshot("rig_blink_calibration_complete")

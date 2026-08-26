@@ -78,8 +78,21 @@ internal fun calibrationStepPendingText(stepLabel: String, zhTw: Boolean): Strin
 internal fun calibrationFaceMissingText(zhTw: Boolean): String =
     if (zhTw) "未偵測到臉部" else "Face not detected"
 
-internal fun calibrationWaitingScoreText(scoreText: String, zhTw: Boolean): String =
-    if (zhTw) "分數 $scoreText" else "Score $scoreText"
+internal fun calibrationFaceReadyText(zhTw: Boolean): String =
+    if (zhTw) "已偵測到臉部。請依照畫面指示操作。" else "Face detected. Follow the instruction above."
+
+internal fun savedCalibrationQualityText(qualityLabel: String?, zhTw: Boolean): String {
+    val retry = qualityLabel == "Quality needs retry" || qualityLabel == "請重新設定"
+    val weak = qualityLabel == "Quality weak" || qualityLabel == "品質偏低"
+    return when {
+        retry && zhTw -> "這次設定不夠可靠。請重新設定。"
+        retry -> "This setup was not reliable enough. Run setup again."
+        weak && zhTw -> "設定已儲存，但可靠度較低。如操作不穩定，請重新設定。"
+        weak -> "Setup was saved with lower reliability. Run setup again if activation is inconsistent."
+        zhTw -> "個人設定已完成。請測試長眨眼，確認操作正常。"
+        else -> "Personal setup is ready. Test a long blink to confirm it works."
+    }
+}
 
 class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val analysisSize = Size(480, 360)
@@ -683,9 +696,9 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     "Ready. Your cheek movement is calibrated; calibration is optional to repeat.",
                     "設定完成。已學會您的臉頰動作；可選擇重新校正。"
                 )
-                metricsView?.text = record.qualityDetail ?: tr(
-                    "Saved personalized cheek model.",
-                    "已儲存個人化臉頰模型。"
+                metricsView?.text = tr(
+                    "Personal setup is ready. Test a cheek movement to confirm it works.",
+                    "個人設定已完成。請測試臉頰動作，確認操作正常。"
                 )
             } else {
                 statusView?.text = tr(
@@ -701,13 +714,13 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             updateHoldUi()
             return
         }
-        val quality = savedCalibrationRecord?.qualityDetail
-        if (quality != null) {
+        val record = savedCalibrationRecord
+        if (record != null) {
             statusView?.text = tr(
                 "Ready. Long blink is calibrated; use Test blink after moving the phone.",
                 "設定完成。移動手機後，請使用「測試眨眼」確認。"
             )
-            metricsView?.text = localizedQualityDetail(quality)
+            metricsView?.text = savedCalibrationQualityText(record.qualityLabel, zhTwUi)
         } else {
             statusView?.text = tr("Center your face, then tap Start setup.", "將臉置於中央，再按「開始設定」。")
             metricsView?.text = tr("No saved setup yet.", "尚未儲存設定。")
@@ -861,12 +874,10 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             qualityLabel = quality.label,
             qualityDetail = quality.detail
         )
+        Log.i(CameraSetupLogTag, "blink calibration ${quality.diagnosticDetail}")
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
         updateHoldUi()
-        val message = tr(
-            "${cueSet.complete} ${quality.label}. Long blink hold ${calibratedLongBlinkHoldMs}ms; camera thresholds updated.",
-            "${cueSet.complete} ${quality.label}。長眨眼需維持 ${calibratedLongBlinkHoldMs} 毫秒；相機門檻已更新。"
-        )
+        val message = "${cueSet.complete} ${quality.detail}"
         statusView?.text = message
         metricsView?.text = quality.detail
         speakThen(message) {}
@@ -1036,8 +1047,9 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         CameraSwitchPreferences.saveCheekCalibration(
             context = this, model = model, cheekHoldMs = cheekHoldMs,
             zoomRatio = calibratedZoomRatio, qualityLabel = tr("Quality good", "品質良好"),
-            qualityDetail = model.quality.message
+            qualityDetail = tr("Personal setup is ready.", "個人設定已完成。")
         )
+        Log.i(CameraSetupLogTag, "cheek calibration quality=${model.quality.message}")
         cheekCalibrationSession.complete()
         resetCheekClassifier()
         startButton?.isEnabled = true
@@ -1137,7 +1149,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             BlinkCalibrationQualityPolicy.Level.Weak -> tr("Quality weak", "品質偏低")
             BlinkCalibrationQualityPolicy.Level.Retry -> tr("Quality needs retry", "請重新設定")
         }
-        val detail = buildString {
+        val diagnosticDetail = buildString {
             append(label)
             append(tr(" | slow blinks ", "｜慢眨眼 ")).append(assessment.validSlowBlinkCount)
             append(tr(", rest false ", "，放鬆時誤判 ")).append(assessment.falseLongBlinkCount)
@@ -1152,7 +1164,21 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 append(tr(" | repeat setup for a more reliable calibration", "｜建議重新設定以提升可靠度"))
             }
         }
-        return CalibrationQuality(label, detail)
+        val detail = when (assessment.level) {
+            BlinkCalibrationQualityPolicy.Level.Good -> tr(
+                "Setup quality is good. Test a long blink to confirm it works.",
+                "設定品質良好。請測試長眨眼，確認操作正常。"
+            )
+            BlinkCalibrationQualityPolicy.Level.Weak -> tr(
+                "Setup was saved with lower reliability. Run setup again if activation is inconsistent.",
+                "設定已儲存，但可靠度較低。如操作不穩定，請重新設定。"
+            )
+            BlinkCalibrationQualityPolicy.Level.Retry -> tr(
+                "This setup was not reliable enough. Run setup again.",
+                "這次設定不夠可靠。請重新設定。"
+            )
+        }
+        return CalibrationQuality(label, detail, diagnosticDetail)
     }
 
     private fun speakThen(text: String, onDone: () -> Unit) {
@@ -1912,8 +1938,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     )
                     score == null -> tr("Learning resting face", "正在學習放鬆表情")
                     else -> tr(
-                        "Cheek ${"%.2f".format(score)} / ${"%.2f".format(threshold)} | accepted $cheekPreviewActivations",
-                        "臉頰 ${"%.2f".format(score)} / ${"%.2f".format(threshold)}｜已接受 $cheekPreviewActivations"
+                        "Face detected. Try a cheek movement.",
+                        "已偵測到臉部。請試著做臉頰動作。"
                     )
                 }
             }
@@ -1936,8 +1962,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 tr("Face not detected", "未偵測到臉部")
             } else {
                 tr(
-                    "Eyes ${"%.2f".format(score)} | short $previewShortBlinkCount | long $previewLongBlinkCount",
-                    "眼睛 ${"%.2f".format(score)}｜短眨眼 $previewShortBlinkCount｜長眨眼 $previewLongBlinkCount"
+                    "Face detected. Try a long blink.",
+                    "已偵測到臉部。請試著做長眨眼。"
                 )
             }
             return
@@ -1948,11 +1974,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 calibrationFaceMissingText(zhTwUi)
             } else if (captureEndsAtMs > 0L) {
                 tr(
-                    "$activeStepLabel ${((remainingMs + 999L) / 1000L)}s left | score ${"%.2f".format(score)} | long blinks ${longBlinkDurations.size}",
-                    "$activeStepLabel 剩下 ${((remainingMs + 999L) / 1000L)} 秒｜分數 ${"%.2f".format(score)}｜長眨眼 ${longBlinkDurations.size}"
+                    "$activeStepLabel: ${((remainingMs + 999L) / 1000L)}s left; ${longBlinkDurations.size} slow blinks found",
+                    "$activeStepLabel：剩下 ${((remainingMs + 999L) / 1000L)} 秒；已找到 ${longBlinkDurations.size} 次慢眨眼"
                 )
             } else {
-                calibrationWaitingScoreText("%.2f".format(score), zhTwUi)
+                calibrationFaceReadyText(zhTwUi)
             }
         }
     }
@@ -2205,21 +2231,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private fun tr(english: String, traditionalChinese: String): String =
         if (zhTwUi) traditionalChinese else english
 
-    private fun localizedQualityDetail(detail: String): String {
-        if (!zhTwUi) return detail
-        return detail
-            .replace("Quality good", "品質良好")
-            .replace("Quality weak", "品質偏低")
-            .replace("Quality needs retry", "請重新設定")
-            .replace(" | slow blinks ", "｜慢眨眼 ")
-            .replace(", rest false ", "，放鬆時誤判 ")
-            .replace(", hold ", "，維持 ")
-            .replace(", zoom ", "，縮放 ")
-            .replace(" | no measured slow blink; default hold used", "｜未測得慢眨眼，使用預設時間")
-            .replace("ms", " 毫秒")
-            .replace("x", " 倍")
-    }
-
     private fun actionButton(
         text: String,
         primary: Boolean,
@@ -2273,7 +2284,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         }
 
     private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
-    private data class CalibrationQuality(val label: String, val detail: String)
+    private data class CalibrationQuality(
+        val label: String,
+        val detail: String,
+        val diagnosticDetail: String
+    )
     private enum class Phase { Idle, Instruction, Prepare, Rest, LongBlink, Complete }
     private enum class PreviewBlink { None, Short, Long }
 

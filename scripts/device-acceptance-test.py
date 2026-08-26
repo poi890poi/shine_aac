@@ -904,6 +904,24 @@ class DeepTest:
                      "screenshots/cycle%02d_camera_setup.png" % cycle]
                 )
 
+            exposed_diagnostics = [
+                token for token in (
+                    "zho-default", "找不到台灣語音", "voice zh-", "語音 zh-",
+                    "score ", "分數 ", "threshold ", "門檻 "
+                )
+                if token in cam_text
+            ]
+            if exposed_diagnostics:
+                self.add(
+                    "P1", "Camera setup exposes internal diagnostics",
+                    "Visible setup text contains internal voice, score, or threshold details: %s"
+                    % ", ".join(exposed_diagnostics),
+                    ["ui/cycle%02d_camera_setup.xml" % cycle,
+                     "screenshots/cycle%02d_camera_setup.png" % cycle]
+                )
+            else:
+                self.passed("camera setup hides internal diagnostics cycle %d" % cycle)
+
             if cycle == 1:
                 original_gesture = self.camera_gesture_preference()
                 if original_gesture == "cheek-twitch":
