@@ -24,3 +24,4 @@ rootProject.name = "SHINE AAC"
 include(":app")
 include(":blinktest")
 include(":android-inputs")
+include(":optical-core")

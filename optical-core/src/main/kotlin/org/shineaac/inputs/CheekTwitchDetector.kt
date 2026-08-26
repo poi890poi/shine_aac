@@ -18,6 +18,7 @@ import kotlin.math.max
  * level, and the strongest few features are averaged. Only the candidate features in
  * [CheekFeatureSpace] are considered, so gaze, blink and brow movement cannot drive the score.
  */
+/** Calibration-free cheek detector shared by setup and normal operation. */
 class CheekTwitchDetector(
     private val features: List<String> = CheekFeatureSpace.names,
     private val baselineWindow: Int = DefaultBaselineWindow,

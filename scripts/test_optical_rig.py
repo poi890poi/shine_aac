@@ -13,6 +13,7 @@ from unittest import mock
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import optical_stimulus
+import optical_sources
 SPEC = importlib.util.spec_from_file_location(
     "shine_optical_rig", SCRIPT_DIR / "optical-rig-test.py"
 )
@@ -405,6 +406,17 @@ class OpticalOracleTest(unittest.TestCase):
         }
         self.assertEqual([], rig.downloaded_cheek_calibration_cases(manifest))
 
+    def test_public_source_policy_has_no_local_media_fallback(self):
+        source = {
+            "url": "file:///C:/private-face.mp4",
+            "page": "https://example.org/source",
+            "license": "CC BY 4.0",
+            "author": "Example author",
+            "sha1": "0123456789abcdef0123456789abcdef01234567",
+        }
+
+        self.assertFalse(optical_sources.is_licensed_public_source(source))
+
     def test_public_face_scale_tracks_camera_zoom_for_seventy_percent_target(self):
         rig = object.__new__(RIG.OpticalRig)
         case = {"face_height_at_zoom_1x": 0.26, "target_face_height": 0.70}
@@ -560,6 +572,22 @@ class CameraZoomGeometryTest(unittest.TestCase):
             geometry = RIG.camera_setup_geometry(path)
         self.assertEqual((36, 388, 1044, 1706), geometry["preview_rect"])
         self.assertEqual(3.4, geometry["zoom_ratio"])
+
+    def test_setup_geometry_falls_back_to_prior_stable_ui_dump(self):
+        valid_xml = """<hierarchy><node class="android.widget.FrameLayout" bounds="[0,0][1080,2168]">
+          <node class="androidx.cardview.widget.CardView" content-desc="Camera preview" bounds="[36,388][1044,1706]">
+            <node class="android.widget.TextView" text="2.4×" bounds="[432,1514][648,1658]" />
+          </node>
+        </node></hierarchy>"""
+        with tempfile.TemporaryDirectory() as directory:
+            prior = Path(directory) / "prior.xml"
+            prior.write_text(valid_xml, encoding="utf-8")
+            selected, geometry = RIG.camera_setup_geometry_with_fallback(
+                None, prior
+            )
+        self.assertEqual(prior, selected)
+        self.assertEqual((36, 388, 1044, 1706), geometry["preview_rect"])
+        self.assertEqual(2.4, geometry["zoom_ratio"])
 
 
 class OpenCvFramebufferTest(unittest.TestCase):

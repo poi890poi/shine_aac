@@ -4,7 +4,7 @@ Current release candidate: 0.2.45, Android code 48, targeting Android 16 / API l
 
 Code 48 retains the learnability/export and adaptive layout work, makes review holds consistent after state changes, and replaces the heavy black hold frame with pale teal-gray tiles and a solid 3 px dark-teal whole-row perimeter.
 
-Current focused results: `docs/PRE_RELEASE_TEST_REPORT_0.2.45.md`
+Current focused results: `docs/reports/pre-release/v0.2.45.md`
 
 Paired efficiency details: `docs/COMMUNICATION_BENCHMARK_REPORT.md`
 

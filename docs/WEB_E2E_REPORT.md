@@ -1,19 +1,18 @@
 # SHINE AAC Web E2E Report
 
-Generated: 2026-08-25T07:10:23.396Z
+Generated: 2026-08-26T01:44:36.446Z
 
 Result: PASS
 
 | Step | Status | Detail |
 | --- | --- | --- |
-| packaged-webview-build | PASS | built Android WebView assets with esbuild |
-| server | PASS | served http://127.0.0.1:5173/app/build/generated/assets/shineWeb/www/apps/web/ |
+| server | PASS | served http://127.0.0.1:5173/apps/web/ |
 | browser-load | PASS | rendered board and message panel |
 | first-run-profile | PASS | clean storage opens the zh-TW board with instructional status and a distinct Settings control |
 | initial-first-row-hold | PASS | initial launch holds row 1 with a calm, visible whole-row treatment until activation |
 | test-config | PASS | seeded browser smoke scan timing through browser localStorage |
 | visible-escape-ladder | PASS | two missed item passes return to the same row; two board passes stop; wake activation only resumes |
-| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":83.79999999701977,"resetTargetToProgressMs":17.80000001192093,"rowDeadlineDriftMs":-15.5,"nextRowTargetToProgressMs":31.899999991059303,"activationToTargetMs":1.3999999910593033,"activationTargetToProgressMs":27.600000008940697,"firstDeadlineDriftMs":-16.200000002980232,"secondTargetToProgressMs":32.099999994039536,"laterDeadlineDriftMs":-31.299999997019768,"thirdTargetToProgressMs":31.799999997019768,"selectionToHoldMs":5.299999997019768,"holdReleaseToTargetMs":1.4000000059604645,"selectionTargetToProgressMs":20.69999998807907} |
+| strict-scan-timing | PASS | non-polling trace {"resetToTargetMs":72,"resetTargetToProgressMs":33,"rowDeadlineDriftMs":-31.5,"nextRowTargetToProgressMs":30.700000017881393,"activationToTargetMs":1.600000023841858,"activationTargetToProgressMs":31.69999998807907,"firstDeadlineDriftMs":-25.19999998807907,"secondTargetToProgressMs":25,"laterDeadlineDriftMs":-22.80000001192093,"thirdTargetToProgressMs":22.5,"selectionToHoldMs":4.800000011920929,"holdReleaseToTargetMs":0.800000011920929,"selectionTargetToProgressMs":30.69999998807907} |
 | first-column-progress | PASS | first and later cell progress fills restart and track their own scan durations |
 | directional-row-cell-progress | PASS | row progress descends from the top while individual-cell progress remains left-to-right |
 | camera-hold-pause | PASS | camera hold freezes current scan target and resumes progress after eyes open |
@@ -70,7 +69,7 @@ Result: PASS
 | zh-tw-demo-mode | PASS | greedily completed a visible candidate after direct first-layer Zhuyin input (1 matched characters) |
 | singleton-row-auto-activation | PASS | both modes skip redundant singleton item activation; block mode also skips redundant activation for a one-row block |
 | block-row-column | PASS | reused the exact en-US and zh-TW suggestions/layout, showed downward block/row progress, persisted 4-3-3-3 mode, selected through block/row/cell, and completed an Auto Demo Zhuyin commit |
-| screenshot | PASS | E:\workspace\shine_aac\.tmp\release-v034-head\e2e-artifacts\web-e2e-final.png |
+| screenshot | PASS | E:\workspace\shine_aac\e2e-artifacts\web-e2e-final.png |
 
 Artifacts:
 

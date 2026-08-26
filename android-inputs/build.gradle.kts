@@ -21,6 +21,7 @@ android {
 }
 
 dependencies {
+    api(project(":optical-core"))
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

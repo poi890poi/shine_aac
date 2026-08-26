@@ -42,7 +42,7 @@ real devices.
 - APK v2 signature, ZIP alignment, AAB JAR signature, required bundle entries,
   checksums, and byte identity: PASS.
 
-Full evidence: `docs/PRE_RELEASE_TEST_REPORT_0.3.1.md`.
+Full evidence: `docs/reports/pre-release/v0.3.1.md`.
 
 ## Required Closed Testing
 

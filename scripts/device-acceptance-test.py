@@ -1618,7 +1618,15 @@ def main():
             raise SystemExit("npm run test:quick failed; see %s" % (outdir / "prereq-npm.txt"))
         print("==> Building/testing Android debug APK")
         if os.name == "nt":
-            r = run(["cmd.exe", "/c", "build-test.bat"], check=False, timeout=900, cwd=root)
+            # A long-lived Gradle daemon can inherit this captured output pipe
+            # on Windows and keep the acceptance wrapper waiting after a
+            # successful build. This invocation is deliberately process-local.
+            r = run(
+                ["cmd.exe", "/c", "build-test.bat", "-NoDaemon"],
+                check=False,
+                timeout=900,
+                cwd=root,
+            )
         else:
             r = run(["./gradlew", "testDebugUnitTest", "assembleDebug"],
                     check=False, timeout=900, cwd=root)

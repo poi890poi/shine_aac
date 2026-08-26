@@ -69,7 +69,7 @@ The current runtime rerun passed on an API 34 phone emulator and an Android `sw8
 
 The 2026-07-15 large-text rerun additionally passed with Android font scale 2.0 on phone and tablet-class windows. AAC cell labels are now fitted from measured container geometry instead of label-length rules. Camera Setup reserves a stable preview pane, scrolls controls independently, and aspect-fits the camera buffer in phone portrait plus tablet portrait/landscape.
 
-Physical Samsung confirmation, real-person camera detection/alignment, TTS listening, and human AAC UX review remain open. Full evidence is recorded in `docs/PRE_RELEASE_TEST_REPORT_0.2.35.md`.
+Physical Samsung confirmation, real-person camera detection/alignment, TTS listening, and human AAC UX review remain open. Full evidence is recorded in `docs/reports/pre-release/v0.2.35.md`.
 
 This review replaces the previous informal UX/design review gate for device behavior. The prior review missed foreseeable Android integration risks because it checked app logic, screenshots, and store assets, but did not require every Activity to be tested against system bars, screen timeout, lifecycle recreation, orientation, and tablet-class windows.
 

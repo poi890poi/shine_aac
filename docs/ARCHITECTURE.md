@@ -43,6 +43,36 @@ Legacy native Android scanner, board, and Compose-template code has been removed
 
 If a native Android UI is revived, it must either consume the shared core through a generated/shared boundary or add explicit parity tests against the JS core before product behavior changes are accepted.
 
+## Current Module Tree
+
+```text
+packages/aac-core
+  Pure JavaScript AAC rules and generated language data
+
+apps/web
+  Browser rendering, scan clock, storage, and native bridge contract
+
+optical-core
+  Pure Kotlin blink/cheek calibration and gesture state machines
+
+android-inputs
+  Android camera sources, detector adapters, calibration UI, and preferences
+
+app
+  WebView, speech, settings, export, lifecycle, and Android packaging
+```
+
+Allowed dependency direction:
+
+```text
+app -> android-inputs -> optical-core
+app -> packaged apps/web -> packages/aac-core
+```
+
+Core modules must not import platform shells. Camera2, CameraX, and UVC code may convert frames differently, but they must converge on the same observation, calibration, quality, and classifier policies before emitting switch events.
+
+`packages/aac-core/src/index.js` and the public Android input types are facades. Platform consumers should not import implementation paths merely to bypass a boundary.
+
 ## Verification Pyramid
 
 1. Core unit tests: fast, deterministic, no device, no browser, no Android SDK.

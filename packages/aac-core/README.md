@@ -29,6 +29,17 @@ It has no Android, browser, React, Compose, Capacitor, or Flutter dependency. Th
 
 Platform apps should adapt these boundaries instead of reimplementing AAC rules inside the UI layer.
 
+## Source tree
+
+```text
+src/index.js       Stable package facade
+src/core/          AAC implementation
+src/data/          Generated, source-pinned language data
+test/              Deterministic behavior and benchmark tests
+```
+
+Consumers import `@shine-aac/core`; they do not import `src/core/engine.js` directly.
+
 ## Verify
 
 ```powershell

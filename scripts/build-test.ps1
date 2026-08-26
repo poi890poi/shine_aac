@@ -2,6 +2,7 @@ param(
     [switch]$Clean,
     [switch]$SkipUnitTests,
     [switch]$SkipAssemble,
+    [switch]$NoDaemon,
     [switch]$Install,
     [switch]$SetupSdk,
     [switch]$DeepSearch,
@@ -142,6 +143,12 @@ $localPropertiesValue = "sdk.dir=$(Convert-ToLocalPropertiesPath -Path $sdkPath)
 Set-Content -LiteralPath $localPropertiesPath -Value $localPropertiesValue -Encoding ASCII
 
 $gradleArgs = @()
+
+if ($NoDaemon) {
+    # Capturing a daemon-backed Gradle process from another script can leave
+    # the output pipe open on Windows after the build itself has completed.
+    $gradleArgs += "--no-daemon"
+}
 
 if ($Clean) {
     $gradleArgs += "clean"
