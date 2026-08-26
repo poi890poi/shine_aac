@@ -139,6 +139,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val restClosedDurations = mutableListOf<Long>()
     private val restEyeSignals = mutableListOf<BlinkEyeSignal>()
     private val slowBlinkEyeSignals = mutableListOf<BlinkEyeSignal>()
+    private val restEyeTrace = mutableListOf<TimedBlinkEyeSignal>()
+    private val slowBlinkEyeTrace = mutableListOf<TimedBlinkEyeSignal>()
     private val calibrationFrameIntervalsMs = mutableListOf<Long>()
     private var lastCalibrationSignalAtMs = 0L
     private var longBlinkClosed = false
@@ -755,6 +757,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         restClosedDurations.clear()
         restEyeSignals.clear()
         slowBlinkEyeSignals.clear()
+        restEyeTrace.clear()
+        slowBlinkEyeTrace.clear()
         calibrationFrameIntervalsMs.clear()
         lastCalibrationSignalAtMs = 0L
         longBlinkClosed = false
@@ -836,22 +840,26 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun finishAutoCalibration() {
-        if (longBlinkClosed) {
-            longBlinkDurations.add(System.currentTimeMillis() - longBlinkClosedStartedAt)
-            longBlinkClosed = false
-        }
-        if (restClosed) {
-            restClosedDurations.add(System.currentTimeMillis() - restClosedStartedAt)
-            restClosed = false
-        }
         phase = Phase.Complete
-        calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
         detectionParameters = BlinkParameterAutoCalibrator.tune(
             restSignals = restEyeSignals,
             slowBlinkSignals = slowBlinkEyeSignals,
             frameIntervalsMs = calibrationFrameIntervalsMs,
             fallback = detectionParameters
         )
+        longBlinkDurations.clear()
+        longBlinkDurations += BlinkCalibrationTraceAnalyzer.closedDurations(
+            slowBlinkEyeTrace,
+            detectionParameters
+        )
+        restClosedDurations.clear()
+        restClosedDurations += BlinkCalibrationTraceAnalyzer.closedDurations(
+            restEyeTrace,
+            detectionParameters
+        )
+        longBlinkClosed = false
+        restClosed = false
+        calibratedLongBlinkHoldMs = calibratedLongBlinkMs()
         val quality = calibrationQuality()
         CameraSwitchPreferences.saveCalibration(
             context = this,
@@ -917,6 +925,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         restClosedDurations.clear()
         restEyeSignals.clear()
         slowBlinkEyeSignals.clear()
+        restEyeTrace.clear()
+        slowBlinkEyeTrace.clear()
         calibrationFrameIntervalsMs.clear()
         lastCalibrationSignalAtMs = 0L
 
@@ -1985,10 +1995,12 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         when (phase) {
             Phase.Rest -> {
                 restEyeSignals.add(signal)
+                restEyeTrace.add(TimedBlinkEyeSignal(now, signal))
                 collectRestClosedDuration(signal)
             }
             Phase.LongBlink -> {
                 slowBlinkEyeSignals.add(signal)
+                slowBlinkEyeTrace.add(TimedBlinkEyeSignal(now, signal))
                 collectLongBlinkDuration(signal)
             }
             else -> Unit
