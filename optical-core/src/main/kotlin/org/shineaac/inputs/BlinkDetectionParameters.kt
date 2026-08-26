@@ -13,11 +13,17 @@ data class BlinkDetectionParameters(
     val maxYawDegrees: Float = 25f,
     val maxRollDegrees: Float = 25f,
     val minFaceWidthPx: Int = 40,
-    val minFaceHeightPx: Int = 48
+    val minFaceHeightPx: Int = 48,
+    val leftOpenBaseline: Double = 0.0,
+    val leftClosedBaseline: Double = 1.0,
+    val rightOpenBaseline: Double = 0.0,
+    val rightClosedBaseline: Double = 1.0
 ) {
     fun normalized(): BlinkDetectionParameters {
         val close = closeThreshold.coerceIn(MinCloseThreshold, MaxCloseThreshold)
         val reopen = reopenThreshold.coerceIn(MinReopenThreshold, minOf(MaxReopenThreshold, close - MinThresholdGap))
+        val leftBaselines = normalizedBaselines(leftOpenBaseline, leftClosedBaseline)
+        val rightBaselines = normalizedBaselines(rightOpenBaseline, rightClosedBaseline)
         return copy(
             closeThreshold = close,
             reopenThreshold = reopen,
@@ -28,7 +34,22 @@ data class BlinkDetectionParameters(
             maxYawDegrees = maxYawDegrees.coerceIn(10f, 45f),
             maxRollDegrees = maxRollDegrees.coerceIn(10f, 45f),
             minFaceWidthPx = minFaceWidthPx.coerceIn(24, 160),
-            minFaceHeightPx = minFaceHeightPx.coerceIn(24, 180)
+            minFaceHeightPx = minFaceHeightPx.coerceIn(24, 180),
+            leftOpenBaseline = leftBaselines.first,
+            leftClosedBaseline = leftBaselines.second,
+            rightOpenBaseline = rightBaselines.first,
+            rightClosedBaseline = rightBaselines.second
+        )
+    }
+
+    fun normalizeSignal(signal: BlinkEyeSignal): BlinkEyeSignal {
+        val left = normalizeEye(signal.leftClosedScore, leftOpenBaseline, leftClosedBaseline)
+        val right = normalizeEye(signal.rightClosedScore, rightOpenBaseline, rightClosedBaseline)
+        return BlinkEyeSignal(
+            closedScore = ((left + right) / 2.0).coerceIn(0.0, 1.0),
+            reopenScore = minOf(left, right).coerceIn(0.0, 1.0),
+            leftClosedScore = left,
+            rightClosedScore = right
         )
     }
 
@@ -50,12 +71,30 @@ data class BlinkDetectionParameters(
         const val MinReopenThreshold = 0.12
         const val MaxReopenThreshold = 0.50
         const val MinThresholdGap = 0.08
+        const val MinEyeBaselineGap = 0.08
+
+        private fun normalizedBaselines(open: Double, closed: Double): Pair<Double, Double> {
+            val safeOpen = open.coerceIn(0.0, 1.0)
+            val safeClosed = closed.coerceIn(0.0, 1.0)
+            return if (safeClosed - safeOpen >= MinEyeBaselineGap) {
+                safeOpen to safeClosed
+            } else {
+                0.0 to 1.0
+            }
+        }
+
+        private fun normalizeEye(value: Double, open: Double, closed: Double): Double {
+            val range = (closed - open).coerceAtLeast(MinEyeBaselineGap)
+            return ((value.coerceIn(0.0, 1.0) - open) / range).coerceIn(0.0, 1.0)
+        }
     }
 }
 
 data class BlinkEyeSignal(
     val closedScore: Double,
-    val reopenScore: Double
+    val reopenScore: Double,
+    val leftClosedScore: Double = closedScore,
+    val rightClosedScore: Double = closedScore
 ) {
     companion object {
         fun fromOpenProbabilities(left: Double?, right: Double?): BlinkEyeSignal? {
@@ -64,7 +103,9 @@ data class BlinkEyeSignal(
             val safeRight = right.coerceIn(0.0, 1.0)
             return BlinkEyeSignal(
                 closedScore = (1.0 - ((safeLeft + safeRight) / 2.0)).coerceIn(0.0, 1.0),
-                reopenScore = (1.0 - maxOf(safeLeft, safeRight)).coerceIn(0.0, 1.0)
+                reopenScore = (1.0 - maxOf(safeLeft, safeRight)).coerceIn(0.0, 1.0),
+                leftClosedScore = 1.0 - safeLeft,
+                rightClosedScore = 1.0 - safeRight
             )
         }
 
@@ -74,7 +115,9 @@ data class BlinkEyeSignal(
             val safeRight = right.coerceIn(0.0, 1.0)
             return BlinkEyeSignal(
                 closedScore = ((safeLeft + safeRight) / 2.0).coerceIn(0.0, 1.0),
-                reopenScore = minOf(safeLeft, safeRight).coerceIn(0.0, 1.0)
+                reopenScore = minOf(safeLeft, safeRight).coerceIn(0.0, 1.0),
+                leftClosedScore = safeLeft,
+                rightClosedScore = safeRight
             )
         }
     }
@@ -100,12 +143,34 @@ object BlinkParameterAutoCalibrator {
             return timing.normalized()
         }
 
-        val restingClosed = percentile(restSignals.map { it.closedScore }.sorted(), 0.50) ?: return timing.normalized()
-        val intentionalClosed = percentile(slowBlinkSignals.map { it.closedScore }.sorted(), 0.75) ?: return timing.normalized()
+        val leftOpen = percentile(restSignals.map { it.leftClosedScore }.sorted(), 0.50) ?: return timing.normalized()
+        val rightOpen = percentile(restSignals.map { it.rightClosedScore }.sorted(), 0.50) ?: return timing.normalized()
+        val leftClosed = percentile(slowBlinkSignals.map { it.leftClosedScore }.sorted(), 0.75) ?: return timing.normalized()
+        val rightClosed = percentile(slowBlinkSignals.map { it.rightClosedScore }.sorted(), 0.75) ?: return timing.normalized()
+        if (
+            leftClosed - leftOpen < MinUsefulSeparation ||
+            rightClosed - rightOpen < MinUsefulSeparation
+        ) {
+            return timing.normalized()
+        }
+
+        val personalized = timing.copy(
+            leftOpenBaseline = leftOpen,
+            leftClosedBaseline = leftClosed,
+            rightOpenBaseline = rightOpen,
+            rightClosedBaseline = rightClosed
+        ).normalized()
+        val normalizedRest = restSignals.map(personalized::normalizeSignal)
+        val normalizedIntentional = slowBlinkSignals.map(personalized::normalizeSignal)
+        val restingClosed = percentile(normalizedRest.map { it.closedScore }.sorted(), 0.50)
+            ?: return timing.normalized()
+        val intentionalClosed = percentile(normalizedIntentional.map { it.closedScore }.sorted(), 0.75)
+            ?: return timing.normalized()
         val separation = intentionalClosed - restingClosed
         if (separation < MinUsefulSeparation) return timing.normalized()
 
-        val restingReopen = percentile(restSignals.map { it.reopenScore }.sorted(), 0.85) ?: base.reopenThreshold
+        val restingReopen = percentile(normalizedRest.map { it.reopenScore }.sorted(), 0.85)
+            ?: base.reopenThreshold
         val close = (restingClosed + separation * 0.55)
             .coerceIn(BlinkDetectionParameters.MinCloseThreshold, BlinkDetectionParameters.MaxCloseThreshold)
         val reopen = (restingReopen + 0.05)
@@ -113,7 +178,7 @@ object BlinkParameterAutoCalibrator {
                 BlinkDetectionParameters.MinReopenThreshold,
                 minOf(BlinkDetectionParameters.MaxReopenThreshold, close - BlinkDetectionParameters.MinThresholdGap)
             )
-        return timing.copy(closeThreshold = close, reopenThreshold = reopen).normalized()
+        return personalized.copy(closeThreshold = close, reopenThreshold = reopen).normalized()
     }
 
     private fun percentile(values: List<Double>, fraction: Double): Double? {

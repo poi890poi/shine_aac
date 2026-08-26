@@ -201,7 +201,11 @@ object CameraSwitchPreferences {
             maxYawDegrees = prefs.getFloat("blinkMaxYaw", 25f),
             maxRollDegrees = prefs.getFloat("blinkMaxRoll", 25f),
             minFaceWidthPx = prefs.getInt("blinkMinFaceWidth", 40),
-            minFaceHeightPx = prefs.getInt("blinkMinFaceHeight", 48)
+            minFaceHeightPx = prefs.getInt("blinkMinFaceHeight", 48),
+            leftOpenBaseline = prefs.getFloat("blinkLeftOpenBaseline", 0f).toDouble(),
+            leftClosedBaseline = prefs.getFloat("blinkLeftClosedBaseline", 1f).toDouble(),
+            rightOpenBaseline = prefs.getFloat("blinkRightOpenBaseline", 0f).toDouble(),
+            rightClosedBaseline = prefs.getFloat("blinkRightClosedBaseline", 1f).toDouble()
         ).normalized()
 
     private fun writeDetectionParameters(
@@ -219,6 +223,10 @@ object CameraSwitchPreferences {
             .putFloat("blinkMaxRoll", value.maxRollDegrees)
             .putInt("blinkMinFaceWidth", value.minFaceWidthPx)
             .putInt("blinkMinFaceHeight", value.minFaceHeightPx)
+            .putFloat("blinkLeftOpenBaseline", value.leftOpenBaseline.toFloat())
+            .putFloat("blinkLeftClosedBaseline", value.leftClosedBaseline.toFloat())
+            .putFloat("blinkRightOpenBaseline", value.rightOpenBaseline.toFloat())
+            .putFloat("blinkRightClosedBaseline", value.rightClosedBaseline.toFloat())
     }
 
     private fun writeString(

@@ -26,6 +26,7 @@ object BlinkCalibrationTraceAnalyzer {
         var previousTimestampMs: Long? = null
 
         samples.forEach { sample ->
+            val signal = config.normalizeSignal(sample.signal)
             val previous = previousTimestampMs
             if (previous != null && sample.timestampMs - previous >= config.signalLostCancelMs) {
                 closedStartedAtMs = null
@@ -34,10 +35,10 @@ object BlinkCalibrationTraceAnalyzer {
 
             val startedAt = closedStartedAtMs
             if (startedAt == null) {
-                if (sample.signal.closedScore >= config.closeThreshold) {
+                if (signal.closedScore >= config.closeThreshold) {
                     closedStartedAtMs = sample.timestampMs
                 }
-            } else if (sample.signal.reopenScore <= config.reopenThreshold) {
+            } else if (signal.reopenScore <= config.reopenThreshold) {
                 val durationMs = sample.timestampMs - startedAt
                 if (durationMs >= 0L) durations += durationMs
                 closedStartedAtMs = null

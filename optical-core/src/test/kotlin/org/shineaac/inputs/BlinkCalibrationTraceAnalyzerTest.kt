@@ -24,7 +24,7 @@ class BlinkCalibrationTraceAnalyzerTest {
             frameIntervalsMs = List(samples.size) { 200L }
         )
 
-        assertTrue(tuned.closeThreshold < BlinkDetectionParameters().closeThreshold)
+        assertTrue(tuned.leftClosedBaseline > tuned.leftOpenBaseline)
         assertEquals(
             emptyList<Long>(),
             BlinkCalibrationTraceAnalyzer.closedDurations(

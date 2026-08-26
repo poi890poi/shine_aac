@@ -475,6 +475,7 @@ class CameraSwitchInputAdapter(
                     updateCheekState(score, settings)
                 } else {
                     val signal = observation?.blinkEyeSignal()
+                        ?.let(activeDetectionParameters::normalizeSignal)
                     updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
                 }
             }
@@ -669,6 +670,7 @@ class CameraSwitchInputAdapter(
                 updateCheekState(scoreCheekObservation(observation, settings), settings)
             } else {
                 val signal = observation?.blinkEyeSignal()
+                    ?.let(activeDetectionParameters::normalizeSignal)
                 updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
             }
         } catch (error: Exception) {

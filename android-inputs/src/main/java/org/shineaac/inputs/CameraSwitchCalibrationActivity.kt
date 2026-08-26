@@ -1825,9 +1825,10 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         frameWidth: Int,
         frameHeight: Int
     ) {
-        val signal = observation?.blinkEyeSignal()
+        val rawSignal = observation?.blinkEyeSignal()
+        val signal = rawSignal?.let(detectionParameters::normalizeSignal)
         val score = signal?.closedScore
-        if (signal != null) collectCalibrationSample(signal, now)
+        if (rawSignal != null) collectCalibrationSample(rawSignal, now)
         val previewBlink = signal?.let(::collectPreviewBlinkDuration) ?: PreviewBlink.None
 
         mainHandler?.post {
