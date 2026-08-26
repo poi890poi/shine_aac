@@ -23,4 +23,4 @@ Generated: 2026-08-18
 
 Do not upload this APK to Google Play. The Internal testing upload is the signed AAB recorded in `docs/PLAY_INTERNAL_TESTING_REPORT.md`.
 
-Full verification details: `docs/PRE_RELEASE_TEST_REPORT_0.3.1.md`.
+Full verification details: `docs/reports/pre-release/v0.3.1.md`.
