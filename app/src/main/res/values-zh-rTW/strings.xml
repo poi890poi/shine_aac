@@ -86,7 +86,7 @@
     <string name="settings_input_test_last_event">上次輸入：%1$s</string>
     <string name="settings_input_test_touch">使用觸控測試</string>
     <string name="settings_input_test_reset">重設計數</string>
-    <string name="settings_input_test_camera_note">相機手勢請在「相機設定」中測試；該頁面會顯示即時預覽與偵測器回饋。</string>
+    <string name="settings_input_test_camera_note">請在「相機設定」中用即時預覽測試相機動作。</string>
     <string name="settings_input_key_enter">Enter</string>
     <string name="settings_input_key_space">空白鍵</string>
     <string name="settings_input_key_volume_up">音量增加</string>
@@ -97,11 +97,11 @@
     <string name="resources_settings_summary">模型、語音套件、下載與裝置儲存空間</string>
     <string name="resources_intro">管理選用功能所需的模型與語音檔。下載內容會經過驗證，並儲存在本裝置的私人空間。</string>
     <string name="resources_camera_input_heading">相機輸入</string>
-    <string name="resources_cheek_model">臉頰抽動模型</string>
-    <string name="resources_cheek_model_summary">辨識相機開關輸入的臉頰動作。目前版本保留可離線使用的內建版本。</string>
+    <string name="resources_cheek_model">臉部動作模型</string>
+    <string name="resources_cheek_model_summary">辨識長眨眼與臉頰動作，已內建供離線使用。</string>
     <string name="resources_core_heading">內建資源</string>
-    <string name="resources_face_detection">長眨眼臉部偵測</string>
-    <string name="resources_face_detection_summary">供長眨眼設定與可靠輸入使用。</string>
+    <string name="resources_face_detection">臉部動作偵測</string>
+    <string name="resources_face_detection_summary">供可靠的長眨眼與臉頰動作設定及輸入使用。</string>
     <string name="resources_taiwan_voice">台灣華語語音</string>
     <string name="resources_taiwan_voice_summary">繁體中文使用的內建離線語音。</string>
     <string name="resources_required_included">已內建於程式 · 必要</string>

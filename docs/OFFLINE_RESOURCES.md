@@ -7,17 +7,14 @@ also open the same native page from **App info → Storage**.
 
 ## What the page shows
 
-- **Cheek-twitch model** — recognizes cheek movement for camera switch input.
-  Version 0.4.0 includes the verified model in the app as an offline fallback.
-  A newer model can be downloaded and used without replacing that fallback.
-- **Long-blink face detection** — a required app component used by long-blink
-  setup and runtime input. It is included with the app and cannot be removed
-  from the resource page.
+- **Face-action model** — recognizes long blinks and cheek movement for camera
+  input. Version 0.4.1 includes the verified model for offline use. A newer
+  model can be downloaded and used without replacing the included version.
 - **Taiwan Mandarin voice** — the small built-in Traditional Chinese voice
   pack. It remains included and offline.
 
 The status under each item distinguishes an included resource from a
-downloaded update. Removing a downloaded cheek-model update immediately
+downloaded update. Removing a downloaded face-model update immediately
 returns the app to the included version; it does not disable camera input or
 remove the user's gesture calibration.
 
@@ -30,19 +27,19 @@ expected byte length and SHA-256 digest before installing it in a versioned
 directory. An incomplete or modified file is rejected and never selected by
 the detector.
 
-The current cheek-model update URL is a fixed HTTPS object on Google Cloud
+The current face-model update URL is a fixed HTTPS object on Google Cloud
 Storage. The request does not include communication content, settings, camera
 frames, accounts, advertising identifiers, analytics, or diagnostic logs.
 
 The app does not request shared-storage permission. Android removes managed
-downloads when the app is uninstalled or its data is cleared. A running cheek
+downloads when the app is uninstalled or its data is cleared. A running face
 detector holds its own direct model buffer, so removing an update cannot
 invalidate an in-progress camera session.
 
 ## Offline fallback policy
 
 Version 0.4.0 is a transition release: it introduces verified download and
-resource-management infrastructure while retaining the cheek model in the
+resource-management infrastructure while retaining the face model in the
 APK/AAB. This avoids breaking an existing AAC user's configured input after an
 update while offline. A later Google Play release may move optional native
 code or models to Play Feature Delivery only after a safe migration period.

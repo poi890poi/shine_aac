@@ -37,7 +37,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - 候選字詞與可輸入性品質檢查
 - 可調整掃描速度與語音回饋設定
 - 可選擇列格或區塊列格掃描 並使用預設速度或進階時間微調
-- 可選用長眨眼或臉頰抽動作為相機開關 影像只在裝置上處理
+- 可選用長眨眼或臉頰動作作為相機輸入 影像只在裝置上處理
 - 可在支援 USB Host OTG 的裝置選用相容 USB UVC 外接相機
 - 原生協助者設定與獨立進階時間設定頁
 - 朗讀後可顯示重播控制或放大對話內容 也可維持原本的繼續輸入方式
@@ -52,7 +52,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 
 0.4.0:
 
-- 新增 USB UVC 外接相機 支援長眨眼與臉頰抽動掃描 影像只在裝置處理
+- 新增 USB UVC 外接相機 支援長眨眼與臉頰動作掃描 影像只在裝置處理
 - 新增原生協助者設定與獨立進階時間設定頁
 - 改善相機選擇 權限 重新連接 預覽 校正與偵測可靠度
 - 新增 USB 相機 相機動作 進階設定與語音下載專頁
@@ -153,7 +153,7 @@ Please keep another reliable communication method available during testing, espe
   `docs/PLAY_DATA_SAFETY.md` for the exact Play form categories.
 - The app processes messages and settings locally on the device.
 - Text history is stored locally and can be exported by the user or helper.
-- Optional camera switch input uses camera permission for local switch/blink detection only.
+- Optional camera action input uses camera permission for local blink and cheek-movement detection only.
 - Android Text-to-Speech behavior may depend on the speech engine installed on the device.
 
 ## Google Play Asset Notes

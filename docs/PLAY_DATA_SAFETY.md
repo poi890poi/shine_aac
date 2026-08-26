@@ -4,7 +4,7 @@ This worksheet is for Play Console setup for `org.shineaac.app` / SayToMe AAC / 
 
 Reviewed app state on 2026-08-25:
 
-- Android manifest declares `android.permission.CAMERA` for the optional camera switch input.
+- Android manifest declares `android.permission.CAMERA` for optional camera action input.
 - `android.hardware.camera` is marked `required="false"`, so camera hardware is not required to install the app.
 - The merged manifest includes `INTERNET` and `ACCESS_NETWORK_STATE` for user-initiated, verified optional-resource downloads. No `RECORD_AUDIO`, location, contacts, storage, advertising ID, or account permissions are declared.
 - No ads SDK is present.
@@ -50,14 +50,14 @@ submission; Play makes the developer responsible for the final declaration.
 
 Important note: The app processes messages, symbols, settings, speech text, and exportable text history locally. Google's Data Safety definition of collection focuses on transmitting user data off device. Local-only processing does not need to be declared as collected, but it should be described in the privacy policy for transparency.
 
-Optional camera switch input uses the device camera only for local switch/blink detection. Camera frames are not transmitted to SHINE AAC, are not used for ads or analytics, and are not saved as photos or videos by the app.
+Optional camera action input uses the device camera only for local blink and cheek-movement detection. Camera frames are not transmitted to SHINE AAC, are not used for ads or analytics, and are not saved as photos or videos by the app.
 
 ## Permissions Declaration
 
 Declare camera permission if Play Console asks for sensitive permissions:
 
 ```text
-The camera permission is used only for optional camera switch input, such as local blink or face-position based activation during AAC scanning. Processing happens on the device. The app does not upload camera frames, save photos, record video, run ads, analytics, or remote logging, and does not require camera hardware to use the main AAC board.
+The camera permission is used only for optional camera action input, such as local blink or cheek-movement activation during AAC scanning. Processing happens on the device. The app does not upload camera frames, save photos, record video, run ads, analytics, or remote logging, and does not require camera hardware to use the main AAC board.
 ```
 
 ## App Content Forms
@@ -83,7 +83,7 @@ Draft answer: All functionality is available without login or special credential
 Suggested reviewer note:
 
 ```text
-The app does not require an account. It opens directly to the AAC board. The Config control is visible in the app for local testing and setup. Camera switch input is optional; the main AAC board can be used without enabling camera input.
+The app does not require an account. It opens directly to the AAC board. The Config control is visible in the app for local testing and setup. Camera action input is optional; the main AAC board can be used without enabling camera input.
 ```
 
 Suggested zh-TW reviewer note:
@@ -133,7 +133,7 @@ Recommended zh-TW wording:
 - Re-run `rg -n "uses-permission|android.permission|INTERNET|RECORD_AUDIO|CAMERA|ACCESS_|AD_ID" app/src/main app/build.gradle.kts gradle/libs.versions.toml`.
 - Reconcile the Play form with all current SDKs; confirm there are no ads,
   analytics, crash reporting, or remote logging.
-- Confirm camera permission is still used only for optional local camera switch input.
+- Confirm camera permission is still used only for optional local camera action input.
 - Confirm privacy policy URL is public.
 - Confirm Play listing and release notes keep the early-development warning.
 - If any feedback form, email integration, analytics, cloud sync, crash reporting, or remote logging is added later, revisit this worksheet before upload.

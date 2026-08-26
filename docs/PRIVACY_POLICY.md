@@ -18,7 +18,7 @@ This app is not a finished clinical product, not medical advice, and not a subst
 - The app does not use a SHINE AAC server.
 - The app does not collect, sell, or share personal data with us.
 - Communication content and settings are processed on the device.
-- Optional camera switch input is processed on the device and is not sent to us.
+- Optional camera action input is processed on the device and is not sent to us.
 - Optional model updates download a fixed public file over HTTPS; messages,
   settings, and camera frames are not included in that request.
 
@@ -40,14 +40,14 @@ The app may process the following information locally on the device so that the 
 - the current message being composed
 - locally saved text-history entries for previously composed messages
 - app settings such as language profile, scan timing, voice settings, and input settings
-- optional camera switch input signals when camera switch is enabled
+- optional camera action input signals when camera input is enabled
 - local test configuration when a test build is being verified
 
 This information is used for app functionality only. It is not transmitted to SHINE AAC servers.
 
-## Camera Switch Input
+## Camera Action Input
 
-The app may request camera permission if a user or helper enables optional camera switch input, such as blink-based activation for scanning. Camera processing is used for local input detection only.
+The app may request camera permission if a user or helper enables optional camera action input, such as blink-based activation for scanning. Camera processing is used for local input detection only.
 
 The app does not upload camera frames to SHINE AAC, does not save photos, does not record video, and does not use camera data for ads, analytics, or remote logging.
 

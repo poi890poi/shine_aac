@@ -67,9 +67,9 @@ import kotlin.math.roundToLong
 
 internal fun cheekCalibrationMoveInstruction(zhTw: Boolean): String =
     if (zhTw) {
-        "校正：請自然抽動臉頰後放鬆。系統會自動從影像找出動作樣本，不需要先成功觸發。"
+        "設定：請自然動一下臉頰後放鬆。系統會自動找出動作樣本，不需要先成功觸發。"
     } else {
-        "Calibration: move your cheek naturally, then relax. Samples are found automatically; the twitch does not need to activate first."
+        "Setup: move your cheek naturally, then relax. Samples are found automatically; the action does not need to activate first."
     }
 
 class CameraSwitchCalibrationActivity : AppCompatActivity() {
@@ -328,7 +328,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         }
 
         val toolbar = MaterialToolbar(this).apply {
-            title = tr("Optical switch setup", "光學開關設定")
+            title = tr("Camera actions", "相機動作")
             setTitleTextColor(Color.WHITE)
             setNavigationIcon(R.drawable.ic_camera_setup_back)
             navigationContentDescription = tr("Back", "返回")
@@ -503,7 +503,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         blinkGestureButton = actionButton(tr("Long blink", "長眨眼"), primary = false) {
             setOnClickListener { selectGesture(OpticalSwitchGesture.LongBlink) }
         }
-        cheekGestureButton = actionButton(tr("Cheek twitch", "臉頰抽動"), primary = false) {
+        cheekGestureButton = actionButton(tr("Cheek movement", "臉頰動作"), primary = false) {
             setOnClickListener { selectGesture(OpticalSwitchGesture.CheekTwitch) }
         }
 
@@ -680,8 +680,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 )
             } else {
                 statusView?.text = tr(
-                    "Cheek twitch works without calibration. Optional calibration can improve reliability.",
-                    "臉頰抽動不校正也能使用；選用校正可提升可靠度。"
+                    "Cheek movement works without setup. Personal setup can improve reliability.",
+                    "臉頰動作不設定也能使用；個人設定可提升可靠度。"
                 )
                 metricsView?.text = tr(
                     "Relax briefly for the default detector, or tap Calibrate (optional).",
@@ -941,8 +941,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     private fun updateGestureUi() {
         gestureView?.text = when (selectedGesture) {
-            OpticalSwitchGesture.LongBlink -> tr("Input: Long blink", "輸入方式：長眨眼")
-            OpticalSwitchGesture.CheekTwitch -> tr("Input: Cheek twitch", "輸入方式：臉頰抽動")
+            OpticalSwitchGesture.LongBlink -> tr("Action: Long blink", "動作：長眨眼")
+            OpticalSwitchGesture.CheekTwitch -> tr("Action: Cheek movement", "動作：臉頰動作")
         }
         applyGestureButtonStyle(blinkGestureButton, selectedGesture == OpticalSwitchGesture.LongBlink)
         applyGestureButtonStyle(cheekGestureButton, selectedGesture == OpticalSwitchGesture.CheekTwitch)
@@ -1057,7 +1057,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             resetCheekClassifier()
             statusView?.text = tr(
                 "Cheek hold updated.",
-                "已更新臉頰抽動維持時間。"
+                "已更新臉頰動作維持時間。"
             )
         } else {
             calibratedLongBlinkHoldMs = clampLong(
@@ -1886,8 +1886,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             if (activated && !calibrationWasActive) {
                 playLongAcceptedCue()
                 statusView?.text = tr(
-                    "Cheek twitch accepted. Current position works.",
-                    "臉頰抽動已接受。目前位置合適。"
+                    "Cheek movement accepted. Current position works.",
+                    "臉頰動作已接受。目前位置合適。"
                 )
             }
             if (calibrationWasActive && observation?.usable == false) {

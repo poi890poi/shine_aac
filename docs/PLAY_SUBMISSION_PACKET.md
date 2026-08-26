@@ -37,7 +37,7 @@ medical-device, treatment, diagnosis, or outcome claims.
 ## User documentation
 
 - Quick start and routine settings: `docs/index.html`
-- Camera long-blink and cheek-twitch setup: `docs/camera-switch/index.html`
+- Camera action setup: `docs/camera-switch/index.html`
 - USB UVC connection, permission, compatibility, and troubleshooting:
   `docs/uvc-camera/index.html`
 - Advanced scanning, timing, speech, input, contrast, and content settings:

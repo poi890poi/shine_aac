@@ -86,7 +86,7 @@
     <string name="settings_input_test_last_event">Last input: %1$s</string>
     <string name="settings_input_test_touch">Test with touch</string>
     <string name="settings_input_test_reset">Reset counter</string>
-    <string name="settings_input_test_camera_note">Camera gestures are tested in Camera setup, where the live preview and detector feedback are available.</string>
+    <string name="settings_input_test_camera_note">Test camera actions in Camera setup with the live preview.</string>
     <string name="settings_input_key_enter">Enter</string>
     <string name="settings_input_key_space">Space</string>
     <string name="settings_input_key_volume_up">Volume up</string>
@@ -97,11 +97,11 @@
     <string name="resources_settings_summary">Models, speech packs, downloads, and device storage</string>
     <string name="resources_intro">Manage models and speech files used by optional features. Downloads are verified and stored privately on this device.</string>
     <string name="resources_camera_input_heading">Camera input</string>
-    <string name="resources_cheek_model">Cheek-twitch model</string>
-    <string name="resources_cheek_model_summary">Recognizes cheek movement for camera switch input. The current release keeps an offline fallback.</string>
+    <string name="resources_cheek_model">Face-action model</string>
+    <string name="resources_cheek_model_summary">Recognizes long blinks and cheek movement. Included for offline use.</string>
     <string name="resources_core_heading">Included resources</string>
-    <string name="resources_face_detection">Long-blink face detection</string>
-    <string name="resources_face_detection_summary">Required for reliable long-blink setup and input.</string>
+    <string name="resources_face_detection">Face-action detection</string>
+    <string name="resources_face_detection_summary">Required for reliable long-blink and cheek-movement setup and input.</string>
     <string name="resources_taiwan_voice">Taiwan Mandarin voice</string>
     <string name="resources_taiwan_voice_summary">Built-in offline speech for Traditional Chinese.</string>
     <string name="resources_required_included">Included with app · required</string>
