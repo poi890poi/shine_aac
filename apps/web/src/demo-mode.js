@@ -14,7 +14,7 @@ import { InputIntent } from "./input.js";
 
 const demoStorageKey = "shine-aac-demo-mode";
 export const DemoMaximumScanIntervalMs = 600;
-export const DemoEscapeLadderPassLimit = 2;
+const DemoEscapeLadderPassLimit = 2;
 
 export function demoTimingConfig(baseConfig = {}) {
   return {

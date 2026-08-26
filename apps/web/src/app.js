@@ -39,6 +39,11 @@ import { createDemoMode, demoTimingConfig } from "./demo-mode.js";
 import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
 import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
 import {
+  createCalibrationState,
+  duplicateCalibrationEvents,
+  medianCalibrationInterval
+} from "./calibration-model.js";
+import {
   androidSystemVoiceName,
   ContrastThemes,
   defaultUiConfig,
@@ -2843,27 +2848,6 @@ function renderConfig() {
   app.append(backdrop);
 }
 
-function createCalibrationState(inputClass = "reliable") {
-  return {
-    inputClass,
-    events: [],
-    lastEventAt: 0,
-    rest: {
-      running: false,
-      startedAt: 0,
-      durationMs: 10000,
-      events: []
-    },
-    trials: {
-      running: false,
-      total: 5,
-      index: 0,
-      awaitingNext: false,
-      results: []
-    }
-  };
-}
-
 function recordCalibrationInput(inputEvent) {
   const now = performance.now();
   const source = String(inputEvent.source ?? "unknown");
@@ -3087,7 +3071,7 @@ function calibrationStatsHtml() {
     return counts;
   }, new Map());
   const topSource = [...sourceCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? "none";
-  const interval = medianInterval(events);
+  const interval = medianCalibrationInterval(events);
   return `
     <section class="calibration-grid" data-testid="calibration-stats">
       <div class="calibration-card">
@@ -3205,19 +3189,6 @@ function handleCalibrationClick(event) {
     };
     renderCalibration();
   }
-}
-
-function duplicateCalibrationEvents(events) {
-  return events.filter((event) => event.deltaMs !== null && event.deltaMs < 300);
-}
-
-function medianInterval(events) {
-  const intervals = events
-    .map((event) => event.deltaMs)
-    .filter((value) => value !== null && value >= 300)
-    .sort((left, right) => left - right);
-  if (intervals.length === 0) return null;
-  return intervals[Math.floor(intervals.length / 2)];
 }
 
 function restRemaining() {

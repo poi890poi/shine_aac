@@ -29,3 +29,5 @@ The E2E runner launches Microsoft Edge with a clean temporary profile, drives th
 ## Boundary
 
 The web app owns rendering, browser speech, keyboard/mouse/touch input, local storage, and the scan timer. It does not own AAC rules. Scanner behavior, suggestions, message editing, undo, and board data come from `@shine-aac/core`.
+
+Small state/statistics modules such as `calibration-model.js`, `demo-mode.js`, and `ui-config.js` remain independently testable. `app.js` coordinates the rendered shell; new deterministic rules should be extracted instead of added to that coordinator.
