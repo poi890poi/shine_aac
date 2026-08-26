@@ -64,44 +64,125 @@ sealed class CheekCalibrationOutcome {
     data class Failure(val reason: String, val diagnosticModel: CheekGestureModel? = null) : CheekCalibrationOutcome()
 }
 
-internal data class ScoredCheekCalibrationFrame(
+internal data class CheekCalibrationAttempt(
+    val capturedFrameCount: Int,
+    val positiveFrameCount: Int,
+    val clusterSeparation: Double,
+    val outcome: CheekCalibrationOutcome?
+)
+
+private data class IndexedCheekCalibrationFrame(
+    val index: Int,
     val values: Map<String, Double>,
     val score: Double
 )
 
 /**
- * Separates an unknown-length twitch period into transition/rest-like and
- * active samples, then keeps only the strongest few active frames. This is a
- * registration step; runtime thresholds and final model quality remain intact.
+ * Discovers personalized positive samples from an unlabeled live capture.
+ *
+ * The relaxed phase supplies a per-feature median and robust spread. Every later frame is measured
+ * against that baseline without consulting [CheekTwitchDetector]'s runtime threshold. Two-means
+ * clustering then separates rest-like frames from movement-like frames, and only temporally coherent
+ * high-cluster runs are used to fit the personalized model. A clear movement can therefore calibrate
+ * even when it could not activate the uncalibrated runtime detector first.
  */
-internal fun selectCheekCalibrationPositiveFrames(
-    period: List<ScoredCheekCalibrationFrame>,
-    maximumSamples: Int = 6
-): List<ScoredCheekCalibrationFrame> {
-    if (period.size < 3 || maximumSamples < 1) return emptyList()
-    var lowCenter = period.minOf { it.score }
-    var highCenter = period.maxOf { it.score }
-    if (highCenter - lowCenter < 0.06) return emptyList()
-    repeat(12) {
-        val low = period.filter { kotlin.math.abs(it.score - lowCenter) <= kotlin.math.abs(it.score - highCenter) }
-        val high = period.filter { kotlin.math.abs(it.score - lowCenter) > kotlin.math.abs(it.score - highCenter) }
-        if (low.isEmpty() || high.isEmpty()) return emptyList()
-        val nextLow = low.map { it.score }.average()
-        val nextHigh = high.map { it.score }.average()
-        if (kotlin.math.abs(nextLow - lowCenter) < 0.0001 && kotlin.math.abs(nextHigh - highCenter) < 0.0001) {
-            lowCenter = nextLow
-            highCenter = nextHigh
-            return@repeat
-        }
-        lowCenter = nextLow
-        highCenter = nextHigh
+internal fun buildCheekCalibrationFromUnlabeledSamples(
+    neutralFrames: List<Map<String, Double>>,
+    capturedFrames: List<Map<String, Double>>
+): CheekCalibrationAttempt {
+    if (neutralFrames.size < MinimumUnlabeledNeutralFrames ||
+        capturedFrames.size < MinimumUnlabeledCapturedFrames
+    ) {
+        return CheekCalibrationAttempt(capturedFrames.size, 0, 0.0, null)
     }
-    if (highCenter - lowCenter < 0.06) return emptyList()
-    val boundary = (lowCenter + highCenter) / 2.0
-    val active = period.filter { it.score > boundary }.sortedByDescending { it.score }
-    if (active.size < 3) return emptyList()
-    return active.take(maximumSamples)
+
+    val featureStats = CheekFeatureSpace.names.map { name ->
+        val values = neutralFrames.map { it[name] ?: 0.0 }
+        val baseline = CheekGestureCalibrator.percentile(values, 0.50)
+        val scale = max(
+            UnlabeledMinimumScale,
+            CheekGestureCalibrator.percentile(values.map { abs(it - baseline) }, 0.50) * UnlabeledMadToSigma
+        )
+        Triple(name, baseline, scale)
+    }
+    fun deviationScore(frame: Map<String, Double>): Double {
+        val deviations = featureStats.map { (name, baseline, scale) ->
+            abs((frame[name] ?: baseline) - baseline) / scale
+        }.sortedDescending()
+        return deviations.take(UnlabeledCombinedFeatureCount).average()
+    }
+
+    val neutralScores = neutralFrames.map(::deviationScore)
+    val captured = capturedFrames.mapIndexed { index, values ->
+        IndexedCheekCalibrationFrame(index, values, deviationScore(values))
+    }
+    val allScores = neutralScores + captured.map { it.score }
+    var lowCenter = allScores.minOrNull() ?: 0.0
+    var highCenter = allScores.maxOrNull() ?: 0.0
+    repeat(UnlabeledClusterIterations) {
+        val low = allScores.filter { abs(it - lowCenter) <= abs(it - highCenter) }
+        val high = allScores.filter { abs(it - lowCenter) > abs(it - highCenter) }
+        if (low.isEmpty() || high.isEmpty()) {
+            return CheekCalibrationAttempt(capturedFrames.size, 0, 0.0, null)
+        }
+        lowCenter = low.average()
+        highCenter = high.average()
+    }
+
+    val separation = highCenter - lowCenter
+    val neutralCeiling = CheekGestureCalibrator.percentile(neutralScores, 0.99)
+    if (separation < MinimumUnlabeledClusterSeparation ||
+        highCenter < max(MinimumUnlabeledActiveCenter, neutralCeiling + MinimumUnlabeledNeutralMargin)
+    ) {
+        return CheekCalibrationAttempt(capturedFrames.size, 0, separation, null)
+    }
+
+    val boundary = max((lowCenter + highCenter) / 2.0, neutralCeiling + UnlabeledBoundaryMargin)
+    val highFrames = captured.filter { it.score > boundary }
+    val runs = mutableListOf<MutableList<IndexedCheekCalibrationFrame>>()
+    highFrames.forEach { frame ->
+        val current = runs.lastOrNull()
+        if (current == null || frame.index - current.last().index > MaximumUnlabeledFrameGap) {
+            runs += mutableListOf(frame)
+        } else {
+            current += frame
+        }
+    }
+    val positiveRuns = runs
+        .filter { it.size >= MinimumUnlabeledFramesPerRun }
+        .map { run -> run.sortedByDescending { it.score }.take(MaximumUnlabeledFramesPerRun) }
+    val positiveFrameCount = positiveRuns.sumOf { it.size }
+    if (positiveFrameCount < MinimumUnlabeledPositiveFrames) {
+        return CheekCalibrationAttempt(capturedFrames.size, positiveFrameCount, separation, null)
+    }
+
+    val calibrator = CheekGestureCalibrator()
+    neutralFrames.forEach(calibrator::addNeutral)
+    positiveRuns.forEachIndexed { trial, frames ->
+        frames.forEach { calibrator.addActive(trial, it.values) }
+    }
+    return CheekCalibrationAttempt(
+        capturedFrameCount = capturedFrames.size,
+        positiveFrameCount = positiveFrameCount,
+        clusterSeparation = separation,
+        outcome = calibrator.build()
+    )
 }
+
+private const val MinimumUnlabeledNeutralFrames = 30
+private const val MinimumUnlabeledCapturedFrames = 10
+private const val MinimumUnlabeledPositiveFrames = 5
+private const val MinimumUnlabeledFramesPerRun = 3
+private const val MaximumUnlabeledFramesPerRun = 12
+private const val MaximumUnlabeledFrameGap = 2
+private const val UnlabeledCombinedFeatureCount = 3
+private const val UnlabeledClusterIterations = 12
+private const val UnlabeledMinimumScale = 0.015
+private const val UnlabeledMadToSigma = 1.4826
+private const val MinimumUnlabeledClusterSeparation = 1.0
+private const val MinimumUnlabeledActiveCenter = 3.0
+private const val MinimumUnlabeledNeutralMargin = 1.0
+private const val UnlabeledBoundaryMargin = 0.5
 
 class CheekGestureCalibrator(private val candidateFeatures: List<String> = CheekFeatureSpace.names) {
     private val neutralFrames = mutableListOf<Map<String, Double>>()
@@ -115,8 +196,11 @@ class CheekGestureCalibrator(private val candidateFeatures: List<String> = Cheek
 
     fun build(): CheekCalibrationOutcome {
         val trials = activeTrials.values.filter { it.size >= MinimumFramesPerTrial }
-        if (neutralFrames.size < MinimumNeutralFrames || trials.size < MinimumTrials) {
-            return CheekCalibrationOutcome.Failure("Not enough clear face samples (${neutralFrames.size} relaxed frames, ${trials.size} movement trials).")
+        val activeFrameCount = trials.sumOf { it.size }
+        if (neutralFrames.size < MinimumNeutralFrames || trials.size < MinimumTrials ||
+            activeFrameCount < MinimumActiveFrames
+        ) {
+            return CheekCalibrationOutcome.Failure("Not enough clear face samples (${neutralFrames.size} relaxed frames, $activeFrameCount movement frames).")
         }
         val stats = candidateFeatures.map { name ->
             val neutral = neutralFrames.map { it[name] ?: 0.0 }
@@ -186,7 +270,8 @@ class CheekGestureCalibrator(private val candidateFeatures: List<String> = Cheek
 
     companion object {
         private const val MinimumNeutralFrames = 30
-        private const val MinimumTrials = 5
+        private const val MinimumTrials = 1
+        private const val MinimumActiveFrames = 5
         private const val MinimumFramesPerTrial = 3
         private const val MinimumScale = 0.015
         private const val MadToSigma = 1.4826

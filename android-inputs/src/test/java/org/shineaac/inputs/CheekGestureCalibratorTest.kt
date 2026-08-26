@@ -43,22 +43,72 @@ class CheekGestureCalibratorTest {
     }
 
     @Test
-    fun registrationClustersUnknownPeriodAndKeepsStrongestFewFrames() {
-        val scores = listOf(0.17, 0.19, 0.21, 0.34, 0.39, 0.46, 0.44, 0.41, 0.22, 0.18)
-        val period = scores.mapIndexed { index, score ->
-            ScoredCheekCalibrationFrame(mapOf("cheekSquintLeft" to index / 10.0), score)
+    fun unlabeledCaptureFindsOneClearMovementWithoutRuntimeRegistration() {
+        val neutral = List(48) { frame ->
+            mapOf(
+                "cheekSquintLeft" to (0.10 + (frame % 3) * 0.002),
+                "mouthDimpleLeft" to (0.08 + (frame % 2) * 0.002)
+            )
         }
-        val selected = selectCheekCalibrationPositiveFrames(period, maximumSamples = 4)
+        val relaxed = List(4) { mapOf("cheekSquintLeft" to 0.10, "mouthDimpleLeft" to 0.08) }
+        val movement = List(6) { frame ->
+            mapOf(
+                "cheekSquintLeft" to (0.22 + frame * 0.004),
+                "mouthDimpleLeft" to (0.18 + frame * 0.003)
+            )
+        }
 
-        assertEquals(listOf(0.46, 0.44, 0.41, 0.39), selected.map { it.score })
-        assertTrue(selected.maxOf { it.score } < CheekTwitchDetector.DefaultEnterThreshold)
+        val attempt = buildCheekCalibrationFromUnlabeledSamples(
+            neutral,
+            relaxed + movement + relaxed
+        )
+
+        assertTrue(attempt.outcome is CheekCalibrationOutcome.Success)
+        assertEquals(6, attempt.positiveFrameCount)
+        val model = (attempt.outcome as CheekCalibrationOutcome.Success).model
+        assertEquals(1, model.quality.activeTrialCount)
+        assertTrue(model.score(movement.last()) >= model.enterThreshold)
     }
 
     @Test
-    fun registrationRejectsPeriodsWithoutASeparatedActiveCluster() {
-        val period = listOf(0.18, 0.19, 0.20, 0.19, 0.21, 0.20).map {
-            ScoredCheekCalibrationFrame(mapOf("cheekSquintLeft" to it), it)
+    fun unlabeledCaptureRejectsRestOnlyFrames() {
+        val neutral = List(48) { frame ->
+            mapOf("cheekSquintLeft" to (0.10 + (frame % 4) * 0.002))
         }
-        assertTrue(selectCheekCalibrationPositiveFrames(period).isEmpty())
+        val capture = List(30) { frame ->
+            mapOf("cheekSquintLeft" to (0.10 + (frame % 3) * 0.002))
+        }
+
+        val attempt = buildCheekCalibrationFromUnlabeledSamples(neutral, capture)
+
+        assertEquals(0, attempt.positiveFrameCount)
+        assertTrue(attempt.outcome == null)
+    }
+
+    @Test
+    fun unlabeledCaptureLearnsAConsistentDownwardMovement() {
+        val neutral = List(48) { frame ->
+            mapOf(
+                "mouthPressRight" to (0.42 + (frame % 3) * 0.002),
+                "mouthFrownRight" to (0.38 + (frame % 2) * 0.002)
+            )
+        }
+        val relaxed = List(5) { mapOf("mouthPressRight" to 0.42, "mouthFrownRight" to 0.38) }
+        val movement = List(7) { frame ->
+            mapOf(
+                "mouthPressRight" to (0.24 - frame * 0.003),
+                "mouthFrownRight" to (0.23 - frame * 0.002)
+            )
+        }
+
+        val attempt = buildCheekCalibrationFromUnlabeledSamples(
+            neutral,
+            relaxed + movement + relaxed
+        )
+
+        assertTrue(attempt.outcome is CheekCalibrationOutcome.Success)
+        val model = (attempt.outcome as CheekCalibrationOutcome.Success).model
+        assertEquals(CheekSide.Right, model.inferredSide)
+        assertTrue(model.weights.any { it < 0.0 })
     }
 }
