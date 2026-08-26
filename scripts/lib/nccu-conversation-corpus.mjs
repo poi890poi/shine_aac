@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const NccuConversationCorpusVersion = "NCCU-TM001-TM050-2026-03";
-export const NccuNormalizedCorpusSha256 = "a15e8dc5ad537ec827c52fbe7b78d4b9aab3de7da10729007cf434732e45ead2";
+const NccuConversationCorpusVersion = "NCCU-TM001-TM050-2026-03";
+const NccuNormalizedCorpusSha256 = "a15e8dc5ad537ec827c52fbe7b78d4b9aab3de7da10729007cf434732e45ead2";
 
 export async function loadNccuConversationCorpus(directory) {
   if (!directory) {
