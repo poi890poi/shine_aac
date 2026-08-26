@@ -498,10 +498,7 @@ class CameraSwitchInputAdapter(
             val startedNs = SystemClock.elapsedRealtimeNanos()
             try {
                 val observation = cheekAnalyzer?.analyzeBitmapForCamera(bitmap, now)
-                val score = if (observation?.usable == true) {
-                    settings.cheekModel?.score(observation.blendshapes)
-                        ?: cheekDetector.observe(observation.blendshapes)
-                } else null
+                val score = scoreCheekObservation(observation, settings)
                 if (frameGeneration == generation && running) {
                     updateCheekState(score, settings)
                 }
@@ -808,12 +805,7 @@ class CameraSwitchInputAdapter(
 
             if (imageGeneration != generation || !running) return
 
-            val score = if (observation?.usable == true) {
-                settings.cheekModel?.score(observation.blendshapes)
-                    ?: cheekDetector.observe(observation.blendshapes)
-            } else {
-                null
-            }
+            val score = scoreCheekObservation(observation, settings)
 
             updateCheekState(score, settings)
         } catch (error: Exception) {
@@ -848,6 +840,16 @@ class CameraSwitchInputAdapter(
         cheekPerfFrames = 0
         cheekPerfTotalNs = 0L
         cheekPerfMaxNs = 0L
+    }
+
+    /** Keeps CameraX and direct-UVC cheek scoring in the same model space. */
+    private fun scoreCheekObservation(
+        observation: CheekFaceObservation?,
+        settings: CameraSwitchSettings
+    ): Double? {
+        if (observation?.usable != true) return null
+        return settings.cheekModel?.score(observation.blendshapes)
+            ?: cheekDetector.observe(observation.blendshapes)
     }
 
     private fun updateCheekState(score: Double?, settings: CameraSwitchSettings) {

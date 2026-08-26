@@ -7,12 +7,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
-import android.graphics.Paint
 import android.graphics.Rect
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.hardware.camera2.CameraCaptureSession
@@ -83,7 +80,7 @@ internal fun cheekCalibrationMoveInstruction(zhTw: Boolean): String =
 class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private val analysisSize = Size(480, 360)
     private var textureView: TextureView? = null
-    private var overlayView: FaceOverlayView? = null
+    private var overlayView: CameraFaceOverlayView? = null
     private var statusView: TextView? = null
     private var metricsView: TextView? = null
     private var gestureView: TextView? = null
@@ -168,10 +165,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var selectedGesture = OpticalSwitchGesture.LongBlink
     private var cheekHoldMs = CameraSwitchSettings.DefaultCheekHoldMs
     private var cheekModel: CheekGestureModel? = null
-    private var cheekCalibrationStage = CheekCalibrationStage.Idle
-    private val cheekCalibrationNeutralFrames = mutableListOf<Map<String, Double>>()
-    private val cheekCalibrationFrames = mutableListOf<Map<String, Double>>()
-    private var cheekCalibrationFramesSeen = 0
+    private val cheekCalibrationSession = CheekCalibrationSession()
     private var calibratedZoomRatio = 1.6f
     private var detectionParameters = BlinkDetectionParameters()
     private var savedCalibrationRecord: CameraSwitchCalibrationRecord? = null
@@ -429,7 +423,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
             }
         }
-        overlayView = FaceOverlayView(this).apply {
+        overlayView = CameraFaceOverlayView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -955,10 +949,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun resetCheekCalibrationProgress() {
-        cheekCalibrationStage = CheekCalibrationStage.Idle
-        cheekCalibrationNeutralFrames.clear()
-        cheekCalibrationFrames.clear()
-        cheekCalibrationFramesSeen = 0
+        cheekCalibrationSession.reset()
         cheekDetector.reset()
         cheekPreviewActivations = 0
         resetCheekClassifier()
@@ -1000,10 +991,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     private fun startCheekCalibration() {
         cheekDetector.reset()
-        cheekCalibrationStage = CheekCalibrationStage.Rest
-        cheekCalibrationNeutralFrames.clear()
-        cheekCalibrationFrames.clear()
-        cheekCalibrationFramesSeen = 0
+        cheekCalibrationSession.start()
         cheekPreviewActivations = 0
         statusView?.text = tr(
             "Calibration: relax your face. We will continue automatically when enough resting frames are collected.",
@@ -1017,36 +1005,21 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun processCheekCalibration(values: Map<String, Double>): Boolean {
-        when (cheekCalibrationStage) {
-            CheekCalibrationStage.Idle -> return false
-            CheekCalibrationStage.Rest -> {
-                cheekCalibrationNeutralFrames += values.toMap()
-                val count = cheekCalibrationNeutralFrames.size
-                if (count >= 36 && cheekDetector.ready) {
-                    cheekCalibrationStage = CheekCalibrationStage.Move
-                    cheekCalibrationFrames.clear()
-                    cheekCalibrationFramesSeen = 0
+        return when (val update = cheekCalibrationSession.observe(values, cheekDetector.ready)) {
+            CheekCalibrationUpdate.Inactive,
+            CheekCalibrationUpdate.CapturePending -> false
+            is CheekCalibrationUpdate.RestProgress -> {
+                if (update.readyForMovement) {
                     statusView?.text = cheekCalibrationMoveInstruction(zhTw = zhTwUi)
                 }
                 metricsView?.text = tr(
                     "Stay relaxed while setup learns your resting face.",
                     "請保持放鬆，系統正在記住您放鬆時的臉部狀態。"
                 )
-                return false
+                false
             }
-            CheekCalibrationStage.Move -> {
-                cheekCalibrationFrames += values.toMap()
-                cheekCalibrationFramesSeen += 1
-                while (cheekCalibrationFrames.size > MaximumCheekCalibrationCaptureFrames) {
-                    cheekCalibrationFrames.removeAt(0)
-                }
-                if (cheekCalibrationFramesSeen % CheekCalibrationEvaluationIntervalFrames != 0) {
-                    return false
-                }
-                val attempt = buildCheekCalibrationFromUnlabeledSamples(
-                    neutralFrames = cheekCalibrationNeutralFrames,
-                    capturedFrames = cheekCalibrationFrames
-                )
+            is CheekCalibrationUpdate.Evaluated -> {
+                val attempt = update.attempt
                 val outcome = attempt.outcome
                 metricsView?.text = when {
                     outcome is CheekCalibrationOutcome.Success -> tr(
@@ -1064,9 +1037,10 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 }
                 if (outcome is CheekCalibrationOutcome.Success) {
                     finishCheekCalibration(outcome.model)
-                    return true
+                    true
+                } else {
+                    false
                 }
-                return false
             }
         }
     }
@@ -1078,8 +1052,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             zoomRatio = calibratedZoomRatio, qualityLabel = tr("Quality good", "品質良好"),
             qualityDetail = model.quality.message
         )
-        cheekCalibrationStage = CheekCalibrationStage.Idle
-        cheekCalibrationFrames.clear()
+        cheekCalibrationSession.complete()
         resetCheekClassifier()
         startButton?.isEnabled = true
         playLongAcceptedCue()
@@ -1745,61 +1718,13 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         val analyzer = cheekAnalyzer
         try {
             val observation = analyzer?.analyzeBitmapForCamera(bitmap, now)
-            val values = observation?.takeIf { it.usable }?.blendshapes
-            val defaultScore = values?.let { cheekDetector.observe(it) }
-            val score = values?.let { cheekModel?.score(it) } ?: defaultScore
-            val calibrationWasActive = cheekCalibrationStage != CheekCalibrationStage.Idle
-            val calibrationCompleted = values?.let(::processCheekCalibration) ?: false
-            var activated = calibrationCompleted
-            if (!calibrationWasActive) {
-                cheekClassifier.onScore(score, now).forEach { event ->
-                    if (event is BinarySwitchClassifier.Event.Activated) {
-                        activated = true
-                        cheekPreviewActivations += 1
-                    }
-                }
-            }
-            val warmupPercent = (cheekDetector.warmupProgress * 100f).toInt()
-            val threshold = cheekModel?.enterThreshold
-                ?: CheekTwitchDetector.DefaultEnterThreshold
-            mainHandler?.post {
-                overlayView?.setNormalizedDetection(
-                    face = observation?.normalizedBounds,
-                    landmarks = observation?.normalizedLandmarks,
-                    frameWidth = imageWidth,
-                    frameHeight = imageHeight,
-                    score = score,
-                    threshold = threshold,
-                    hasSignal = observation?.usable == true,
-                    showThreshold = !calibrationWasActive
-                )
-                if (activated && !calibrationWasActive) {
-                    playLongAcceptedCue()
-                    statusView?.text = tr(
-                        "Cheek twitch accepted. Current position works.",
-                        "臉頰抽動已接受。目前位置合適。"
-                    )
-                }
-                if (calibrationWasActive && observation?.usable == false) {
-                    metricsView?.text = if (zhTwUi) {
-                        "校正暫停：${observation.qualityMessage}。臉部約佔畫面 70%。"
-                    } else {
-                        "Calibration paused: ${observation.qualityMessage}. Keep your face around 70% of the view."
-                    }
-                } else if (!calibrationWasActive) metricsView?.text = when {
-                    observation == null -> tr("Face not detected", "未偵測到臉部")
-                    !observation.usable -> tr("Adjust face position", "請調整臉部位置")
-                    !cheekDetector.ready -> tr(
-                        "Learning resting face $warmupPercent%",
-                        "正在學習放鬆表情 $warmupPercent%"
-                    )
-                    score == null -> tr("Learning resting face", "正在學習放鬆表情")
-                    else -> tr(
-                        "Cheek ${"%.2f".format(score)} / ${"%.2f".format(threshold)} | accepted $cheekPreviewActivations",
-                        "臉頰 ${"%.2f".format(score)} / ${"%.2f".format(threshold)}｜已接受 $cheekPreviewActivations"
-                    )
-                }
-            }
+            handleCheekObservation(
+                observation = observation,
+                now = now,
+                frameWidth = imageWidth,
+                frameHeight = imageHeight,
+                detailedEnglishQuality = false
+            )
         } catch (_: Exception) {
             cheekClassifier.onScore(null, now)
             mainHandler?.post {
@@ -2010,71 +1935,13 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 now,
                 mirrorCameraOutput = activeCameraMirrored
             )
-            val values = observation?.takeIf { it.usable }?.blendshapes
-            val defaultScore = values?.let { cheekDetector.observe(it) }
-            val score = values?.let { cheekModel?.score(it) } ?: defaultScore
-            val calibrationWasActive = cheekCalibrationStage != CheekCalibrationStage.Idle
-            val calibrationCompleted = values?.let(::processCheekCalibration) ?: false
-
-            var activated = calibrationCompleted
-            if (!calibrationWasActive) {
-                cheekClassifier.onScore(score, now).forEach { event ->
-                    if (event is BinarySwitchClassifier.Event.Activated) {
-                        activated = true
-                        cheekPreviewActivations += 1
-                    }
-                }
-            }
-
-            val warmupPercent = (cheekDetector.warmupProgress * 100f).toInt()
-            val threshold = cheekModel?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
-
-            mainHandler?.post {
-                overlayView?.setNormalizedDetection(
-                    face = observation?.normalizedBounds,
-                    landmarks = observation?.normalizedLandmarks,
-                    frameWidth = imageSize.width,
-                    frameHeight = imageSize.height,
-                    score = score,
-                    threshold = threshold,
-                    hasSignal = observation?.usable == true,
-                    showThreshold = !calibrationWasActive
-                )
-
-                if (activated && !calibrationWasActive) {
-                    playLongAcceptedCue()
-                    statusView?.text = tr(
-                        "Cheek twitch accepted. Current position works.",
-                        "臉頰抽動已接受。目前位置合適。"
-                    )
-                }
-
-                if (calibrationWasActive && observation?.usable == false) {
-                    metricsView?.text = if (zhTwUi) {
-                        "校正暫停：${observation.qualityMessage}。臉部約佔畫面 70%。"
-                    } else {
-                        "Calibration paused: ${observation.qualityMessage}. Keep your face around 70% of the view."
-                    }
-                } else if (!calibrationWasActive) metricsView?.text = when {
-                    observation == null ->
-                        tr("Face not detected", "未偵測到臉部")
-                    !observation.usable ->
-                        if (zhTwUi) tr("Adjust face position", "請調整臉部位置")
-                        else observation.qualityMessage
-                    !cheekDetector.ready ->
-                        tr(
-                            "Learning resting face $warmupPercent%",
-                            "正在學習放鬆表情 $warmupPercent%"
-                        )
-                    score == null ->
-                        tr("Learning resting face", "正在學習放鬆表情")
-                    else ->
-                        tr(
-                            "Cheek ${"%.2f".format(score)} / ${"%.2f".format(threshold)} | accepted $cheekPreviewActivations",
-                            "臉頰 ${"%.2f".format(score)} / ${"%.2f".format(threshold)}｜已接受 $cheekPreviewActivations"
-                        )
-                }
-            }
+            handleCheekObservation(
+                observation = observation,
+                now = now,
+                frameWidth = imageSize.width,
+                frameHeight = imageSize.height,
+                detailedEnglishQuality = true
+            )
         } catch (_: Exception) {
             cheekClassifier.onScore(null, now)
             mainHandler?.post {
@@ -2086,6 +1953,76 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         } finally {
             image.close()
             mlKitInFlight = false
+        }
+    }
+
+    /** Applies identical calibration and preview behavior to Camera2 and direct UVC frames. */
+    private fun handleCheekObservation(
+        observation: CheekFaceObservation?,
+        now: Long,
+        frameWidth: Int,
+        frameHeight: Int,
+        detailedEnglishQuality: Boolean
+    ) {
+        val values = observation?.takeIf { it.usable }?.blendshapes
+        val defaultScore = values?.let { cheekDetector.observe(it) }
+        val score = values?.let { cheekModel?.score(it) } ?: defaultScore
+        val calibrationWasActive = cheekCalibrationSession.active
+        val calibrationCompleted = values?.let(::processCheekCalibration) ?: false
+
+        var activated = calibrationCompleted
+        if (!calibrationWasActive) {
+            cheekClassifier.onScore(score, now).forEach { event ->
+                if (event is BinarySwitchClassifier.Event.Activated) {
+                    activated = true
+                    cheekPreviewActivations += 1
+                }
+            }
+        }
+
+        val warmupPercent = (cheekDetector.warmupProgress * 100f).toInt()
+        val threshold = cheekModel?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
+        mainHandler?.post {
+            overlayView?.setNormalizedDetection(
+                face = observation?.normalizedBounds,
+                landmarks = observation?.normalizedLandmarks,
+                frameWidth = frameWidth,
+                frameHeight = frameHeight,
+                score = score,
+                threshold = threshold,
+                hasSignal = observation?.usable == true,
+                showThreshold = !calibrationWasActive
+            )
+            if (activated && !calibrationWasActive) {
+                playLongAcceptedCue()
+                statusView?.text = tr(
+                    "Cheek twitch accepted. Current position works.",
+                    "臉頰抽動已接受。目前位置合適。"
+                )
+            }
+            if (calibrationWasActive && observation?.usable == false) {
+                metricsView?.text = if (zhTwUi) {
+                    "校正暫停：${observation.qualityMessage}。臉部約佔畫面 70%。"
+                } else {
+                    "Calibration paused: ${observation.qualityMessage}. Keep your face around 70% of the view."
+                }
+            } else if (!calibrationWasActive) {
+                metricsView?.text = when {
+                    observation == null -> tr("Face not detected", "未偵測到臉部")
+                    !observation.usable && detailedEnglishQuality && !zhTwUi ->
+                        observation.qualityMessage
+                    !observation.usable -> tr("Adjust face position", "請調整臉部位置")
+                    !cheekDetector.ready -> tr(
+                        "Learning resting face $warmupPercent%",
+                        "正在學習放鬆表情 $warmupPercent%"
+                    )
+                    score == null -> tr("Learning resting face", "正在學習放鬆表情")
+                    else -> tr(
+                        "Cheek ${"%.2f".format(score)} / ${"%.2f".format(threshold)} | accepted $cheekPreviewActivations",
+                        "臉頰 ${"%.2f".format(score)} / ${"%.2f".format(threshold)}｜已接受 $cheekPreviewActivations"
+                    )
+                }
+            }
         }
     }
 
@@ -2442,201 +2379,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             if (strokeColor != null) setStroke(dp(1), strokeColor)
         }
 
-    private class FaceOverlayView(context: Context) : View(context) {
-        private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(52, 211, 153)
-            style = Paint.Style.STROKE
-            strokeWidth = 5f
-        }
-        private val landmarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(96, 165, 250)
-            style = Paint.Style.FILL
-        }
-        private val meterBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(180, 15, 23, 42)
-            style = Paint.Style.FILL
-        }
-        private val meterFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(52, 211, 153)
-            style = Paint.Style.FILL
-        }
-        private val thresholdPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 3f
-        }
-
-        private var pixelFace: Rect? = null
-        private var normalizedFace: NormalizedFaceBounds? = null
-        private var landmarks: FloatArray? = null
-        private var frameWidth = 0
-        private var frameHeight = 0
-        private var hasSignal = false
-        private var score: Double? = null
-        private var threshold = 1.0
-        private var showThreshold = true
-        private var mirrorPixelFace = true
-
-        fun clearDetection() {
-            pixelFace = null
-            normalizedFace = null
-            landmarks = null
-            score = null
-            hasSignal = false
-            showThreshold = true
-            mirrorPixelFace = true
-            invalidate()
-        }
-
-        fun setPixelDetection(
-            face: Rect?,
-            frameWidth: Int,
-            frameHeight: Int,
-            score: Double?,
-            threshold: Double,
-            hasSignal: Boolean,
-            mirrorHorizontally: Boolean,
-            showThreshold: Boolean = true
-        ) {
-            pixelFace = face
-            normalizedFace = null
-            landmarks = null
-            this.frameWidth = frameWidth
-            this.frameHeight = frameHeight
-            this.score = score
-            this.threshold = threshold
-            this.hasSignal = hasSignal
-            this.showThreshold = showThreshold
-            mirrorPixelFace = mirrorHorizontally
-            invalidate()
-        }
-
-        fun setNormalizedDetection(
-            face: NormalizedFaceBounds?,
-            landmarks: FloatArray?,
-            frameWidth: Int,
-            frameHeight: Int,
-            score: Double?,
-            threshold: Double,
-            hasSignal: Boolean,
-            showThreshold: Boolean = true
-        ) {
-            pixelFace = null
-            normalizedFace = face
-            this.landmarks = landmarks
-            this.frameWidth = frameWidth
-            this.frameHeight = frameHeight
-            this.score = score
-            this.threshold = threshold
-            this.hasSignal = hasSignal
-            this.showThreshold = showThreshold
-            invalidate()
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            if (frameWidth <= 0 || frameHeight <= 0) return
-
-            val scale = min(width / frameWidth.toFloat(), height / frameHeight.toFloat())
-            val drawnWidth = frameWidth * scale
-            val drawnHeight = frameHeight * scale
-            val leftOffset = (width - drawnWidth) / 2f
-            val topOffset = (height - drawnHeight) / 2f
-
-            boxPaint.color =
-                if (hasSignal) Color.rgb(52, 211, 153) else Color.rgb(245, 158, 11)
-
-            pixelFace?.let { box ->
-                val displayLeft =
-                    if (mirrorPixelFace) frameWidth - box.right else box.left
-                val displayRight =
-                    if (mirrorPixelFace) frameWidth - box.left else box.right
-                canvas.drawRect(
-                    RectF(
-                        leftOffset + displayLeft * scale,
-                        topOffset + box.top * scale,
-                        leftOffset + displayRight * scale,
-                        topOffset + box.bottom * scale
-                    ),
-                    boxPaint
-                )
-            }
-
-            normalizedFace?.let { box ->
-                // Cheek detector coordinates are already upright + mirrored into preview space.
-                val left = box.left * frameWidth
-                val right = box.right * frameWidth
-                canvas.drawRect(
-                    RectF(
-                        leftOffset + left * scale,
-                        topOffset + box.top * frameHeight * scale,
-                        leftOffset + right * scale,
-                        topOffset + box.bottom * frameHeight * scale
-                    ),
-                    boxPaint
-                )
-            }
-
-            landmarks?.let { points ->
-                var index = 0
-                while (index + 1 < points.size) {
-                    // No second mirror: MediaPipe analysed the already-mirrored front-camera bitmap.
-                    val x = points[index] * frameWidth
-                    val y = points[index + 1] * frameHeight
-                    canvas.drawCircle(
-                        leftOffset + x * scale,
-                        topOffset + y * scale,
-                        2.2f,
-                        landmarkPaint
-                    )
-                    index += 2
-                }
-            }
-
-            drawStrengthMeter(canvas)
-        }
-
-        private fun drawStrengthMeter(canvas: Canvas) {
-            val meterLeft = width * 0.08f
-            val meterRight = width * 0.92f
-            val meterBottom = height - 18f
-            val meterTop = meterBottom - 20f
-            val meterWidth = meterRight - meterLeft
-            val maxScore = 1.0
-
-            canvas.drawRoundRect(
-                RectF(meterLeft, meterTop, meterRight, meterBottom),
-                8f,
-                8f,
-                meterBackgroundPaint
-            )
-
-            val value = (score ?: 0.0).coerceIn(0.0, maxScore) / maxScore
-            if (value > 0.0) {
-                canvas.drawRoundRect(
-                    RectF(
-                        meterLeft,
-                        meterTop,
-                        meterLeft + meterWidth * value.toFloat(),
-                        meterBottom
-                    ),
-                    8f,
-                    8f,
-                    meterFillPaint
-                )
-            }
-
-            if (showThreshold) {
-                val thresholdX = meterLeft +
-                    meterWidth * (threshold.coerceIn(0.0, maxScore) / maxScore).toFloat()
-                canvas.drawLine(thresholdX, meterTop - 4f, thresholdX, meterBottom + 4f, thresholdPaint)
-            }
-        }
-    }
-
     private data class CalibrationStep(val phase: Phase, val label: String, val cue: String, val durationMs: Long)
     private data class CalibrationQuality(val label: String, val detail: String)
-    private enum class CheekCalibrationStage { Idle, Rest, Move }
     private enum class Phase { Idle, Instruction, Prepare, Rest, LongBlink, Complete }
     private enum class PreviewBlink { None, Short, Long }
 
@@ -2644,8 +2388,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         const val CameraSetupLogTag = "ShineCameraSetup"
         const val ExtraProfileId = "org.shineaac.inputs.PROFILE_ID"
         const val CameraPermissionRequestCode = 2504
-        const val MaximumCheekCalibrationCaptureFrames = 180
-        const val CheekCalibrationEvaluationIntervalFrames = 3
         const val PreviewBufferWidth = 640
         const val PreviewBufferHeight = 480
         const val MlKitFrameIntervalMs = 200L
