@@ -883,9 +883,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun calibratedLongBlinkMs(): Long {
-        val measured = longBlinkDurations.filter { it in 450L..2500L }.sorted()
-        if (measured.isEmpty()) return CameraSwitchSettings.DefaultLongBlinkMs
-        return clampLong((measured[measured.size / 2] * 0.7).roundToLong(), 550L, 1600L)
+        return BlinkHoldThresholdCalibrator.choose(
+            deliberateDurationsMs = longBlinkDurations,
+            naturalDurationsMs = restClosedDurations,
+            fallbackMs = CameraSwitchSettings.DefaultLongBlinkMs
+        )
     }
 
     private fun selectGesture(gesture: OpticalSwitchGesture) {
