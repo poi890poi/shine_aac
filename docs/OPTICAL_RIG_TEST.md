@@ -97,17 +97,20 @@ calibration quality. One or two accepted slow blinks are weak calibration, not
 "quality good"; such a fixture may still be useful for targeted investigation
 but must not be represented as a product default or broad reliability result.
 
-Private cheek-positive recordings can exercise personalization and runtime:
-
-```bat
-python scripts\import-cheek-calibration.py cheek-calibration-....zip
-optical-rig-test.bat --with-local-cheek
-```
-
-Imported frames stay under gitignored `testdata/optical-rig/local/` and must not
-be committed.
+The required rig uses only checksum-verified, publicly licensed media declared in
+`testdata/optical-rig/sources.json`. User uploads and private captures are never
+discovered by the runner. Cheek stimuli are scaled so the whole face remains visible
+with margin, targeting roughly 70% of preview height; the app rejects near-full-frame
+faces and asks the operator to move the camera farther away.
 
 ## Idle, Windows, and thermal behavior
+
+Run the rig from a process with permission to create GUI windows on the visible
+interactive Windows desktop. A sandboxed or service desktop may acknowledge its own
+presenter window while the physical monitor continues to show the ordinary desktop;
+successful camera atlas decode is the visibility proof. Do not describe this condition
+as Windows being locked unless the input desktop is actually a secure desktop such as
+`Winlogon`.
 
 When no test is running, start the low-intrusion black framebuffer:
 

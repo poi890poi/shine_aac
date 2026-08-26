@@ -234,10 +234,9 @@ def render_atlas(numpy, width, height):
 
 
 class OpenCvStimulus:
-    def __init__(self, root, media_root, local_root, desktop_rect):
+    def __init__(self, root, media_root, desktop_rect):
         self.root = Path(root)
         self.media_root = Path(media_root)
-        self.local_root = Path(local_root)
         self.desktop_rect = tuple(desktop_rect)
         self.cv2, self.numpy = load_opencv(root)
         self.state = {"mode": "blank", "label": "BOOT", "token": "boot"}
@@ -311,13 +310,11 @@ class OpenCvStimulus:
         value = str(url or "")
         if value.startswith("/media/"):
             base, relative = self.media_root, value[len("/media/"):]
-        elif value.startswith("/local/"):
-            base, relative = self.local_root, value[len("/local/"):]
         else:
-            candidate = Path(value)
-            if candidate.is_absolute():
-                return candidate
-            raise ValueError("unsupported stimulus path: %s" % value)
+            raise ValueError(
+                "optical release stimuli must come from the verified open-data media cache: %s"
+                % value
+            )
         candidate = (base / relative).resolve()
         candidate.relative_to(base.resolve())
         return candidate
@@ -361,11 +358,19 @@ class OpenCvStimulus:
         image[:] = (blue, green, red)
         return image
 
-    def _composite_intrinsic(self, canvas, frame, center, mirror=False):
+    def _composite_intrinsic(self, canvas, frame, center, mirror=False, scale=1.0):
         if frame is None:
             return canvas
         if mirror:
             frame = self.cv2.flip(frame, 1)
+        scale = max(0.1, min(2.0, float(scale)))
+        if abs(scale - 1.0) > 0.001:
+            height, width = frame.shape[:2]
+            frame = self.cv2.resize(
+                frame,
+                (max(1, int(round(width * scale))), max(1, int(round(height * scale)))),
+                interpolation=self.cv2.INTER_AREA if scale < 1.0 else self.cv2.INTER_LINEAR,
+            )
         height, width = frame.shape[:2]
         canvas_height, canvas_width = canvas.shape[:2]
         center = center if isinstance(center, (list, tuple)) and len(center) == 2 else (canvas_width // 2, canvas_height // 2)
@@ -434,7 +439,10 @@ class OpenCvStimulus:
         if mode == "blank":
             return canvas, False
         if mode == "video_still":
-            return self._composite_intrinsic(canvas, prepared["frame"], state.get("center")), False
+            return self._composite_intrinsic(
+                canvas, prepared["frame"], state.get("center"),
+                scale=state.get("scale", 1.0)
+            ), False
         if mode == "sequence":
             items = state.get("frames") or []
             now = time.perf_counter()
@@ -452,7 +460,8 @@ class OpenCvStimulus:
                 prepared["index"] += 1
                 prepared["deadline"] = now + max(0.03, float(item.get("ms", 100)) / 1000.0)
             return self._composite_intrinsic(
-                canvas, prepared.get("frame"), state.get("center"), bool(state.get("mirror", False))
+                canvas, prepared.get("frame"), state.get("center"),
+                bool(state.get("mirror", False)), state.get("scale", 1.0)
             ), False
         if mode == "video":
             now = time.perf_counter()
@@ -489,7 +498,10 @@ class OpenCvStimulus:
                     else:
                         prepared["ended"] = True
                 prepared["next"] += due * prepared["period"]
-            return self._composite_intrinsic(canvas, prepared.get("frame"), state.get("center")), prepared["ended"]
+            return self._composite_intrinsic(
+                canvas, prepared.get("frame"), state.get("center"),
+                scale=state.get("scale", 1.0)
+            ), prepared["ended"]
         return canvas, False
 
     def _run(self):

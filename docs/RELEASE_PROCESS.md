@@ -109,7 +109,11 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
 ```powershell
 git tag -a v0.4.0 -m "SHINE AAC v0.4.0"
 git push origin v0.4.0
+python scripts\verify-release-tag.py v0.4.0 <release-commit>
 ```
+
+Do not mark the release complete unless the verifier reports that the local annotated
+tag and the remote peeled tag both resolve to the exact intended release commit.
 
 Example host-side GitHub publication after the tag validation succeeds:
 
@@ -134,5 +138,7 @@ Before release, run `device-test.bat` on a physical Android device and review it
 
 If the release changes camera-switch acquisition, blink/cheek detection, calibration,
 classifier timing, optical indication, lifecycle behavior, or activation routing, also
-run `optical-rig-test.bat`. If a local cheek calibration regression pack is available,
-run it with `--with-local-cheek`.
+run `optical-rig-test.bat`. The optical gate always exercises cheek calibration and
+runtime with checksum-verified, publicly licensed media from
+`testdata/optical-rig/sources.json`. Private or user-uploaded face recordings are
+prohibited in release automation.

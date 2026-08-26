@@ -390,11 +390,11 @@ When the rig is idle, keep the monitor unobtrusive with:
 optical-rig-idle.bat
 ```
 
-To replay a real SHINE cheek calibration session:
+The required cheek-calibration regression uses the licensed public sources in
+`testdata/optical-rig/sources.json`:
 
 ```bat
-python scripts\import-cheek-calibration.py path\to\cheek-calibration-....zip
-optical-rig-test.bat --with-local-cheek
+optical-rig-test.bat --runtime-only --calibrate-cheek-session
 ```
 
 See `docs/DEVICE_ACCEPTANCE_TEST.md` and `docs/OPTICAL_RIG_TEST.md`.
