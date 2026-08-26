@@ -16,7 +16,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 
 /**
- * One-thread-at-a-time Face Landmarker wrapper.
+ * One-thread-at-a-time MediaPipe Face Landmarker wrapper shared by blink and cheek input.
  *
  * Each instance is confined to one camera analysis thread by its owner:
  * CameraSwitchCalibrationActivity's camera HandlerThread or
@@ -57,7 +57,7 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
     private var lastTimestampMs = -1L
 
     /**
-     * Setup/calibration path.
+     * Setup/calibration path for both face actions.
      *
      * CameraSwitchCalibrationActivity uses a Camera2 YUV_420_888 ImageReader.
      * Preserve the device-verified front-camera rotate+mirror preprocessing;
@@ -93,7 +93,7 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
     }
 
     /**
-     * Continuous runtime path.
+     * Continuous runtime path for both face actions.
      *
      * CameraSwitchInputAdapter configures CameraX ImageAnalysis for RGBA_8888.
      * CameraX supplies an RGBA_8888 plane. Follow MediaPipe's Android Face
@@ -300,7 +300,15 @@ data class CheekFaceObservation(
     val normalizedBounds: NormalizedFaceBounds,
     /** Flat x,y pairs in mirrored normalized preview space. */
     val normalizedLandmarks: FloatArray = FloatArray(0)
-)
+) {
+    fun blinkEyeSignal(): BlinkEyeSignal? {
+        if (!usable) return null
+        return BlinkEyeSignal.fromClosedProbabilities(
+            left = blendshapes["eyeBlinkLeft"],
+            right = blendshapes["eyeBlinkRight"]
+        )
+    }
+}
 
 data class NormalizedFaceBounds(
     val left: Float,

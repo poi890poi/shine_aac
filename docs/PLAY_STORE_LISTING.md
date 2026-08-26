@@ -147,9 +147,9 @@ Please keep another reliable communication method available during testing, espe
 
 - Privacy policy draft: `docs/PRIVACY_POLICY.md`
 - Data Safety worksheet: `docs/PLAY_DATA_SAFETY.md`
-- Current draft: Google ML Kit collects documented encrypted diagnostics and
-  usage metrics and does not share them with third parties; SHINE AAC receives
-  no communication content, settings, or camera frames. Use
+- Current draft: bundled MediaPipe face analysis runs on the device; SHINE AAC
+  receives no communication content, settings, camera frames, or face-analysis
+  results. Use
   `docs/PLAY_DATA_SAFETY.md` for the exact Play form categories.
 - The app processes messages and settings locally on the device.
 - Text history is stored locally and can be exported by the user or helper.

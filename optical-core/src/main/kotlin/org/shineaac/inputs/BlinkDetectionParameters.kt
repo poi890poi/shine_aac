@@ -67,6 +67,16 @@ data class BlinkEyeSignal(
                 reopenScore = (1.0 - maxOf(safeLeft, safeRight)).coerceIn(0.0, 1.0)
             )
         }
+
+        fun fromClosedProbabilities(left: Double?, right: Double?): BlinkEyeSignal? {
+            if (left == null || right == null) return null
+            val safeLeft = left.coerceIn(0.0, 1.0)
+            val safeRight = right.coerceIn(0.0, 1.0)
+            return BlinkEyeSignal(
+                closedScore = ((safeLeft + safeRight) / 2.0).coerceIn(0.0, 1.0),
+                reopenScore = minOf(safeLeft, safeRight).coerceIn(0.0, 1.0)
+            )
+        }
     }
 }
 

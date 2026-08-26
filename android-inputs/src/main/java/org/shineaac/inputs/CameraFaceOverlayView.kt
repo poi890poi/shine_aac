@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.RectF
 import android.view.View
 import kotlin.math.min
@@ -12,9 +11,8 @@ import kotlin.math.min
 /**
  * Draws face tracking and gesture-strength feedback over the camera preview.
  *
- * The view accepts either pixel coordinates from ML Kit or normalized coordinates
- * from MediaPipe. Keeping rendering here prevents camera and calibration code from
- * owning drawing state.
+ * The view accepts normalized MediaPipe coordinates. Keeping rendering here prevents
+ * camera and calibration code from owning drawing state.
  */
 internal class CameraFaceOverlayView(context: Context) : View(context) {
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -42,7 +40,6 @@ internal class CameraFaceOverlayView(context: Context) : View(context) {
     private val faceRect = RectF()
     private val meterRect = RectF()
 
-    private var pixelFace: Rect? = null
     private var normalizedFace: NormalizedFaceBounds? = null
     private var landmarks: FloatArray? = null
     private var frameWidth = 0
@@ -51,39 +48,13 @@ internal class CameraFaceOverlayView(context: Context) : View(context) {
     private var score: Double? = null
     private var threshold = 1.0
     private var showThreshold = true
-    private var mirrorPixelFace = true
 
     fun clearDetection() {
-        pixelFace = null
         normalizedFace = null
         landmarks = null
         score = null
         hasSignal = false
         showThreshold = true
-        mirrorPixelFace = true
-        invalidate()
-    }
-
-    fun setPixelDetection(
-        face: Rect?,
-        frameWidth: Int,
-        frameHeight: Int,
-        score: Double?,
-        threshold: Double,
-        hasSignal: Boolean,
-        mirrorHorizontally: Boolean,
-        showThreshold: Boolean = true
-    ) {
-        pixelFace = face
-        normalizedFace = null
-        landmarks = null
-        this.frameWidth = frameWidth
-        this.frameHeight = frameHeight
-        this.score = score
-        this.threshold = threshold
-        this.hasSignal = hasSignal
-        this.showThreshold = showThreshold
-        mirrorPixelFace = mirrorHorizontally
         invalidate()
     }
 
@@ -97,7 +68,6 @@ internal class CameraFaceOverlayView(context: Context) : View(context) {
         hasSignal: Boolean,
         showThreshold: Boolean = true
     ) {
-        pixelFace = null
         normalizedFace = face
         this.landmarks = landmarks
         this.frameWidth = frameWidth
@@ -123,18 +93,6 @@ internal class CameraFaceOverlayView(context: Context) : View(context) {
             Color.rgb(52, 211, 153)
         } else {
             Color.rgb(245, 158, 11)
-        }
-
-        pixelFace?.let { box ->
-            val displayLeft = if (mirrorPixelFace) frameWidth - box.right else box.left
-            val displayRight = if (mirrorPixelFace) frameWidth - box.left else box.right
-            faceRect.set(
-                leftOffset + displayLeft * scale,
-                topOffset + box.top * scale,
-                leftOffset + displayRight * scale,
-                topOffset + box.bottom * scale
-            )
-            canvas.drawRect(faceRect, boxPaint)
         }
 
         normalizedFace?.let { box ->

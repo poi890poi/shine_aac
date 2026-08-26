@@ -55,11 +55,6 @@ import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textview.MaterialTextView
 import java.util.concurrent.Executor
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.Face
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetector
-import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.jiangdg.usb.USBMonitor
 import com.jiangdg.uvc.IFrameCallback
 import com.jiangdg.uvc.UVCCamera
@@ -116,7 +111,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
     private var mainHandler: Handler? = null
-    private var detector: FaceDetector? = null
     private var cheekAnalyzer: CheekFaceAnalyzer? = null
     private var cheekDetector = CheekTwitchDetector()
     private var cheekClassifier = BinarySwitchClassifier(
@@ -139,7 +133,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var activeStepLabel = ""
     private var ttsVoiceLabel = "Voice pending"
     private var calibrationRunId = 0
-    private var mlKitInFlight = false
+    private var analysisInFlight = false
     private var lastFrameAt = 0L
     private val longBlinkDurations = mutableListOf<Long>()
     private val restClosedDurations = mutableListOf<Long>()
@@ -199,15 +193,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         preferredCameraSource = savedSettings.cameraSource
         detectionParameters = savedSettings.detectionParameters
         savedCalibrationRecord = CameraSwitchPreferences.readCalibrationRecord(this)
-        detector = FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                .enableTracking()
-                .setMinFaceSize(0.12f)
-                .build()
-        )
         cheekAnalyzer = runCatching { CheekFaceAnalyzer(this) }.getOrNull()
         resetCheekClassifier()
         tonePlayer = CameraSwitchTonePlayer()
@@ -275,8 +260,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        detector?.close()
-        detector = null
         cheekAnalyzer?.close()
         cheekAnalyzer = null
         tts?.stop()
@@ -1131,7 +1114,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         updateZoomUi()
         statusView?.text = tr("Camera zoom updated.", "已更新相機縮放。")
         metricsView?.text = tr(
-            "Keep the face centered; green box means ML Kit can read the eyes.",
+            "Keep the face centered; green box means the face tracker can read the eyes.",
             "臉部保持置中；綠框表示系統能辨識眼睛。"
         )
     }
@@ -1617,11 +1600,11 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     ) {
         val now = System.currentTimeMillis()
         val interval = when (selectedGesture) {
-            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
+            OpticalSwitchGesture.LongBlink -> BlinkFrameIntervalMs
             OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
         }
         if (frameGeneration != cameraOpenGeneration || !activityResumed ||
-            mlKitInFlight || now - lastFrameAt < interval
+            analysisInFlight || now - lastFrameAt < interval
         ) {
             uvcFrameQueued = false
             return
@@ -1638,104 +1621,34 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             uvcFrameQueued = false
             return
         }
-        mlKitInFlight = true
+        analysisInFlight = true
         lastFrameAt = now
         val imageWidth = bitmap.width
         val imageHeight = bitmap.height
-        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
-            analyzeUvcCheek(bitmap, now, imageWidth, imageHeight)
-            return
-        }
-        val activeDetector = detector
-        if (activeDetector == null) {
-            bitmap.recycle()
-            mlKitInFlight = false
-            uvcFrameQueued = false
-            return
-        }
-        activeDetector.process(InputImage.fromBitmap(bitmap, 0))
-            .addOnSuccessListener { faces ->
-                val face = faces.maxByOrNull {
-                    it.boundingBox.width() * it.boundingBox.height()
-                }
-                val signal = face?.blinkEyeSignal(detectionParameters)
-                val score = signal?.closedScore
-                if (signal != null) collectCalibrationSample(signal, now)
-                val previewBlink = signal?.let {
-                    collectPreviewBlinkDuration(it)
-                } ?: PreviewBlink.None
-                mainHandler?.post {
-                    overlayView?.setPixelDetection(
-                        face = face?.boundingBox,
-                        frameWidth = imageWidth,
-                        frameHeight = imageHeight,
-                        score = score,
-                        threshold = detectionParameters.closeThreshold,
-                        hasSignal = score != null,
-                        mirrorHorizontally = false
-                    )
-                    when (previewBlink) {
-                        PreviewBlink.Short -> {
-                            playShortCue()
-                            statusView?.text = tr(
-                                "Short blink detected.",
-                                "偵測到短眨眼。"
-                            )
-                        }
-                        PreviewBlink.Long -> {
-                            playLongAcceptedCue()
-                            statusView?.text = tr(
-                                "Long blink accepted. Current position works.",
-                                "長眨眼已接受。目前位置合適。"
-                            )
-                        }
-                        PreviewBlink.None -> Unit
-                    }
-                    updateMetrics(score)
-                }
-            }
-            .addOnFailureListener {
-                mainHandler?.post {
-                    metricsView?.text = tr(
-                        "ML Kit model unavailable or still downloading.",
-                        "辨識模型尚未提供，或仍在下載。"
-                    )
-                }
-            }
-            .addOnCompleteListener {
-                bitmap.recycle()
-                mlKitInFlight = false
-                uvcFrameQueued = false
-            }
-    }
-
-    private fun analyzeUvcCheek(
-        bitmap: android.graphics.Bitmap,
-        now: Long,
-        imageWidth: Int,
-        imageHeight: Int
-    ) {
         val analyzer = cheekAnalyzer
         try {
             val observation = analyzer?.analyzeBitmapForCamera(bitmap, now)
-            handleCheekObservation(
-                observation = observation,
-                now = now,
-                frameWidth = imageWidth,
-                frameHeight = imageHeight,
-                detailedEnglishQuality = false
-            )
+            if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+                handleCheekObservation(
+                    observation = observation,
+                    now = now,
+                    frameWidth = imageWidth,
+                    frameHeight = imageHeight,
+                    detailedEnglishQuality = false
+                )
+            } else {
+                handleBlinkObservation(observation, now, imageWidth, imageHeight)
+            }
         } catch (_: Exception) {
-            cheekClassifier.onScore(null, now)
             mainHandler?.post {
                 metricsView?.text = tr(
-                    "Cheek analysis paused; keep your face centered.",
-                    "臉頰分析暫停；請保持臉部置中。"
+                    "Face analysis paused; keep your face centered.",
+                    "臉部分析暫停；請保持臉部置中。"
                 )
             }
         } finally {
             bitmap.recycle()
-            mlKitInFlight = false
+            analysisInFlight = false
             uvcFrameQueued = false
         }
     }
@@ -1798,7 +1711,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         cameraThread?.quitSafely()
         cameraThread = null
         cameraHandler = null
-        mlKitInFlight = false
+        analysisInFlight = false
     }
 
     private fun applyZoomToRepeatingRequest() {
@@ -1837,93 +1750,27 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private fun analyze(image: Image) {
         val now = System.currentTimeMillis()
         val detectorIntervalMs = when (selectedGesture) {
-            OpticalSwitchGesture.LongBlink -> MlKitFrameIntervalMs
+            OpticalSwitchGesture.LongBlink -> BlinkFrameIntervalMs
             OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
         }
-        if (mlKitInFlight || now - lastFrameAt < detectorIntervalMs) {
+        if (analysisInFlight || now - lastFrameAt < detectorIntervalMs) {
             image.close()
             return
         }
 
-        if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
-            analyzeCheek(image, now)
-            return
-        }
-
-        val activeDetector = detector
-        if (activeDetector == null) {
-            image.close()
-            return
-        }
-
-        mlKitInFlight = true
-        lastFrameAt = now
-        val rotationDegrees = analysisRotationDegrees
-        val imageSize = orientedImageSize(image, rotationDegrees)
-
-        activeDetector.process(InputImage.fromMediaImage(image, rotationDegrees))
-            .addOnSuccessListener { faces ->
-                val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                val signal = face?.blinkEyeSignal(detectionParameters)
-                val score = signal?.closedScore
-                if (signal != null) collectCalibrationSample(signal, now)
-                val previewBlink = signal?.let { collectPreviewBlinkDuration(it) } ?: PreviewBlink.None
-
-                mainHandler?.post {
-                    overlayView?.setPixelDetection(
-                        face = face?.boundingBox,
-                        frameWidth = imageSize.width,
-                        frameHeight = imageSize.height,
-                        score = score,
-                        threshold = detectionParameters.closeThreshold,
-                        hasSignal = score != null,
-                        mirrorHorizontally = activeCameraMirrored
-                    )
-                    when (previewBlink) {
-                        PreviewBlink.Short -> {
-                            playShortCue()
-                            statusView?.text = tr("Short blink detected.", "偵測到短眨眼。")
-                        }
-                        PreviewBlink.Long -> {
-                            playLongAcceptedCue()
-                            statusView?.text = tr(
-                                "Long blink accepted. Current position works.",
-                                "長眨眼已接受。目前位置合適。"
-                            )
-                        }
-                        PreviewBlink.None -> Unit
-                    }
-                    updateMetrics(score)
-                }
-            }
-            .addOnFailureListener {
-                mainHandler?.post {
-                    metricsView?.text = tr(
-                        "ML Kit model unavailable or still downloading.",
-                        "辨識模型尚未提供，或仍在下載。"
-                    )
-                }
-            }
-            .addOnCompleteListener {
-                image.close()
-                mlKitInFlight = false
-            }
-    }
-
-    private fun analyzeCheek(image: Image, now: Long) {
         val analyzer = cheekAnalyzer
         if (analyzer == null) {
             image.close()
             mainHandler?.post {
                 metricsView?.text = tr(
-                    "Cheek detector unavailable on this device.",
-                    "此裝置無法使用臉頰偵測器。"
+                    "Face detector unavailable on this device.",
+                    "此裝置無法使用臉部偵測器。"
                 )
             }
             return
         }
 
-        mlKitInFlight = true
+        analysisInFlight = true
         lastFrameAt = now
         val rotationDegrees = analysisRotationDegrees
         val imageSize = orientedImageSize(image, rotationDegrees)
@@ -1935,24 +1782,67 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 now,
                 mirrorCameraOutput = activeCameraMirrored
             )
-            handleCheekObservation(
-                observation = observation,
-                now = now,
-                frameWidth = imageSize.width,
-                frameHeight = imageSize.height,
-                detailedEnglishQuality = true
-            )
+            if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
+                handleCheekObservation(
+                    observation = observation,
+                    now = now,
+                    frameWidth = imageSize.width,
+                    frameHeight = imageSize.height,
+                    detailedEnglishQuality = true
+                )
+            } else {
+                handleBlinkObservation(observation, now, imageSize.width, imageSize.height)
+            }
         } catch (_: Exception) {
-            cheekClassifier.onScore(null, now)
             mainHandler?.post {
                 metricsView?.text = tr(
-                    "Cheek analysis paused; keep your face centered.",
-                    "臉頰分析暫停；請保持臉部置中。"
+                    "Face analysis paused; keep your face centered.",
+                    "臉部分析暫停；請保持臉部置中。"
                 )
             }
         } finally {
             image.close()
-            mlKitInFlight = false
+            analysisInFlight = false
+        }
+    }
+
+    /** Applies identical blink calibration behavior to Camera2 and direct UVC frames. */
+    private fun handleBlinkObservation(
+        observation: CheekFaceObservation?,
+        now: Long,
+        frameWidth: Int,
+        frameHeight: Int
+    ) {
+        val signal = observation?.blinkEyeSignal()
+        val score = signal?.closedScore
+        if (signal != null) collectCalibrationSample(signal, now)
+        val previewBlink = signal?.let(::collectPreviewBlinkDuration) ?: PreviewBlink.None
+
+        mainHandler?.post {
+            overlayView?.setNormalizedDetection(
+                face = observation?.normalizedBounds,
+                landmarks = null,
+                frameWidth = frameWidth,
+                frameHeight = frameHeight,
+                score = score,
+                threshold = detectionParameters.closeThreshold,
+                hasSignal = score != null
+            )
+            when (previewBlink) {
+                PreviewBlink.Short -> {
+                    playShortCue()
+                    statusView?.text = tr("Short blink detected.", "偵測到短眨眼。")
+                }
+                PreviewBlink.Long -> {
+                    playLongAcceptedCue()
+                    statusView?.text = tr(
+                        "Long blink accepted. Current position works.",
+                        "長眨眼已接受。目前位置合適。"
+                    )
+                }
+                PreviewBlink.None -> Unit
+            }
+            updateMetrics(score)
         }
     }
 
@@ -2390,7 +2280,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         const val CameraPermissionRequestCode = 2504
         const val PreviewBufferWidth = 640
         const val PreviewBufferHeight = 480
-        const val MlKitFrameIntervalMs = 200L
+        const val BlinkFrameIntervalMs = 200L
         const val CheekFrameIntervalMs = 66L
         const val TargetCameraFps = 10
         const val MinCameraFps = 5

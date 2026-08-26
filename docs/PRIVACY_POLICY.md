@@ -14,8 +14,7 @@ This app is not a finished clinical product, not medical advice, and not a subst
 
 - The app does not require an account.
 - The app does not contain ads.
-- The app does not include SHINE AAC analytics or advertising tracking. Google
-  ML Kit sends documented diagnostic and usage metrics to Google.
+- The app does not include analytics or advertising tracking.
 - The app does not use a SHINE AAC server.
 - The app does not collect, sell, or share personal data with us.
 - Communication content and settings are processed on the device.
@@ -27,7 +26,7 @@ This app is not a finished clinical product, not medical advice, and not a subst
 
 - 不需要帳號。
 - 沒有廣告。
-- 沒有 SHINE AAC 自有分析或廣告追蹤。Google ML Kit 會依其文件傳送診斷與使用量指標給 Google。
+- 沒有分析或廣告追蹤。
 - 不使用 SHINE AAC 伺服器。
 - 不會向我們收集 出售 或分享個人資料。
 - 溝通內容與設定會在裝置本機處理。
@@ -52,27 +51,16 @@ The app may request camera permission if a user or helper enables optional camer
 
 The app does not upload camera frames to SHINE AAC, does not save photos, does not record video, and does not use camera data for ads, analytics, or remote logging.
 
-## ML Kit Diagnostics
+## On-device Face Analysis
 
-The app uses Google's bundled ML Kit for on-device face detection. Google
-documents that ML Kit collects device and app information, a per-installation
-identifier, performance and API-configuration metrics, feature event types,
-and error codes for diagnostics and usage analytics. Google states that this
-data is encrypted in transit and is not shared with third parties. Camera
-images and communication messages are not listed as collected ML Kit metrics.
+The app uses a bundled MediaPipe model for blink and cheek detection. Face
+analysis runs on the device. Camera images and face-analysis results are not
+sent to SHINE AAC or Google.
 
-See Google's current disclosures:
+## 裝置本機臉部分析
 
-- https://developers.google.com/ml-kit/android-data-disclosure
-- https://developers.google.com/ml-kit/terms
-
-## ML Kit 診斷資訊
-
-本 app 使用 Google 內建式 ML Kit 在裝置上進行臉部偵測。依 Google 文件，
-ML Kit 會為診斷與使用量分析收集裝置與 app 資訊、每次安裝識別碼、效能與
-API 設定指標、功能事件類型及錯誤碼。Google 表示這些資料以 HTTPS 加密
-傳輸，且不會分享給第三方。Google 公開的 ML Kit 指標清單不包含相機影像
-或 AAC 溝通訊息。
+本 app 使用內建的 MediaPipe 模型辨識眨眼與臉頰動作。臉部分析在裝置本機
+執行，相機影像與分析結果不會傳送給 SHINE AAC 或 Google。
 
 ## Optional Resource Downloads
 

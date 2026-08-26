@@ -29,10 +29,6 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.LifecycleOwner
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetector
-import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.jiangdg.usb.USBMonitor
 import com.jiangdg.uvc.IFrameCallback
 import com.jiangdg.uvc.UVCCamera
@@ -63,8 +59,7 @@ class CameraSwitchInputAdapter(
     @Volatile private var uvcFrameWidth = 0
     @Volatile private var uvcFrameHeight = 0
     private var analysisExecutor: ExecutorService? = null
-    private var detector: FaceDetector? = null
-    private var cheekAnalyzer: CheekFaceAnalyzer? = null
+    private var faceAnalyzer: CheekFaceAnalyzer? = null
     private var cheekDetector = CheekTwitchDetector()
     private var cheekClassifier = BinarySwitchClassifier(
         BinarySwitchClassifier.Config(
@@ -74,16 +69,13 @@ class CameraSwitchInputAdapter(
     )
     private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(480, 360)
-    @Volatile private var mlKitInFlight = false
-    @Volatile private var activeFrameId = NoFrame
-    private var frameSequence = 0L
     private var lastFrameAt = 0L
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
-    private var cheekPerfFrames = 0
-    private var cheekPerfTotalNs = 0L
-    private var cheekPerfMaxNs = 0L
+    private var facePerfFrames = 0
+    private var facePerfTotalNs = 0L
+    private var facePerfMaxNs = 0L
     private var lastReportedScore: Double? = null
     private var activeEnterThreshold = CheekTwitchDetector.DefaultEnterThreshold
     private var blinkClassifier = BlinkGestureClassifier()
@@ -135,29 +127,15 @@ class CameraSwitchInputAdapter(
         lastAnalysisCompletedAt = lastImageReceivedAt
         sendStatus("starting", force = true)
 
-        if (settings.gesture == OpticalSwitchGesture.LongBlink) {
-            detector = FaceDetection.getClient(
-                FaceDetectorOptions.Builder()
-                    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                    .enableTracking()
-                    .setMinFaceSize(0.12f)
-                    .build()
-            )
-            cheekAnalyzer = null
-        } else {
-            detector = null
-            cheekAnalyzer = runCatching { CheekFaceAnalyzer(context) }
-                .onFailure { error ->
-                    Log.e(Tag, "Cheek detector initialization failed", error)
-                }
-                .getOrNull()
-            if (cheekAnalyzer == null) {
-                running = false
-                sendStatus("detectorUnavailable", force = true)
-                return
+        faceAnalyzer = runCatching { CheekFaceAnalyzer(context) }
+            .onFailure { error ->
+                Log.e(Tag, "MediaPipe face detector initialization failed", error)
             }
+            .getOrNull()
+        if (faceAnalyzer == null) {
+            running = false
+            sendStatus("detectorUnavailable", force = true)
+            return
         }
         tonePlayer = CameraSwitchTonePlayer()
         analysisExecutor = Executors.newSingleThreadExecutor { runnable ->
@@ -199,10 +177,8 @@ class CameraSwitchInputAdapter(
         activeCameraId = null
         cameraProvider = null
         stopUvcCamera()
-        detector?.close()
-        detector = null
-        cheekAnalyzer?.close()
-        cheekAnalyzer = null
+        faceAnalyzer?.close()
+        faceAnalyzer = null
         if (holdEventActive) {
             sendHoldEnd(activeSource, "stop")
         }
@@ -211,15 +187,13 @@ class CameraSwitchInputAdapter(
         tonePlayer = null
         analysisExecutor?.shutdownNow()
         analysisExecutor = null
-        mlKitInFlight = false
         uvcFrameQueued = false
-        activeFrameId = NoFrame
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
-        cheekPerfFrames = 0
-        cheekPerfTotalNs = 0L
-        cheekPerfMaxNs = 0L
+        facePerfFrames = 0
+        facePerfTotalNs = 0L
+        facePerfMaxNs = 0L
         blinkClassifier.reset()
         cheekDetector.reset()
         cheekClassifier.reset()
@@ -246,11 +220,9 @@ class CameraSwitchInputAdapter(
                 selectedCamera.lensFacing ==
                     CameraCharacteristics.LENS_FACING_FRONT
             val builder = ImageAnalysis.Builder()
-            if (cheekAnalyzer != null) {
-                builder.setOutputImageFormat(
-                    ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888
-                )
-            }
+            builder.setOutputImageFormat(
+                ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888
+            )
             builder
                 .setResolutionSelector(
                     ResolutionSelector.Builder()
@@ -494,75 +466,36 @@ class CameraSwitchInputAdapter(
             return
         }
         lastFrameAt = now
-        if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
-            val startedNs = SystemClock.elapsedRealtimeNanos()
-            try {
-                val observation = cheekAnalyzer?.analyzeBitmapForCamera(bitmap, now)
-                val score = scoreCheekObservation(observation, settings)
-                if (frameGeneration == generation && running) {
+        val startedNs = SystemClock.elapsedRealtimeNanos()
+        try {
+            val observation = faceAnalyzer?.analyzeBitmapForCamera(bitmap, now)
+            if (frameGeneration == generation && running) {
+                if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+                    val score = scoreCheekObservation(observation, settings)
                     updateCheekState(score, settings)
+                } else {
+                    val signal = observation?.blinkEyeSignal()
+                    updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
                 }
-            } catch (error: Exception) {
-                Log.w(Tag, "UVC cheek analysis failed", error)
-                if (frameGeneration == generation) updateCheekState(null, settings)
-            } finally {
-                bitmap.recycle()
-                recordCheekPerformance(SystemClock.elapsedRealtimeNanos() - startedNs)
-                if (frameGeneration == generation) {
-                    lastAnalysisCompletedAt = System.currentTimeMillis()
-                    sendStatus("analysis")
-                }
-                uvcFrameQueued = false
             }
-            return
-        }
-
-        val activeDetector = detector
-        if (activeDetector == null || mlKitInFlight) {
+        } catch (error: Exception) {
+            Log.w(Tag, "UVC MediaPipe analysis failed", error)
+            if (frameGeneration == generation) {
+                if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+                    updateCheekState(null, settings)
+                } else {
+                    updateBlinkState(null, null, settings)
+                }
+            }
+        } finally {
             bitmap.recycle()
-            uvcFrameQueued = false
-            return
-        }
-        mlKitInFlight = true
-        val frameId = ++frameSequence
-        activeFrameId = frameId
-        mainHandler.postDelayed({
-            if (frameGeneration == generation && activeFrameId == frameId && mlKitInFlight) {
-                activeFrameId = NoFrame
-                mlKitInFlight = false
-                uvcFrameQueued = false
+            recordFacePerformance(SystemClock.elapsedRealtimeNanos() - startedNs)
+            if (frameGeneration == generation) {
                 lastAnalysisCompletedAt = System.currentTimeMillis()
-                blinkClassifier.reset()
-                sendHoldEnd(activeSource, "reason=detectorTimeout")
-                sendStatus("detectorStale", force = true)
+                sendStatus("analysis")
             }
-        }, MlKitTimeoutMs)
-        activeDetector.process(InputImage.fromBitmap(bitmap, 0))
-            .addOnSuccessListener(mainExecutor) { faces ->
-                if (frameGeneration != generation || activeFrameId != frameId) {
-                    return@addOnSuccessListener
-                }
-                val face = faces.maxByOrNull {
-                    it.boundingBox.width() * it.boundingBox.height()
-                }
-                val signal = face?.blinkEyeSignal(activeDetectionParameters)
-                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
-            }
-            .addOnFailureListener(mainExecutor) { error ->
-                if (frameGeneration == generation) {
-                    Log.w(Tag, "UVC ML Kit analysis failed", error)
-                }
-            }
-            .addOnCompleteListener(mainExecutor) {
-                bitmap.recycle()
-                if (frameGeneration == generation && activeFrameId == frameId) {
-                    lastAnalysisCompletedAt = System.currentTimeMillis()
-                    mlKitInFlight = false
-                    activeFrameId = NoFrame
-                    sendStatus("analysis")
-                }
-                uvcFrameQueued = false
-            }
+            uvcFrameQueued = false
+        }
     }
 
     private fun closeUvcStream() {
@@ -713,80 +646,8 @@ class CameraSwitchInputAdapter(
             return
         }
 
-        if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
-            analyzeCheek(imageProxy, settings, imageGeneration, now)
-            return
-        }
-
-        if (mlKitInFlight) {
-            imageProxy.close()
-            return
-        }
-        val activeDetector = detector
-        if (activeDetector == null) {
-            imageProxy.close()
-            return
-        }
+        val analyzer = faceAnalyzer
         val mediaImage = imageProxy.image
-        if (mediaImage == null) {
-            imageProxy.close()
-            return
-        }
-
-        mlKitInFlight = true
-        val frameId = ++frameSequence
-        activeFrameId = frameId
-        lastFrameAt = now
-        val analysisGeneration = generation
-        mainHandler.postDelayed({
-            if (analysisGeneration == generation && activeFrameId == frameId && mlKitInFlight) {
-                Log.w(Tag, "ML Kit frame timeout; marking detector stale")
-                activeFrameId = NoFrame
-                mlKitInFlight = false
-                lastAnalysisCompletedAt = System.currentTimeMillis()
-                blinkClassifier.reset()
-                sendHoldEnd(activeSource, "reason=detectorTimeout")
-                sendStatus("detectorStale", force = true)
-                safeClose(imageProxy)
-            }
-        }, MlKitTimeoutMs)
-        activeDetector.process(InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees))
-            // ML Kit may complete after stop() has shut down the per-run
-            // analysis executor. Dispatch Task completions through the stable
-            // main executor so teardown cannot trigger RejectedExecutionException;
-            // generation/frame checks below still discard stale results.
-            .addOnSuccessListener(mainExecutor) { faces ->
-                if (analysisGeneration != generation || activeFrameId != frameId) return@addOnSuccessListener
-                val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                val signal = face?.blinkEyeSignal(activeDetectionParameters)
-                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
-            }
-            .addOnFailureListener(mainExecutor) { error ->
-                if (analysisGeneration == generation) {
-                    Log.w(Tag, "ML Kit analysis failed", error)
-                }
-            }
-            .addOnCompleteListener(mainExecutor) {
-                if (analysisGeneration == generation && activeFrameId == frameId) {
-                    lastAnalysisCompletedAt = System.currentTimeMillis()
-                    mlKitInFlight = false
-                    activeFrameId = NoFrame
-                    sendStatus("analysis")
-                }
-                safeClose(imageProxy)
-            }
-    }
-
-    @androidx.annotation.OptIn(ExperimentalGetImage::class)
-    private fun analyzeCheek(
-        imageProxy: ImageProxy,
-        settings: CameraSwitchSettings,
-        imageGeneration: Int,
-        now: Long
-    ) {
-        val analyzer = cheekAnalyzer
-        val mediaImage = imageProxy.image
-
         if (analyzer == null || mediaImage == null) {
             imageProxy.close()
             return
@@ -802,17 +663,25 @@ class CameraSwitchInputAdapter(
                 now,
                 mirrorCameraOutput = activeCameraMirrored
             )
-
             if (imageGeneration != generation || !running) return
 
-            val score = scoreCheekObservation(observation, settings)
-
-            updateCheekState(score, settings)
+            if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+                updateCheekState(scoreCheekObservation(observation, settings), settings)
+            } else {
+                val signal = observation?.blinkEyeSignal()
+                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
+            }
         } catch (error: Exception) {
-            Log.w(Tag, "Cheek analysis failed", error)
-            updateCheekState(null, settings)
+            Log.w(Tag, "MediaPipe analysis failed", error)
+            if (imageGeneration == generation) {
+                if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
+                    updateCheekState(null, settings)
+                } else {
+                    updateBlinkState(null, null, settings)
+                }
+            }
         } finally {
-            recordCheekPerformance(
+            recordFacePerformance(
                 SystemClock.elapsedRealtimeNanos() - analysisStartedNs
             )
             if (imageGeneration == generation) {
@@ -823,23 +692,23 @@ class CameraSwitchInputAdapter(
         }
     }
 
-    private fun recordCheekPerformance(durationNs: Long) {
+    private fun recordFacePerformance(durationNs: Long) {
         if (durationNs <= 0L) return
-        cheekPerfFrames += 1
-        cheekPerfTotalNs += durationNs
-        cheekPerfMaxNs = maxOf(cheekPerfMaxNs, durationNs)
-        if (cheekPerfFrames < CheekPerfLogFrames) return
+        facePerfFrames += 1
+        facePerfTotalNs += durationNs
+        facePerfMaxNs = maxOf(facePerfMaxNs, durationNs)
+        if (facePerfFrames < FacePerfLogFrames) return
 
-        val averageUs = (cheekPerfTotalNs / cheekPerfFrames) / 1_000L
-        val maxUs = cheekPerfMaxNs / 1_000L
+        val averageUs = (facePerfTotalNs / facePerfFrames) / 1_000L
+        val maxUs = facePerfMaxNs / 1_000L
         Log.i(
             Tag,
-            "CHEEK_PERF path=rgba-bitmap frames=$cheekPerfFrames " +
+            "FACE_PERF path=mediapipe frames=$facePerfFrames " +
                 "avgUs=$averageUs maxUs=$maxUs size=${analysisSize.width}x${analysisSize.height}"
         )
-        cheekPerfFrames = 0
-        cheekPerfTotalNs = 0L
-        cheekPerfMaxNs = 0L
+        facePerfFrames = 0
+        facePerfTotalNs = 0L
+        facePerfMaxNs = 0L
     }
 
     /** Keeps CameraX and direct-UVC cheek scoring in the same model space. */
@@ -966,7 +835,7 @@ class CameraSwitchInputAdapter(
         try {
             imageProxy.close()
         } catch (_: Exception) {
-            // Late ML Kit completions can race with timeout cleanup.
+            // Camera teardown may race with a frame completing on the analysis thread.
         }
     }
 
@@ -985,7 +854,6 @@ class CameraSwitchInputAdapter(
         val selector: CameraSelector?
     )
     private companion object {
-        const val NoFrame = -1L
         // Active input keeps the physically verified cadence. Opt-in idle
         // halves capture and analysis work but keeps the camera available for
         // a wake-only gesture.
@@ -993,13 +861,12 @@ class CameraSwitchInputAdapter(
         const val IdleTargetCameraFps = 5
         const val MinCameraFps = 5
         const val MaxCameraFps = 15
-        const val MlKitTimeoutMs = 2500L
         const val WatchdogIntervalMs = 1000L
         const val FrameStallMs = 3500L
         const val AnalysisStallMs = 3500L
         const val StatusIntervalMs = 650L
         const val IdleStatusIntervalMs = 2000L
-        const val CheekPerfLogFrames = 50
+        const val FacePerfLogFrames = 50
         const val Tag = "ShineCameraSwitch"
     }
 }
