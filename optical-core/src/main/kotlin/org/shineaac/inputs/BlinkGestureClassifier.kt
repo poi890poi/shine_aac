@@ -92,16 +92,33 @@ class BlinkGestureClassifier(
             return listOf(Event.HoldEnded(durationMs, EndReason.Opened))
         }
         if (closedScore >= config.closeThreshold) {
+            if (
+                openCandidateStartedAtMs != NoTime &&
+                nowMs - openCandidateStartedAtMs >= config.openStableMs
+            ) {
+                val durationMs = nowMs - closedStartedAtMs
+                reset()
+                return listOf(Event.HoldEnded(durationMs, EndReason.WeakClosure))
+            }
             openCandidateStartedAtMs = NoTime
+            if (nowMs - closedStartedAtMs >= longBlinkMs) {
+                state = State.ActivatedWaitOpen
+                signalLostStartedAtMs = NoTime
+                return listOf(Event.Activated(nowMs - closedStartedAtMs))
+            }
+            return emptyList()
         }
-        // After a stable close has started, the band between the reopen and
-        // close thresholds retains the closed state. Requiring every later
-        // sample to cross the close threshold again defeats hysteresis and can
-        // suppress an otherwise valid long blink indefinitely.
-        if (nowMs - closedStartedAtMs >= longBlinkMs) {
-            state = State.ActivatedWaitOpen
-            signalLostStartedAtMs = NoTime
-            return listOf(Event.Activated(nowMs - closedStartedAtMs))
+
+        // A short visit to the hysteresis band absorbs detector jitter, but the
+        // band is not positive closed-eye evidence and must never complete an
+        // activation. Two or more weak frames cancel the hold conservatively.
+        if (openCandidateStartedAtMs == NoTime) {
+            openCandidateStartedAtMs = nowMs
+        }
+        if (nowMs - openCandidateStartedAtMs >= config.openStableMs) {
+            val durationMs = nowMs - closedStartedAtMs
+            reset()
+            return listOf(Event.HoldEnded(durationMs, EndReason.WeakClosure))
         }
         return emptyList()
     }
@@ -142,6 +159,7 @@ class BlinkGestureClassifier(
 
     enum class EndReason {
         Opened,
+        WeakClosure,
         SignalLost
     }
 

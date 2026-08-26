@@ -140,7 +140,7 @@ class BlinkGestureClassifierTest {
     }
 
     @Test
-    fun hysteresisBandRetainsConfirmedClosedHold() {
+    fun briefHysteresisBandDoesNotBreakConfirmedClosedHold() {
         val classifier = BlinkGestureClassifier(config)
         val events = mutableListOf<BlinkGestureClassifier.Event>()
 
@@ -148,12 +148,52 @@ class BlinkGestureClassifierTest {
         events += classifier.onSignal(0.9, 500, LongBlinkMs)
         events += classifier.onSignal(0.9, 640, LongBlinkMs)
         events += classifier.onSignal(0.45, 1000, LongBlinkMs)
-        events += classifier.onSignal(0.45, 1450, LongBlinkMs)
+        events += classifier.onSignal(0.9, 1100, LongBlinkMs)
+        events += classifier.onSignal(0.9, 1450, LongBlinkMs)
 
         assertEquals(
             listOf("HoldStarted", "Activated"),
             events.map { it.nameForTest() }
         )
+    }
+
+    @Test
+    fun sustainedHysteresisBandCancelsConfirmedHold() {
+        val classifier = BlinkGestureClassifier(config)
+        val events = mutableListOf<BlinkGestureClassifier.Event>()
+
+        events += armOpen(classifier, 0)
+        events += classifier.onSignal(0.9, 500, LongBlinkMs)
+        events += classifier.onSignal(0.9, 640, LongBlinkMs)
+        events += classifier.onSignal(0.45, 1000, LongBlinkMs)
+        events += classifier.onSignal(0.45, 1230, LongBlinkMs)
+
+        assertEquals(
+            listOf("HoldStarted", "HoldEnded"),
+            events.map { it.nameForTest() }
+        )
+        assertEquals(
+            BlinkGestureClassifier.EndReason.WeakClosure,
+            events.filterIsInstance<BlinkGestureClassifier.Event.HoldEnded>().single().reason
+        )
+    }
+
+    @Test
+    fun ambiguousFrameAtDeadlineCannotActivate() {
+        val classifier = BlinkGestureClassifier(config)
+        val events = mutableListOf<BlinkGestureClassifier.Event>()
+
+        events += armOpen(classifier, 0)
+        events += classifier.onSignal(0.9, 500, LongBlinkMs)
+        events += classifier.onSignal(0.9, 640, LongBlinkMs)
+        events += classifier.onSignal(0.45, 1350, LongBlinkMs)
+        events += classifier.onSignal(0.45, 1580, LongBlinkMs)
+
+        assertEquals(
+            listOf("HoldStarted", "HoldEnded"),
+            events.map { it.nameForTest() }
+        )
+        assertTrue(events.none { it is BlinkGestureClassifier.Event.Activated })
     }
 
     @Test
