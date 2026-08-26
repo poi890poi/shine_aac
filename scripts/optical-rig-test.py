@@ -37,6 +37,7 @@ from optical_stimulus import (
     enable_per_monitor_dpi_awareness,
     launch_idle_presenter,
 )
+import optical_sources
 
 ROOT = Path.cwd()
 PACKAGE = "org.shineaac.app"
@@ -1382,6 +1383,22 @@ def camera_setup_geometry(xml_path):
         raise ValueError("Camera Setup zoom value is not visible")
     return {"preview_rect": preview, "zoom_ratio": zoom_ratio}
 
+
+def camera_setup_geometry_with_fallback(*xml_paths):
+    """Use the newest readable setup geometry, retaining prior stable evidence."""
+    errors = []
+    for xml_path in xml_paths:
+        if not xml_path:
+            continue
+        try:
+            return xml_path, camera_setup_geometry(xml_path)
+        except (ET.ParseError, OSError, ValueError) as error:
+            errors.append(str(error))
+    raise ValueError(
+        "Camera Setup geometry is unavailable"
+        + ((": " + "; ".join(errors)) if errors else "")
+    )
+
 def solve_linear(a, b):
     n = len(b)
     m = [list(map(float, a[i])) + [float(b[i])] for i in range(n)]
@@ -2289,6 +2306,7 @@ class OpticalRig:
         return None
 
     def open_camera_setup(self, gesture):
+        previous_ui_path = self.camera_setup_ui_path
         if not self.device.launch():
             self.add(
                 "P0",
@@ -2428,10 +2446,17 @@ class OpticalRig:
         time.sleep(0.7)
         ready_path = self.device.ui_dump("rig_camera_setup_ready_" + gesture)
         try:
-            ready_geometry = camera_setup_geometry(ready_path)
-            self.camera_setup_ui_path = ready_path
+            selected_path, ready_geometry = camera_setup_geometry_with_fallback(
+                ready_path, previous_ui_path
+            )
+            self.camera_setup_ui_path = selected_path
             self.active_zoom_ratio = float(ready_geometry["zoom_ratio"])
-        except (ET.ParseError, OSError, ValueError):
+            if selected_path == previous_ui_path and ready_path != previous_ui_path:
+                print(
+                    "camera setup geometry: fresh UI dump unavailable; "
+                    "retaining prior stable layout evidence"
+                )
+        except ValueError:
             self.camera_setup_ui_path = None
         return True
 
@@ -4378,35 +4403,7 @@ class OpticalRig:
 
     def downloaded_cheek_calibration_cases(self, manifest):
         """Build repeated native setup samples only from licensed public media."""
-        positive = next(
-            (case for case in manifest.get("cheek_cases", [])
-             if case.get("expect") == "activate"),
-            None,
-        )
-        if not positive:
-            return []
-        source = next(
-            (item for item in manifest.get("sources", [])
-             if item.get("id") == positive.get("source")),
-            None,
-        )
-        if not source or not all(
-            source.get(field) for field in ("url", "page", "license", "author", "sha1")
-        ):
-            return []
-        if not str(source["url"]).startswith("https://"):
-            return []
-        neutral = dict(
-            positive,
-            id="downloaded_cheek_neutral",
-            expect="no_activate",
-            rest_at=float(positive.get("rest_at", 0.0)),
-        )
-        trials = [
-            dict(positive, id="downloaded_cheek_trial_%02d" % index)
-            for index in range(1, 7)
-        ]
-        return [neutral] + trials
+        return optical_sources.cheek_calibration_cases(manifest)
 
     def write_report(self, calibration):
         report = [
@@ -4557,7 +4554,15 @@ class OpticalRig:
         if not self.args.no_build:
             print("==> Building/testing debug APK")
             if os.name == "nt":
-                r = run(["cmd.exe","/c","build-test.bat"],check=False,timeout=900,cwd=ROOT)
+                # Keep the captured build process local to this rig run. A
+                # Gradle daemon can otherwise retain the Windows output pipe
+                # after the APK is complete and prevent optical setup.
+                r = run(
+                    ["cmd.exe", "/c", "build-test.bat", "-NoDaemon"],
+                    check=False,
+                    timeout=900,
+                    cwd=ROOT,
+                )
             else:
                 r = run(["./gradlew","testDebugUnitTest","assembleDebug"],
                         check=False,timeout=900,cwd=ROOT)
