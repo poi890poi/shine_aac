@@ -1,5 +1,6 @@
 package org.shineaac.inputs
 
+/** Pure policy for grading recorded blink-calibration evidence. */
 object BlinkCalibrationQualityPolicy {
     const val MinimumGoodSlowBlinks = 3
 

@@ -64,7 +64,7 @@ sealed class CheekCalibrationOutcome {
     data class Failure(val reason: String, val diagnosticModel: CheekGestureModel? = null) : CheekCalibrationOutcome()
 }
 
-internal data class CheekCalibrationAttempt(
+data class CheekCalibrationAttempt(
     val capturedFrameCount: Int,
     val positiveFrameCount: Int,
     val clusterSeparation: Double,

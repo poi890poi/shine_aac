@@ -1,5 +1,6 @@
 package org.shineaac.inputs
 
+/** Source-independent long-blink state machine. */
 class BlinkGestureClassifier(
     private val config: Config = Config()
 ) {

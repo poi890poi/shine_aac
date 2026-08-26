@@ -2,6 +2,7 @@ package org.shineaac.inputs
 
 import kotlin.math.roundToLong
 
+/** Tunable, normalized parameters shared by setup and runtime blink detection. */
 data class BlinkDetectionParameters(
     val closeThreshold: Double = 0.55,
     val reopenThreshold: Double = 0.35,
