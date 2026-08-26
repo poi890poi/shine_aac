@@ -729,7 +729,7 @@ class OpenCvFramebufferTest(unittest.TestCase):
             ],
         )
         continuous = cases["blink_slow_continuous_02"]
-        self.assertEqual((1.4, 2.2, 0.10), (
+        self.assertEqual((1.4, 2.1, 0.15), (
             continuous["start"], continuous["end"], continuous["rate"],
         ))
 
