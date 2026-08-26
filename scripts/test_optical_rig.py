@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import json
 import struct
 import sys
@@ -675,6 +676,29 @@ class OpenCvFramebufferTest(unittest.TestCase):
         setter.assert_called_once_with(123, False)
         self.assertFalse(presenter.topmost)
 
+    def test_enabling_topmost_also_raises_presenter_above_existing_topmost_window(self):
+        user32 = mock.Mock()
+        user32.SetWindowPos.return_value = 1
+        with mock.patch.object(optical_stimulus, "windows_user32", return_value=user32):
+            self.assertTrue(optical_stimulus.set_window_topmost(123, True))
+
+        user32.BringWindowToTop.assert_called_once_with(123)
+
+    def test_active_presenter_periodically_reasserts_topmost_without_focus(self):
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.hwnd = 123
+        presenter.topmost = True
+        presenter._next_topmost_refresh = 0.0
+        with mock.patch.object(optical_stimulus, "set_window_topmost", return_value=True) as setter:
+            self.assertTrue(presenter._refresh_topmost(now=10.0))
+            self.assertFalse(presenter._refresh_topmost(now=10.1))
+            self.assertTrue(presenter._refresh_topmost(now=10.6))
+
+        self.assertEqual(
+            [mock.call(123, True), mock.call(123, True)],
+            setter.call_args_list,
+        )
+
     def test_manifest_uses_visually_verified_closed_eye_frames(self):
         manifest = json.loads(
             (SCRIPT_DIR.parent / "testdata/optical-rig/sources.json").read_text(
@@ -705,7 +729,7 @@ class OpenCvFramebufferTest(unittest.TestCase):
             ],
         )
         continuous = cases["blink_slow_continuous_02"]
-        self.assertEqual((1.4, 2.1, 0.15), (
+        self.assertEqual((1.4, 2.2, 0.10), (
             continuous["start"], continuous["end"], continuous["rate"],
         ))
 
@@ -731,6 +755,85 @@ class OpenCvFramebufferTest(unittest.TestCase):
         self.assertEqual((24, 32, 3), blank.shape)
         self.assertEqual(0, int(numpy.count_nonzero(blank)))
 
+    def test_idle_framebuffer_is_dim_but_identifiable(self):
+        cv2, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
+        standby = optical_stimulus.render_idle_cue(cv2, numpy, 640, 360)
+
+        self.assertEqual((360, 640, 3), standby.shape)
+        self.assertGreater(int(numpy.count_nonzero(standby)), 0)
+        self.assertLessEqual(int(standby.max()), 96)
+        self.assertGreater(len(numpy.unique(standby.reshape(-1, 3), axis=0)), 3)
+
+    def test_idle_cue_is_visible_inside_any_camera_sized_crop(self):
+        cv2, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
+        standby = optical_stimulus.render_idle_cue(cv2, numpy, 1920, 1080)
+        for left, top in ((0, 0), (744, 180), (1488, 0), (1488, 360)):
+            crop = standby[top:top + 720, left:left + 432]
+            self.assertEqual((720, 432, 3), crop.shape)
+            self.assertGreater(int(crop.max()), 40)
+            self.assertGreater(len(numpy.unique(crop.reshape(-1, 3), axis=0)), 3)
+
+    def test_runtime_bootstrap_places_public_face_at_reused_camera_aim(self):
+        state = RIG.runtime_bootstrap_face_state(
+            {
+                "purpose": "rig-session-only",
+                "desktop_rect": [-1920, 0, 3840, 1080],
+                "desktop_stimulus_center": [1656.4, 360.2],
+            },
+            {"filename": "public.webm", "rest_at_s": 0.75},
+            (-1920, 0, 3840, 1080),
+        )
+        self.assertEqual("video_still", state["mode"])
+        self.assertEqual([3576, 360], state["center"])
+        self.assertEqual("/media/public.webm", state["url"])
+        self.assertEqual(0.75, state["start"])
+
+    def test_active_presenter_starts_on_identifiable_standby(self):
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.root = SCRIPT_DIR.parent
+        presenter.media_root = SCRIPT_DIR.parent / "testdata/optical-rig/downloaded"
+        presenter.desktop_rect = (0, 0, 640, 360)
+        presenter.cv2, presenter.numpy = optical_stimulus.load_opencv(
+            SCRIPT_DIR.parent
+        )
+        prepared = presenter._prepare({"mode": "standby"})
+        frame, ended = presenter._render_state(
+            {"mode": "standby"}, prepared
+        )
+
+        self.assertFalse(ended)
+        self.assertGreater(int(presenter.numpy.count_nonzero(frame)), 0)
+        self.assertLessEqual(int(frame.max()), 96)
+
+    def test_completed_sequence_freezes_last_face_frame(self):
+        _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.numpy = numpy
+        presenter.cv2 = mock.Mock()
+        presenter.desktop_rect = (0, 0, 32, 24)
+        face_frame = numpy.full((8, 10, 3), 127, dtype=numpy.uint8)
+        state = {
+            "mode": "sequence",
+            "frames": [{"url": "/media/open.png", "ms": 100}],
+        }
+        prepared = {
+            "index": 1,
+            "deadline": 0.0,
+            "ended": False,
+            "frame": face_frame,
+        }
+
+        frame, ended = presenter._render_state(state, prepared)
+
+        self.assertTrue(ended)
+        self.assertGreater(int(numpy.count_nonzero(frame)), 0)
+        self.assertTrue(numpy.array_equal(frame[8:16, 11:21], face_frame))
+
+    def test_runtime_rig_has_no_explicit_black_transitions(self):
+        runner = (SCRIPT_DIR / "optical-rig-test.py").read_text(encoding="utf-8")
+        self.assertNotIn('mode="blank"', runner)
+        self.assertNotIn("idle black presenter", runner)
+
     def test_atlas_covers_partial_bottom_tile_without_browser_gap(self):
         _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
         atlas = optical_stimulus.render_atlas(numpy, 1536, 864)
@@ -747,6 +850,23 @@ class OpenCvFramebufferTest(unittest.TestCase):
             "AudioPlaybackConfiguration piid:4 deviceId:0 u/pid:10313/4535 state:started",
         ])
         self.assertEqual(2, RIG.app_audio_playback_start_count(log, "4535"))
+
+    def test_calibration_audio_oracle_recognizes_system_tts_speech(self):
+        log = "\n".join([
+            "AudioPlaybackConfiguration piid:1 u/pid:1000/5568 state:started "
+            "attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_SPEECH",
+            "AudioPlaybackConfiguration piid:2 u/pid:10313/4535 state:started "
+            "attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_MUSIC",
+            "AudioPlaybackConfiguration piid:3 u/pid:1000/5568 state:stopped "
+            "attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_SPEECH",
+        ])
+        self.assertEqual(1, RIG.speech_audio_playback_start_count(log))
+
+    def test_tts_oracle_gates_blink_calibration_not_cheek_calibration(self):
+        blink_source = inspect.getsource(RIG.OpticalRig.calibrate_long_blink)
+        cheek_source = inspect.getsource(RIG.OpticalRig.calibrate_cheek)
+        self.assertIn("speech_audio_playback_start_count", blink_source)
+        self.assertNotIn("speech_audio_playback_start_count", cheek_source)
 
 
 if __name__ == "__main__":

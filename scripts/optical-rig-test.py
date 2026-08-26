@@ -76,6 +76,28 @@ def face_overlay_coverage_from_points(points, preview_rect):
     }
 
 
+def runtime_bootstrap_face_state(fixture, source, desktop_rect):
+    """Place a relaxed public face at a reused camera aim before app setup."""
+    if fixture.get("purpose") != "rig-session-only":
+        raise ValueError("fixture is not marked rig-session-only")
+    if fixture.get("desktop_rect") != list(desktop_rect):
+        raise ValueError("fixture desktop geometry does not match")
+    vx, vy, _, _ = desktop_rect
+    center = fixture["desktop_stimulus_center"]
+    return {
+        "mode": "video_still",
+        "label": "RUNTIME INITIAL RELAXED FACE",
+        "url": "/media/" + source["filename"],
+        "start": float(source.get("rest_at_s", 0.0)),
+        "center": [
+            int(round(float(center[0]) - vx)),
+            int(round(float(center[1]) - vy)),
+        ],
+        "scale": 1.0,
+        "background": "#000",
+    }
+
+
 def board_phase_from_xml(xml_path):
     """Read the user-visible scanner phase from a UIAutomator hierarchy."""
     tree = ET.parse(xml_path)
@@ -643,6 +665,15 @@ def app_audio_playback_start_count(log_text, app_pid):
     pattern = (
         r"AudioPlaybackConfiguration(?:(?!AudioPlaybackConfiguration).)*?"
         r"u/pid:\d+/%s\s+state:started" % re.escape(str(app_pid))
+    )
+    return len(re.findall(pattern, log_text or "", re.S))
+
+
+def speech_audio_playback_start_count(log_text):
+    pattern = (
+        r"AudioPlaybackConfiguration(?:(?!AudioPlaybackConfiguration).)*?"
+        r"state:started(?:(?!AudioPlaybackConfiguration).)*?"
+        r"content=CONTENT_TYPE_SPEECH"
     )
     return len(re.findall(pattern, log_text or "", re.S))
 
@@ -1653,7 +1684,7 @@ class OpticalRig:
         print("PASS", title + ((": " + detail) if detail else ""))
 
     def thermal_suspend(self):
-        self.host.set_state(mode="blank", label="THERMAL COOLDOWN", background="#000")
+        self.host.set_state(mode="standby", label="THERMAL COOLDOWN")
         self.device.shell("am","force-stop",PACKAGE,check=False)
         self.device.shell("input","keyevent","223",check=False)
 
@@ -2078,7 +2109,7 @@ class OpticalRig:
         ]
         return manifest
 
-    def start_host(self):
+    def start_host(self, source_by_id):
         if not windows_desktop_is_interactive():
             self.add(
                 "P0",
@@ -2087,14 +2118,32 @@ class OpticalRig:
             )
             return False
         vx, vy, vw, vh = virtual_desktop_rect()
-        # A focused session-replay run starts black; full calibration starts
-        # directly with the one-shot coordinate atlas.
-        token = self.host.set_state(
-            mode="blank" if self.args.runtime_only else "atlas",
-            label="SESSION REPLAY START" if self.args.runtime_only
-            else "ONE-SHOT CAMERA VIEW ATLAS",
-            background="#000",
-        )
+        initial_state = {
+            "mode": "atlas",
+            "label": "ONE-SHOT CAMERA VIEW ATLAS",
+            "background": "#000",
+        }
+        if self.args.runtime_only:
+            prefix = (
+                "blink" if self.args.calibrate_cheek_session
+                else self.args.session_gesture
+            )
+            try:
+                fixture = json.loads(
+                    (SESSION_ROOT / (prefix + "-fixture.json")).read_text(
+                        encoding="utf-8"
+                    )
+                )
+                initial_state = runtime_bootstrap_face_state(
+                    fixture, source_by_id["commons_blinking"],
+                    virtual_desktop_rect(),
+                )
+            except (KeyError, OSError, TypeError, ValueError):
+                initial_state = {
+                    "mode": "standby",
+                    "label": "SESSION REPLAY STANDBY",
+                }
+        token = self.host.set_state(**initial_state)
         close_stale_stimulus_windows()
         try:
             self.host.start()
@@ -2136,9 +2185,13 @@ class OpticalRig:
 
         if self.args.runtime_only:
             print(
-                "Black OpenCV framebuffer active across virtual desktop "
-                "%dx%d at (%d,%d); reusable session calibration will be applied."
-                % (vw, vh, vx, vy)
+                "%s active across virtual desktop %dx%d at (%d,%d); "
+                "camera-crop-safe standby is the fallback."
+                % (
+                    "Relaxed public face" if initial_state["mode"] == "video_still"
+                    else "Tiled dim standby",
+                    vw, vh, vx, vy,
+                )
             )
         else:
             print(
@@ -2997,11 +3050,28 @@ class OpticalRig:
             )
             return False
 
+        calibration_audio = (
+            self.outdir / "blink-calibration-audio.log"
+        ).read_text(encoding="utf-8", errors="replace")
+        speech_starts = speech_audio_playback_start_count(calibration_audio)
+        if speech_starts < 1:
+            self.add(
+                "P1", "Long-blink calibration speech was not observed",
+                "No system TTS speech playback started before the calibration tones.",
+                ["blink-calibration-audio.log"]
+            )
+            return False
+        self.pass_(
+            "long-blink calibration speech playback",
+            "%d system TTS speech start(s) observed before app-owned tones"
+            % speech_starts,
+        )
+
         calibration_case = {
             "id": "blink_calibration_trials",
             "stills": [],
         }
-        # Five complete 0.9s closures fit within the remaining native capture
+        # Five complete deliberate closures fit within the remaining native capture
         # window even when hierarchy observation consumed part of its first
         # second. Alternate verified closed poses to avoid one-pose overfit.
         verified_closed_times = (0.00, 3.00)
@@ -3010,7 +3080,7 @@ class OpticalRig:
                 {"start": 0.75, "ms": 400, "pose": "open", "cycle": cycle + 1},
                 {
                     "start": verified_closed_times[cycle % len(verified_closed_times)],
-                    "ms": 900,
+                    "ms": 1600,
                     "pose": "long-closed",
                     "cycle": cycle + 1,
                 },
@@ -4207,7 +4277,7 @@ class OpticalRig:
                 break
             sample = self.thermal.sample("case-"+label,"during_case")
             if self.thermal.should_cool(sample):
-                self.host.set_state(mode="blank",label="THERMAL ABORT",background="#000")
+                self.demo_show_rest(case, source_by_id, "THERMAL HOLD " + label)
                 self.thermal.guard(
                     "mid-case-"+label,
                     on_suspend=self.thermal_suspend,
@@ -4220,7 +4290,8 @@ class OpticalRig:
                          ["thermal.csv"])
                 return None
 
-        self.host.set_state(mode="blank",label="INTER-CASE REST",background="#000")
+        if not self.demo_show_rest(case, source_by_id, "INTER-CASE REST " + label):
+            return None
         time.sleep(1.0)
         after_xml = self.device.ui_dump("case_%s_after" % label)
         self.device.screenshot("case_%s_after" % label)
@@ -4445,7 +4516,8 @@ class OpticalRig:
             stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL
         )
         self.host.wait_event(token,"ended",min(limit-1,max(3,nominal+2)))
-        self.host.set_state(mode="blank",label="PREVIEW DONE",background="#000")
+        if not self.demo_show_rest(case, source_by_id, "PREVIEW DONE " + label):
+            return None
         try: p.wait(timeout=limit+4)
         except Exception:
             p.kill()
@@ -4638,7 +4710,7 @@ class OpticalRig:
                 self.add("P0","APK install failed",(r.stdout or "").strip(),["install.txt"])
                 self.write_report(None); return 2
 
-        if not self.start_host():
+        if not self.start_host(source_by_id):
             self.write_report(None)
             return 2
         try:
@@ -5005,7 +5077,7 @@ class OpticalRig:
             return 1 if blocking else 0
         finally:
             try:
-                self.host.set_state(mode="blank",label="DONE",background="#000")
+                self.host.set_state(mode="standby",label="DONE")
             except Exception: pass
             try:
                 if not self.restore_switch_input_profile():
@@ -5131,7 +5203,7 @@ def main():
         try:
             launch_idle_presenter(ROOT)
         except Exception as error:
-            print("WARNING could not launch idle black presenter:", error)
+            print("WARNING could not launch idle standby presenter:", error)
 
 if __name__=="__main__":
     sys.exit(main() or 0)

@@ -22,6 +22,17 @@ public static class ShineOpticalWindow {
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetWindowPos(
         IntPtr hWnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr OpenEvent(uint desiredAccess, bool inheritHandle, string name);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetEvent(IntPtr handle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr handle);
 }
 '@
 
@@ -66,13 +77,27 @@ if ($Command -eq 'force-close') {
     exit 0
 }
 
+$idleSignaled = $false
 if ($windows.Count -eq 0) {
+    if ($Command -eq 'close') {
+        $idleStop = [ShineOpticalWindow]::OpenEvent(
+            0x0002, $false, 'Local\ShineAacOpticalIdleStop')
+        if ($idleStop -ne [IntPtr]::Zero) {
+            $null = [ShineOpticalWindow]::SetEvent($idleStop)
+            $null = [ShineOpticalWindow]::CloseHandle($idleStop)
+            Write-Host 'close sent to the verified optical-rig idle presenter.'
+            $idleSignaled = $true
+        }
+    }
     if ($Command -eq 'close' -and $registeredProcess) {
         Stop-Process -Id $registeredProcess.Id -Force
         Write-Host (
             "The OpenCV title was hidden; force-closed verified optical-rig PID " +
             "$($registeredProcess.Id)."
         )
+        exit 0
+    }
+    if ($idleSignaled) {
         exit 0
     }
     if ($registeredProcess) {

@@ -15,6 +15,9 @@ from pathlib import Path
 WINDOW_TITLE = "SHINE AAC Optical Rig"
 IDLE_WINDOW_TITLE = "SHINE AAC Optical Rig - Idle"
 PRESENTER_REGISTRY = Path(".tmp/optical-rig-presenter.json")
+IDLE_MUTEX_NAME = "Local\\ShineAacOpticalIdlePresenter"
+IDLE_STOP_EVENT_NAME = "Local\\ShineAacOpticalIdleStop"
+TOPMOST_REFRESH_SECONDS = 0.5
 
 
 def video_frames_due(now, deadline, period, maximum=60):
@@ -56,21 +59,55 @@ def unregister_presenter(root):
         pass
 
 
+def windows_user32():
+    """Return user32 with pointer-safe signatures for 64-bit window handles."""
+    user32 = ctypes.windll.user32
+    handle = ctypes.c_void_p
+    boolean = ctypes.c_int
+    unsigned = ctypes.c_uint32
+    user32.FindWindowW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p]
+    user32.FindWindowW.restype = handle
+    user32.SetWindowPos.argtypes = [
+        handle, handle, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, unsigned
+    ]
+    user32.SetWindowPos.restype = boolean
+    user32.IsWindow.argtypes = [handle]
+    user32.IsWindow.restype = boolean
+    user32.PostMessageW.argtypes = [handle, unsigned, handle, handle]
+    user32.PostMessageW.restype = boolean
+    user32.GetWindowLongW.argtypes = [handle, ctypes.c_int]
+    user32.GetWindowLongW.restype = ctypes.c_long
+    user32.SetWindowLongW.argtypes = [handle, ctypes.c_int, ctypes.c_long]
+    user32.SetWindowLongW.restype = ctypes.c_long
+    user32.BringWindowToTop.argtypes = [handle]
+    user32.BringWindowToTop.restype = boolean
+    user32.SetForegroundWindow.argtypes = [handle]
+    user32.SetForegroundWindow.restype = boolean
+    user32.GetSystemMetrics.argtypes = [ctypes.c_int]
+    user32.GetSystemMetrics.restype = ctypes.c_int
+    return user32
+
+
 def set_window_topmost(hwnd, enabled):
     """Change only the rig window's z-order, preserving its pixel geometry."""
     if os.name != "nt" or not hwnd:
         return False
-    user32 = ctypes.windll.user32
+    user32 = windows_user32()
     insert_after = -1 if enabled else -2  # HWND_TOPMOST / HWND_NOTOPMOST
     flags = 0x0001 | 0x0002 | 0x0010  # NOSIZE | NOMOVE | NOACTIVATE
-    return bool(user32.SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, flags))
+    positioned = bool(user32.SetWindowPos(
+        hwnd, ctypes.c_void_p(insert_after), 0, 0, 0, 0, flags
+    ))
+    if enabled and positioned:
+        user32.BringWindowToTop(hwnd)
+    return positioned
 
 
 def enable_per_monitor_dpi_awareness():
     """Make desktop geometry and the OpenCV framebuffer use physical pixels."""
     if os.name != "nt":
         return
-    user32 = ctypes.windll.user32
+    user32 = windows_user32()
     try:
         user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
     except Exception:
@@ -83,7 +120,7 @@ def enable_per_monitor_dpi_awareness():
 def virtual_desktop_rect():
     if os.name != "nt":
         raise RuntimeError("The physical monitor presenter currently requires Windows")
-    user32 = ctypes.windll.user32
+    user32 = windows_user32()
     return (
         int(user32.GetSystemMetrics(76)),
         int(user32.GetSystemMetrics(77)),
@@ -92,17 +129,51 @@ def virtual_desktop_rect():
     )
 
 
+def windows_kernel32():
+    """Return kernel32 with pointer-safe signatures for named rig primitives."""
+    kernel32 = ctypes.windll.kernel32
+    handle = ctypes.c_void_p
+    dword = ctypes.c_uint32
+    boolean = ctypes.c_int
+    kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, boolean, ctypes.c_wchar_p]
+    kernel32.CreateMutexW.restype = handle
+    kernel32.OpenMutexW.argtypes = [dword, boolean, ctypes.c_wchar_p]
+    kernel32.OpenMutexW.restype = handle
+    kernel32.CreateEventW.argtypes = [ctypes.c_void_p, boolean, boolean, ctypes.c_wchar_p]
+    kernel32.CreateEventW.restype = handle
+    kernel32.OpenEventW.argtypes = [dword, boolean, ctypes.c_wchar_p]
+    kernel32.OpenEventW.restype = handle
+    kernel32.WaitForSingleObject.argtypes = [handle, dword]
+    kernel32.WaitForSingleObject.restype = dword
+    for name in ("SetEvent", "ResetEvent", "ReleaseMutex", "CloseHandle"):
+        function = getattr(kernel32, name)
+        function.argtypes = [handle]
+        function.restype = boolean
+    return kernel32
+
+
 def close_idle_presenter():
     """Close only the rig-owned idle window, if one is already running."""
     if os.name != "nt":
         return
-    user32 = ctypes.windll.user32
+    user32 = windows_user32()
+    kernel32 = windows_kernel32()
+    mutex = kernel32.OpenMutexW(0x00100001, False, IDLE_MUTEX_NAME)
+    stop_event = kernel32.OpenEventW(0x0002, False, IDLE_STOP_EVENT_NAME)
+    if stop_event:
+        kernel32.SetEvent(stop_event)
+        kernel32.CloseHandle(stop_event)
     hwnd = user32.FindWindowW(None, IDLE_WINDOW_TITLE)
     if hwnd:
         user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
         deadline = time.time() + 3.0
         while time.time() < deadline and user32.IsWindow(hwnd):
             time.sleep(0.05)
+    if mutex:
+        result = kernel32.WaitForSingleObject(mutex, 3000)
+        if result in (0, 0x00000080):  # WAIT_OBJECT_0 / WAIT_ABANDONED
+            kernel32.ReleaseMutex(mutex)
+        kernel32.CloseHandle(mutex)
 
 
 def launch_idle_presenter(root):
@@ -132,7 +203,7 @@ def _make_fullscreen_window(cv2, title, desktop_rect):
     cv2.resizeWindow(title, width, height)
     if os.name != "nt":
         return None
-    user32 = ctypes.windll.user32
+    user32 = windows_user32()
     deadline = time.time() + 5.0
     hwnd = None
     while time.time() < deadline and not hwnd:
@@ -145,7 +216,9 @@ def _make_fullscreen_window(cv2, title, desktop_rect):
     style = user32.GetWindowLongW(hwnd, -16)
     style &= ~(0x00C00000 | 0x00040000 | 0x00020000 | 0x00010000 | 0x00080000)
     user32.SetWindowLongW(hwnd, -16, style)
-    user32.SetWindowPos(hwnd, -1, vx, vy, width, height, 0x0040 | 0x0020)
+    user32.SetWindowPos(
+        hwnd, ctypes.c_void_p(-1), vx, vy, width, height, 0x0040 | 0x0020
+    )
     user32.SetForegroundWindow(hwnd)
     return hwnd
 
@@ -239,7 +312,7 @@ class OpenCvStimulus:
         self.media_root = Path(media_root)
         self.desktop_rect = tuple(desktop_rect)
         self.cv2, self.numpy = load_opencv(root)
-        self.state = {"mode": "blank", "label": "BOOT", "token": "boot"}
+        self.state = {"mode": "standby", "label": "BOOT", "token": "boot"}
         self.events = []
         self.requests = []
         self.condition = threading.Condition()
@@ -249,6 +322,7 @@ class OpenCvStimulus:
         self.error = None
         self.hwnd = None
         self.topmost = True
+        self._next_topmost_refresh = 0.0
         self.operator_abort = False
         self._token_counter = 0
 
@@ -339,11 +413,23 @@ class OpenCvStimulus:
         if key in (ord("t"), ord("T")):
             self.topmost = not self.topmost
             if set_window_topmost(self.hwnd, self.topmost):
+                self._next_topmost_refresh = 0.0
                 state = "enabled" if self.topmost else "disabled"
                 print("\n[optical rig] always-on-top %s (press T to toggle)" % state, flush=True)
             else:
                 self.topmost = not self.topmost
                 print("\n[optical rig] could not change always-on-top", flush=True)
+
+    def _refresh_topmost(self, now=None, force=False):
+        """Keep the active stimulus ahead of other topmost apps without taking focus."""
+        if not self.topmost or not self.hwnd:
+            return False
+        now = time.monotonic() if now is None else now
+        if not force and now < self._next_topmost_refresh:
+            return False
+        refreshed = set_window_topmost(self.hwnd, True)
+        self._next_topmost_refresh = now + TOPMOST_REFRESH_SECONDS
+        return refreshed
 
     def _background(self, state):
         value = state.get("background", "#000000").lstrip("#")
@@ -398,6 +484,9 @@ class OpenCvStimulus:
 
     def _prepare(self, state):
         mode = state.get("mode", "blank")
+        if mode == "standby":
+            _, _, width, height = self.desktop_rect
+            return {"frame": render_idle_cue(self.cv2, self.numpy, width, height)}
         if mode == "atlas":
             _, _, width, height = self.desktop_rect
             return {"frame": render_atlas(self.numpy, width, height)}
@@ -433,6 +522,8 @@ class OpenCvStimulus:
 
     def _render_state(self, state, prepared):
         mode = state.get("mode", "blank")
+        if mode == "standby":
+            return prepared["frame"], False
         if mode == "atlas":
             return prepared["frame"], False
         canvas = self._background(state)
@@ -451,7 +542,10 @@ class OpenCvStimulus:
                     prepared["index"] = 0
                     prepared["deadline"] = now
                 else:
-                    return canvas, True
+                    return self._composite_intrinsic(
+                        canvas, prepared.get("frame"), state.get("center"),
+                        bool(state.get("mirror", False)), state.get("scale", 1.0)
+                    ), True
             if now >= prepared["deadline"]:
                 item = items[prepared["index"]]
                 prepared["frame"] = self.cv2.imread(str(self._resolve(item.get("url"))), self.cv2.IMREAD_COLOR)
@@ -530,12 +624,13 @@ class OpenCvStimulus:
                     ended_sent = False
                 frame, ended = self._render_state(state, prepared)
                 self.cv2.imshow(WINDOW_TITLE, frame)
+                self._refresh_topmost(force=not applied)
                 key = self.cv2.waitKey(1)
                 if key >= 0:
                     self._handle_operator_key(key)
                 if self.stop_event.is_set():
                     break
-                if os.name == "nt" and self.hwnd and not ctypes.windll.user32.IsWindow(self.hwnd):
+                if os.name == "nt" and self.hwnd and not windows_user32().IsWindow(self.hwnd):
                     self._abort_from_operator("operator closed the rig window; test aborted")
                     break
                 if not applied:
@@ -569,16 +664,49 @@ class OpenCvStimulus:
                 pass
 
 
+def render_idle_cue(cv2, numpy, width, height):
+    """Render a low-contrast cue repeated densely enough for a camera crop."""
+    canvas = numpy.empty((height, width, 3), dtype=numpy.uint8)
+    canvas[:] = (24, 21, 18)
+    label = "SHINE  |  standby"
+    scale = 0.48
+    thickness = 1
+    size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, thickness)
+    step_x = max(220, size[0] + 56)
+    step_y = 150
+    for row, y in enumerate(range(54, height + step_y, step_y)):
+        offset = -(step_x // 2) if row % 2 else 18
+        for x in range(offset, width + step_x, step_x):
+            cv2.putText(
+                canvas, label, (x + 22, y), cv2.FONT_HERSHEY_SIMPLEX,
+                scale, (68, 63, 56), thickness, cv2.LINE_AA
+            )
+            cv2.circle(
+                canvas, (x + 8, y - max(3, size[1] // 3)), 4,
+                (84, 78, 68), -1
+            )
+    return canvas
+
+
 def run_idle_presenter(root):
-    """Own the monitor while the test rig is idle, showing only black pixels."""
+    """Own the monitor while idle, with one dim identifiable standby window."""
     enable_per_monitor_dpi_awareness()
+    kernel32 = windows_kernel32() if os.name == "nt" else None
+    mutex = kernel32.CreateMutexW(None, True, IDLE_MUTEX_NAME) if kernel32 else None
+    if mutex and kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        kernel32.CloseHandle(mutex)
+        return
+    stop_event = kernel32.CreateEventW(None, True, False, IDLE_STOP_EVENT_NAME) if kernel32 else None
+    if stop_event:
+        kernel32.ResetEvent(stop_event)
     cv2, numpy = load_opencv(root)
     rect = virtual_desktop_rect()
     _, _, width, height = rect
-    black = numpy.zeros((height, width, 3), dtype=numpy.uint8)
+    standby = render_idle_cue(cv2, numpy, width, height)
     hwnd = _make_fullscreen_window(cv2, IDLE_WINDOW_TITLE, rect)
+    set_window_topmost(hwnd, False)
     register_presenter(root, "idle", IDLE_WINDOW_TITLE)
-    topmost = True
+    topmost = False
     try:
         print(
             "[optical rig idle] Esc closes; T toggles always-on-top; "
@@ -586,7 +714,7 @@ def run_idle_presenter(root):
             flush=True,
         )
         while True:
-            cv2.imshow(IDLE_WINDOW_TITLE, black)
+            cv2.imshow(IDLE_WINDOW_TITLE, standby)
             key = cv2.waitKey(100)
             if key == 27:
                 break
@@ -598,7 +726,9 @@ def run_idle_presenter(root):
                     ("enabled" if topmost else "disabled"),
                     flush=True,
                 )
-            if os.name == "nt" and hwnd and not ctypes.windll.user32.IsWindow(hwnd):
+            if os.name == "nt" and hwnd and not windows_user32().IsWindow(hwnd):
+                break
+            if stop_event and kernel32.WaitForSingleObject(stop_event, 0) == 0:
                 break
             try:
                 if cv2.getWindowProperty(IDLE_WINDOW_TITLE, cv2.WND_PROP_VISIBLE) < 1:
@@ -612,11 +742,16 @@ def run_idle_presenter(root):
             cv2.waitKey(1)
         except Exception:
             pass
+        if stop_event:
+            kernel32.CloseHandle(stop_event)
+        if mutex:
+            kernel32.ReleaseMutex(mutex)
+            kernel32.CloseHandle(mutex)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--idle", action="store_true", help="show the rig's idle black framebuffer")
+    parser.add_argument("--idle", action="store_true", help="show the rig's dim standby framebuffer")
     args = parser.parse_args()
     if not args.idle:
         parser.error("only standalone --idle mode is supported")
