@@ -261,26 +261,73 @@ function Capture-PhoneState([string]$Name) {
     Write-Host "captured $Name"
 }
 
-function Assert-LatestStage([string]$ExpectedStage, [string]$Description) {
+function Assert-LatestPhase([string]$ExpectedPhase, [string]$Description) {
     $state = Get-LatestE2EState
-    if ([string]$state.stage -cne $ExpectedStage) {
-        throw "$Description expected stage $ExpectedStage but saw $($state.stage)."
+    if ([string]$state.phase -cne $ExpectedPhase) {
+        throw "$Description expected visible phase $ExpectedPhase but saw $($state.phase) (scanner stage $($state.stage))."
     }
 }
 
-function Wait-AfterActivation([string]$Description, [string]$ExpectedStage) {
+function Wait-AfterActivation([string]$Description, [string]$ExpectedPhase) {
     Invoke-AdbQuiet logcat -c
     Switch-Activate $Description
-    Wait-RenderState $Description @(('"stage":"' + $ExpectedStage + '"'))
+    Wait-RenderState $Description @(('"phase":"' + $ExpectedPhase + '"'))
+}
+
+function Wait-ForDifferentScanIndex(
+    [string]$Description,
+    [string[]]$ExpectedPhases,
+    [string]$IndexName,
+    [int]$InitialIndex,
+    [int]$TimeoutMs = 10000
+) {
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $lastState = $null
+    while ((Get-Date) -lt $deadline) {
+        $lastState = Get-LatestE2EState
+        $phaseMatches = $ExpectedPhases -contains [string]$lastState.phase
+        $currentIndex = [int]$lastState.$IndexName
+        if ($phaseMatches -and $currentIndex -ne $InitialIndex) {
+            Write-Host "automatic advance $Description ($IndexName $InitialIndex -> $currentIndex)"
+            return $lastState
+        }
+        Start-Sleep -Milliseconds 50
+    }
+
+    throw "Timed out waiting for $Description to change $IndexName from $InitialIndex. Last state: $($lastState | ConvertTo-Json -Compress)"
+}
+
+function Wait-ForScanIndex(
+    [string]$Description,
+    [string[]]$ExpectedPhases,
+    [string]$IndexName,
+    [int]$ExpectedIndex,
+    [int]$TimeoutMs = 15000
+) {
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $lastState = $null
+    while ((Get-Date) -lt $deadline) {
+        $lastState = Get-LatestE2EState
+        $phaseMatches = $ExpectedPhases -contains [string]$lastState.phase
+        if ($phaseMatches -and [int]$lastState.$IndexName -eq $ExpectedIndex) {
+            return $lastState
+        }
+        Start-Sleep -Milliseconds 50
+    }
+
+    throw "Timed out waiting for $Description at $IndexName $ExpectedIndex. Last state: $($lastState | ConvertTo-Json -Compress)"
 }
 
 function Start-DeterministicScan([string]$ScanMode) {
+    # run-apk launches the app after installation. Stop that activity before clearing
+    # data so its delayed lifecycle pause cannot reach the newly configured WebView.
+    Invoke-AdbQuiet shell am force-stop org.shineaac.app
     Invoke-AdbQuiet shell pm clear org.shineaac.app
     Invoke-AdbQuiet logcat -c
     Write-TestPreferences -ScanMode $ScanMode
     Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
     Wait-E2EReady
-    Assert-LatestStage "Review" "$ScanMode initial state"
+    Assert-LatestPhase "Review" "$ScanMode initial state"
 }
 
 function Test-ScanModeVisualFlow([string]$ScanMode) {
@@ -306,14 +353,45 @@ function Test-ScanModeVisualFlow([string]$ScanMode) {
     Capture-PhoneState "$prefix-selection-review"
     Wait-AfterActivation "$prefix release selection review" $firstStage
     Capture-PhoneState "$prefix-resumed"
+
+    $groupState = Get-LatestE2EState
+    if ($threeLayer) {
+        $groupState = Wait-ForDifferentScanIndex "$prefix second-run block" @("Blocks") "blockIndex" ([int]$groupState.blockIndex)
+        Capture-PhoneState "$prefix-second-run-blocks"
+        Wait-AfterActivation "$prefix activate second-run block" "Rows"
+
+        $rowState = Get-LatestE2EState
+        $rowState = Wait-ForDifferentScanIndex "$prefix second-run row" @("Rows") "rowIndex" ([int]$rowState.rowIndex)
+        Capture-PhoneState "$prefix-second-run-rows"
+    } else {
+        $groupState = Wait-ForDifferentScanIndex "$prefix second-run row" @("Rows") "rowIndex" ([int]$groupState.rowIndex)
+        Capture-PhoneState "$prefix-second-run-rows"
+    }
+
+    Wait-AfterActivation "$prefix activate second-run row" "First"
+    $cellState = Wait-ForScanIndex "$prefix second-run cell" @("First", "Symbols") "cellIndex" 2
+    Capture-PhoneState "$prefix-second-run-cell"
+
+    # Screenshot capture can consume much of a scan interval. Re-acquire the same
+    # ordinary content cell before activation so the test cannot drift onto a command.
+    $cellState = Wait-ForScanIndex "$prefix re-acquire second-run cell" @("First", "Symbols") "cellIndex" 2
+    $messageBeforeSecondSelection = [string]$cellState.message
+    Wait-AfterActivation "$prefix select second-run cell" "Review"
+    $secondReviewState = Get-LatestE2EState
+    if ([string]$secondReviewState.message -ceq $messageBeforeSecondSelection) {
+        throw "$prefix second-run selection did not change the message."
+    }
+    Capture-PhoneState "$prefix-second-run-selection-review"
+    Wait-AfterActivation "$prefix release second-run selection review" $firstStage
+    Capture-PhoneState "$prefix-second-run-resumed"
 }
 
-function Ensure-ActiveScan([string]$ExpectedStage, [string]$Label) {
+function Ensure-ActiveScan([string]$ExpectedPhase, [string]$Label) {
     $state = Get-LatestE2EState
-    if ([string]$state.stage -ceq "Review") {
-        Wait-AfterActivation "$Label release final review" $ExpectedStage
-    } elseif ([string]$state.stage -cne $ExpectedStage) {
-        throw "$Label expected Review or $ExpectedStage but saw $($state.stage)."
+    if ([string]$state.phase -ceq "Review") {
+        Wait-AfterActivation "$Label release final review" $ExpectedPhase
+    } elseif ([string]$state.phase -cne $ExpectedPhase) {
+        throw "$Label expected visible phase Review or $ExpectedPhase but saw $($state.phase) (scanner stage $($state.stage))."
     }
     Capture-PhoneState "$Label-active"
 }
@@ -457,7 +535,7 @@ Test-ScanModeVisualFlow "block-row-column"
 
 if ($ScanUiOnly) {
     Write-Host ""
-    Write-Host "E2E PASS: automatic phone regression covered review, row, and cell states in two-layer scanning and review, block, row, and cell states in three-layer scanning." -ForegroundColor Green
+    Write-Host "E2E PASS: automatic phone regression completed two selection/review cycles in both scan modes, including different automatically advanced blocks, rows, and cells." -ForegroundColor Green
     Write-Host "The app was left actively scanning in three-layer mode."
     Write-Host "Artifacts: $artifactDir"
     exit 0

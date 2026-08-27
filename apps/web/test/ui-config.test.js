@@ -150,7 +150,8 @@ test("compact phone status text remains grouped instead of wrapping per characte
 });
 
 test("review pause freezes one group target without repainting its child tiles", () => {
-  assert.match(styles, /\.scan-target-highlight\.review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
+  assert.match(styles, /\.board\.group-review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
+  assert.match(appSource, /renderedBoardElement\?\.classList\.toggle\("group-review-hold", reviewHoldActive\)/);
   assert.doesNotMatch(styles, /\.row\.review-hold-row \.tile\s*\{/);
   assert.doesNotMatch(appSource, /classList\.toggle\(\s*"review-hold-row"/);
 });
@@ -175,6 +176,12 @@ test("block and row scanning use group elements while only a cell may style a ti
   assert.match(appSource, /positionScanHighlight\(renderedScanContext, contextKind, contextRows\)/);
   assert.match(appSource, /positionScanHighlight\(renderedScanTarget, targetKind, targetRows\)/);
   assert.match(appSource, /tileClass\(candidate, false, activeCell, reviewHold, cameraHold, false\)/);
+  assert.match(appSource, /const nextProgressFills = nextActiveTiles\.map\(\(rendered\) => rendered\.progressFill\)/);
+  assert.match(appSource, /return activeBlockRows\(scanner, board\)\.flatMap\(\(rowIndex\) => renderedTileGrid\[rowIndex\] \?\? \[\]\)/);
+  assert.match(appSource, /if \(scanner\.stage === ScanStage\.Rows \|\| scanner\.stage === ScanStage\.RowSelected\) return row/);
+  assert.doesNotMatch(appSource, /scanTarget\.append\(scanTargetProgressFill\)/);
+  assert.match(styles, /\.scan-context-highlight,\s*\.scan-target-highlight\s*\{[\s\S]*?z-index:\s*2/);
+  assert.match(styles, /\.scan-target-highlight\s*\{[\s\S]*?z-index:\s*3/);
   assert.match(styles, /\.scan-target-highlight\[data-highlight-kind="block"\]\s*\{[\s\S]*?var\(--color-tile-active-block-border\)/);
   assert.match(styles, /\.scan-context-highlight\[data-highlight-kind="row"\]\s*\{[\s\S]*?var\(--color-tile-active-row-border\)/);
   assert.doesNotMatch(styles, /\.tile\.active-(?:block|row)\s*\{/);

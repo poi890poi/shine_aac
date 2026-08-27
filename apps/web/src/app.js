@@ -234,7 +234,6 @@ let renderedRows = [];
 let renderedBoardElement = null;
 let renderedScanContext = null;
 let renderedScanTarget = null;
-let renderedScanTargetProgressFill = null;
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
 let renderedCameraStatusElement = null;
@@ -1175,7 +1174,7 @@ function frozenElapsedForCurrentScan(progress) {
 function setProgressFills(progress, durationMs) {
   const progressFills = currentProgressFills.some((fill) => fill?.isConnected)
     ? currentProgressFills.filter((fill) => fill?.isConnected)
-    : [...app.querySelectorAll(".scan-target-highlight:not([hidden]) .progress-fill, .tile.is-current .progress-fill")];
+    : [...app.querySelectorAll(".tile.is-current .progress-fill")];
   for (const progressFill of progressFills) {
     progressFill.style.transitionDuration = `${durationMs}ms`;
     progressFill.style.transform = progressTransform(progressFill, progress);
@@ -1659,11 +1658,7 @@ function renderFull(board, boardKey) {
   scanTarget.className = "scan-target-highlight";
   scanTarget.hidden = true;
   scanTarget.setAttribute("aria-hidden", "true");
-  const scanTargetProgressFill = document.createElement("div");
-  scanTargetProgressFill.className = "progress-fill";
-  scanTarget.append(scanTargetProgressFill);
   renderedScanTarget = scanTarget;
-  renderedScanTargetProgressFill = scanTargetProgressFill;
   boardElement.append(scanContext, scanTarget);
 
   shell.append(topPanel, boardElement);
@@ -1691,14 +1686,12 @@ function updateScanPresentation(board) {
     renderedVoiceElement.textContent = voiceStatusLabel();
   }
   updateCameraStatusPresentation();
-  const groupPresentation = updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRows);
+  updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRows);
 
   const previousActiveTiles = currentActiveTiles;
   const previousProgressFills = currentProgressFills;
   const nextActiveTiles = activeRenderedTilesForScanner(scanner);
-  const nextProgressFills = groupPresentation.targetVisible && renderedScanTargetProgressFill
-    ? [renderedScanTargetProgressFill]
-    : nextActiveTiles.map((rendered) => rendered.progressFill);
+  const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
   const progressDirection = uiConfig.verticalGroupProgress && [
     ScanStage.Blocks,
     ScanStage.BlockSelected,
@@ -1750,10 +1743,15 @@ function updateScanPresentation(board) {
 
 function activeRenderedTilesForScanner(scanner) {
   if (scanner.stage === ScanStage.Stopped) return [];
-  if (scanner.stage === ScanStage.SuggestionPages) return [];
-  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) return [];
+  if (scanner.stage === ScanStage.SuggestionPages) {
+    return renderedTileGrid.slice(0, 4).flat();
+  }
+  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
+    const board = visibleBoard(session);
+    return activeBlockRows(scanner, board).flatMap((rowIndex) => renderedTileGrid[rowIndex] ?? []);
+  }
   const row = renderedTileGrid[scanner.rowIndex] ?? [];
-  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) return [];
+  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) return row;
   const renderedTile = row[scanner.cellIndex];
   return renderedTile ? [renderedTile] : [];
 }
@@ -1790,7 +1788,8 @@ function updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRow
     renderedScanTarget.classList.toggle("review-hold", reviewHoldActive);
     renderedScanTarget.classList.toggle("camera-hold", cameraHoldActive);
   }
-  return { targetVisible: targetKind.length > 0 && targetRows.length > 0 };
+  renderedBoardElement?.classList.toggle("group-review-hold", reviewHoldActive);
+  renderedBoardElement?.classList.toggle("group-camera-hold", cameraHoldActive);
 }
 
 function positionScanHighlight(element, kind, rowIndices) {
@@ -1894,7 +1893,6 @@ function invalidateRenderedBoard() {
   renderedBoardElement = null;
   renderedScanContext = null;
   renderedScanTarget = null;
-  renderedScanTargetProgressFill = null;
   renderedPhaseElement = null;
   renderedVoiceElement = null;
   renderedCameraStatusElement = null;
@@ -1935,6 +1933,7 @@ function emitRenderState(board) {
     globalThis.ShineAacAndroid.onRender(JSON.stringify({
       message: session.message,
       stage: session.scannerState.stage,
+      phase: statusPhaseCode(session.scannerState),
       scanMode: session.config.scanMode,
       blockIndex: session.scannerState.blockIndex,
       rowIndex: session.scannerState.rowIndex,

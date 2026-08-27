@@ -413,7 +413,10 @@ async function scenarioStrictScanTiming() {
       });
       state.transitionListener = (event) => {
         if (event.propertyName !== "transform" || !event.target.matches(".progress-fill")) return;
-        const firstActiveFill = document.querySelector(".scan-target-highlight:not([hidden]) .progress-fill, .tile.is-current .progress-fill");
+        const groupTarget = document.querySelector(".scan-target-highlight:not([hidden])");
+        const firstTargetRow = Number.parseInt(groupTarget?.dataset.rowStart ?? "-1", 10);
+        const firstActiveFill = document.querySelector(".tile.is-current .progress-fill") ??
+          document.querySelectorAll(".row")[firstTargetRow]?.querySelector(".tile .progress-fill");
         if (event.target !== firstActiveFill) return;
         const kind = event.type === "transitionrun" ? "progress-run" : "progress-end";
         const durationMs = Number.parseFloat(getComputedStyle(event.target).transitionDuration) * 1000;
@@ -517,7 +520,7 @@ async function scenarioStrictScanTiming() {
   if (Object.values(required).some((event) => !event)) {
     throw new Error(`Strict scan timing trace is incomplete: ${JSON.stringify(trace)}`);
   }
-  if (postSelectionHold.rowIndex !== 0 || postSelectionHold.cellIndex !== 0) {
+  if (postSelectionHold.rowIndex !== 0 || postSelectionHold.cellIndex !== -1) {
     throw new Error(`State-change hold should stay on row 1: ${JSON.stringify(postSelectionHold)}`);
   }
 
@@ -2169,8 +2172,15 @@ async function scenarioAutoScanMorePages() {
     throw new Error(`More auto-scan should highlight four suggestion rows: ${JSON.stringify([...activePageRows])}`);
   }
   const pageProgressDirections = await evaluate(`
-    [...document.querySelectorAll('.scan-target-highlight[data-highlight-kind="block"]:not([hidden]) .progress-fill')]
-      .map((fill) => fill.dataset.progressDirection)
+    (() => {
+      const target = document.querySelector('.scan-target-highlight[data-highlight-kind="block"]:not([hidden])');
+      const start = Number.parseInt(target?.dataset.rowStart ?? "-1", 10);
+      const end = Number.parseInt(target?.dataset.rowEnd ?? "-1", 10);
+      return [...document.querySelectorAll(".row")]
+        .slice(start, end + 1)
+        .flatMap((row) => [...row.querySelectorAll(".tile .progress-fill")])
+        .map((fill) => fill.dataset.progressDirection);
+    })()
   `);
   if (pageProgressDirections.length === 0 || pageProgressDirections.some((direction) => direction !== "right")) {
     throw new Error(`More auto-scan should use horizontal page progress: ${JSON.stringify(pageProgressDirections)}`);
@@ -2764,23 +2774,24 @@ async function assertFirstRowHold(snapshot, context) {
       const rowIndex = Number.parseInt(target?.dataset.rowStart ?? "-1", 10);
       const row = document.querySelectorAll(".row")[rowIndex];
       const frame = target ? getComputedStyle(target) : null;
-      const progressFill = target?.querySelector(".progress-fill");
-      const progressStyle = progressFill ? getComputedStyle(progressFill) : null;
+      const progressFills = row ? [...row.querySelectorAll(".tile .progress-fill")] : [];
       const rectValues = (element) => {
         const rect = element?.getBoundingClientRect();
         return rect ? [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value * 10) / 10) : null;
       };
-      return target && row && frame && progressStyle ? {
+      return target && row && frame && progressFills.length > 0 ? {
         frameBorderStyle: frame.borderTopStyle,
         frameBorderWidth: frame.borderTopWidth,
         frameBorderColor: frame.borderTopColor,
         framePointerEvents: frame.pointerEvents,
-        progressBackgroundColor: progressStyle.backgroundColor,
+        progressBackgroundColors: [...new Set(progressFills.map((fill) => getComputedStyle(fill).backgroundColor))],
+        progressBorderColors: [...new Set(progressFills.map((fill) => getComputedStyle(fill).borderRightColor))],
+        overlayProgressOwners: target.querySelectorAll(".progress-fill").length,
+        tileProgressOwners: progressFills.length,
         targetGeometry: rectValues(target),
         rowGeometry: rectValues(row),
         groupClassesOnTiles: document.querySelectorAll(".tile.active-block, .tile.active-row, .tile.review-hold").length,
-        nestedTiles: target.querySelectorAll(".tile").length,
-        progress: Number.parseFloat(progressFill.style.transform?.match(/[0-9.]+/)?.[0] ?? "0")
+        nestedTiles: target.querySelectorAll(".tile").length
       } : null;
     })()
   `);
@@ -2790,7 +2801,10 @@ async function assertFirstRowHold(snapshot, context) {
     presentation.frameBorderWidth !== "3px" ||
     presentation.frameBorderColor !== "rgb(34, 111, 119)" ||
     presentation.framePointerEvents !== "none" ||
-    presentation.progressBackgroundColor !== "rgba(0, 0, 0, 0)" ||
+    JSON.stringify(presentation.progressBackgroundColors) !== JSON.stringify(["rgba(0, 0, 0, 0)"]) ||
+    JSON.stringify(presentation.progressBorderColors) !== JSON.stringify(["rgba(0, 0, 0, 0)"]) ||
+    presentation.overlayProgressOwners !== 0 ||
+    presentation.tileProgressOwners === 0 ||
     presentation.groupClassesOnTiles !== 0 ||
     presentation.nestedTiles !== 0 ||
     JSON.stringify(presentation.targetGeometry) !== JSON.stringify(presentation.rowGeometry)
@@ -3187,112 +3201,127 @@ async function scenarioVisibleEscapeLadder() {
 }
 
 async function scenarioScanVisualOwnership() {
-  await evaluate(`
-    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
-      configVersion: 33,
-      profileId: "zh-TW",
-      columns: 6,
-      scanMode: "block-row-column",
-      scanIntervalMs: 600,
-      transitionPauseMs: 0,
-      firstCellPauseMs: 600,
-      inputLatencyCompensationMs: 0,
-      scanPassLimit: 0
-    }));
-    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
-      uiConfigVersion: 1,
-      rowScanVoice: false,
-      scanVoice: false,
-      activationVoice: false,
-      restartScanFromTop: true,
-      verticalGroupProgress: false
-    }));
-    localStorage.removeItem("shine-aac-session-draft-v1");
-    location.href = ${JSON.stringify(appUrl)} + "?scan-visual-phone=1";
-  `);
-  await waitForRenderedBoard();
-  await releaseFirstRowHold();
+  for (const scanMode of ["row-column", "block-row-column"]) {
+    const threeLayer = scanMode === "block-row-column";
+    await evaluate(`
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+        configVersion: 33,
+        profileId: "zh-TW",
+        columns: 6,
+        scanMode: ${JSON.stringify(scanMode)},
+        scanIntervalMs: 700,
+        transitionPauseMs: 0,
+        firstCellPauseMs: 700,
+        inputLatencyCompensationMs: 0,
+        scanPassLimit: 0
+      }));
+      localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+        uiConfigVersion: 1,
+        rowScanVoice: false,
+        scanVoice: false,
+        activationVoice: false,
+        restartScanFromTop: true,
+        verticalGroupProgress: false
+      }));
+      localStorage.removeItem("shine-aac-session-draft-v1");
+      location.href = ${JSON.stringify(appUrl)} + "?scan-visual-phone=1&mode=" + ${JSON.stringify(scanMode)};
+    `);
+    await waitForRenderedBoard();
 
-  const blockSnapshot = await waitForActive(
-    (snapshot) => snapshot.phase === "Blocks" && snapshot.activeBlock !== null,
-    "phone block visual ownership"
-  );
-  const blockRows = [...new Set(
-    blockSnapshot.rows.flat().filter((tile) => tile.activeBlock).map((tile) => tile.rowIndex)
-  )];
-  await assertScanGroupOwnership("block", blockRows, "block scan");
-  await capturePhoneScanVisual("block");
+    let snapshot = await getSnapshot();
+    const initialKind = threeLayer ? "block" : "row";
+    if (snapshot.phase !== "Review" || !snapshot.reviewHold) {
+      throw new Error(`${scanMode} should start in review pause: ${JSON.stringify(snapshot)}`);
+    }
+    await assertReviewOwnership(initialKind, `${scanMode} initial review`);
+    await capturePhoneScanVisual(`${scanMode}-initial-review`);
+    await releaseFirstRowHold();
 
-  await clickTarget(blockSnapshot.activeBlock);
-  const rowSnapshot = await waitForActive(
-    (snapshot) => snapshot.phase === "Rows" && snapshot.activeRow !== null,
-    "phone row visual ownership"
-  );
-  await assertScanGroupOwnership("row", [rowSnapshot.activeRow.rowIndex], "row scan", {
-    contextKind: "block",
-    contextRows: blockRows
-  });
-  await capturePhoneScanVisual("row");
+    let blockRows = [];
+    if (threeLayer) {
+      const firstBlock = await waitForActive(
+        (current) => current.phase === "Blocks" && current.activeBlock !== null,
+        "three-layer block scan"
+      );
+      blockRows = activeRowsFor(firstBlock, "activeBlock");
+      await assertScanGroupOwnership("block", blockRows, "three-layer block scan");
+      await capturePhoneScanVisual("three-layer-block");
+      snapshot = await waitForActive(
+        (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex !== firstBlock.activeBlock.rowIndex,
+        "three-layer automatic block advance"
+      );
+      blockRows = activeRowsFor(snapshot, "activeBlock");
+      await assertScanGroupOwnership("block", blockRows, "three-layer advanced block scan");
+      await clickTarget(snapshot.activeBlock);
+    }
 
-  await clickTarget(rowSnapshot.activeRow);
-  const cellSnapshot = await waitForActive(
-    (snapshot) => snapshot.activeCell !== null,
-    "phone cell visual ownership"
-  );
-  const cellOwnership = await evaluate(`(() => {
-    const context = document.querySelector('.scan-context-highlight[data-highlight-kind="row"]:not([hidden])');
-    return {
-      activeCells: document.querySelectorAll(".tile.active-cell").length,
-      groupTargetVisible: Boolean(document.querySelector(".scan-target-highlight:not([hidden])")),
-      contextStart: Number.parseInt(context?.dataset.rowStart ?? "-1", 10),
-      contextEnd: Number.parseInt(context?.dataset.rowEnd ?? "-1", 10),
-      groupClassesOnTiles: document.querySelectorAll(".tile.active-block, .tile.active-row").length
-    };
-  })()`);
-  if (
-    cellOwnership.activeCells !== 1 ||
-    cellOwnership.groupTargetVisible ||
-    cellOwnership.contextStart !== cellSnapshot.activeCell.rowIndex ||
-    cellOwnership.contextEnd !== cellSnapshot.activeCell.rowIndex ||
-    cellOwnership.groupClassesOnTiles !== 0
-  ) {
-    throw new Error(`Cell scan did not isolate one active tile inside one row context: ${JSON.stringify(cellOwnership)}`);
+    const firstRow = await waitForActive(
+      (current) => current.phase === "Rows" && current.activeRow !== null,
+      `${scanMode} row scan`
+    );
+    await assertScanGroupOwnership("row", [firstRow.activeRow.rowIndex], `${scanMode} row scan`, threeLayer ? {
+      contextKind: "block",
+      contextRows: blockRows
+    } : {});
+    await capturePhoneScanVisual(`${scanMode}-row`);
+    snapshot = await waitForActive(
+      (current) => current.phase === "Rows" && current.activeRow?.rowIndex !== firstRow.activeRow.rowIndex,
+      `${scanMode} automatic row advance`
+    );
+    await assertScanGroupOwnership("row", [snapshot.activeRow.rowIndex], `${scanMode} advanced row scan`, threeLayer ? {
+      contextKind: "block",
+      contextRows: blockRows
+    } : {});
+    await clickTarget(snapshot.activeRow);
+
+    const firstCell = await waitForActive(
+      (current) => current.activeCell !== null,
+      `${scanMode} cell scan`
+    );
+    await assertCellOwnership(firstCell, `${scanMode} cell scan`);
+    await capturePhoneScanVisual(`${scanMode}-cell`);
+    snapshot = await waitForActive(
+      (current) => current.activeCell?.rowIndex === firstCell.activeCell.rowIndex &&
+        current.activeCell?.cellIndex !== firstCell.activeCell.cellIndex,
+      `${scanMode} automatic cell advance`
+    );
+    await assertCellOwnership(snapshot, `${scanMode} advanced cell scan`);
+    await clickTarget(snapshot.activeCell);
+
+    const reviewSnapshot = await waitForActive(
+      (current) => current.phase === "Review" && current.reviewHold,
+      `${scanMode} selection review`
+    );
+    await assertReviewOwnership(initialKind, `${scanMode} selection review`);
+    await capturePhoneScanVisual(`${scanMode}-selection-review`);
+    const selectedMessage = reviewSnapshot.message;
+    await clickTarget(reviewSnapshot.activeBlock ?? reviewSnapshot.activeRow);
+    const released = await waitForActive(
+      (current) => !current.reviewHold && (
+        (threeLayer && current.phase === "Blocks" && current.activeBlock) ||
+        (!threeLayer && current.phase === "Rows" && current.activeRow)
+      ),
+      `${scanMode} review release`
+    );
+    if (released.message !== selectedMessage) {
+      throw new Error(`${scanMode} review release selected another item: ${JSON.stringify({ selectedMessage, released })}`);
+    }
+    await assertNoViewportOverflow(`phone-scan-visual-${scanMode}`);
+    steps.push(pass(
+      `phone-scan-visual-${scanMode}`,
+      `${threeLayer ? "block → row → cell" : "row → cell"} scanning preserves group ownership through wait, activation, selection, and review release`
+    ));
   }
-  await capturePhoneScanVisual("cell");
-
-  await clickTarget(cellSnapshot.activeCell);
-  const reviewSnapshot = await waitForActive(
-    (snapshot) => snapshot.phase === "Review" && snapshot.reviewHold,
-    "phone review visual ownership"
-  );
-  const reviewOwnership = await evaluate(`(() => {
-    const target = document.querySelector(".scan-target-highlight.review-hold:not([hidden])");
-    const progress = target?.querySelector(".progress-fill");
-    return {
-      targetCount: document.querySelectorAll(".scan-target-highlight.review-hold:not([hidden])").length,
-      targetKind: target?.dataset.highlightKind ?? "",
-      progressBackground: progress ? getComputedStyle(progress).backgroundColor : "",
-      progressBorder: progress ? getComputedStyle(progress).borderRightColor : "",
-      groupClassesOnTiles: document.querySelectorAll(".tile.active-block, .tile.active-row, .tile.review-hold").length,
-      nestedTiles: target?.querySelectorAll(".tile").length ?? -1
-    };
-  })()`);
-  if (
-    reviewOwnership.targetCount !== 1 ||
-    reviewOwnership.targetKind !== "block" ||
-    reviewOwnership.progressBackground !== "rgba(0, 0, 0, 0)" ||
-    reviewOwnership.progressBorder !== "rgba(0, 0, 0, 0)" ||
-    reviewOwnership.groupClassesOnTiles !== 0 ||
-    reviewOwnership.nestedTiles !== 0
-  ) {
-    throw new Error(`Review pause repainted child tiles or retained moving progress: ${JSON.stringify({ reviewSnapshot, reviewOwnership })}`);
-  }
-  await capturePhoneScanVisual("review");
-  await assertNoViewportOverflow("phone-scan-visual-ownership");
   steps.push(pass(
-    "phone-scan-visual-ownership",
-    "one overlay owns block/row progress, one tile owns cell focus, and review does not repaint child tiles"
+    "scan-progress-compatibility",
+    "row and block progress remains synchronized inside every target tile; group overlays own no progress fill"
   ));
+}
+
+function activeRowsFor(snapshot, property) {
+  return [...new Set(
+    snapshot.rows.flat().filter((tile) => tile[property]).map((tile) => tile.rowIndex)
+  )];
 }
 
 async function capturePhoneScanVisual(state) {
@@ -3321,13 +3350,21 @@ async function assertScanGroupOwnership(targetKind, targetRows, context, expecte
     };
     const target = document.querySelector('.scan-target-highlight[data-highlight-kind=${JSON.stringify(targetKind)}]:not([hidden])');
     const contextHighlight = document.querySelector(".scan-context-highlight:not([hidden])");
+    const targetTiles = ${JSON.stringify(targetRows)}.flatMap((index) =>
+      [...(document.querySelectorAll(".row")[index]?.querySelectorAll(".tile") ?? [])]
+    );
+    const tileProgress = targetTiles.map((tile) => tile.querySelector(".progress-fill")).filter(Boolean);
     return {
       targetCount: document.querySelectorAll(".scan-target-highlight:not([hidden])").length,
       targetStart: Number.parseInt(target?.dataset.rowStart ?? "-1", 10),
       targetEnd: Number.parseInt(target?.dataset.rowEnd ?? "-1", 10),
       targetRect: rectValues(target),
       expectedTargetRect: unionRect(${JSON.stringify(targetRows)}),
-      targetProgressOwners: target?.querySelectorAll(":scope > .progress-fill").length ?? 0,
+      overlayProgressOwners: target?.querySelectorAll(":scope > .progress-fill").length ?? 0,
+      targetTileCount: targetTiles.length,
+      tileProgressOwners: tileProgress.length,
+      progressDirections: [...new Set(tileProgress.map((fill) => fill.dataset.progressDirection ?? "right"))],
+      progressTransforms: tileProgress.map((fill) => fill.style.transform),
       nestedTiles: target?.querySelectorAll(".tile").length ?? -1,
       groupClassesOnTiles: document.querySelectorAll(".tile.active-block, .tile.active-row").length,
       contextKind: contextHighlight?.dataset.highlightKind ?? "",
@@ -3342,7 +3379,11 @@ async function assertScanGroupOwnership(targetKind, targetRows, context, expecte
     ownership.targetStart !== Math.min(...targetRows) ||
     ownership.targetEnd !== Math.max(...targetRows) ||
     JSON.stringify(ownership.targetRect) !== JSON.stringify(ownership.expectedTargetRect) ||
-    ownership.targetProgressOwners !== 1 ||
+    ownership.overlayProgressOwners !== 0 ||
+    ownership.targetTileCount === 0 ||
+    ownership.tileProgressOwners !== ownership.targetTileCount ||
+    JSON.stringify(ownership.progressDirections) !== JSON.stringify(["right"]) ||
+    ownership.progressTransforms.some((transform) => !transform.startsWith("scaleX(")) ||
     ownership.nestedTiles !== 0 ||
     ownership.groupClassesOnTiles !== 0
   ) {
@@ -3359,6 +3400,65 @@ async function assertScanGroupOwnership(targetKind, targetRows, context, expecte
     }
   } else if (ownership.contextKind) {
     throw new Error(`${context} showed an unexpected parent context: ${JSON.stringify(ownership)}`);
+  }
+}
+
+async function assertCellOwnership(snapshot, context) {
+  const ownership = await evaluate(`(() => {
+    const rowContext = document.querySelector('.scan-context-highlight[data-highlight-kind="row"]:not([hidden])');
+    const activeCell = document.querySelector(".tile.active-cell");
+    const progress = activeCell?.querySelector(".progress-fill");
+    return {
+      activeCells: document.querySelectorAll(".tile.active-cell").length,
+      groupTargetVisible: Boolean(document.querySelector(".scan-target-highlight:not([hidden])")),
+      contextStart: Number.parseInt(rowContext?.dataset.rowStart ?? "-1", 10),
+      contextEnd: Number.parseInt(rowContext?.dataset.rowEnd ?? "-1", 10),
+      groupClassesOnTiles: document.querySelectorAll(".tile.active-block, .tile.active-row").length,
+      progressDirection: progress?.dataset.progressDirection ?? "",
+      progressTransform: progress?.style.transform ?? ""
+    };
+  })()`);
+  if (
+    ownership.activeCells !== 1 ||
+    ownership.groupTargetVisible ||
+    ownership.contextStart !== snapshot.activeCell.rowIndex ||
+    ownership.contextEnd !== snapshot.activeCell.rowIndex ||
+    ownership.groupClassesOnTiles !== 0 ||
+    ownership.progressDirection !== "right" ||
+    !ownership.progressTransform.startsWith("scaleX(")
+  ) {
+    throw new Error(`${context} did not isolate one progressing cell inside one row context: ${JSON.stringify(ownership)}`);
+  }
+}
+
+async function assertReviewOwnership(targetKind, context) {
+  const ownership = await evaluate(`(() => {
+    const target = document.querySelector('.scan-target-highlight.review-hold[data-highlight-kind=${JSON.stringify(targetKind)}]:not([hidden])');
+    const start = Number.parseInt(target?.dataset.rowStart ?? "-1", 10);
+    const end = Number.parseInt(target?.dataset.rowEnd ?? "-1", 10);
+    const fills = [...document.querySelectorAll(".row")]
+      .slice(start, end + 1)
+      .flatMap((row) => [...row.querySelectorAll(".progress-fill")]);
+    return {
+      targetCount: document.querySelectorAll(".scan-target-highlight.review-hold:not([hidden])").length,
+      overlayProgressOwners: target?.querySelectorAll(".progress-fill").length ?? -1,
+      tileProgressOwners: fills.length,
+      progressBackgrounds: [...new Set(fills.map((fill) => getComputedStyle(fill).backgroundColor))],
+      progressRightBorders: [...new Set(fills.map((fill) => getComputedStyle(fill).borderRightColor))],
+      groupClassesOnTiles: document.querySelectorAll(".tile.active-block, .tile.active-row, .tile.review-hold").length,
+      nestedTiles: target?.querySelectorAll(".tile").length ?? -1
+    };
+  })()`);
+  if (
+    ownership.targetCount !== 1 ||
+    ownership.overlayProgressOwners !== 0 ||
+    ownership.tileProgressOwners === 0 ||
+    JSON.stringify(ownership.progressBackgrounds) !== JSON.stringify(["rgba(0, 0, 0, 0)"]) ||
+    JSON.stringify(ownership.progressRightBorders) !== JSON.stringify(["rgba(0, 0, 0, 0)"]) ||
+    ownership.groupClassesOnTiles !== 0 ||
+    ownership.nestedTiles !== 0
+  ) {
+    throw new Error(`${context} repainted child tiles or changed frozen progress ownership: ${JSON.stringify(ownership)}`);
   }
 }
 
@@ -4086,13 +4186,12 @@ async function getSnapshot() {
       const targetKind = groupTarget?.dataset.highlightKind ?? "";
       const targetRowStart = Number.parseInt(groupTarget?.dataset.rowStart ?? "-1", 10);
       const targetRowEnd = Number.parseInt(groupTarget?.dataset.rowEnd ?? "-1", 10);
-      const groupProgressFill = groupTarget?.querySelector(".progress-fill");
       const rows = [...document.querySelectorAll(".row")].map((row, rowIndex) =>
         [...row.querySelectorAll(".tile")].map((tile, cellIndex) => {
           const rect = tile.getBoundingClientRect();
           const activeBlock = targetKind === "block" && rowIndex >= targetRowStart && rowIndex <= targetRowEnd;
           const activeRow = targetKind === "row" && rowIndex === targetRowStart;
-          const progressFill = activeBlock || activeRow ? groupProgressFill : tile.querySelector(".progress-fill");
+          const progressFill = tile.querySelector(".progress-fill");
           const inlineTransform = progressFill?.style.transform ?? "";
           const computedTransform = progressFill ? getComputedStyle(progressFill).transform : "";
           const transform = computedTransform && computedTransform !== "none" ? computedTransform : inlineTransform;
