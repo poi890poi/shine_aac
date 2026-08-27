@@ -25,6 +25,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -155,7 +156,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     private var activeStepLabel = ""
     private var calibrationRunId = 0
     private var analysisInFlight = false
-    private var lastFrameAt = 0L
+    private val frameCadenceGate = FrameCadenceGate()
     private val longBlinkDurations = mutableListOf<Long>()
     private val restClosedDurations = mutableListOf<Long>()
     private val restEyeSignals = mutableListOf<BlinkEyeSignal>()
@@ -1600,6 +1601,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         if (frameGeneration != cameraOpenGeneration ||
             !activityResumed || uvcFrameQueued
         ) return
+        val frameTimestampMs = SystemClock.elapsedRealtime()
         val width = uvcFrameWidth
         val height = uvcFrameHeight
         val expectedBytes = width * height * 3 / 2
@@ -1613,7 +1615,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     bytes,
                     width,
                     height,
-                    frameGeneration
+                    frameGeneration,
+                    frameTimestampMs
                 )
             }
         ) {
@@ -1625,15 +1628,18 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         bytes: ByteArray,
         width: Int,
         height: Int,
-        frameGeneration: Int
+        frameGeneration: Int,
+        frameTimestampMs: Long
     ) {
-        val now = System.currentTimeMillis()
         val interval = when (selectedGesture) {
             OpticalSwitchGesture.LongBlink -> BlinkFrameIntervalMs
             OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
         }
         if (frameGeneration != cameraOpenGeneration || !activityResumed ||
-            analysisInFlight || now - lastFrameAt < interval
+            analysisInFlight || !frameCadenceGate.shouldAnalyze(
+                frameTimestampMs,
+                interval
+            )
         ) {
             uvcFrameQueued = false
             return
@@ -1651,22 +1657,29 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             return
         }
         analysisInFlight = true
-        lastFrameAt = now
         val imageWidth = bitmap.width
         val imageHeight = bitmap.height
         val analyzer = cheekAnalyzer
         try {
-            val observation = analyzer?.analyzeBitmapForCamera(bitmap, now)
+            val observation = analyzer?.analyzeBitmapForCamera(
+                bitmap,
+                frameTimestampMs
+            )
             if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
                 handleCheekObservation(
                     observation = observation,
-                    now = now,
+                    now = frameTimestampMs,
                     frameWidth = imageWidth,
                     frameHeight = imageHeight,
                     detailedEnglishQuality = false
                 )
             } else {
-                handleBlinkObservation(observation, now, imageWidth, imageHeight)
+                handleBlinkObservation(
+                    observation,
+                    frameTimestampMs,
+                    imageWidth,
+                    imageHeight
+                )
             }
         } catch (_: Exception) {
             mainHandler?.post {
@@ -1741,6 +1754,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         cameraThread = null
         cameraHandler = null
         analysisInFlight = false
+        frameCadenceGate.reset()
     }
 
     private fun applyZoomToRepeatingRequest() {
@@ -1777,12 +1791,19 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun analyze(image: Image) {
-        val now = System.currentTimeMillis()
+        val frameTimestampMs = cameraFrameTimestampMs(
+            image.timestamp,
+            SystemClock.elapsedRealtime()
+        )
         val detectorIntervalMs = when (selectedGesture) {
             OpticalSwitchGesture.LongBlink -> BlinkFrameIntervalMs
             OpticalSwitchGesture.CheekTwitch -> CheekFrameIntervalMs
         }
-        if (analysisInFlight || now - lastFrameAt < detectorIntervalMs) {
+        if (analysisInFlight || !frameCadenceGate.shouldAnalyze(
+                frameTimestampMs,
+                detectorIntervalMs
+            )
+        ) {
             image.close()
             return
         }
@@ -1800,7 +1821,6 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
         }
 
         analysisInFlight = true
-        lastFrameAt = now
         val rotationDegrees = analysisRotationDegrees
         val imageSize = orientedImageSize(image, rotationDegrees)
 
@@ -1808,19 +1828,24 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
             val observation = analyzer.analyzeYuvForSetup(
                 image,
                 rotationDegrees,
-                now,
+                frameTimestampMs,
                 mirrorCameraOutput = activeCameraMirrored
             )
             if (selectedGesture == OpticalSwitchGesture.CheekTwitch) {
                 handleCheekObservation(
                     observation = observation,
-                    now = now,
+                    now = frameTimestampMs,
                     frameWidth = imageSize.width,
                     frameHeight = imageSize.height,
                     detailedEnglishQuality = true
                 )
             } else {
-                handleBlinkObservation(observation, now, imageSize.width, imageSize.height)
+                handleBlinkObservation(
+                    observation,
+                    frameTimestampMs,
+                    imageSize.width,
+                    imageSize.height
+                )
             }
         } catch (_: Exception) {
             mainHandler?.post {

@@ -69,7 +69,7 @@ class CameraSwitchInputAdapter(
     )
     private var tonePlayer: CameraSwitchTonePlayer? = null
     private val analysisSize = Size(480, 360)
-    private var lastFrameAt = 0L
+    private val frameCadenceGate = FrameCadenceGate()
     private var lastImageReceivedAt = 0L
     private var lastAnalysisCompletedAt = 0L
     private var lastStatusSentAt = 0L
@@ -188,6 +188,7 @@ class CameraSwitchInputAdapter(
         analysisExecutor?.shutdownNow()
         analysisExecutor = null
         uvcFrameQueued = false
+        frameCadenceGate.reset()
         lastImageReceivedAt = 0L
         lastAnalysisCompletedAt = 0L
         lastStatusSentAt = 0L
@@ -198,6 +199,7 @@ class CameraSwitchInputAdapter(
         cheekDetector.reset()
         cheekClassifier.reset()
         holdEventActive = false
+        lastActivationAt = 0L
     }
 
     @SuppressLint("MissingPermission")
@@ -419,6 +421,7 @@ class CameraSwitchInputAdapter(
     private fun queueUvcFrame(frame: ByteBuffer, frameGeneration: Int) {
         if (frameGeneration != generation || !running) return
         lastImageReceivedAt = System.currentTimeMillis()
+        val frameTimestampMs = SystemClock.elapsedRealtime()
         if (uvcFrameQueued) return
         val width = uvcFrameWidth
         val height = uvcFrameHeight
@@ -429,7 +432,13 @@ class CameraSwitchInputAdapter(
         frame.duplicate().apply { rewind() }.get(bytes)
         try {
             analysisExecutor?.execute {
-                analyzeUvcFrame(bytes, width, height, frameGeneration)
+                analyzeUvcFrame(
+                    bytes,
+                    width,
+                    height,
+                    frameGeneration,
+                    frameTimestampMs
+                )
             } ?: run { uvcFrameQueued = false }
         } catch (_: RuntimeException) {
             uvcFrameQueued = false
@@ -440,16 +449,20 @@ class CameraSwitchInputAdapter(
         bytes: ByteArray,
         width: Int,
         height: Int,
-        frameGeneration: Int
+        frameGeneration: Int,
+        frameTimestampMs: Long
     ) {
         if (frameGeneration != generation || !running) {
             uvcFrameQueued = false
             return
         }
         val settings = settingsProvider()
-        val now = System.currentTimeMillis()
         val interval = cameraAnalysisIntervalMs(settings.gesture, powerSavingIdle)
-        if (!settings.enabled || now - lastFrameAt < interval) {
+        if (!settings.enabled || !frameCadenceGate.shouldAnalyze(
+                frameTimestampMs,
+                interval
+            )
+        ) {
             uvcFrameQueued = false
             return
         }
@@ -465,27 +478,34 @@ class CameraSwitchInputAdapter(
             uvcFrameQueued = false
             return
         }
-        lastFrameAt = now
         val startedNs = SystemClock.elapsedRealtimeNanos()
         try {
-            val observation = faceAnalyzer?.analyzeBitmapForCamera(bitmap, now)
+            val observation = faceAnalyzer?.analyzeBitmapForCamera(
+                bitmap,
+                frameTimestampMs
+            )
             if (frameGeneration == generation && running) {
                 if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
                     val score = scoreCheekObservation(observation, settings)
-                    updateCheekState(score, settings)
+                    updateCheekState(score, settings, frameTimestampMs)
                 } else {
                     val signal = observation?.blinkEyeSignal()
                         ?.let(activeDetectionParameters::normalizeSignal)
-                    updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
+                    updateBlinkState(
+                        signal?.closedScore,
+                        signal?.reopenScore,
+                        settings,
+                        frameTimestampMs
+                    )
                 }
             }
         } catch (error: Exception) {
             Log.w(Tag, "UVC MediaPipe analysis failed", error)
             if (frameGeneration == generation) {
                 if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
-                    updateCheekState(null, settings)
+                    updateCheekState(null, settings, frameTimestampMs)
                 } else {
-                    updateBlinkState(null, null, settings)
+                    updateBlinkState(null, null, settings, frameTimestampMs)
                 }
             }
         } finally {
@@ -640,9 +660,12 @@ class CameraSwitchInputAdapter(
             return
         }
 
-        val now = System.currentTimeMillis()
+        val frameTimestampMs = cameraFrameTimestampMs(
+            imageProxy.imageInfo.timestamp,
+            SystemClock.elapsedRealtime()
+        )
         val detectorIntervalMs = cameraAnalysisIntervalMs(settings.gesture, powerSavingIdle)
-        if (now - lastFrameAt < detectorIntervalMs) {
+        if (!frameCadenceGate.shouldAnalyze(frameTimestampMs, detectorIntervalMs)) {
             imageProxy.close()
             return
         }
@@ -654,32 +677,40 @@ class CameraSwitchInputAdapter(
             return
         }
 
-        lastFrameAt = now
         val analysisStartedNs = SystemClock.elapsedRealtimeNanos()
 
         try {
             val observation = analyzer.analyzeRgbaForRuntime(
                 mediaImage,
                 imageProxy.imageInfo.rotationDegrees,
-                now,
+                frameTimestampMs,
                 mirrorCameraOutput = activeCameraMirrored
             )
             if (imageGeneration != generation || !running) return
 
             if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
-                updateCheekState(scoreCheekObservation(observation, settings), settings)
+                updateCheekState(
+                    scoreCheekObservation(observation, settings),
+                    settings,
+                    frameTimestampMs
+                )
             } else {
                 val signal = observation?.blinkEyeSignal()
                     ?.let(activeDetectionParameters::normalizeSignal)
-                updateBlinkState(signal?.closedScore, signal?.reopenScore, settings)
+                updateBlinkState(
+                    signal?.closedScore,
+                    signal?.reopenScore,
+                    settings,
+                    frameTimestampMs
+                )
             }
         } catch (error: Exception) {
             Log.w(Tag, "MediaPipe analysis failed", error)
             if (imageGeneration == generation) {
                 if (settings.gesture == OpticalSwitchGesture.CheekTwitch) {
-                    updateCheekState(null, settings)
+                    updateCheekState(null, settings, frameTimestampMs)
                 } else {
-                    updateBlinkState(null, null, settings)
+                    updateBlinkState(null, null, settings, frameTimestampMs)
                 }
             }
         } finally {
@@ -723,32 +754,52 @@ class CameraSwitchInputAdapter(
             ?: cheekDetector.observe(observation.blendshapes)
     }
 
-    private fun updateCheekState(score: Double?, settings: CameraSwitchSettings) {
+    private fun updateCheekState(
+        score: Double?,
+        settings: CameraSwitchSettings,
+        frameTimestampMs: Long
+    ) {
         lastReportedScore = score
         activeEnterThreshold = settings.cheekModel?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
-        val now = System.currentTimeMillis()
-        for (event in cheekClassifier.onScore(score, now)) {
+        for (event in cheekClassifier.onScore(score, frameTimestampMs)) {
             when (event) {
                 is BinarySwitchClassifier.Event.HoldStarted ->
                     onHoldStarted(settings, "cheekMotion")
                 is BinarySwitchClassifier.Event.Activated ->
-                    onActivated(settings, now, "cheekTwitchMs=${event.heldMs}")
+                    onActivated(
+                        settings,
+                        frameTimestampMs,
+                        "cheekTwitchMs=${event.heldMs}"
+                    )
                 is BinarySwitchClassifier.Event.HoldEnded ->
                     onHoldEnded(settings, "reason=${event.reason.name}")
             }
         }
     }
 
-    private fun updateBlinkState(score: Double?, reopenScore: Double?, settings: CameraSwitchSettings) {
+    private fun updateBlinkState(
+        score: Double?,
+        reopenScore: Double?,
+        settings: CameraSwitchSettings,
+        frameTimestampMs: Long
+    ) {
         lastReportedScore = score
         activeEnterThreshold = activeDetectionParameters.closeThreshold
-        val now = System.currentTimeMillis()
-        for (event in blinkClassifier.onSignal(score, now, settings.longBlinkMs, reopenScore)) {
+        for (event in blinkClassifier.onSignal(
+            score,
+            frameTimestampMs,
+            settings.longBlinkMs,
+            reopenScore
+        )) {
             when (event) {
                 is BlinkGestureClassifier.Event.HoldStarted ->
                     onHoldStarted(settings, "eyesClosed")
                 is BlinkGestureClassifier.Event.Activated ->
-                    onActivated(settings, now, "longBlinkMs=${event.durationMs}")
+                    onActivated(
+                        settings,
+                        frameTimestampMs,
+                        "longBlinkMs=${event.durationMs}"
+                    )
                 is BlinkGestureClassifier.Event.HoldEnded ->
                     onHoldEnded(settings, "closedMs=${event.durationMs};reason=${event.reason.name}")
             }
