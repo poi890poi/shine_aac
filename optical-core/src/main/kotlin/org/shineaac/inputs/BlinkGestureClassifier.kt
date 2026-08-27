@@ -1,25 +1,23 @@
 package org.shineaac.inputs
 
-/** Source-independent long-blink state machine. */
+/** Source-independent long-blink state machine with bounded statistical eye-state evidence. */
 class BlinkGestureClassifier(
     private val config: Config = Config()
 ) {
     private var state = State.Open
-    private var closingStartedAtMs = NoTime
     private var closedStartedAtMs = NoTime
-    private var openCandidateStartedAtMs = NoTime
     private var signalLostStartedAtMs = NoTime
     private var openBaselineStartedAtMs = NoTime
     private var hasOpenBaseline = config.requiredOpenBeforeCloseMs <= 0
+    private val eyeStateEvidence = BlinkStateEvidenceFilter()
 
     fun reset(assumeOpenBaseline: Boolean = false) {
         state = State.Open
-        closingStartedAtMs = NoTime
         closedStartedAtMs = NoTime
-        openCandidateStartedAtMs = NoTime
         signalLostStartedAtMs = NoTime
         openBaselineStartedAtMs = NoTime
         hasOpenBaseline = assumeOpenBaseline || config.requiredOpenBeforeCloseMs <= 0
+        eyeStateEvidence.reset(BlinkStateEvidenceFilter.EyeState.Open)
     }
 
     fun onSignal(
@@ -37,34 +35,30 @@ class BlinkGestureClassifier(
 
     private fun handleOpen(closedScore: Double?, reopenScore: Double?, nowMs: Long): List<Event> {
         if (closedScore == null) {
-            closingStartedAtMs = NoTime
+            eyeStateEvidence.observe(
+                BlinkStateEvidenceFilter.Observation.Ambiguous,
+                nowMs,
+                config.minClosedStableMs
+            )
             return emptyList()
         }
-        if (reopenScore != null && reopenScore <= config.openThreshold) {
-            closingStartedAtMs = NoTime
+        val observation = observation(closedScore)
+        val confidentlyOpen = reopenScore != null && reopenScore <= config.openThreshold
+        if (confidentlyOpen) {
             if (openBaselineStartedAtMs == NoTime) {
                 openBaselineStartedAtMs = nowMs
             }
             if (nowMs - openBaselineStartedAtMs >= config.requiredOpenBeforeCloseMs) {
                 hasOpenBaseline = true
             }
-            return emptyList()
+        } else if (observation == BlinkStateEvidenceFilter.Observation.Closed) {
+            openBaselineStartedAtMs = NoTime
         }
-        if (closedScore < config.closeThreshold) {
-            closingStartedAtMs = NoTime
-            return emptyList()
-        }
-        openBaselineStartedAtMs = NoTime
         if (!hasOpenBaseline) return emptyList()
-        if (closingStartedAtMs == NoTime) {
-            closingStartedAtMs = nowMs
-        }
-        if (nowMs - closingStartedAtMs < config.minClosedStableMs) {
-            return emptyList()
-        }
+        val evidence = eyeStateEvidence.observe(observation, nowMs, config.minClosedStableMs)
+        if (!evidence.changed || evidence.state != BlinkStateEvidenceFilter.EyeState.Closed) return emptyList()
         state = State.ClosedHolding
-        closedStartedAtMs = closingStartedAtMs
-        openCandidateStartedAtMs = NoTime
+        closedStartedAtMs = evidence.transitionStartedAtMs ?: nowMs
         signalLostStartedAtMs = NoTime
         return listOf(Event.HoldStarted(closedStartedAtMs))
     }
@@ -76,6 +70,11 @@ class BlinkGestureClassifier(
         longBlinkMs: Long
     ): List<Event> {
         if (closedScore == null) {
+            eyeStateEvidence.observe(
+                BlinkStateEvidenceFilter.Observation.Ambiguous,
+                nowMs,
+                config.openStableMs
+            )
             if (signalLostStartedAtMs == NoTime) signalLostStartedAtMs = nowMs
             if (nowMs - signalLostStartedAtMs >= config.signalLostCancelMs) {
                 val durationMs = nowMs - closedStartedAtMs
@@ -85,62 +84,80 @@ class BlinkGestureClassifier(
             return emptyList()
         }
         signalLostStartedAtMs = NoTime
-
-        if (reopenScore != null && reopenScore <= config.openThreshold) {
+        val observation = observation(closedScore)
+        val evidence = eyeStateEvidence.observe(observation, nowMs, config.openStableMs)
+        if (evidence.changed && evidence.state == BlinkStateEvidenceFilter.EyeState.Open) {
             val durationMs = nowMs - closedStartedAtMs
+            val endReason = if (reopenScore != null && reopenScore <= config.openThreshold) {
+                EndReason.Opened
+            } else {
+                EndReason.WeakClosure
+            }
             reset(assumeOpenBaseline = true)
-            return listOf(Event.HoldEnded(durationMs, EndReason.Opened))
+            return listOf(Event.HoldEnded(durationMs, endReason))
         }
-        if (closedScore >= config.closeThreshold) {
-            if (
-                openCandidateStartedAtMs != NoTime &&
-                nowMs - openCandidateStartedAtMs >= config.openStableMs
-            ) {
+
+        // Only a currently positive frame may complete activation. Open or
+        // ambiguous evidence near the deadline is allowed to resolve first.
+        if (
+            observation == BlinkStateEvidenceFilter.Observation.Closed &&
+            nowMs - closedStartedAtMs >= longBlinkMs
+        ) {
+            state = State.ActivatedWaitOpen
+            signalLostStartedAtMs = NoTime
+            return listOf(Event.Activated(nowMs - closedStartedAtMs))
+        }
+        return emptyList()
+    }
+
+    private fun handleActivatedWaitOpen(
+        closedScore: Double?,
+        reopenScore: Double?,
+        nowMs: Long
+    ): List<Event> {
+        if (closedScore == null) {
+            eyeStateEvidence.observe(
+                BlinkStateEvidenceFilter.Observation.Ambiguous,
+                nowMs,
+                config.openStableMs
+            )
+            if (signalLostStartedAtMs == NoTime) signalLostStartedAtMs = nowMs
+            if (nowMs - signalLostStartedAtMs >= config.signalLostCancelMs) {
                 val durationMs = nowMs - closedStartedAtMs
                 reset()
-                return listOf(Event.HoldEnded(durationMs, EndReason.WeakClosure))
-            }
-            openCandidateStartedAtMs = NoTime
-            if (nowMs - closedStartedAtMs >= longBlinkMs) {
-                state = State.ActivatedWaitOpen
-                signalLostStartedAtMs = NoTime
-                return listOf(Event.Activated(nowMs - closedStartedAtMs))
+                return listOf(Event.HoldEnded(durationMs, EndReason.SignalLost))
             }
             return emptyList()
         }
-
-        // A short visit to the hysteresis band absorbs detector jitter, but the
-        // band is not positive closed-eye evidence and must never complete an
-        // activation. Two or more weak frames cancel the hold conservatively.
-        if (openCandidateStartedAtMs == NoTime) {
-            openCandidateStartedAtMs = nowMs
-        }
-        if (nowMs - openCandidateStartedAtMs >= config.openStableMs) {
+        signalLostStartedAtMs = NoTime
+        val evidence = eyeStateEvidence.observe(
+            observation(closedScore),
+            nowMs,
+            config.openStableMs
+        )
+        if (evidence.changed && evidence.state == BlinkStateEvidenceFilter.EyeState.Open) {
             val durationMs = nowMs - closedStartedAtMs
-            reset()
-            return listOf(Event.HoldEnded(durationMs, EndReason.WeakClosure))
+            val endReason = if (reopenScore != null && reopenScore <= config.openThreshold) {
+                EndReason.Opened
+            } else {
+                EndReason.WeakClosure
+            }
+            reset(assumeOpenBaseline = true)
+            return listOf(Event.HoldEnded(durationMs, endReason))
         }
         return emptyList()
     }
 
-    private fun handleActivatedWaitOpen(closedScore: Double?, reopenScore: Double?, nowMs: Long): List<Event> {
-        if (closedScore == null) {
-            openCandidateStartedAtMs = NoTime
-            return emptyList()
-        }
+    private fun observation(closedScore: Double): BlinkStateEvidenceFilter.Observation =
         if (closedScore >= config.closeThreshold) {
-            openCandidateStartedAtMs = NoTime
-            return emptyList()
+            BlinkStateEvidenceFilter.Observation.Closed
+        } else {
+            // The statistical premise is the binary result at the configured
+            // single-frame threshold. Hysteresis still controls open-baseline
+            // arming and the diagnostic end reason, but it is not a third
+            // statistical class.
+            BlinkStateEvidenceFilter.Observation.Open
         }
-        if (reopenScore == null || reopenScore > config.openThreshold) return emptyList()
-        if (openCandidateStartedAtMs == NoTime) {
-            openCandidateStartedAtMs = nowMs
-        }
-        if (nowMs - openCandidateStartedAtMs >= config.openStableMs) {
-            reset(assumeOpenBaseline = true)
-        }
-        return emptyList()
-    }
 
     data class Config(
         val closeThreshold: Double = 0.55,
