@@ -1,17 +1,17 @@
-# Google Play submission packet — 0.4.0
+# Google Play submission packet — 0.4.1
 
 This is the owner checklist for the Google Play Internal or Closed testing
-submission of version 0.4.0. The Taiwan listing uses the localized name
+submission of version 0.4.1. The Taiwan listing uses the localized name
 `我想說`; English listings use `SayToMe AAC`.
 
 ## Build to upload
 
 - Track: Internal testing first; promote to Closed testing only after review.
 - Package id: `org.shineaac.app`
-- Version name: `0.4.0`
-- Version code: `60`
+- Version name: `0.4.1`
+- Version code: `61`
 - Compile and target SDK: `36`
-- Upload artifact: `shine-aac-v0.4.0-code60-release.aab`
+- Upload artifact: `shine-aac-v0.4.1-code61-release.aab`
 - Checksum: recorded in `PLAY_AAB_SHA256SUMS.txt` after the final build.
 - Upload key: the existing private SayToMe upload key; never commit its
   keystore or properties file.
@@ -19,7 +19,7 @@ submission of version 0.4.0. The Taiwan listing uses the localized name
 Only the signed AAB belongs in Google Play. The versioned debug APK is for
 direct device installation and must not be uploaded to Play.
 
-Before upload, the Play Console owner must confirm that version code 60 has
+Before upload, the Play Console owner must confirm that version code 61 has
 not already been used. Google Play does not permit reusing a version code,
 even when the earlier bundle was only a draft or test release.
 
@@ -45,7 +45,7 @@ medical-device, treatment, diagnosis, or outcome claims.
 - Support: `docs/support/index.html`
 - Privacy policy: `docs/privacy-policy/index.html`
 
-Direct USB UVC support is part of 0.4.0. It still requires compatibility and
+Direct USB UVC support remains available in 0.4.1. It still requires compatibility and
 physical calibration testing for each Android device, adapter/hub, and webcam
 combination; do not describe every UVC device as guaranteed compatible.
 
@@ -61,7 +61,7 @@ combination; do not describe every UVC device as guaranteed compatible.
 | Screenshot 3 | `store-assets/screenshots/phone/03-configuration-basic.png` |
 | Screenshot 4 | `store-assets/screenshots/phone/04-configuration-input-options.png` |
 
-Review screenshots against the exact 0.4.0 build before upload. Do not use a
+Review screenshots against the exact 0.4.1 build before upload. Do not use a
 screenshot that shows a stale app name, broken dark
 theme, undersized camera preview, or superseded settings layout.
 
@@ -88,12 +88,12 @@ gesture input is optional; the board can be used without camera permission.
 
 ## Required owner actions
 
-1. Confirm version code 60 is unused in Play Console.
+1. Confirm version code 61 is unused in Play Console.
 2. Verify the final AAB filename, SHA-256, version metadata, and upload-key
    signing identity against the generated release report.
-3. Upload only the versioned code-60 AAB to Internal testing.
+3. Upload only the versioned code-61 AAB to Internal testing.
 4. Add the `zh-TW` and English listings with the correct localized names.
-5. Paste the matching 0.4.0 release notes for each locale.
+5. Paste the matching 0.4.1 release notes for each locale.
 6. Upload reviewed icon, feature graphic, and current screenshots.
 7. Complete Data Safety, App Access, Content Rating, and Target Audience forms.
 8. Add the stable privacy-policy and support URLs.
@@ -102,6 +102,6 @@ gesture input is optional; the board can be used without camera permission.
 
 ## Release gate
 
-The package is ready for upload only when the generated 0.4.0 Play report says
+The package is ready for upload only when the generated 0.4.1 Play report says
 all automated gates passed, the signed AAB verification passed, no unresolved
-P0/P1 release findings remain, and the owner confirms code 60 is unused.
+P0/P1 release findings remain, and the owner confirms code 61 is unused.
