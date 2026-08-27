@@ -85,6 +85,27 @@ class OpticalOracleTest(unittest.TestCase):
         self.assertEqual(42700, samples[0]["max_us"])
         self.assertEqual("rgba-mediaimage", samples[0]["path"])
 
+    def test_shared_face_performance_and_stalls_are_reported_for_blink(self):
+        text = "\n".join([
+            "I/ShineCameraSwitch: FACE_PERF path=mediapipe frames=50 "
+            "avgUs=39000 maxUs=78000 size=480x360",
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT '
+            '{"intent":"cameraStatus","source":"android-camera-long-blink",'
+            '"detail":"state=detectorStale"}',
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT '
+            '{"intent":"holdEnd","source":"android-camera-long-blink",'
+            '"detail":"reason=SignalStalled"}',
+        ])
+
+        samples = RIG.face_performance_samples(text)
+
+        self.assertEqual(39000, samples[0]["avg_us"])
+        self.assertEqual(78000, samples[0]["max_us"])
+        self.assertEqual(
+            ["detectorStale", "SignalStalled"],
+            RIG.optical_stall_events(text),
+        )
+
     def test_e2e_demo_helpers_use_latest_state_and_physical_source(self):
         log = "\n".join([
             'I/ShineAacE2E: SHINE_AAC_E2E_STATE {"message":"","stage":"Rows","rowIndex":0}',
@@ -865,6 +886,59 @@ class OpenCvFramebufferTest(unittest.TestCase):
         self.assertEqual((1.4, 2.1, 0.15), (
             continuous["start"], continuous["end"], continuous["rate"],
         ))
+        self.assertEqual("P2", continuous["severity"])
+        for case_id in (
+            "blink_long_positive_01",
+            "blink_long_positive_02",
+            "blink_long_positive_03",
+            "blink_two_gestures_recovery",
+        ):
+            closed_holds = [
+                item for item in cases[case_id]["stills"]
+                if item.get("hold_until_activation")
+            ]
+            self.assertGreaterEqual(len(closed_holds), 1)
+            self.assertTrue(all(
+                item.get("activation_timeout_ms", 0) >= 5000
+                for item in closed_holds
+            ))
+
+    def test_positive_still_waits_for_activation_instead_of_host_duration(self):
+        rig = object.__new__(RIG.OpticalRig)
+        now = time.time()
+        rig.host = mock.Mock(events=[{
+            "token": "presenter-1", "type": "state_applied", "t": now,
+        }])
+        rig.args = mock.Mock(trace_hold=False)
+        rig.device = mock.Mock()
+        rig.show_video_still = mock.Mock(return_value="presenter-1")
+        source_name = "android-camera-long-blink"
+        rig.e2e_log = mock.Mock(side_effect=[
+            "",
+            'I ShineAacE2E: SHINE_AAC_E2E_INPUT '
+            '{"intent":"activate","source":"%s"}' % source_name,
+        ])
+        case = {
+            "id": "user-paced-positive",
+            "gesture": "blink",
+            "stills": [{
+                "start": 0.25,
+                "ms": 1600,
+                "hold_until_activation": True,
+                "activation_timeout_ms": 5000,
+            }],
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "timeline.json"
+            with mock.patch.object(RIG.time, "sleep", return_value=None):
+                self.assertTrue(rig.run_video_still_sequence(
+                    case, {"id": "public-source"}, evidence
+                ))
+            timeline = json.loads(evidence.read_text(encoding="utf-8"))
+
+        self.assertTrue(timeline["events"][0]["hold_until_activation"])
+        self.assertTrue(timeline["events"][0]["activation_observed"])
 
     def test_cheek_runtime_uses_only_downloaded_manifest_videos(self):
         manifest = json.loads(

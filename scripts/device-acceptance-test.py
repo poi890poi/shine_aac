@@ -47,6 +47,7 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from android_apk import parse_device_abis, resolve_debug_apk
 from device_test_common import (
     ThermalGovernor,
     camera_permission_is_granted,
@@ -61,8 +62,6 @@ PACKAGE = "org.shineaac.app"
 MAIN_ACTIVITY = "org.shineaac.app/.MainActivity"
 CAMERA_ACTIVITY_FRAGMENT = "CameraSwitchCalibrationActivity"
 SETTINGS_ACTIVITY_FRAGMENT = "SettingsActivity"
-DEFAULT_APK = Path("app/build/outputs/apk/debug/app-debug.apk")
-
 PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4, "INFO": 5}
 
 def find_adb():
@@ -1612,10 +1611,9 @@ def main():
     if not (root / "app").exists() or not (root / "packages" / "aac-core").exists():
         raise SystemExit("Run from shine_aac repository root.")
 
-    apk_path = Path(args.apk).expanduser() if args.apk else DEFAULT_APK
-    if not apk_path.is_absolute():
-        apk_path = root / apk_path
-    apk_path = apk_path.resolve()
+    requested_apk_path = Path(args.apk).expanduser() if args.apk else None
+    if requested_apk_path is not None and not requested_apk_path.is_absolute():
+        requested_apk_path = root / requested_apk_path
 
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     outdir = root / "test-results" / ("device-" + stamp)
@@ -1654,6 +1652,17 @@ def main():
                              (outdir / "prereq-android.txt"))
 
     adb = find_adb()
+    if requested_apk_path is not None:
+        apk_path = requested_apk_path.resolve()
+    else:
+        abi_result = run(
+            [adb, "shell", "getprop", "ro.product.cpu.abilist"],
+            check=False, timeout=20, cwd=root,
+        )
+        apk_path = resolve_debug_apk(
+            root / "app/build/outputs/apk/debug",
+            parse_device_abis(abi_result.stdout),
+        )
     t = DeepTest(adb, root, outdir)
 
     if apk_path.exists():

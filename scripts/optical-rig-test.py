@@ -30,6 +30,7 @@ import zlib
 from ctypes import wintypes
 from pathlib import Path
 
+from android_apk import parse_device_abis, resolve_debug_apk
 from device_test_common import ThermalGovernor
 from optical_stimulus import (
     OpenCvStimulus,
@@ -46,7 +47,7 @@ SETTINGS_ACTIVITY_FRAGMENT = "SettingsActivity"
 SOURCES_PATH = ROOT / "testdata/optical-rig/sources.json"
 DOWNLOADED = ROOT / "testdata/optical-rig/downloaded"
 SESSION_ROOT = ROOT / "testdata/optical-rig/session"
-APK = ROOT / "app/build/outputs/apk/debug/app-debug.apk"
+APK_OUTPUT_DIRECTORY = ROOT / "app/build/outputs/apk/debug"
 CAMERA_PREFS = "shared_prefs/shine_aac_camera_switch.xml"
 CONFIG_PREFS = "shared_prefs/shine_aac_config.xml"
 RIG_MONITOR_OCCUPANCY = 0.70
@@ -213,10 +214,10 @@ def visible_activation_count(before_phase, after_phase, scan_mode):
     return mapping[after_phase]
 
 
-def cheek_performance_samples(log_text):
+def face_performance_samples(log_text):
     samples = []
     pattern = re.compile(
-        r"CHEEK_PERF\s+path=(\S+)\s+frames=(\d+)\s+"
+        r"(?:FACE|CHEEK)_PERF\s+path=(\S+)\s+frames=(\d+)\s+"
         r"avgUs=(\d+)\s+maxUs=(\d+)\s+size=(\d+)x(\d+)"
     )
     for match in pattern.finditer(log_text):
@@ -229,6 +230,23 @@ def cheek_performance_samples(log_text):
             "height": int(match.group(6)),
         })
     return samples
+
+
+def cheek_performance_samples(log_text):
+    """Compatibility alias for older rig reports/tests."""
+    return face_performance_samples(log_text)
+
+
+def optical_stall_events(log_text):
+    states = []
+    for source in ("android-camera-long-blink", "android-camera-cheek-twitch"):
+        states.extend(
+            state for state in e2e_camera_statuses(log_text, source)
+            if state in {"cameraStale", "detectorStale"}
+        )
+    if "SignalStalled" in (log_text or ""):
+        states.append("SignalStalled")
+    return states
 
 
 def android_preference_values(xml_text):
@@ -2941,6 +2959,14 @@ class OpticalRig:
             "events": [],
         }
         for index, item in enumerate(case["stills"]):
+            gesture = case.get("gesture", "blink")
+            activation_source = (
+                "android-camera-cheek-twitch"
+                if gesture == "cheek" else "android-camera-long-blink"
+            )
+            activation_count_before = e2e_input_count(
+                self.e2e_log(), "activate", activation_source
+            ) if item.get("hold_until_activation") else None
             token = self.show_video_still(
                 source,
                 item["start"],
@@ -2956,7 +2982,11 @@ class OpticalRig:
                 ),
                 None,
             )
-            duration = max(0.03, float(item.get("ms", 100)) / 1000.0)
+            presented_at = time.time()
+            applied_at = float((applied or {}).get("t", presented_at))
+            requested_duration = max(0.03, float(item.get("ms", 100)) / 1000.0)
+            duration = requested_duration
+            activation_observed = None
             traces = []
             if (
                 self.args.trace_hold and duration >= 1.0 and
@@ -2973,11 +3003,32 @@ class OpticalRig:
                     trace = threading.Thread(target=capture_after, daemon=True)
                     trace.start()
                     traces.append(trace)
-            time.sleep(duration)
+            if item.get("hold_until_activation"):
+                # Model normal AAC use: the user keeps holding until the
+                # feedback tone/event, rather than releasing on a host timer.
+                # The timeout is a missed-input bound, not the target duration.
+                activation_observed = False
+                timeout_s = max(
+                    requested_duration,
+                    float(item.get("activation_timeout_ms", 5000)) / 1000.0,
+                )
+                deadline = time.time() + timeout_s
+                while time.time() < deadline:
+                    current_count = e2e_input_count(
+                        self.e2e_log(), "activate", activation_source
+                    )
+                    if current_count > activation_count_before:
+                        activation_observed = True
+                        # Retain the pose briefly so activation feedback is not
+                        # coupled to the presenter changing on the same tick.
+                        time.sleep(0.20)
+                        break
+                    time.sleep(0.12)
+            else:
+                time.sleep(duration)
             for trace in traces:
                 trace.join(timeout=0.2)
             ended_at = time.time()
-            applied_at = float((applied or {}).get("t", ended_at - duration))
             timeline["events"].append({
                 "index": index + 1,
                 "cycle": int(item.get("cycle", index // 3 + 1)),
@@ -2989,6 +3040,8 @@ class OpticalRig:
                 "presented_epoch_s": applied_at,
                 "ended_epoch_s": ended_at,
                 "actual_presented_ms": round((ended_at - applied_at) * 1000.0, 1),
+                "hold_until_activation": bool(item.get("hold_until_activation")),
+                "activation_observed": activation_observed,
             })
             if evidence_path:
                 evidence_path.write_text(
@@ -4359,7 +4412,8 @@ class OpticalRig:
                 ]
             )
         (self.outdir/("case-%s.log"%label)).write_text(log,encoding="utf-8")
-        perf = cheek_performance_samples(log)
+        perf = face_performance_samples(log)
+        stalls = optical_stall_events(log)
         result = {
             "id":label,
             "expect":case.get("expect","observe"),
@@ -4372,7 +4426,8 @@ class OpticalRig:
             "ended":bool(ended),
             "log":"case-%s.log"%label,
             "source": expected_source,
-            "cheek_performance": perf,
+            "face_performance": perf,
+            "stall_events": stalls,
         }
         self.results.append(result)
         expect = result["expect"]
@@ -4420,7 +4475,13 @@ class OpticalRig:
             print("OBSERVE",label,"activations",observed_activations)
         else:
             self.pass_(label,"%d activation(s)"%observed_activations)
-        if case.get("gesture") == "cheek" and perf:
+        if stalls:
+            self.add(
+                "P1", "Optical pipeline stalled: " + label,
+                ", ".join(stalls), ["case-%s.log" % label]
+            )
+        if perf:
+            worst_ms = max(p["max_us"] for p in perf) / 1000.0
             self.pass_(
                 label + " MediaPipe timing",
                 "avg %.1fms, worst %.1fms across %d sample window(s)"
@@ -4430,6 +4491,14 @@ class OpticalRig:
                     len(perf),
                 )
             )
+            if worst_ms >= 100.0:
+                self.add(
+                    "P2", "MediaPipe inference exceeded 100 ms: " + label,
+                    "Worst reported inference was %.1f ms; inspect resolution, "
+                    "backpressure, thermal state, and CPU delegate behavior."
+                    % worst_ms,
+                    ["case-%s.log" % label, "thermal.csv"],
+                )
         return result
 
     def adjust_camera_zoom_from_atlas(self, found):
@@ -4706,7 +4775,7 @@ class OpticalRig:
             "- Functional confidence comes first from two distinct complete board sessions with four useful speech turns each: one using long blink and one using cheek movement.",
             "- Repeated short sequences are detector stress checks and are reported separately; they do not substitute for a normal-use session.",
             "- `no_activate` cases are automated false-positive checks.",
-            "- Deterministic blink cases hold real open/closed frames for known durations and enforce missed/duplicate activation counts.",
+            "- Positive blink still cases keep the verified closed pose until observable activation (bounded by a generous timeout); fixed-duration negative controls enforce false-positive counts, while boundary-timing cases are non-blocking diagnostics.",
             "- Downloaded cheek-movement calibration trials first exercise native personalization, then enforce runtime missed/duplicate activation counts.",
             "- Test-video calibration values are session fixtures only; the rig restores SHINE's original camera/calibration preferences and Switch input choice after the run.",
             "- Replay uses one persistent full-screen host window. Licensed media is centered at the atlas-projected camera aim and scaled against the measured camera zoom; cheek framing is measured from the phone overlay.",
@@ -4743,11 +4812,19 @@ class OpticalRig:
         self.device.setup_power_guard()
         if self.args.no_install:
             return True
-        if not APK.exists():
-            self.add("P0", "APK missing", str(APK))
+        abi_result = self.device.shell(
+            "getprop", "ro.product.cpu.abilist", check=False, timeout=20
+        )
+        try:
+            apk_path = resolve_debug_apk(
+                APK_OUTPUT_DIRECTORY,
+                parse_device_abis(abi_result.stdout),
+            )
+        except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
+            self.add("P0", "APK missing", str(error))
             return False
         result = self.device.adb_cmd(
-            "install", "-r", str(APK), check=False, timeout=120
+            "install", "-r", str(apk_path), check=False, timeout=120
         )
         (self.outdir / "install.txt").write_text(
             result.stdout or "", encoding="utf-8", errors="replace"

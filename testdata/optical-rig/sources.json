@@ -74,7 +74,7 @@
       "severity": "P1",
       "stills": [
         { "start": 0.75, "ms": 1000 },
-        { "start": 0.25, "ms": 1600 },
+        { "start": 0.25, "ms": 1600, "hold_until_activation": true, "activation_timeout_ms": 5000 },
         { "start": 0.75, "ms": 900 }
       ]
     },
@@ -85,7 +85,7 @@
       "severity": "P1",
       "stills": [
         { "start": 0.75, "ms": 1000 },
-        { "start": 2.00, "ms": 1600 },
+        { "start": 2.00, "ms": 1600, "hold_until_activation": true, "activation_timeout_ms": 5000 },
         { "start": 0.75, "ms": 900 }
       ]
     },
@@ -96,8 +96,8 @@
         "end": 2.1,
         "rate": 0.15,
         "expect": "activate",
-      "severity": "P1",
-        "purpose": "one continuous real open-close-open blink slowed to provide a calibrated long-blink hold margin without still-frame seeking"
+      "severity": "P2",
+        "purpose": "non-blocking fixed-duration state-machine boundary diagnostic; normal-use acceptance holds a closed pose until observable activation"
     },
     {
       "id": "blink_long_positive_03",
@@ -106,7 +106,7 @@
       "severity": "P1",
       "stills": [
         { "start": 0.75, "ms": 1000 },
-        { "start": 3.00, "ms": 1600 },
+        { "start": 3.00, "ms": 1600, "hold_until_activation": true, "activation_timeout_ms": 5000 },
         { "start": 0.75, "ms": 900 }
       ]
     },
@@ -119,9 +119,9 @@
       "max_activations": 2,
       "stills": [
         { "start": 0.75, "ms": 1000 },
-        { "start": 0.25, "ms": 1600 },
+        { "start": 0.25, "ms": 1600, "hold_until_activation": true, "activation_timeout_ms": 5000 },
         { "start": 0.75, "ms": 1800 },
-        { "start": 2.00, "ms": 1600 },
+        { "start": 2.00, "ms": 1600, "hold_until_activation": true, "activation_timeout_ms": 5000 },
         { "start": 0.75, "ms": 900 }
       ]
     }
