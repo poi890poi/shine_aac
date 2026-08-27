@@ -231,6 +231,10 @@ let renderedMessage = "";
 let renderedTiles = [];
 let renderedTileGrid = [];
 let renderedRows = [];
+let renderedBoardElement = null;
+let renderedScanContext = null;
+let renderedScanTarget = null;
+let renderedScanTargetProgressFill = null;
 let renderedPhaseElement = null;
 let renderedVoiceElement = null;
 let renderedCameraStatusElement = null;
@@ -1171,7 +1175,7 @@ function frozenElapsedForCurrentScan(progress) {
 function setProgressFills(progress, durationMs) {
   const progressFills = currentProgressFills.some((fill) => fill?.isConnected)
     ? currentProgressFills.filter((fill) => fill?.isConnected)
-    : [...app.querySelectorAll(".tile.is-current .progress-fill")];
+    : [...app.querySelectorAll(".scan-target-highlight:not([hidden]) .progress-fill, .tile.is-current .progress-fill")];
   for (const progressFill of progressFills) {
     progressFill.style.transitionDuration = `${durationMs}ms`;
     progressFill.style.transform = progressTransform(progressFill, progress);
@@ -1589,6 +1593,7 @@ function renderFull(board, boardKey) {
   }
   boardElement.setAttribute("data-testid", "board");
   boardElement.style.setProperty("--row-count", String(board.length));
+  renderedBoardElement = boardElement;
 
   board.forEach((row, rowIndex) => {
     const rowElement = document.createElement("div");
@@ -1644,6 +1649,23 @@ function renderFull(board, boardKey) {
     boardElement.append(rowElement);
   });
 
+  const scanContext = document.createElement("div");
+  scanContext.className = "scan-context-highlight";
+  scanContext.hidden = true;
+  scanContext.setAttribute("aria-hidden", "true");
+  renderedScanContext = scanContext;
+
+  const scanTarget = document.createElement("div");
+  scanTarget.className = "scan-target-highlight";
+  scanTarget.hidden = true;
+  scanTarget.setAttribute("aria-hidden", "true");
+  const scanTargetProgressFill = document.createElement("div");
+  scanTargetProgressFill.className = "progress-fill";
+  scanTarget.append(scanTargetProgressFill);
+  renderedScanTarget = scanTarget;
+  renderedScanTargetProgressFill = scanTargetProgressFill;
+  boardElement.append(scanContext, scanTarget);
+
   shell.append(topPanel, boardElement);
   app.append(shell);
   observeBoardForLabelFit(boardElement);
@@ -1669,11 +1691,14 @@ function updateScanPresentation(board) {
     renderedVoiceElement.textContent = voiceStatusLabel();
   }
   updateCameraStatusPresentation();
+  const groupPresentation = updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRows);
 
   const previousActiveTiles = currentActiveTiles;
   const previousProgressFills = currentProgressFills;
   const nextActiveTiles = activeRenderedTilesForScanner(scanner);
-  const nextProgressFills = nextActiveTiles.map((rendered) => rendered.progressFill);
+  const nextProgressFills = groupPresentation.targetVisible && renderedScanTargetProgressFill
+    ? [renderedScanTargetProgressFill]
+    : nextActiveTiles.map((rendered) => rendered.progressFill);
   const progressDirection = uiConfig.verticalGroupProgress && [
     ScanStage.Blocks,
     ScanStage.BlockSelected,
@@ -1686,41 +1711,16 @@ function updateScanPresentation(board) {
   const deferredTiles = renderedTiles.filter((rendered) => rendered.candidate.scanDeferred === true);
   const tilesToUpdate = [...new Set([...previousActiveTiles, ...nextActiveTiles, ...deferredTiles])];
 
-  for (const [rowIndex, rowElement] of renderedRows.entries()) {
-    const stoppedRows = scanner.stage === ScanStage.Stopped && session.config.scanMode === ScanMode.BlockRowColumn
-      ? scanRowBlocks(board.length, (row) => selectableCount(board[row]), session.config.scanBlockCount)[0] ?? [0]
-      : [0];
-    const stoppedFirstTarget = scanner.stage === ScanStage.Stopped && stoppedRows.includes(rowIndex);
-    const reviewBlock = reviewHoldActive && blockRows.includes(rowIndex);
-    rowElement.classList.toggle(
-      "review-hold-row",
-      stoppedFirstTarget || reviewBlock || (
-        reviewHoldActive && scanner.stage === ScanStage.Rows && scanner.rowIndex === rowIndex
-      )
-    );
-    rowElement.classList.toggle("selected-block-row", selectedBlockRows.includes(rowIndex));
-  }
-
   for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
     const deferredThisPass = candidate.scanDeferred === true && scanner.passIndex === 1;
-    const activeBlock =
-      (
-        scanner.stage === ScanStage.Blocks ||
-        scanner.stage === ScanStage.BlockSelected ||
-        scanner.stage === ScanStage.SuggestionPages
-      ) &&
-      blockRows.includes(rendered.rowIndex);
-    const activeRow =
-      (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) &&
-      scanner.rowIndex === rendered.rowIndex;
     const activeCell =
       (scanner.stage === ScanStage.FirstCell || scanner.stage === ScanStage.Cells) &&
       scanner.rowIndex === rendered.rowIndex &&
       scanner.cellIndex === rendered.cellIndex;
-    const reviewHold = reviewHoldActive && (activeBlock || activeRow || activeCell);
-    const cameraHold = cameraHoldActive && (activeBlock || activeRow || activeCell);
-    const nextClassName = tileClass(candidate, activeRow, activeCell, reviewHold, cameraHold, activeBlock);
+    const reviewHold = reviewHoldActive && activeCell;
+    const cameraHold = cameraHoldActive && activeCell;
+    const nextClassName = tileClass(candidate, false, activeCell, reviewHold, cameraHold, false);
     if (rendered.element.className !== nextClassName) {
       rendered.element.className = nextClassName;
     }
@@ -1750,19 +1750,78 @@ function updateScanPresentation(board) {
 
 function activeRenderedTilesForScanner(scanner) {
   if (scanner.stage === ScanStage.Stopped) return [];
-  if (scanner.stage === ScanStage.SuggestionPages) {
-    return renderedTileGrid.slice(0, 4).flat();
-  }
-  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) {
-    const board = visibleBoard(session);
-    return activeBlockRows(scanner, board).flatMap((rowIndex) => renderedTileGrid[rowIndex] ?? []);
-  }
+  if (scanner.stage === ScanStage.SuggestionPages) return [];
+  if (scanner.stage === ScanStage.Blocks || scanner.stage === ScanStage.BlockSelected) return [];
   const row = renderedTileGrid[scanner.rowIndex] ?? [];
-  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) {
-    return row;
-  }
+  if (scanner.stage === ScanStage.Rows || scanner.stage === ScanStage.RowSelected) return [];
   const renderedTile = row[scanner.cellIndex];
   return renderedTile ? [renderedTile] : [];
+}
+
+function updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRows) {
+  let contextKind = "";
+  let contextRows = [];
+  let targetKind = "";
+  let targetRows = [];
+
+  if (scanner.stage === ScanStage.Stopped) {
+    targetKind = session.config.scanMode === ScanMode.BlockRowColumn ? "block" : "row";
+    targetRows = targetKind === "block"
+      ? scanRowBlocks(board.length, (row) => selectableCount(board[row]), session.config.scanBlockCount)[0] ?? [0]
+      : [0];
+  } else if ([ScanStage.SuggestionPages, ScanStage.Blocks, ScanStage.BlockSelected].includes(scanner.stage)) {
+    targetKind = "block";
+    targetRows = blockRows;
+  } else if ([ScanStage.Rows, ScanStage.RowSelected].includes(scanner.stage)) {
+    targetKind = "row";
+    targetRows = [scanner.rowIndex];
+    if (selectedBlockRows.length > 0) {
+      contextKind = "block";
+      contextRows = selectedBlockRows;
+    }
+  } else if ([ScanStage.FirstCell, ScanStage.Cells].includes(scanner.stage)) {
+    contextKind = "row";
+    contextRows = [scanner.rowIndex];
+  }
+
+  positionScanHighlight(renderedScanContext, contextKind, contextRows);
+  positionScanHighlight(renderedScanTarget, targetKind, targetRows);
+  if (renderedScanTarget) {
+    renderedScanTarget.classList.toggle("review-hold", reviewHoldActive);
+    renderedScanTarget.classList.toggle("camera-hold", cameraHoldActive);
+  }
+  return { targetVisible: targetKind.length > 0 && targetRows.length > 0 };
+}
+
+function positionScanHighlight(element, kind, rowIndices) {
+  if (!element || !renderedBoardElement || !kind || rowIndices.length === 0) {
+    if (element) {
+      element.hidden = true;
+      element.removeAttribute("data-highlight-kind");
+      element.removeAttribute("data-row-start");
+      element.removeAttribute("data-row-end");
+    }
+    return;
+  }
+  const rows = rowIndices.map((rowIndex) => renderedRows[rowIndex]).filter(Boolean);
+  if (rows.length === 0) {
+    element.hidden = true;
+    return;
+  }
+  const boardRect = renderedBoardElement.getBoundingClientRect();
+  const rowRects = rows.map((row) => row.getBoundingClientRect());
+  const left = Math.min(...rowRects.map((rect) => rect.left)) - boardRect.left;
+  const top = Math.min(...rowRects.map((rect) => rect.top)) - boardRect.top;
+  const right = Math.max(...rowRects.map((rect) => rect.right)) - boardRect.left;
+  const bottom = Math.max(...rowRects.map((rect) => rect.bottom)) - boardRect.top;
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+  element.style.width = `${right - left}px`;
+  element.style.height = `${bottom - top}px`;
+  element.dataset.highlightKind = kind;
+  element.dataset.rowStart = String(Math.min(...rowIndices));
+  element.dataset.rowEnd = String(Math.max(...rowIndices));
+  element.hidden = false;
 }
 
 function progressTargetKeyForScanner(scanner, isReviewHold) {
@@ -1832,6 +1891,10 @@ function invalidateRenderedBoard() {
   renderedTiles = [];
   renderedTileGrid = [];
   renderedRows = [];
+  renderedBoardElement = null;
+  renderedScanContext = null;
+  renderedScanTarget = null;
+  renderedScanTargetProgressFill = null;
   renderedPhaseElement = null;
   renderedVoiceElement = null;
   renderedCameraStatusElement = null;
@@ -2082,7 +2145,12 @@ function tileLabelFits(label) {
   return lineRects.every((rect) => Math.abs(rect.top - lineRects[0].top) <= 1);
 }
 
-window.addEventListener("resize", scheduleTileLabelFit);
+window.addEventListener("resize", () => {
+  scheduleTileLabelFit();
+  window.requestAnimationFrame(() => {
+    if (renderedBoardElement?.isConnected) updateScanPresentation(visibleBoard(session));
+  });
+});
 
 function appendVisibleMessage(container, value) {
   if (value.length === 0) return;

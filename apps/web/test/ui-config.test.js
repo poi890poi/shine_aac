@@ -149,11 +149,10 @@ test("compact phone status text remains grouped instead of wrapping per characte
   assert.match(styles, /\.config-button\s*\{[\s\S]*?white-space:\s*nowrap/);
 });
 
-test("review pause uses a calm grouped treatment without a progress fill", () => {
-  assert.match(styles, /--color-review-border:\s*#226f77/);
-  assert.match(styles, /\.row\.review-hold-row::after\s*\{[\s\S]*?border:\s*3px solid var\(--color-review-border\)/);
-  assert.match(styles, /\.row\.review-hold-row \.tile\s*\{[\s\S]*?outline:\s*none;[\s\S]*?background:\s*var\(--color-review-bg\)/);
-  assert.match(styles, /\.tile\.review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
+test("review pause freezes one group target without repainting its child tiles", () => {
+  assert.match(styles, /\.scan-target-highlight\.review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
+  assert.doesNotMatch(styles, /\.row\.review-hold-row \.tile\s*\{/);
+  assert.doesNotMatch(appSource, /classList\.toggle\(\s*"review-hold-row"/);
 });
 
 test("the message field grows with Android font scaling without wrapping", () => {
@@ -167,13 +166,18 @@ test("stopped scanning reuses the first-row review hold instead of a separate ba
   assert.doesNotMatch(styles, /\.scan-stopped \.board/);
 });
 
-test("profile-optimized block scanning is an explicit optional mode with its own highlight", () => {
+test("block and row scanning use group elements while only a cell may style a tile as active", () => {
   assert.match(appSource, /name="scanMode"/);
   assert.match(appSource, /ScanMode\.BlockRowColumn/);
   assert.match(appSource, /scanMode:\s*config\.scanMode/);
-  assert.match(styles, /\.tile\.active-block\s*\{[\s\S]*?border-color:\s*var\(--color-tile-active-block-border\)/);
-  assert.match(appSource, /selected-block-row/);
-  assert.match(styles, /\.row\.selected-block-row::before\s*\{[\s\S]*?border:\s*2px solid rgba\(103, 80, 164, 0\.72\)/);
+  assert.match(appSource, /scanContext\.className\s*=\s*"scan-context-highlight"/);
+  assert.match(appSource, /scanTarget\.className\s*=\s*"scan-target-highlight"/);
+  assert.match(appSource, /positionScanHighlight\(renderedScanContext, contextKind, contextRows\)/);
+  assert.match(appSource, /positionScanHighlight\(renderedScanTarget, targetKind, targetRows\)/);
+  assert.match(appSource, /tileClass\(candidate, false, activeCell, reviewHold, cameraHold, false\)/);
+  assert.match(styles, /\.scan-target-highlight\[data-highlight-kind="block"\]\s*\{[\s\S]*?var\(--color-tile-active-block-border\)/);
+  assert.match(styles, /\.scan-context-highlight\[data-highlight-kind="row"\]\s*\{[\s\S]*?var\(--color-tile-active-row-border\)/);
+  assert.doesNotMatch(styles, /\.tile\.active-(?:block|row)\s*\{/);
 });
 
 test("vertical block and row progress is optional while cell progress remains horizontal", () => {

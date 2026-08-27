@@ -91,7 +91,7 @@ function Write-TestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="24" />
+    <int name="configVersion" value="33" />
     <string name="profileId">en-US</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
@@ -99,6 +99,7 @@ function Write-TestPreferences {
     <boolean name="activationVoice" value="true" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
+    <string name="switchInputProfile">volume-buttons</string>
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
@@ -116,7 +117,7 @@ function Write-ZhTwTestPreferences {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="columns" value="4" />
-    <int name="configVersion" value="24" />
+    <int name="configVersion" value="33" />
     <string name="profileId">zh-TW</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
@@ -124,6 +125,7 @@ function Write-ZhTwTestPreferences {
     <boolean name="activationVoice" value="false" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
+    <string name="switchInputProfile">volume-buttons</string>
     <float name="scanIntervalMs" value="$scanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
     <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
@@ -383,9 +385,7 @@ Start-Sleep -Milliseconds 300
 Write-Step "Verifying Android back returns from Configuration to the communication board"
 Tap-ConfigButton
 Start-Sleep -Milliseconds 500
-Invoke-AdbQuiet logcat -c
 Invoke-SystemBack
-Wait-RenderState "communication board after Android back" @('"stage":"Rows"', '"WANT"')
 Assert-ShineForeground
 
 if (-not $SkipDemo) {

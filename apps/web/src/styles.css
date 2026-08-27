@@ -560,6 +560,7 @@ body.demo-active .phase::after {
 }
 
 .board {
+  position: relative;
   display: grid;
   gap: 8px;
   min-height: 0;
@@ -657,41 +658,49 @@ body.demo-active .phase::after {
   min-height: 0;
 }
 
-.row.selected-block-row {
-  position: relative;
-}
-
-.row.selected-block-row::before {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
-  box-sizing: border-box;
-  border: 2px solid rgba(103, 80, 164, 0.72);
-  border-radius: 10px;
-  background: rgba(103, 80, 164, 0.08);
-  content: "";
-  pointer-events: none;
-}
-
-.row.review-hold-row {
-  position: relative;
-}
-
-.row.review-hold-row::after {
+.scan-context-highlight,
+.scan-target-highlight {
   position: absolute;
   z-index: 3;
-  inset: 0;
   box-sizing: border-box;
-  border: 3px solid var(--color-review-border);
   border-radius: 10px;
-  content: "";
+  overflow: hidden;
   pointer-events: none;
 }
 
-.row.review-hold-row .tile {
-  border-color: var(--color-review-tile-border);
-  outline: none;
-  background: var(--color-review-bg);
+.scan-context-highlight[data-highlight-kind="block"] {
+  border: 2px solid var(--color-tile-active-block-border);
+}
+
+.scan-context-highlight[data-highlight-kind="row"] {
+  border: 2px solid var(--color-tile-active-row-border);
+}
+
+.scan-target-highlight {
+  z-index: 2;
+  border: 3px solid var(--color-tile-active-row-border);
+}
+
+.scan-target-highlight[data-highlight-kind="block"] {
+  border-color: var(--color-tile-active-block-border);
+}
+
+.scan-target-highlight.review-hold {
+  border-color: var(--color-review-border);
+}
+
+.scan-target-highlight.review-hold .progress-fill {
+  border-color: transparent;
+  background: transparent;
+}
+
+.scan-target-highlight.camera-hold {
+  border-style: dashed;
+  box-shadow: inset 0 0 0 4px rgba(26, 74, 92, 0.28);
+}
+
+.scan-target-highlight.camera-hold .progress-fill {
+  background: rgba(26, 74, 92, 0.46);
 }
 
 .tile {
@@ -753,20 +762,6 @@ body.demo-active .phase::after {
   border-color: var(--color-clear-border);
   background: var(--color-clear-bg);
   box-shadow: inset 0 -4px 0 var(--color-clear-shadow);
-}
-
-.tile.active-block {
-  border-color: var(--color-tile-active-block-border);
-  outline: 2px solid var(--color-tile-active-block-border);
-  outline-offset: -3px;
-  background: var(--color-tile-active-block-bg);
-}
-
-.tile.active-row {
-  border-color: var(--color-tile-active-row-border);
-  outline: 3px solid var(--color-tile-active-row-border);
-  outline-offset: -4px;
-  background: var(--color-tile-active-row-bg);
 }
 
 .tile.active-cell {
@@ -833,7 +828,7 @@ body.demo-active .phase::after {
 
 .tile-label {
   position: relative;
-  z-index: 1;
+  z-index: 4;
   max-width: 100%;
   max-height: 100%;
   padding: 4px 6px;
