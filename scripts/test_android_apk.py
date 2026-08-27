@@ -45,6 +45,20 @@ class AndroidApkResolutionTest(unittest.TestCase):
             parse_device_abis("arm64-v8a,armeabi-v7a\n"),
         )
 
+    def test_rejects_metadata_without_a_matching_device_abi(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "app-x86-debug.apk").write_bytes(b"x86")
+            (output / "output-metadata.json").write_text(json.dumps({
+                "elements": [{
+                    "filters": [{"filterType": "ABI", "value": "x86"}],
+                    "outputFile": "app-x86-debug.apk",
+                }],
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(FileNotFoundError, "No APK matched"):
+                resolve_debug_apk(output, ["arm64-v8a"])
+
 
 if __name__ == "__main__":
     unittest.main()

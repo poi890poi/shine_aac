@@ -1,9 +1,11 @@
 param(
     [string]$SdkDir,
+    [string]$ApkPath,
     [switch]$NoBuild,
     [switch]$ColdBoot,
     [switch]$SkipDemo,
-    [switch]$SkipZhTw
+    [switch]$SkipZhTw,
+    [switch]$ScanUiOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -72,6 +74,28 @@ function Find-AndroidSdk {
     return $null
 }
 
+function Resolve-TestApk([string]$ExplicitApkPath) {
+    if ($ExplicitApkPath) {
+        $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ExplicitApkPath)
+        if (-not (Test-Path -LiteralPath $resolved)) {
+            throw "APK was not found at $resolved"
+        }
+        return $resolved
+    }
+
+    $deviceAbis = ((& $script:adb shell getprop ro.product.cpu.abilist) -join "").Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $deviceAbis) {
+        throw "Could not read the connected device ABI list."
+    }
+    $outputDirectory = Join-Path $repoRoot "app\build\outputs\apk\debug"
+    $resolved = (& python (Join-Path $PSScriptRoot "android_apk.py") `
+        --output-directory $outputDirectory --device-abis $deviceAbis) -join ""
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $resolved)) {
+        throw "Could not resolve an ABI-compatible debug APK for $deviceAbis."
+    }
+    return $resolved.Trim()
+}
+
 function Invoke-AdbQuiet {
     $previousErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
@@ -86,17 +110,26 @@ function Invoke-AdbQuiet {
 }
 
 function Write-TestPreferences {
-    $prefsPath = Join-Path $artifactDir "shine_aac_config.xml"
+    param(
+        [string]$ProfileId = "en-US",
+        [string]$ScanMode = "row-column",
+        [int]$Columns = 4,
+        [bool]$ActivationVoice = $true,
+        [string]$ArtifactName = "shine_aac_config.xml"
+    )
+    $activationVoiceValue = if ($ActivationVoice) { "true" } else { "false" }
+    $prefsPath = Join-Path $artifactDir $ArtifactName
     Set-Content -LiteralPath $prefsPath -Encoding UTF8 -Value @"
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
-    <int name="columns" value="4" />
+    <int name="columns" value="$Columns" />
     <int name="configVersion" value="33" />
-    <string name="profileId">en-US</string>
+    <string name="profileId">$ProfileId</string>
+    <string name="scanMode">$ScanMode</string>
     <boolean name="e2eEnabled" value="true" />
     <boolean name="rowScanVoice" value="false" />
     <boolean name="scanVoice" value="false" />
-    <boolean name="activationVoice" value="true" />
+    <boolean name="activationVoice" value="$activationVoiceValue" />
     <boolean name="restartScanFromTop" value="true" />
     <boolean name="hardwareButtons" value="true" />
     <string name="switchInputProfile">volume-buttons</string>
@@ -112,29 +145,7 @@ function Write-TestPreferences {
 }
 
 function Write-ZhTwTestPreferences {
-    $prefsPath = Join-Path $artifactDir "shine_aac_config_zhtw.xml"
-    Set-Content -LiteralPath $prefsPath -Encoding UTF8 -Value @"
-<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
-<map>
-    <int name="columns" value="4" />
-    <int name="configVersion" value="33" />
-    <string name="profileId">zh-TW</string>
-    <boolean name="e2eEnabled" value="true" />
-    <boolean name="rowScanVoice" value="false" />
-    <boolean name="scanVoice" value="false" />
-    <boolean name="activationVoice" value="false" />
-    <boolean name="restartScanFromTop" value="true" />
-    <boolean name="hardwareButtons" value="true" />
-    <string name="switchInputProfile">volume-buttons</string>
-    <float name="scanIntervalMs" value="$scanIntervalMs.0" />
-    <float name="transitionPauseMs" value="$transitionPauseMs.0" />
-    <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
-    <float name="inputLatencyCompensationMs" value="250.0" />
-</map>
-"@
-
-    Invoke-AdbQuiet push $prefsPath "/data/local/tmp/shine_aac_config.xml"
-    Invoke-AdbQuiet shell "run-as org.shineaac.app sh -c 'mkdir -p shared_prefs; cp /data/local/tmp/shine_aac_config.xml shared_prefs/shine_aac_config.xml'"
+    Write-TestPreferences -ProfileId "zh-TW" -ScanMode "row-column" -Columns 4 -ActivationVoice $false -ArtifactName "shine_aac_config_zhtw.xml"
 }
 
 function Get-E2ELog {
@@ -176,7 +187,6 @@ function Wait-E2EReady([int]$TimeoutMs = 30000) {
     while ((Get-Date) -lt $deadline) {
         $logText = (Get-E2ELog) -join "`n"
         if ($logText -match 'SHINE_AAC_E2E_STATE' -and
-            $logText -match '"stage":"Rows"' -and
             $logText -match '"WANT"') {
             return
         }
@@ -191,7 +201,6 @@ function Wait-E2EReady([int]$TimeoutMs = 30000) {
 }
 
 function Wait-RenderState([string]$Description, [string[]]$Patterns, [int]$TimeoutMs = 30000) {
-    Invoke-AdbQuiet logcat -c
     $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
     $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
     while ((Get-Date) -lt $deadline) {
@@ -242,6 +251,71 @@ function Wait-LoggedMessage([string]$ExpectedMessage, [int]$TimeoutMs = 10000) {
 function Switch-Activate([string]$Label) {
     Invoke-AdbQuiet shell input keyevent $activationKeyCode
     Write-Host "keyevent $activationKeyCode $Label"
+}
+
+function Capture-PhoneState([string]$Name) {
+    $devicePath = "/sdcard/shine-$Name.png"
+    $hostPath = Join-Path $artifactDir ("phone-$Name.png")
+    Invoke-AdbQuiet shell screencap -p $devicePath
+    Invoke-AdbQuiet pull $devicePath $hostPath
+    Write-Host "captured $Name"
+}
+
+function Assert-LatestStage([string]$ExpectedStage, [string]$Description) {
+    $state = Get-LatestE2EState
+    if ([string]$state.stage -cne $ExpectedStage) {
+        throw "$Description expected stage $ExpectedStage but saw $($state.stage)."
+    }
+}
+
+function Wait-AfterActivation([string]$Description, [string]$ExpectedStage) {
+    Invoke-AdbQuiet logcat -c
+    Switch-Activate $Description
+    Wait-RenderState $Description @(('"stage":"' + $ExpectedStage + '"'))
+}
+
+function Start-DeterministicScan([string]$ScanMode) {
+    Invoke-AdbQuiet shell pm clear org.shineaac.app
+    Invoke-AdbQuiet logcat -c
+    Write-TestPreferences -ScanMode $ScanMode
+    Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
+    Wait-E2EReady
+    Assert-LatestStage "Review" "$ScanMode initial state"
+}
+
+function Test-ScanModeVisualFlow([string]$ScanMode) {
+    $threeLayer = $ScanMode -ceq "block-row-column"
+    $prefix = if ($threeLayer) { "three-layer" } else { "two-layer" }
+    $firstStage = if ($threeLayer) { "Blocks" } else { "Rows" }
+
+    Write-Step "Verifying $prefix scan states and automatic review release"
+    Start-DeterministicScan $ScanMode
+    Capture-PhoneState "$prefix-review"
+
+    Wait-AfterActivation "$prefix release initial review" $firstStage
+    Capture-PhoneState "$prefix-$($firstStage.ToLowerInvariant())"
+
+    if ($threeLayer) {
+        Wait-AfterActivation "$prefix activate block" "Rows"
+        Capture-PhoneState "$prefix-rows"
+    }
+
+    Wait-AfterActivation "$prefix activate row" "First"
+    Capture-PhoneState "$prefix-cell"
+    Wait-AfterActivation "$prefix select cell" "Review"
+    Capture-PhoneState "$prefix-selection-review"
+    Wait-AfterActivation "$prefix release selection review" $firstStage
+    Capture-PhoneState "$prefix-resumed"
+}
+
+function Ensure-ActiveScan([string]$ExpectedStage, [string]$Label) {
+    $state = Get-LatestE2EState
+    if ([string]$state.stage -ceq "Review") {
+        Wait-AfterActivation "$Label release final review" $ExpectedStage
+    } elseif ([string]$state.stage -cne $ExpectedStage) {
+        throw "$Label expected Review or $ExpectedStage but saw $($state.stage)."
+    }
+    Capture-PhoneState "$Label-active"
 }
 
 function Get-ScreenSize {
@@ -326,15 +400,18 @@ function Select-RenderedLabel([string]$ExpectedLabel) {
         throw "Rendered board does not contain '$ExpectedLabel'."
     }
 
+    Invoke-AdbQuiet logcat -c
     Wait-RenderState "row $targetRow for $ExpectedLabel" @('"stage":"Rows"', ('"rowIndex":' + $targetRow))
     Switch-Activate "row $targetRow for $ExpectedLabel"
 
     if ($targetCell -eq 0) {
         $null = Dismiss-SystemAnrDialogIfPresent
+        Invoke-AdbQuiet logcat -c
         Wait-RenderState "cell 0 ($ExpectedLabel)" @(('"rowIndex":' + $targetRow), '"cellIndex":0')
         Start-Sleep -Milliseconds 300
     } else {
         $null = Dismiss-SystemAnrDialogIfPresent
+        Invoke-AdbQuiet logcat -c
         Wait-RenderState "cell $targetCell ($ExpectedLabel)" @('"stage":"Cells"', ('"rowIndex":' + $targetRow), ('"cellIndex":' + $targetCell))
         Start-Sleep -Milliseconds 300
     }
@@ -360,9 +437,10 @@ if (-not $sdkPath) {
 }
 
 $script:adb = Join-Path $sdkPath "platform-tools\adb.exe"
+$resolvedApkPath = Resolve-TestApk $ApkPath
 
-Write-Step "Installing and launching real APK on emulator"
-$runArgs = @("-NoBuild")
+Write-Step "Installing and launching the ABI-compatible APK on the connected Android device"
+$runArgs = @("-NoBuild", "-ApkPath", $resolvedApkPath)
 if ($SdkDir) {
     $runArgs += @("-SdkDir", $SdkDir)
 }
@@ -372,6 +450,17 @@ if ($ColdBoot) {
 & .\run-apk.bat @runArgs
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
+}
+
+Test-ScanModeVisualFlow "row-column"
+Test-ScanModeVisualFlow "block-row-column"
+
+if ($ScanUiOnly) {
+    Write-Host ""
+    Write-Host "E2E PASS: automatic phone regression covered review, row, and cell states in two-layer scanning and review, block, row, and cell states in three-layer scanning." -ForegroundColor Green
+    Write-Host "The app was left actively scanning in three-layer mode."
+    Write-Host "Artifacts: $artifactDir"
+    exit 0
 }
 
 Write-Step "Resetting app data for deterministic hardware-button E2E"
@@ -443,6 +532,9 @@ if (-not $SkipZhTw) {
     $zhuyinYu = -join ([char]0x3129)
     $zhTwMore = -join ([char]0x66F4, [char]0x591A)
     Wait-RenderState "zh-TW direct Zhuyin board and More action" @($zhuyinBo, $zhuyinYi, $zhuyinYu, $zhTwMore)
+    Ensure-ActiveScan "Rows" "zh-tw-final"
+} else {
+    Ensure-ActiveScan "Rows" "en-us-final"
 }
 
 Write-Host ""
@@ -452,4 +544,5 @@ $passDetail = if ($SkipZhTw) {
     "Android hardware-button input entered 'I want water ', restored it after process recreation, and verified the zh-TW direct Zhuyin render state."
 }
 Write-Host "E2E PASS: $passDetail" -ForegroundColor Green
+Write-Host "The app was left actively scanning."
 Write-Host "Artifacts: $artifactDir"

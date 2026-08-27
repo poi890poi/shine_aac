@@ -1,3 +1,4 @@
+import argparse
 import json
 import re
 from pathlib import Path
@@ -50,3 +51,18 @@ def resolve_debug_apk(output_directory, device_abis):
         "No APK matched device ABI(s) %s; available outputs: %s" %
         (list(device_abis), available)
     )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-directory", required=True)
+    parser.add_argument("--device-abis", required=True)
+    args = parser.parse_args()
+    print(resolve_debug_apk(
+        args.output_directory,
+        parse_device_abis(args.device_abis),
+    ))
+
+
+if __name__ == "__main__":
+    main()
