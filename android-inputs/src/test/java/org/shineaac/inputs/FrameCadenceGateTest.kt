@@ -20,6 +20,58 @@ class FrameCadenceGateTest {
     }
 
     @Test
+    fun ordinaryFifteenFpsDeliveryDoesNotInventMissingAnalysisSlots() {
+        val gate = FrameCadenceGate()
+        val cameraTimestamps = (0L..14L).map { frame -> frame * 1_000L / 15L }
+
+        val decisions = cameraTimestamps.map { gate.decision(it, 100L) }
+
+        assertTrue(decisions.filter { it.shouldAnalyze }.all { it.missedAnalysisSlots == 0 })
+    }
+
+    @Test
+    fun delayedFrameReportsMissedPhaseLockedAnalysisSlots() {
+        val gate = FrameCadenceGate()
+        assertTrue(gate.decision(0L, 100L).shouldAnalyze)
+
+        val delayed = gate.decision(600L, 100L)
+
+        assertTrue(delayed.shouldAnalyze)
+        assertEquals(5, delayed.missedAnalysisSlots)
+        assertEquals(100L, delayed.firstMissedAtMs)
+        assertEquals(600L, delayed.observedAtMs)
+        assertEquals(
+            listOf(100L, 200L, 300L, 400L, 500L),
+            missingObservationTimestamps(delayed)
+        )
+    }
+
+    @Test
+    fun longGapKeepsFirstAndRecentUnknownTimestamps() {
+        val gate = FrameCadenceGate()
+        gate.decision(0L, 100L)
+
+        val delayed = gate.decision(1_000L, 100L)
+
+        assertEquals(9, delayed.missedAnalysisSlots)
+        assertEquals(
+            listOf(100L, 600L, 700L, 800L, 900L),
+            missingObservationTimestamps(delayed)
+        )
+        assertTrue(resumedAfterSignalLossTimeout(delayed, 700L))
+    }
+
+    @Test
+    fun shortGapDoesNotTriggerSignalLossAtResume() {
+        val gate = FrameCadenceGate()
+        gate.decision(0L, 100L)
+
+        val delayed = gate.decision(600L, 100L)
+
+        assertFalse(resumedAfterSignalLossTimeout(delayed, 700L))
+    }
+
+    @Test
     fun idleGateKeepsFiveFpsFromFifteenFpsCamera() {
         val gate = FrameCadenceGate()
         val cameraTimestamps = (0L..14L).map { frame -> frame * 1_000L / 15L }

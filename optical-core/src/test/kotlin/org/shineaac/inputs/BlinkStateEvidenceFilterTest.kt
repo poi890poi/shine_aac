@@ -63,6 +63,25 @@ class BlinkStateEvidenceFilterTest {
 
         assertFalse(update.changed)
         assertEquals(1, update.contraryVotes)
+        assertEquals(0, update.supportingVotes)
+        assertFalse(update.hasStatisticalSupport)
+    }
+
+    @Test
+    fun unknownPointsExpireClosedSupportWithoutVotingOpen() {
+        val filter = BlinkStateEvidenceFilter(initialState = BlinkStateEvidenceFilter.EyeState.Closed)
+
+        repeat(3) { index -> filter.observe(closed, index * 100L, 0) }
+        val supported = filter.observe(ambiguous, 300L, 0)
+        assertTrue(supported.hasStatisticalSupport)
+
+        filter.observe(ambiguous, 400L, 0)
+        val expired = filter.observe(ambiguous, 500L, 0)
+
+        assertEquals(BlinkStateEvidenceFilter.EyeState.Closed, expired.state)
+        assertEquals(2, expired.supportingVotes)
+        assertEquals(0, expired.contraryVotes)
+        assertFalse(expired.hasStatisticalSupport)
     }
 
     private companion object {

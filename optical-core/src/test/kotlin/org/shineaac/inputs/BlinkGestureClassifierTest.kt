@@ -297,7 +297,7 @@ class BlinkGestureClassifierTest {
     }
 
     @Test
-    fun openEvidenceAtDeadlineResolvesBeforeActivation() {
+    fun threeOpenVotesBeforeDeadlineResolveWithoutActivation() {
         val classifier = BlinkGestureClassifier(config)
         val events = mutableListOf<BlinkGestureClassifier.Event>()
 
@@ -305,15 +305,53 @@ class BlinkGestureClassifierTest {
         events += classifier.onSignal(0.9, 500, LongBlinkMs)
         events += classifier.onSignal(0.9, 640, LongBlinkMs)
         events += classifier.onSignal(0.9, 780, LongBlinkMs)
-        events += classifier.onSignal(0.1, 1260, LongBlinkMs)
-        events += classifier.onSignal(0.1, 1400, LongBlinkMs)
-        events += classifier.onSignal(0.1, 1580, LongBlinkMs)
+        events += classifier.onSignal(0.1, 1_000, LongBlinkMs)
+        events += classifier.onSignal(0.1, 1_140, LongBlinkMs)
+        events += classifier.onSignal(0.1, 1_280, LongBlinkMs)
 
         assertEquals(
             listOf("HoldStarted", "HoldEnded"),
             events.map { it.nameForTest() }
         )
         assertTrue(events.none { it is BlinkGestureClassifier.Event.Activated })
+    }
+
+    @Test
+    fun oneOpenFrameAfterDeadlineCannotVetoSupportedClosedHold() {
+        val classifier = BlinkGestureClassifier(config)
+        val events = mutableListOf<BlinkGestureClassifier.Event>()
+
+        events += armOpen(classifier, 0)
+        events += classifier.onSignal(0.9, 500, LongBlinkMs)
+        events += classifier.onSignal(0.9, 640, LongBlinkMs)
+        events += classifier.onSignal(0.9, 780, LongBlinkMs)
+        events += classifier.onSignal(0.9, 1_000, LongBlinkMs)
+        events += classifier.onSignal(0.9, 1_200, LongBlinkMs)
+        events += classifier.onSignal(0.1, 1_340, LongBlinkMs)
+
+        assertEquals(
+            listOf("HoldStarted", "Activated"),
+            events.map { it.nameForTest() }
+        )
+    }
+
+    @Test
+    fun unknownSlotsPreventActivationFromStaleClosedEvidence() {
+        val classifier = BlinkGestureClassifier(config)
+        val events = mutableListOf<BlinkGestureClassifier.Event>()
+
+        events += armOpen(classifier, 0)
+        events += classifier.onSignal(0.9, 500, LongBlinkMs)
+        events += classifier.onSignal(0.9, 640, LongBlinkMs)
+        events += classifier.onSignal(0.9, 780, LongBlinkMs)
+        events += classifier.onSignal(null, 900, LongBlinkMs)
+        events += classifier.onSignal(null, 1_000, LongBlinkMs)
+        events += classifier.onSignal(null, 1_100, LongBlinkMs)
+        events += classifier.onSignal(null, 1_200, LongBlinkMs)
+        events += classifier.onSignal(null, 1_300, LongBlinkMs)
+        events += classifier.onSignal(0.9, 1_340, LongBlinkMs)
+
+        assertEquals(listOf("HoldStarted"), events.map { it.nameForTest() })
     }
 
     @Test

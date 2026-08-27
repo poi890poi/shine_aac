@@ -460,14 +460,12 @@ class CameraSwitchInputAdapter(
         }
         val settings = settingsProvider()
         val interval = cameraAnalysisIntervalMs(settings.gesture, powerSavingIdle)
-        if (!settings.enabled || !frameCadenceGate.shouldAnalyze(
-                frameTimestampMs,
-                interval
-            )
-        ) {
+        val cadence = frameCadenceGate.decision(frameTimestampMs, interval)
+        if (!settings.enabled || !cadence.shouldAnalyze) {
             uvcFrameQueued = false
             return
         }
+        injectMissedBlinkObservations(cadence, settings)
         val bitmap = try {
             Nv21Bitmaps.toBitmap(
                 bytes,
@@ -477,6 +475,9 @@ class CameraSwitchInputAdapter(
             )
         } catch (error: Exception) {
             Log.w(Tag, "UVC frame conversion failed", error)
+            if (settings.gesture == OpticalSwitchGesture.LongBlink) {
+                updateBlinkState(null, null, settings, frameTimestampMs)
+            }
             uvcFrameQueued = false
             return
         }
@@ -667,14 +668,19 @@ class CameraSwitchInputAdapter(
             SystemClock.elapsedRealtime()
         )
         val detectorIntervalMs = cameraAnalysisIntervalMs(settings.gesture, powerSavingIdle)
-        if (!frameCadenceGate.shouldAnalyze(frameTimestampMs, detectorIntervalMs)) {
+        val cadence = frameCadenceGate.decision(frameTimestampMs, detectorIntervalMs)
+        if (!cadence.shouldAnalyze) {
             imageProxy.close()
             return
         }
+        injectMissedBlinkObservations(cadence, settings)
 
         val analyzer = faceAnalyzer
         val mediaImage = imageProxy.image
         if (analyzer == null || mediaImage == null) {
+            if (settings.gesture == OpticalSwitchGesture.LongBlink) {
+                updateBlinkState(null, null, settings, frameTimestampMs)
+            }
             imageProxy.close()
             return
         }
@@ -807,6 +813,25 @@ class CameraSwitchInputAdapter(
                 is BlinkGestureClassifier.Event.HoldEnded ->
                     onHoldEnded(settings, "closedMs=${event.durationMs};reason=${event.reason.name}")
             }
+        }
+    }
+
+    private fun injectMissedBlinkObservations(
+        cadence: FrameCadenceGate.Decision,
+        settings: CameraSwitchSettings
+    ) {
+        if (settings.gesture != OpticalSwitchGesture.LongBlink) return
+        for (timestampMs in missingObservationTimestamps(cadence)) {
+            updateBlinkState(null, null, settings, timestampMs)
+        }
+        if (resumedAfterSignalLossTimeout(
+                cadence,
+                activeDetectionParameters.signalLostCancelMs
+            )
+        ) {
+            // End a stale hold before the resumed frame can contribute new
+            // evidence, even when it arrives just before the watchdog tick.
+            updateBlinkState(null, null, settings, cadence.observedAtMs)
         }
     }
 

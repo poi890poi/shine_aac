@@ -60,12 +60,12 @@ internal class BlinkStateEvidenceFilter(
                 EyeState.Open -> EyeState.Closed
                 EyeState.Closed -> EyeState.Open
             }
-            observations.clear()
             return Update(
                 state = state,
                 changed = true,
                 transitionStartedAtMs = transitionStartedAtMs,
                 contraryVotes = contraryVotes,
+                supportingVotes = observations.count { it.value == observationFor(state) },
                 requiredVotes = requiredVotes
             )
         }
@@ -75,8 +75,14 @@ internal class BlinkStateEvidenceFilter(
             changed = false,
             transitionStartedAtMs = transitionStartedAtMs,
             contraryVotes = contraryVotes,
+            supportingVotes = observations.count { it.value == observationFor(state) },
             requiredVotes = requiredVotes
         )
+    }
+
+    private fun observationFor(state: EyeState): Observation = when (state) {
+        EyeState.Open -> Observation.Open
+        EyeState.Closed -> Observation.Closed
     }
 
     data class Config(
@@ -112,8 +118,12 @@ internal class BlinkStateEvidenceFilter(
         val changed: Boolean,
         val transitionStartedAtMs: Long?,
         val contraryVotes: Int,
+        val supportingVotes: Int,
         val requiredVotes: Int
-    )
+    ) {
+        val hasStatisticalSupport: Boolean
+            get() = supportingVotes >= requiredVotes
+    }
 
     enum class EyeState { Open, Closed }
 

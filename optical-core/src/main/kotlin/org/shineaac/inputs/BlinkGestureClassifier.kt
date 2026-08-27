@@ -97,10 +97,12 @@ class BlinkGestureClassifier(
             return listOf(Event.HoldEnded(durationMs, endReason))
         }
 
-        // Only a currently positive frame may complete activation. Open or
-        // ambiguous evidence near the deadline is allowed to resolve first.
+        // Activation follows the statistically supported state, not one raw
+        // frame at the deadline. One or two open/unknown observations may not
+        // veto a 3-of-5 closed window; three open votes still resolve above.
         if (
-            observation == BlinkStateEvidenceFilter.Observation.Closed &&
+            evidence.state == BlinkStateEvidenceFilter.EyeState.Closed &&
+            evidence.hasStatisticalSupport &&
             nowMs - closedStartedAtMs >= longBlinkMs
         ) {
             state = State.ActivatedWaitOpen
