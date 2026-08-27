@@ -40,7 +40,7 @@ This draft is for Google Play internal and closed testing. The primary audience 
 - 可選用長眨眼或臉頰動作作為相機輸入 影像只在裝置上處理
 - 可在支援 USB Host OTG 的裝置選用相容 USB UVC 外接相機
 - 原生協助者設定與獨立進階時間設定頁
-- 朗讀後可顯示重播控制或放大對話內容 也可維持原本的繼續輸入方式
+- 朗讀後可鎖定掃描操作或放大對話內容 也可維持原本的繼續輸入方式
 - 一般 高對比亮色與高對比暗色顯示預設
 - 讓照顧者 協助者與專業人員更容易一起測試
 

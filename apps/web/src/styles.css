@@ -567,35 +567,31 @@ body.demo-active .phase::after {
   grid-template-rows: repeat(var(--row-count), minmax(0, 1fr));
 }
 
-.shell.speech-lock {
+.shell.speech-lock-enhanced {
   grid-template-rows: minmax(0, 1fr) clamp(96px, 18vh, 160px);
 }
 
-.shell.speech-lock .top-panel {
+.shell.speech-lock-enhanced .top-panel {
   grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
 }
 
-.shell.speech-lock .board {
+.shell.speech-lock-enhanced .board {
   gap: 0;
 }
 
-.shell.speech-lock .row {
+.shell.speech-lock-enhanced .row {
   gap: 0;
 }
 
-.shell.speech-lock .tile {
+.shell.speech-lock-enhanced .tile {
   border-width: 2px;
   border-radius: 12px;
   font-size: clamp(32px, 6vmin, 58px);
 }
 
-.shell.speech-lock .tile-label {
+.shell.speech-lock-enhanced .tile-label {
   padding: 10px 16px;
-}
-
-.shell.speech-lock-enhanced {
-  grid-template-rows: minmax(0, 1fr) clamp(96px, 18vh, 160px);
 }
 
 .shell.speech-lock-enhanced.has-conversation-context .top-panel {
@@ -638,7 +634,7 @@ body.demo-active .phase::after {
   -webkit-line-clamp: 2;
 }
 
-.shell.speech-lock .message.locked-message {
+.shell.speech-lock-enhanced .message.locked-message {
   display: flex;
   align-items: center;
   justify-content: center;

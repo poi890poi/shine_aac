@@ -76,13 +76,14 @@ test("the existing switch-input selector offers an explicit volume-key mode", ()
 
 test("after-read behavior is one normalized three-level option", () => {
   assert.deepEqual(SpeechAfterReadModes, ["off", "replay", "conversation"]);
-  assert.equal(defaultUiConfig.speechAfterReadMode, "off");
+  assert.equal(defaultUiConfig.speechAfterReadMode, "replay");
+  assert.equal(normalizeUiConfig({ speechAfterReadMode: "off" }).speechAfterReadMode, "off");
   assert.equal(normalizeUiConfig({ speechAfterReadMode: "replay" }).speechAfterReadMode, "replay");
   assert.equal(normalizeUiConfig({ speechAfterReadMode: "conversation" }).speechAfterReadMode, "conversation");
-  assert.equal(normalizeUiConfig({ speechAfterReadMode: "unknown" }).speechAfterReadMode, "off");
+  assert.equal(normalizeUiConfig({ speechAfterReadMode: "unknown" }).speechAfterReadMode, "replay");
   assert.match(appSource, /name="speechAfterReadMode"/);
   assert.match(appSource, /speechAfterReadModeOptionsHtml/);
-  assert.match(appSource, /Lock board · Speak \/ Clear \/ Edit", "鎖定版面（朗讀／清除／修改）"/);
+  assert.match(appSource, /Lock layout", "鎖定版面"/);
   assert.match(appSource, /Keep entering \(not locked\)", "繼續輸入（不鎖定）"/);
 });
 
@@ -97,12 +98,13 @@ test("camera hold-through is explicit, bounded, and disabled by default", () => 
   assert.match(appSource, /detail:\s*"holdToAdvance=1"/);
 });
 
-test("idle timeout is a short, bounded, opt-in setting", () => {
+test("idle timeout defaults to five minutes but remains bounded and optional", () => {
   assert.deepEqual(IdleTimeoutMinutes, [0, 1, 5, 15, 30]);
-  assert.equal(defaultUiConfig.idleTimeoutMinutes, 0);
+  assert.equal(defaultUiConfig.idleTimeoutMinutes, 5);
+  assert.equal(normalizeUiConfig({ idleTimeoutMinutes: 0 }).idleTimeoutMinutes, 0);
   assert.equal(normalizeUiConfig({ idleTimeoutMinutes: 5 }).idleTimeoutMinutes, 5);
   assert.equal(normalizeUiConfig({ idleTimeoutMinutes: "15" }).idleTimeoutMinutes, 15);
-  assert.equal(normalizeUiConfig({ idleTimeoutMinutes: 2 }).idleTimeoutMinutes, 0);
+  assert.equal(normalizeUiConfig({ idleTimeoutMinutes: 2 }).idleTimeoutMinutes, 5);
   assert.match(appSource, /name="idleTimeoutMinutes"/);
   assert.match(appSource, /session\.scannerState\.stage === ScanStage\.Stopped/);
   assert.match(appSource, /setCommunicationPaused\?\.\(paused\)/);
@@ -112,9 +114,16 @@ test("replay and conversation display share the same locked subset", () => {
   assert.match(appSource, /speechLockMessage:\s*session\.message/);
   assert.match(appSource, /uiConfig\.speechAfterReadMode === "conversation"/);
   assert.match(styles, /\.shell\.speech-lock-enhanced[\s\S]*?grid-template-rows/);
-  assert.match(styles, /\.shell\.speech-lock \.message\.locked-message[\s\S]*?white-space:\s*normal/);
-  assert.match(styles, /\.shell\.speech-lock\s*\{[\s\S]*?clamp\(96px, 18vh, 160px\)/);
+  assert.match(styles, /\.shell\.speech-lock-enhanced \.message\.locked-message[\s\S]*?white-space:\s*normal/);
+  assert.doesNotMatch(styles, /\.shell\.speech-lock\s*\{[\s\S]*?clamp\(96px, 18vh, 160px\)/);
   assert.match(appSource, /訊息已鎖定 · 選擇操作/);
+});
+
+test("replay lock keeps the ordinary message layout while conversation mode enlarges it", () => {
+  assert.doesNotMatch(styles, /\.shell\.speech-lock (?:\.board|\.row|\.tile|\.tile-label)\s*\{/);
+  assert.match(styles, /\.shell\.speech-lock-enhanced \.board\s*\{[\s\S]*?gap:\s*0/);
+  assert.doesNotMatch(styles, /\.shell\.speech-lock \.message\.locked-message/);
+  assert.match(styles, /\.shell\.speech-lock-enhanced \.message\.locked-message/);
 });
 
 test("conversation display shows only a bounded passive history of spoken messages", () => {

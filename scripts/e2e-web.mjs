@@ -132,6 +132,7 @@ try {
   }
 
   if (speechLockOnlyMode) {
+    await scenarioSpeechLockReplayControls();
     await scenarioSpeechLockConversationDisplay();
     writeReport(true);
     console.log("SPEECH LOCK E2E PASS");
@@ -213,6 +214,7 @@ try {
   await scenarioPhraseAndUndo();
   await scenarioClearAndMovie();
   await scenarioHistoryUpgradeMigration();
+  await scenarioSpeechLockReplayControls();
   await scenarioSpeechLockConversationDisplay();
   await scenarioReviewHold();
   await scenarioInputCalibration();
@@ -2205,12 +2207,83 @@ async function scenarioAutoScanMorePages() {
   ));
 }
 
-async function scenarioSpeechLockConversationDisplay() {
+async function scenarioSpeechLockReplayControls() {
   await evaluate(`
-    document.querySelector(".config-button")?.click();
-    document.querySelector(".config-panel form")?.requestSubmit();
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 33,
+      profileId: "en-US",
+      columns: 4,
+      scanIntervalMs: 120,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 180,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      speechAfterReadMode: "replay"
+    }));
+    localStorage.removeItem("shine-aac-text-history-v1");
+    localStorage.removeItem("shine-aac-session-draft-v1");
+    location.reload();
   `);
-  await waitForRenderedBoard();
+  await waitForUi();
+  await selectLabel("YES");
+  const ordinaryLayout = await evaluate(`(() => {
+    const message = document.querySelector('[data-testid="message"]');
+    const board = document.querySelector('[data-testid="board"]');
+    const topPanel = document.querySelector(".top-panel");
+    return {
+      messageFontPx: Number.parseFloat(getComputedStyle(message).fontSize),
+      boardHeight: board?.getBoundingClientRect().height ?? 0,
+      topPanelHeight: topPanel?.getBoundingClientRect().height ?? 0
+    };
+  })()`);
+  await selectLabel("SAY");
+
+  const locked = await evaluate(`(() => {
+    const shell = document.querySelector(".shell");
+    const message = document.querySelector('[data-testid="message"]');
+    const board = document.querySelector('[data-testid="board"]');
+    const topPanel = document.querySelector(".top-panel");
+    return {
+      mode: shell?.dataset.speechLockMode,
+      enhanced: shell?.classList.contains("speech-lock-enhanced"),
+      contextCount: document.querySelectorAll(".conversation-context-message").length,
+      rows: [...document.querySelectorAll(".row")].map((row) => row.querySelectorAll('.tile:not([data-action="noop"])').length),
+      message: message?.dataset.rawMessage,
+      messageFontPx: Number.parseFloat(getComputedStyle(message).fontSize),
+      boardHeight: board?.getBoundingClientRect().height ?? 0,
+      topPanelHeight: topPanel?.getBoundingClientRect().height ?? 0
+    };
+  })()`);
+  if (
+    locked.mode !== "replay" ||
+    locked.enhanced ||
+    locked.contextCount !== 0 ||
+    JSON.stringify(locked.rows) !== JSON.stringify([3]) ||
+    locked.message !== "yes " ||
+    Math.abs(locked.messageFontPx - ordinaryLayout.messageFontPx) > 0.1 ||
+    Math.abs(locked.boardHeight - ordinaryLayout.boardHeight) > 1 ||
+    Math.abs(locked.topPanelHeight - ordinaryLayout.topPanelHeight) > 1
+  ) {
+    throw new Error(`Replay lock changed the ordinary layout: ${JSON.stringify({ ordinaryLayout, locked })}`);
+  }
+  await assertNoViewportOverflow("speech-lock-replay-controls");
+
+  await selectLabel("Clear");
+  await assertMessage("");
+  if (await evaluate(`Boolean(document.querySelector(".shell.speech-lock"))`)) {
+    throw new Error("Clear did not leave replay lock mode");
+  }
+  steps.push(pass("speech-lock-replay", "layout lock preserves the ordinary message and board proportions while exposing only Speak/Clear/Edit"));
+}
+
+async function scenarioSpeechLockConversationDisplay() {
   await evaluate(`
     localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
       configVersion: 33,

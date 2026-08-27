@@ -134,8 +134,8 @@ function speechLockEnabled() {
 function speechAfterReadModeOptionsHtml(selected) {
   const labels = {
     off: uiText("Keep entering (not locked)", "繼續輸入（不鎖定）"),
-    replay: uiText("Lock board · Speak / Clear / Edit", "鎖定版面（朗讀／清除／修改）"),
-    conversation: uiText("Lock board · conversation display", "鎖定版面（對話顯示）")
+    replay: uiText("Lock layout", "鎖定版面"),
+    conversation: uiText("Conversation display", "對話顯示")
   };
   return SpeechAfterReadModes.map((mode) => {
     const isSelected = mode === selected ? " selected" : "";
@@ -2822,13 +2822,13 @@ function renderConfig() {
       scanVoice: data.get("scanVoice") === "on",
       activationVoice: data.get("activationVoice") === "on",
       speechVoiceName: String(data.get("speechVoiceName") ?? uiConfig.speechVoiceName ?? ""),
-      speechAfterReadMode: String(data.get("speechAfterReadMode") ?? "off"),
+      speechAfterReadMode: String(data.get("speechAfterReadMode") ?? "replay"),
       restartScanFromTop: data.get("restartScanFromTop") === "on",
       verticalGroupProgress: data.get("verticalGroupProgress") === "on",
       holdToAdvance: data.get("holdToAdvance") === "on",
       switchInputProfile: String(data.get("switchInputProfile") ?? "hardware-buttons"),
       contrastTheme: String(data.get("contrastTheme") ?? uiConfig.contrastTheme),
-      idleTimeoutMinutes: Number(data.get("idleTimeoutMinutes") ?? 0)
+      idleTimeoutMinutes: Number(data.get("idleTimeoutMinutes") ?? 5)
     });
     applyContrastTheme(uiConfig.contrastTheme);
     saveUiConfig(uiStorageKey, uiConfig);

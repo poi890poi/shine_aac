@@ -814,7 +814,7 @@ async function main() {
     inputLatencyCompensationMs: "250", scanPassLimit: "2",
     autoScanSuggestionPages: false, deferUnsupportedZhuyinOnFirstPass: true,
     rowScanVoice: false, scanVoice: true, activationVoice: true,
-    speechAfterReadMode: "off",
+    speechAfterReadMode: "replay", idleTimeoutMinutes: "5",
     restartScanFromTop: true, verticalGroupProgress: false,
     switchInputProfile: "hardware-buttons", contrastTheme: "default"
   };

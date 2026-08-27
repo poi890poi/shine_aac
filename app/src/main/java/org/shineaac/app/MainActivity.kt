@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     private val idleHandler = Handler(Looper.getMainLooper())
     @Volatile private var communicationPaused = false
     @Volatile private var powerSavingIdle = false
-    private var idleTimeoutMinutes = 0
+    private var idleTimeoutMinutes = DefaultIdleTimeoutMinutes
     private var brightnessBeforeIdle = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
     private val enterPowerSavingIdleRunnable = Runnable { enterPowerSavingIdle() }
     private var pendingTextHistoryExport: String? = null
@@ -736,7 +736,7 @@ class MainActivity : ComponentActivity() {
                     "speechVoiceName",
                     normalizedSpeechVoiceName(prefs.getString("speechVoiceName", "")),
                 )
-                .put("speechAfterReadMode", prefs.getString("speechAfterReadMode", "off"))
+                .put("speechAfterReadMode", prefs.getString("speechAfterReadMode", "replay"))
                 .put("restartScanFromTop", prefs.getBoolean("restartScanFromTop", true))
                 .put("holdToAdvance", prefs.getBoolean("holdToAdvance", false))
                 .put(
@@ -975,9 +975,10 @@ internal fun normalizedIdleTimeoutMinutes(value: Any?): Int {
         is String -> value.toIntOrNull()
         else -> null
     }
-    return minutes?.takeIf { it in IdleTimeoutMinuteOptions } ?: 0
+    return minutes?.takeIf { it in IdleTimeoutMinuteOptions } ?: DefaultIdleTimeoutMinutes
 }
 
+private const val DefaultIdleTimeoutMinutes = 5
 private val IdleTimeoutMinuteOptions = setOf(0, 1, 5, 15, 30)
 
 internal fun hardwareActivationSource(keyCode: Int, volumeButtonsEnabled: Boolean = false): String? = when (keyCode) {
