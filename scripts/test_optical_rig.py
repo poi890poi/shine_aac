@@ -610,6 +610,37 @@ class CameraZoomGeometryTest(unittest.TestCase):
 
 
 class OpenCvFramebufferTest(unittest.TestCase):
+    def test_rig_claims_visible_desktop_before_slow_build_or_install(self):
+        run_source = inspect.getsource(RIG.OpticalRig.run)
+        self.assertLess(
+            run_source.index("self.start_host(source_by_id)"),
+            run_source.index("self.prepare_test_apk()"),
+        )
+
+    def test_presenter_thread_attaches_to_current_windows_input_desktop(self):
+        user32 = mock.Mock()
+        user32.OpenInputDesktop.return_value = 456
+        user32.SetThreadDesktop.return_value = 1
+        with mock.patch.object(optical_stimulus.os, "name", "nt"), \
+             mock.patch.object(optical_stimulus, "windows_user32", return_value=user32):
+            desktop = optical_stimulus.attach_current_thread_to_input_desktop()
+
+        self.assertEqual(456, desktop)
+        user32.OpenInputDesktop.assert_called_once_with(0, False, 0x0083)
+        user32.SetThreadDesktop.assert_called_once_with(456)
+        user32.CloseDesktop.assert_not_called()
+
+    def test_failed_desktop_attachment_closes_the_open_handle(self):
+        user32 = mock.Mock()
+        user32.OpenInputDesktop.return_value = 789
+        user32.SetThreadDesktop.return_value = 0
+        with mock.patch.object(optical_stimulus.os, "name", "nt"), \
+             mock.patch.object(optical_stimulus, "windows_user32", return_value=user32):
+            with self.assertRaisesRegex(RuntimeError, "could not attach"):
+                optical_stimulus.attach_current_thread_to_input_desktop()
+
+        user32.CloseDesktop.assert_called_once_with(789)
+
     def test_default_input_desktop_is_interactive_even_if_gdi_capture_probe_fails(self):
         with mock.patch.object(RIG, "windows_input_desktop_name", return_value="Default"):
             with mock.patch.object(RIG, "windows_desktop_pixels_available", return_value=False):
@@ -678,11 +709,57 @@ class OpenCvFramebufferTest(unittest.TestCase):
 
     def test_enabling_topmost_also_raises_presenter_above_existing_topmost_window(self):
         user32 = mock.Mock()
+        user32.IsWindow.return_value = 1
+        user32.IsWindowVisible.return_value = 1
+        user32.IsIconic.return_value = 0
+        user32.GetWindowRect.return_value = 0
         user32.SetWindowPos.return_value = 1
         with mock.patch.object(optical_stimulus, "windows_user32", return_value=user32):
             self.assertTrue(optical_stimulus.set_window_topmost(123, True))
 
         user32.BringWindowToTop.assert_called_once_with(123)
+
+    def test_already_visible_uncovered_presenter_is_not_raised_again(self):
+        user32 = mock.Mock()
+        user32.IsWindow.return_value = 1
+        user32.IsWindowVisible.return_value = 1
+        user32.IsIconic.return_value = 0
+        user32.GetWindowLongW.return_value = 0x00000008
+        user32.GetWindow.return_value = 0
+
+        def window_rect(_hwnd, pointer):
+            pointer._obj.left = 0
+            pointer._obj.top = 0
+            pointer._obj.right = 1920
+            pointer._obj.bottom = 1080
+            return 1
+
+        user32.GetWindowRect.side_effect = window_rect
+        with mock.patch.object(optical_stimulus.os, "name", "nt"), \
+             mock.patch.object(optical_stimulus, "windows_user32", return_value=user32):
+            self.assertTrue(optical_stimulus.raise_presenter_window(
+                123, (0, 0, 1920, 1080)
+            ))
+
+        user32.SetWindowPos.assert_not_called()
+        user32.BringWindowToTop.assert_not_called()
+        user32.SetForegroundWindow.assert_not_called()
+
+    def test_presenter_owner_thread_applies_window_geometry_and_foreground(self):
+        user32 = mock.Mock()
+        user32.IsWindow.return_value = 1
+        user32.IsWindowVisible.return_value = 0
+        user32.IsIconic.return_value = 0
+        user32.SetWindowPos.return_value = 1
+        with mock.patch.object(optical_stimulus.os, "name", "nt"), \
+             mock.patch.object(optical_stimulus, "windows_user32", return_value=user32):
+            self.assertTrue(optical_stimulus.raise_presenter_window(
+                123, (0, 0, 1920, 1080)
+            ))
+
+        user32.SetWindowPos.assert_called_once()
+        user32.BringWindowToTop.assert_called_once_with(123)
+        user32.SetForegroundWindow.assert_called_once_with(123)
 
     def test_active_presenter_periodically_reasserts_topmost_without_focus(self):
         presenter = object.__new__(optical_stimulus.OpenCvStimulus)
@@ -698,6 +775,62 @@ class OpenCvFramebufferTest(unittest.TestCase):
             [mock.call(123, True), mock.call(123, True)],
             setter.call_args_list,
         )
+
+    def test_atlas_capture_retries_stale_topmost_frames_before_rejecting_camera(self):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.host = mock.Mock()
+        rig.host.set_state.side_effect = ["atlas-1", "atlas-2", "atlas-3"]
+        rig.ensure_stimulus_visible = mock.Mock(return_value=True)
+        rig.device = mock.Mock()
+        rig.device.screenshot.side_effect = [
+            Path("stale-codex.png"),
+            Path("stale-camera.png"),
+            Path("atlas.png"),
+        ]
+        decoded = {
+            "binary_tags": 8,
+            "estimated_visible_size": [640, 480],
+        }
+        with mock.patch.object(RIG, "ATLAS_PRESENTATION_ATTEMPTS", 3), \
+             mock.patch.object(RIG, "ATLAS_CAMERA_SETTLE_SECONDS", 0), \
+             mock.patch.object(
+                 RIG, "decode_coordinate_atlas_from_png",
+                 side_effect=[ValueError("no tags"), ValueError("stale frame"), decoded],
+             ) as decode:
+            result, shot, captures = rig.capture_decodable_atlas(
+                0, "2", (0, 0, 1920, 1080)
+            )
+
+        self.assertIs(decoded, result)
+        self.assertEqual(Path("atlas.png"), shot)
+        self.assertEqual(3, len(captures))
+        self.assertTrue(captures[-1]["atlas_decoded"])
+        self.assertEqual(3, decode.call_count)
+        self.assertEqual(3, rig.host.reassert_window.call_count)
+        self.assertEqual(3, rig.ensure_stimulus_visible.call_count)
+
+    def test_atlas_capture_preserves_every_failed_retry_for_evidence(self):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.host = mock.Mock()
+        rig.host.set_state.side_effect = ["atlas-1", "atlas-2"]
+        rig.ensure_stimulus_visible = mock.Mock(return_value=True)
+        rig.device = mock.Mock()
+        rig.device.screenshot.side_effect = [Path("first.png"), Path("second.png")]
+        with mock.patch.object(RIG, "ATLAS_PRESENTATION_ATTEMPTS", 2), \
+             mock.patch.object(RIG, "ATLAS_CAMERA_SETTLE_SECONDS", 0), \
+             mock.patch.object(
+                 RIG, "decode_coordinate_atlas_from_png",
+                 side_effect=[ValueError("hidden"), ValueError("still hidden")],
+             ):
+            result, shot, captures = rig.capture_decodable_atlas(
+                1, "2", (0, 0, 1920, 1080)
+            )
+
+        self.assertIsNone(result)
+        self.assertIsNone(shot)
+        self.assertEqual(["hidden", "still hidden"], [
+            capture["decode_error"] for capture in captures
+        ])
 
     def test_manifest_uses_visually_verified_closed_eye_frames(self):
         manifest = json.loads(
@@ -833,6 +966,7 @@ class OpenCvFramebufferTest(unittest.TestCase):
         runner = (SCRIPT_DIR / "optical-rig-test.py").read_text(encoding="utf-8")
         self.assertNotIn('mode="blank"', runner)
         self.assertNotIn("idle black presenter", runner)
+        self.assertIn("POST-ATLAS NEUTRAL FACE", runner)
 
     def test_atlas_covers_partial_bottom_tile_without_browser_gap(self):
         _, numpy = optical_stimulus.load_opencv(SCRIPT_DIR.parent)

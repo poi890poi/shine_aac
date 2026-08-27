@@ -20,6 +20,15 @@ IDLE_STOP_EVENT_NAME = "Local\\ShineAacOpticalIdleStop"
 TOPMOST_REFRESH_SECONDS = 0.5
 
 
+class WindowRect(ctypes.Structure):
+    _fields_ = [
+        ("left", ctypes.c_long),
+        ("top", ctypes.c_long),
+        ("right", ctypes.c_long),
+        ("bottom", ctypes.c_long),
+    ]
+
+
 def video_frames_due(now, deadline, period, maximum=60):
     """Return frames to advance so playback follows wall time instead of drifting."""
     if period <= 0:
@@ -73,6 +82,14 @@ def windows_user32():
     user32.SetWindowPos.restype = boolean
     user32.IsWindow.argtypes = [handle]
     user32.IsWindow.restype = boolean
+    user32.IsWindowVisible.argtypes = [handle]
+    user32.IsWindowVisible.restype = boolean
+    user32.IsIconic.argtypes = [handle]
+    user32.IsIconic.restype = boolean
+    user32.GetWindow.argtypes = [handle, unsigned]
+    user32.GetWindow.restype = handle
+    user32.GetWindowRect.argtypes = [handle, ctypes.POINTER(WindowRect)]
+    user32.GetWindowRect.restype = boolean
     user32.PostMessageW.argtypes = [handle, unsigned, handle, handle]
     user32.PostMessageW.restype = boolean
     user32.GetWindowLongW.argtypes = [handle, ctypes.c_int]
@@ -85,13 +102,101 @@ def windows_user32():
     user32.SetForegroundWindow.restype = boolean
     user32.GetSystemMetrics.argtypes = [ctypes.c_int]
     user32.GetSystemMetrics.restype = ctypes.c_int
+    user32.OpenInputDesktop.argtypes = [
+        ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32
+    ]
+    user32.OpenInputDesktop.restype = handle
+    user32.SetThreadDesktop.argtypes = [handle]
+    user32.SetThreadDesktop.restype = boolean
+    user32.CloseDesktop.argtypes = [handle]
+    user32.CloseDesktop.restype = boolean
     return user32
+
+
+def attach_current_thread_to_input_desktop():
+    """Bind a presenter thread to the desktop the unlocked user can see.
+
+    A process started while Windows is locked or while the desktop is changing can
+    retain a different `Default` desktop. Its HWND remains valid and accepts
+    topmost calls, but the physical monitor continues to show another window.
+    OpenCV creates its native window on the calling thread, so attach that thread
+    before HighGUI creates any HWND and retain the desktop handle for its lifetime.
+    """
+    if os.name != "nt":
+        return None
+    user32 = windows_user32()
+    DESKTOP_READOBJECTS = 0x0001
+    DESKTOP_CREATEWINDOW = 0x0002
+    DESKTOP_WRITEOBJECTS = 0x0080
+    access = (
+        DESKTOP_READOBJECTS |
+        DESKTOP_CREATEWINDOW |
+        DESKTOP_WRITEOBJECTS
+    )
+    desktop = user32.OpenInputDesktop(0, False, access)
+    if not desktop:
+        raise RuntimeError("Windows input desktop is unavailable")
+    if not user32.SetThreadDesktop(desktop):
+        user32.CloseDesktop(desktop)
+        raise RuntimeError("presenter thread could not attach to Windows input desktop")
+    return desktop
+
+
+def _native_window_rect(user32, hwnd):
+    rect = WindowRect()
+    if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+        return None
+    return (rect.left, rect.top, rect.right, rect.bottom)
+
+
+def _rectangles_overlap(first, second):
+    return not (
+        first[2] <= second[0] or second[2] <= first[0] or
+        first[3] <= second[1] or second[3] <= first[1]
+    )
+
+
+def presenter_window_needs_raise(hwnd, rect=None):
+    """Return true only when the persistent presenter is not fully on top."""
+    if os.name != "nt":
+        return False
+    user32 = windows_user32()
+    if (
+        not hwnd or not user32.IsWindow(hwnd) or
+        not user32.IsWindowVisible(hwnd) or user32.IsIconic(hwnd)
+    ):
+        return True
+    current = _native_window_rect(user32, hwnd)
+    if current is None:
+        return True
+    if rect is not None:
+        x, y, width, height = (int(value) for value in rect)
+        if current != (x, y, x + width, y + height):
+            return True
+    WS_EX_TOPMOST = 0x00000008
+    if not (int(user32.GetWindowLongW(hwnd, -20)) & WS_EX_TOPMOST):
+        return True
+
+    # GW_HWNDPREV walks windows above this HWND in z-order. Only a visible,
+    # non-minimized window that overlaps the presenter can hide camera pixels.
+    above = user32.GetWindow(hwnd, 3)
+    visited = set()
+    while above and int(above) not in visited:
+        visited.add(int(above))
+        if user32.IsWindowVisible(above) and not user32.IsIconic(above):
+            other = _native_window_rect(user32, above)
+            if other and _rectangles_overlap(current, other):
+                return True
+        above = user32.GetWindow(above, 3)
+    return False
 
 
 def set_window_topmost(hwnd, enabled):
     """Change only the rig window's z-order, preserving its pixel geometry."""
     if os.name != "nt" or not hwnd:
         return False
+    if enabled and not presenter_window_needs_raise(hwnd):
+        return True
     user32 = windows_user32()
     insert_after = -1 if enabled else -2  # HWND_TOPMOST / HWND_NOTOPMOST
     flags = 0x0001 | 0x0002 | 0x0010  # NOSIZE | NOMOVE | NOACTIVATE
@@ -100,6 +205,28 @@ def set_window_topmost(hwnd, enabled):
     ))
     if enabled and positioned:
         user32.BringWindowToTop(hwnd)
+    return positioned
+
+
+def raise_presenter_window(hwnd, rect=None):
+    """Raise/resize the native presenter from the thread that owns its desktop."""
+    if os.name != "nt" or not hwnd:
+        return os.name != "nt"
+    if not presenter_window_needs_raise(hwnd, rect):
+        return True
+    user32 = windows_user32()
+    if rect is None:
+        x = y = width = height = 0
+        flags = 0x0001 | 0x0002 | 0x0040  # NOSIZE | NOMOVE | SHOWWINDOW
+    else:
+        x, y, width, height = (int(value) for value in rect)
+        flags = 0x0040  # SHOWWINDOW
+    positioned = bool(user32.SetWindowPos(
+        hwnd, ctypes.c_void_p(-1), x, y, width, height, flags
+    ))
+    if positioned:
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
     return positioned
 
 
@@ -325,6 +452,8 @@ class OpenCvStimulus:
         self._next_topmost_refresh = 0.0
         self.operator_abort = False
         self._token_counter = 0
+        self._window_request_counter = 0
+        self._window_requests = []
 
     @property
     def url(self):
@@ -345,6 +474,39 @@ class OpenCvStimulus:
             self.condition.notify_all()
         if self.thread:
             self.thread.join(timeout=5.0)
+
+    def reassert_window(self, rect=None, timeout=5.0):
+        """Ask the input-desktop presenter thread to raise its own HWND."""
+        if os.name != "nt":
+            return True
+        deadline = time.time() + timeout
+        with self.condition:
+            self._window_request_counter += 1
+            request = {
+                "id": self._window_request_counter,
+                "rect": tuple(rect) if rect is not None else None,
+                "result": None,
+            }
+            self._window_requests.append(request)
+            self.condition.notify_all()
+            while request["result"] is None and time.time() < deadline:
+                if self.error or self.stop_event.is_set():
+                    break
+                self.condition.wait(max(0.01, min(0.1, deadline - time.time())))
+            return bool(request["result"])
+
+    def _apply_window_requests(self):
+        with self.condition:
+            requests = list(self._window_requests)
+            self._window_requests.clear()
+        for request in requests:
+            try:
+                result = raise_presenter_window(self.hwnd, request["rect"])
+            except Exception:
+                result = False
+            with self.condition:
+                request["result"] = bool(result)
+                self.condition.notify_all()
 
     def set_state(self, **state):
         if self.operator_abort:
@@ -603,7 +765,9 @@ class OpenCvStimulus:
         prepared = None
         applied = False
         ended_sent = False
+        input_desktop = None
         try:
+            input_desktop = attach_current_thread_to_input_desktop()
             self._fullscreen_window()
             print(
                 "[optical rig] window controls: Esc closes/aborts; T toggles always-on-top; "
@@ -624,6 +788,7 @@ class OpenCvStimulus:
                     ended_sent = False
                 frame, ended = self._render_state(state, prepared)
                 self.cv2.imshow(WINDOW_TITLE, frame)
+                self._apply_window_requests()
                 self._refresh_topmost(force=not applied)
                 key = self.cv2.waitKey(1)
                 if key >= 0:
@@ -654,6 +819,11 @@ class OpenCvStimulus:
             self.error = error
             self.ready_event.set()
         finally:
+            with self.condition:
+                for request in self._window_requests:
+                    request["result"] = False
+                self._window_requests.clear()
+                self.condition.notify_all()
             unregister_presenter(self.root)
             if prepared and prepared.get("capture"):
                 prepared["capture"].release()
@@ -662,6 +832,11 @@ class OpenCvStimulus:
                 self.cv2.waitKey(1)
             except Exception:
                 pass
+            if input_desktop and os.name == "nt":
+                try:
+                    windows_user32().CloseDesktop(input_desktop)
+                except Exception:
+                    pass
 
 
 def render_idle_cue(cv2, numpy, width, height):
@@ -703,6 +878,7 @@ def run_idle_presenter(root):
     rect = virtual_desktop_rect()
     _, _, width, height = rect
     standby = render_idle_cue(cv2, numpy, width, height)
+    input_desktop = attach_current_thread_to_input_desktop()
     hwnd = _make_fullscreen_window(cv2, IDLE_WINDOW_TITLE, rect)
     set_window_topmost(hwnd, False)
     register_presenter(root, "idle", IDLE_WINDOW_TITLE)
@@ -742,6 +918,11 @@ def run_idle_presenter(root):
             cv2.waitKey(1)
         except Exception:
             pass
+        if input_desktop and os.name == "nt":
+            try:
+                windows_user32().CloseDesktop(input_desktop)
+            except Exception:
+                pass
         if stop_event:
             kernel32.CloseHandle(stop_event)
         if mutex:

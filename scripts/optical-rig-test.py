@@ -50,6 +50,8 @@ APK = ROOT / "app/build/outputs/apk/debug/app-debug.apk"
 CAMERA_PREFS = "shared_prefs/shine_aac_camera_switch.xml"
 CONFIG_PREFS = "shared_prefs/shine_aac_config.xml"
 RIG_MONITOR_OCCUPANCY = 0.70
+ATLAS_PRESENTATION_ATTEMPTS = 4
+ATLAS_CAMERA_SETTLE_SECONDS = 1.0
 MIN_RIG_FACE_HEIGHT = 0.55
 MAX_RIG_FACE_HEIGHT = 0.82
 
@@ -563,43 +565,6 @@ def close_stale_stimulus_windows():
         deadline = time.time() + 2.0
         while time.time() < deadline and any(user32.IsWindow(hwnd) for hwnd in stale):
             time.sleep(0.1)
-
-
-def focus_stimulus_window(timeout=8.0):
-    if os.name != "nt":
-        return True
-    user32, _ = windows_user32()
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        hwnd = find_stimulus_window()
-        if hwnd:
-            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-            HWND_TOPMOST = -1
-            flags = 0x0001 | 0x0002 | 0x0040  # NOSIZE|NOMOVE|SHOWWINDOW
-            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
-            user32.BringWindowToTop(hwnd)
-            user32.SetForegroundWindow(hwnd)
-            return True
-        time.sleep(0.15)
-    return False
-
-def set_stimulus_window_rect(x, y, width, height):
-    if os.name != "nt":
-        return True
-    hwnd = find_stimulus_window()
-    if not hwnd:
-        return False
-    user32, _ = windows_user32()
-    HWND_TOPMOST = -1
-    SWP_SHOWWINDOW = 0x0040
-    ok = user32.SetWindowPos(
-        hwnd, HWND_TOPMOST,
-        int(x), int(y), int(width), int(height),
-        SWP_SHOWWINDOW
-    )
-    user32.BringWindowToTop(hwnd)
-    user32.SetForegroundWindow(hwnd)
-    return bool(ok)
 
 # ---------------------- minimal PNG decoding for calibration -----------------
 
@@ -2150,7 +2115,7 @@ class OpticalRig:
         except RuntimeError as error:
             self.add("P0", "OpenCV stimulus failed to start", str(error))
             return False
-        if not focus_stimulus_window(timeout=8.0):
+        if not self.host.reassert_window(self.host.desktop_rect, timeout=8.0):
             if not windows_desktop_is_interactive():
                 self.add(
                     "P0",
@@ -2169,8 +2134,7 @@ class OpticalRig:
                 "token": token,
                 "events": list(self.host.events),
                 "presenter_error": str(self.host.error) if self.host.error else None,
-                "window_title": _window_title(find_stimulus_window())
-                    if find_stimulus_window() else None,
+                "presenter_hwnd_registered": bool(self.host.hwnd),
             }
             (self.outdir / "host-startup-diagnostics.json").write_text(
                 json.dumps(diagnostics, indent=2), encoding="utf-8"
@@ -2210,7 +2174,7 @@ class OpticalRig:
                 % label
             )
             return False
-        if not focus_stimulus_window(timeout=4.0):
+        if not self.host.reassert_window(self.host.desktop_rect, timeout=4.0):
             self.add(
                 "P0", "Stimulus window lost",
                 "Could not foreground the single OpenCV window for %s." % label
@@ -2269,10 +2233,87 @@ class OpticalRig:
             encoding="utf-8"
         )
 
+    def capture_decodable_atlas(self, camera_attempt, camera_id, desktop_rect):
+        """Retry presenter-to-camera propagation before rejecting a camera.
+
+        Camera Setup can become ready while another topmost desktop window still
+        covers the freshly created OpenCV window. A single screenshot then records
+        that stale window and incorrectly looks like a camera-selection failure.
+        Re-arm the atlas state and foreground the verified presenter immediately
+        before each bounded phone capture. The atlas decoder is the readiness
+        oracle; every failed capture remains available as evidence.
+        """
+        vx, vy, vw, vh = desktop_rect
+        captures = []
+        for presentation_attempt in range(ATLAS_PRESENTATION_ATTEMPTS):
+            label = "coordinate atlas attempt %d.%d" % (
+                camera_attempt + 1, presentation_attempt + 1
+            )
+            token = self.host.set_state(
+                mode="atlas",
+                label="ONE-SHOT CAMERA VIEW ATLAS RETRY %02d" %
+                    (presentation_attempt + 1),
+            )
+            ready = self.ensure_stimulus_visible(token, label)
+            if ready:
+                # Reapply the exact full-desktop rectangle after state
+                # acknowledgement. This also raises the verified native window
+                # immediately before the camera is allowed to settle.
+                ready = self.host.reassert_window(
+                    (vx, vy, vw, vh), timeout=3.0
+                )
+            if not ready:
+                captures.append({
+                    "presentation_attempt": presentation_attempt,
+                    "decode_error": "presenter could not be foregrounded",
+                })
+                continue
+
+            time.sleep(ATLAS_CAMERA_SETTLE_SECONDS)
+            screenshot_name = "rig_atlas_camera_%02d_try_%02d" % (
+                camera_attempt, presentation_attempt
+            )
+            shot = self.device.screenshot(screenshot_name)
+            capture = {
+                "presentation_attempt": presentation_attempt,
+                "screenshot": "device/screenshots/%s.png" % screenshot_name,
+            }
+            try:
+                decoded = decode_coordinate_atlas_from_png(
+                    shot, desktop_rect
+                )
+                visible_w, visible_h = decoded["estimated_visible_size"]
+                if (
+                    decoded["binary_tags"] < 4 or
+                    visible_w < 120 or visible_h < 120
+                ):
+                    raise ValueError("decoded geometry below acceptance bounds")
+                capture["atlas_decoded"] = True
+                capture["binary_tags"] = decoded["binary_tags"]
+                captures.append(capture)
+                return decoded, shot, captures
+            except Exception as error:
+                capture["decode_error"] = str(error)
+                captures.append(capture)
+                print(
+                    "atlas presentation retry %d/%d for cameraId=%s: %s"
+                    % (
+                        presentation_attempt + 1,
+                        ATLAS_PRESENTATION_ATTEMPTS,
+                        camera_id,
+                        error,
+                    )
+                )
+        return None, None, captures
+
     def discover_visible_patch(self, timeout):
         vx, vy, vw, vh = virtual_desktop_rect()
-        set_stimulus_window_rect(vx, vy, vw, vh)
-        focus_stimulus_window(timeout=2.0)
+        if not self.host.reassert_window((vx, vy, vw, vh), timeout=4.0):
+            self.add(
+                "P0", "Stimulus window could not be positioned",
+                "The input-desktop presenter thread did not acknowledge the full-desktop atlas rectangle."
+            )
+            return None
         token = self.host.set_state(
             mode="atlas",
             label="ONE-SHOT CAMERA VIEW ATLAS"
@@ -2309,59 +2350,56 @@ class OpticalRig:
 
             attempted = len(attempts)
             tested_ids.add(camera_id)
-            time.sleep(1.0)
-            shot = self.device.screenshot(
-                "rig_atlas_camera_%02d" % attempted
-            )
             attempt = {
                 "index": attempted,
                 "camera_id": camera_id,
-                "screenshot": "device/screenshots/rig_atlas_camera_%02d.png" % attempted,
             }
-            try:
-                decoded = decode_coordinate_atlas_from_png(
-                    shot, (vx, vy, vw, vh)
-                )
+            decoded, shot, captures = self.capture_decodable_atlas(
+                attempted, camera_id, (vx, vy, vw, vh)
+            )
+            attempt["captures"] = captures
+            if decoded is not None:
                 cx, cy = decoded["desktop_center"]
                 visible_w, visible_h = decoded["estimated_visible_size"]
-                if (
-                    decoded["binary_tags"] >= 4 and
-                    visible_w >= 120 and visible_h >= 120
-                ):
-                    decoded["selected_camera_attempt"] = attempted
-                    decoded["selected_camera_id"] = camera_id
-                    attempt["atlas_decoded"] = True
-                    attempt["binary_tags"] = decoded["binary_tags"]
-                    attempts.append(attempt)
-                    self._write_camera_cycle(attempts)
-                    self.selected_setup_camera_id = camera_id
-                    (self.outdir / "atlas-calibration.json").write_text(
-                        json.dumps(decoded, indent=2),
-                        encoding="utf-8"
-                    )
-                    print(
-                        "atlas camera match:",
-                        "attempt=%d" % attempted,
-                        "cameraId=%s" % camera_id,
-                        "center=(%.0f,%.0f)" % (cx,cy),
-                        "visible=%.0fx%.0f" % (visible_w,visible_h)
-                    )
-                    return {
-                        "x": cx-visible_w/2.0,
-                        "y": cy-visible_h/2.0,
-                        "width": visible_w,
-                        "height": visible_h,
-                        "center_x": cx,
-                        "center_y": cy,
-                        "decoded": decoded,
-                    }
-                attempt["decode_error"] = "decoded geometry below acceptance bounds"
-            except Exception as error:
-                attempt["decode_error"] = str(error)
-                print(
-                    "atlas camera attempt %d cameraId=%s did not see display: %s"
-                    % (attempted, camera_id, error)
+                decoded["selected_camera_attempt"] = attempted
+                decoded["selected_camera_id"] = camera_id
+                attempt["atlas_decoded"] = True
+                attempt["binary_tags"] = decoded["binary_tags"]
+                attempt["screenshot"] = captures[-1]["screenshot"]
+                attempts.append(attempt)
+                self._write_camera_cycle(attempts)
+                self.selected_setup_camera_id = camera_id
+                (self.outdir / "atlas-calibration.json").write_text(
+                    json.dumps(decoded, indent=2),
+                    encoding="utf-8"
                 )
+                print(
+                    "atlas camera match:",
+                    "attempt=%d" % attempted,
+                    "cameraId=%s" % camera_id,
+                    "center=(%.0f,%.0f)" % (cx,cy),
+                    "visible=%.0fx%.0f" % (visible_w,visible_h)
+                )
+                return {
+                    "x": cx-visible_w/2.0,
+                    "y": cy-visible_h/2.0,
+                    "width": visible_w,
+                    "height": visible_h,
+                    "center_x": cx,
+                    "center_y": cy,
+                    "decoded": decoded,
+                }
+            attempt["decode_error"] = (
+                captures[-1].get("decode_error")
+                if captures else "atlas presenter produced no capture"
+            )
+            print(
+                "atlas camera attempt %d cameraId=%s did not see display after %d presentation attempts: %s"
+                % (
+                    attempted, camera_id, len(captures),
+                    attempt["decode_error"],
+                )
+            )
             attempts.append(attempt)
             self._write_camera_cycle(attempts)
 
@@ -4676,44 +4714,63 @@ class OpticalRig:
         ]
         (self.outdir/"FINDINGS.md").write_text("\n".join(report),encoding="utf-8")
 
-    def run(self):
-        manifest=self.ensure_stimuli()
-        source_by_id={x["id"]:x for x in manifest["sources"]}
-
+    def prepare_test_apk(self):
+        """Build/install only after the visible presenter has claimed the desktop."""
         if not self.args.no_build:
-            print("==> Building/testing debug APK")
+            print("==> Building/testing debug APK while atlas remains visible")
             if os.name == "nt":
                 # Keep the captured build process local to this rig run. A
                 # Gradle daemon can otherwise retain the Windows output pipe
                 # after the APK is complete and prevent optical setup.
-                r = run(
+                result = run(
                     ["cmd.exe", "/c", "build-test.bat", "-NoDaemon"],
                     check=False,
                     timeout=900,
                     cwd=ROOT,
                 )
             else:
-                r = run(["./gradlew","testDebugUnitTest","assembleDebug"],
-                        check=False,timeout=900,cwd=ROOT)
-            (self.outdir/"build.txt").write_text(r.stdout or "",encoding="utf-8",errors="replace")
-            if r.returncode != 0:
-                self.add("P0","Build failed","See build.txt.",["build.txt"])
-                self.write_report(None); return 2
+                result = run(
+                    ["./gradlew", "testDebugUnitTest", "assembleDebug"],
+                    check=False, timeout=900, cwd=ROOT
+                )
+            (self.outdir / "build.txt").write_text(
+                result.stdout or "", encoding="utf-8", errors="replace"
+            )
+            if result.returncode != 0:
+                self.add("P0", "Build failed", "See build.txt.", ["build.txt"])
+                return False
 
         self.device.setup_power_guard()
-        if not self.args.no_install:
-            if not APK.exists():
-                self.add("P0","APK missing",str(APK)); self.write_report(None); return 2
-            r=self.device.adb_cmd("install","-r",str(APK),check=False,timeout=120)
-            (self.outdir/"install.txt").write_text(r.stdout or "",encoding="utf-8",errors="replace")
-            if r.returncode != 0 or "Success" not in (r.stdout or ""):
-                self.add("P0","APK install failed",(r.stdout or "").strip(),["install.txt"])
-                self.write_report(None); return 2
+        if self.args.no_install:
+            return True
+        if not APK.exists():
+            self.add("P0", "APK missing", str(APK))
+            return False
+        result = self.device.adb_cmd(
+            "install", "-r", str(APK), check=False, timeout=120
+        )
+        (self.outdir / "install.txt").write_text(
+            result.stdout or "", encoding="utf-8", errors="replace"
+        )
+        if result.returncode != 0 or "Success" not in (result.stdout or ""):
+            self.add(
+                "P0", "APK install failed", (result.stdout or "").strip(),
+                ["install.txt"]
+            )
+            return False
+        return True
+
+    def run(self):
+        manifest=self.ensure_stimuli()
+        source_by_id={x["id"]:x for x in manifest["sources"]}
 
         if not self.start_host(source_by_id):
             self.write_report(None)
             return 2
         try:
+            if not self.prepare_test_apk():
+                self.write_report(None)
+                return 2
             if not self.preserve_camera_preferences():
                 self.write_report(None)
                 return 2
@@ -4947,13 +5004,15 @@ class OpticalRig:
                 self.write_report(None); return 2
 
             natural=manifest["blink_cases"][0]
+            neutral_source = source_by_id[natural["source"]]
+            if not self.show_video_still(
+                neutral_source,
+                float(neutral_source.get("rest_at_s", 0.0)),
+                "POST-ATLAS NEUTRAL FACE",
+            ):
+                self.write_report(calibration)
+                return 2
             if self.args.geometry_only:
-                source = source_by_id[natural["source"]]
-                if not self.show_video_still(
-                    source, 0.75, "GEOMETRY CHECK: UNSCALED FACE"
-                ):
-                    self.write_report(calibration)
-                    return 2
                 time.sleep(3.0)
                 self.device.screenshot("rig_geometry_unscaled_face")
                 self.write_report(calibration)
