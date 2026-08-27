@@ -87,6 +87,7 @@ class CameraSwitchInputAdapter(
     private var generation = 0
     private var watchdogScheduled = false
     private var running = false
+    @Volatile private var opticalStateResetRequested = false
     @Volatile private var powerSavingIdle = false
 
     fun setPowerSavingIdle(enabled: Boolean) {
@@ -198,6 +199,7 @@ class CameraSwitchInputAdapter(
         blinkClassifier.reset()
         cheekDetector.reset()
         cheekClassifier.reset()
+        opticalStateResetRequested = false
         holdEventActive = false
         lastActivationAt = 0L
     }
@@ -759,6 +761,7 @@ class CameraSwitchInputAdapter(
         settings: CameraSwitchSettings,
         frameTimestampMs: Long
     ) {
+        recoverOpticalStateIfRequested()
         lastReportedScore = score
         activeEnterThreshold = settings.cheekModel?.enterThreshold ?: CheekTwitchDetector.DefaultEnterThreshold
         for (event in cheekClassifier.onScore(score, frameTimestampMs)) {
@@ -783,6 +786,7 @@ class CameraSwitchInputAdapter(
         settings: CameraSwitchSettings,
         frameTimestampMs: Long
     ) {
+        recoverOpticalStateIfRequested()
         lastReportedScore = score
         activeEnterThreshold = activeDetectionParameters.closeThreshold
         for (event in blinkClassifier.onSignal(
@@ -837,6 +841,14 @@ class CameraSwitchInputAdapter(
         sink.onInput(InputEvent(intent = "holdEnd", source = source, detail = detail))
     }
 
+    private fun recoverOpticalStateIfRequested() {
+        if (!opticalStateResetRequested) return
+        opticalStateResetRequested = false
+        blinkClassifier.reset()
+        cheekDetector.reset()
+        cheekClassifier.reset()
+    }
+
     private fun playHoldReachedCue() {
         tonePlayer?.playHoldReached()
     }
@@ -853,6 +865,21 @@ class CameraSwitchInputAdapter(
         val now = System.currentTimeMillis()
         val noImagesForMs = now - lastImageReceivedAt
         val noCompletedAnalysisForMs = now - lastAnalysisCompletedAt
+        if (shouldReleaseStalledHold(
+                holdEventActive,
+                noImagesForMs,
+                noCompletedAnalysisForMs,
+                activeDetectionParameters.signalLostCancelMs
+            )
+        ) {
+            // The analysis thread may be stalled, so release the UI hold here
+            // and reset detector state before its next observation. With the
+            // default 700 ms signal timeout and 1 s watchdog, worst-case
+            // recovery is 1.7 s: below the normal 1.8 s scan step and the
+            // camera preset's 2.6 s step.
+            opticalStateResetRequested = true
+            sendHoldEnd(activeSource, "reason=SignalStalled")
+        }
         when {
             noImagesForMs >= FrameStallMs -> sendStatus("cameraStale", force = true)
             noCompletedAnalysisForMs >= AnalysisStallMs -> sendStatus("detectorStale", force = true)
@@ -932,3 +959,11 @@ internal fun cameraAnalysisIntervalMs(
     gesture == OpticalSwitchGesture.LongBlink -> 100L
     else -> 66L
 }
+
+internal fun shouldReleaseStalledHold(
+    holdActive: Boolean,
+    noImagesForMs: Long,
+    noCompletedAnalysisForMs: Long,
+    signalLostCancelMs: Long
+): Boolean = holdActive &&
+    maxOf(noImagesForMs, noCompletedAnalysisForMs) >= signalLostCancelMs.coerceAtLeast(0L)
