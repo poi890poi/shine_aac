@@ -143,6 +143,7 @@ try {
 
   if (scanVisualOnlyMode) {
     await scenarioZhuyinCandidateStylingParity();
+    await scenarioZhuyinFilteredBlockStability();
     await scenarioScanVisualOwnership();
     writeReport(true);
     console.log("PHONE SCAN VISUAL E2E PASS");
@@ -3274,6 +3275,79 @@ async function candidateStyleSnapshot() {
       outline: style?.outline ?? ""
     };
   })()`);
+}
+
+async function scenarioZhuyinFilteredBlockStability() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 33,
+      profileId: "zh-TW",
+      columns: 6,
+      scanMode: "row-column",
+      scanIntervalMs: 500,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 500,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0,
+      deferUnsupportedZhuyinOnFirstPass: true
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+  `);
+  await reloadAndWaitForRenderedBoard("zhuyin-filtered-block-stability-setup");
+  await releaseFirstRowHold();
+  if ((await getSnapshot()).message) {
+    await selectLabel("清除");
+    await assertMessage("");
+  }
+  await selectLabel("ㄅ");
+  await assertMessage("ㄅ");
+  await evaluate(`
+    (() => {
+      const stored = JSON.parse(localStorage.getItem("shine-aac-web-config-v1") ?? "{}");
+      localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+        ...stored,
+        scanMode: "block-row-column"
+      }));
+    })()
+  `);
+  await reloadAndWaitForRenderedBoard("zhuyin-filtered-block-mode");
+  await assertMessage("ㄅ");
+
+  const review = await waitForActive(
+    (current) => current.phase === "Review" && current.reviewHold && current.activeBlock,
+    "filtered Zhuyin review block"
+  );
+  assertArrayEqual(activeRowsFor(review, "activeBlock"), [0, 1, 2, 3], "preserved review block rows");
+  await capturePhoneScanVisual("zhuyin-filtered-first-block-stable");
+
+  await releaseFirstRowHold();
+  const first = await waitForActive(
+    (current) => current.phase === "Blocks" && current.activeBlock,
+    "filtered Zhuyin first block"
+  );
+  assertArrayEqual(activeRowsFor(first, "activeBlock"), [0, 1, 2, 3], "preserved first-pass block rows");
+
+  const second = await waitForActive(
+    (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex === 4,
+    "filtered Zhuyin regrouped second block"
+  );
+  assertArrayEqual(activeRowsFor(second, "activeBlock"), [4, 5, 6, 7, 8, 9, 10], "regrouped second-block visual span");
+  const third = await waitForActive(
+    (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex === 11,
+    "filtered Zhuyin regrouped third block"
+  );
+  assertArrayEqual(activeRowsFor(third, "activeBlock"), [11, 12], "regrouped third-block rows");
+  steps.push(pass(
+    "zhuyin-filtered-block-stability",
+    "first-pass filtering preserves suggestion rows 0-3 as the full-board first block and regroups only later active rows"
+  ));
 }
 
 async function scenarioScanVisualOwnership() {

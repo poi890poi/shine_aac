@@ -53,6 +53,10 @@ The main board should expose one communication action: activate the current scan
 - Phrase and Zhuyin suggestions share the same neutral candidate style. `replaceLength`
   is composition metadata only and must never create an active, selected, or scan-progress
   appearance. Only the current scan cell may use active-cell styling.
+- In three-layer scanning, when first-pass filtering leaves the full-board first block
+  intact, preserve that block and regroup only later active rows with the remaining
+  block budget. If filtering changes the first block, rebalance all active rows. The
+  full second pass always restores the ordinary full-board groups.
 - Suggestion cells should prefer relevant fallback targets over dead empty cells when the row is active; never fill typed-buffer suggestions with unrelated words.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.

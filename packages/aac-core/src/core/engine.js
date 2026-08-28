@@ -2754,6 +2754,21 @@ export function scanRowBlocksForPass(
     .filter((block) => block.length > 0);
   if (passIndex !== 1) return activeBlocks;
   const activeRows = activeBlocks.flat().sort((left, right) => left - right);
+  const fullFirstBlock = blocks[0] ?? [];
+  const activeRowSet = new Set(activeRows);
+  const firstBlockSurvivesIntact =
+    fullFirstBlock.length > 0 &&
+    fullFirstBlock.every((rowIndex) => activeRowSet.has(rowIndex));
+  if (firstBlockSurvivesIntact) {
+    const firstBlockRows = new Set(fullFirstBlock);
+    const remainingRows = activeRows.filter((rowIndex) => !firstBlockRows.has(rowIndex));
+    if (remainingRows.length === 0) return [fullFirstBlock];
+    const remainingBlockBudget = Math.max(1, blocks.length - 1);
+    return [
+      fullFirstBlock,
+      ...compactBalancedRowBlocks(remainingRows, remainingBlockBudget, 2)
+    ];
+  }
   return compactBalancedRowBlocks(activeRows, requestedBlockCount, 2);
 }
 

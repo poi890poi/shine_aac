@@ -428,7 +428,7 @@ test("default block mode creates the 4-3-3-3 groups used by 13-row boards", () =
   ]);
 });
 
-test("reduced first-pass blocks stay compact, balanced, and at least two rows wide", () => {
+test("filtered first pass preserves an intact leading block and regroups only later rows", () => {
   const sizes = Array.from({ length: 13 }, () => 4);
   const firstPassRows = new Set([0, 1, 2, 3, 4, 9, 10, 11, 12]);
   const indicesForPass = (rowIndex, passIndex) =>
@@ -436,7 +436,7 @@ test("reduced first-pass blocks stay compact, balanced, and at least two rows wi
 
   assert.deepEqual(
     scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 1, indicesForPass),
-    [[0, 1, 2], [3, 4], [9, 10], [11, 12]]
+    [[0, 1, 2, 3], [4, 9, 10], [11, 12]]
   );
   assert.deepEqual(
     scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 2, indicesForPass),
@@ -453,8 +453,8 @@ test("a compact first-pass block keeps its rows while scanning inside it", () =>
     createScannerState({
       scanMode: ScanMode.BlockRowColumn,
       stage: ScanStage.Blocks,
-      blockIndex: 2,
-      rowIndex: 9
+      blockIndex: 1,
+      rowIndex: 4
     }),
     sizes.length,
     (row) => sizes[row],
@@ -463,7 +463,7 @@ test("a compact first-pass block keeps its rows while scanning inside it", () =>
     indicesForPass
   );
 
-  assert.deepEqual(selection.nextState.selectedBlockRows, [9, 10]);
+  assert.deepEqual(selection.nextState.selectedBlockRows, [4, 9, 10]);
   const rowsState = advanceScanner(
     selection.nextState,
     sizes.length,
@@ -474,8 +474,19 @@ test("a compact first-pass block keeps its rows while scanning inside it", () =>
     indicesForPass
   );
   assert.equal(rowsState.stage, ScanStage.Rows);
-  assert.equal(rowsState.rowIndex, 9);
-  assert.deepEqual(rowsState.selectedBlockRows, [9, 10]);
+  assert.equal(rowsState.rowIndex, 4);
+  assert.deepEqual(rowsState.selectedBlockRows, [4, 9, 10]);
+});
+
+test("first-pass grouping rebalances all active rows when filtering changes the leading block", () => {
+  const sizes = Array.from({ length: 13 }, () => 4);
+  const firstPassRows = new Set([0, 1, 3, 4, 9, 10, 11, 12]);
+  const indicesForPass = (rowIndex, passIndex) =>
+    passIndex > 1 || firstPassRows.has(rowIndex) ? [0] : [];
+
+  const blocks = scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 1, indicesForPass);
+  assert.notDeepEqual(blocks[0], [0, 1, 2, 3]);
+  assert.deepEqual(blocks.flat(), [...firstPassRows]);
 });
 
 test("six-column English can use three 4-3-3 row blocks", () => {
