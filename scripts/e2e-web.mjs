@@ -170,9 +170,8 @@ try {
     }));
     localStorage.removeItem("shine-aac-text-history-v1");
     localStorage.removeItem("shine-aac-session-draft-v1");
-    location.reload();
   `);
-  await waitForUi();
+  await reloadAndWaitForRenderedBoard("speech-lock-replay-setup");
   steps.push(pass("test-config", "seeded browser smoke scan timing through browser localStorage"));
 
   if (blockModeOnly) {
@@ -2263,18 +2262,38 @@ async function scenarioSpeechLockReplayControls() {
     }));
     localStorage.removeItem("shine-aac-text-history-v1");
     localStorage.removeItem("shine-aac-session-draft-v1");
-    location.reload();
   `);
-  await waitForUi();
+  await reloadAndWaitForRenderedBoard("speech-lock-replay-setup");
+  await releaseFirstRowHold();
+  const restoredMessage = await evaluate(`document.querySelector('[data-testid="message"]')?.dataset.rawMessage ?? ""`);
+  if (restoredMessage) {
+    await selectLabel("CLR");
+    await assertMessage("");
+  }
   await selectLabel("YES");
   const ordinaryLayout = await evaluate(`(() => {
     const message = document.querySelector('[data-testid="message"]');
     const board = document.querySelector('[data-testid="board"]');
     const topPanel = document.querySelector(".top-panel");
+    const settings = document.querySelector(".config-button");
+    const rect = (element) => {
+      const bounds = element.getBoundingClientRect();
+      return [bounds.left, bounds.top, bounds.width, bounds.height].map((value) => Math.round(value * 10) / 10);
+    };
     return {
       messageFontPx: Number.parseFloat(getComputedStyle(message).fontSize),
-      boardHeight: board?.getBoundingClientRect().height ?? 0,
-      topPanelHeight: topPanel?.getBoundingClientRect().height ?? 0
+      messageRect: rect(message),
+      boardRect: rect(board),
+      topPanelRect: rect(topPanel),
+      settingsRect: rect(settings),
+      rows: [...document.querySelectorAll(".row")].map((row) =>
+        [...row.querySelectorAll(".tile")].map((tile) => ({
+          label: tile.dataset.label,
+          action: tile.dataset.action,
+          text: tile.querySelector(".tile-label")?.textContent,
+          rect: rect(tile)
+        }))
+      )
     };
   })()`);
   await selectLabel("SAY");
@@ -2284,37 +2303,130 @@ async function scenarioSpeechLockReplayControls() {
     const message = document.querySelector('[data-testid="message"]');
     const board = document.querySelector('[data-testid="board"]');
     const topPanel = document.querySelector(".top-panel");
+    const settings = document.querySelector(".config-button");
+    const rect = (element) => {
+      const bounds = element.getBoundingClientRect();
+      return [bounds.left, bounds.top, bounds.width, bounds.height].map((value) => Math.round(value * 10) / 10);
+    };
     return {
       mode: shell?.dataset.speechLockMode,
       enhanced: shell?.classList.contains("speech-lock-enhanced"),
       contextCount: document.querySelectorAll(".conversation-context-message").length,
-      rows: [...document.querySelectorAll(".row")].map((row) => row.querySelectorAll('.tile:not([data-action="noop"])').length),
+      rows: [...document.querySelectorAll(".row")].map((row) =>
+        [...row.querySelectorAll(".tile")].map((tile) => ({
+          label: tile.dataset.label,
+          action: tile.dataset.action,
+          text: tile.querySelector(".tile-label")?.textContent,
+          rect: rect(tile)
+        }))
+      ),
+      tileCount: document.querySelectorAll(".tile").length,
+      deferredCount: document.querySelectorAll(".tile.scan-deferred[aria-disabled='true']").length,
+      reachableActions: [...document.querySelectorAll(".tile:not(.scan-deferred)")]
+        .map((tile) => tile.dataset.action),
       message: message?.dataset.rawMessage,
       messageFontPx: Number.parseFloat(getComputedStyle(message).fontSize),
-      boardHeight: board?.getBoundingClientRect().height ?? 0,
-      topPanelHeight: topPanel?.getBoundingClientRect().height ?? 0
+      messageRect: rect(message),
+      boardRect: rect(board),
+      topPanelRect: rect(topPanel),
+      settingsRect: rect(settings),
+      outsideBoardActions: [...document.querySelectorAll('[data-action="unlock-message"]')]
+        .filter((element) => !element.closest('[data-testid="board"]')).length
     };
   })()`);
+  const expectedLockedRows = ordinaryLayout.rows.map((row) => row.map((tile) => ({ ...tile })));
+  const expectedBottomControls = [
+    { label: "EDIT", action: "unlock-message" },
+    { label: "SAY", action: "speak" },
+    { label: "CLR", action: "clear" }
+  ];
+  expectedBottomControls.forEach((control, index) => {
+    const tile = expectedLockedRows.at(-1).at(index - expectedBottomControls.length);
+    tile.label = control.label;
+    tile.action = control.action;
+    tile.text = control.label;
+  });
   if (
     locked.mode !== "replay" ||
     locked.enhanced ||
     locked.contextCount !== 0 ||
-    JSON.stringify(locked.rows) !== JSON.stringify([3]) ||
+    JSON.stringify(locked.rows) !== JSON.stringify(expectedLockedRows) ||
     locked.message !== "yes " ||
     Math.abs(locked.messageFontPx - ordinaryLayout.messageFontPx) > 0.1 ||
-    Math.abs(locked.boardHeight - ordinaryLayout.boardHeight) > 1 ||
-    Math.abs(locked.topPanelHeight - ordinaryLayout.topPanelHeight) > 1
+    JSON.stringify(locked.messageRect) !== JSON.stringify(ordinaryLayout.messageRect) ||
+    JSON.stringify(locked.boardRect) !== JSON.stringify(ordinaryLayout.boardRect) ||
+    JSON.stringify(locked.topPanelRect) !== JSON.stringify(ordinaryLayout.topPanelRect) ||
+    JSON.stringify(locked.settingsRect) !== JSON.stringify(ordinaryLayout.settingsRect) ||
+    locked.outsideBoardActions !== 0 ||
+    locked.deferredCount !== locked.tileCount - 3 ||
+    JSON.stringify(locked.reachableActions) !== JSON.stringify(["unlock-message", "speak", "clear"])
   ) {
-    throw new Error(`Replay lock changed the ordinary layout: ${JSON.stringify({ ordinaryLayout, locked })}`);
+    throw new Error(`Replay lock did not preserve geometry while sharing the dynamic bottom controls: ${JSON.stringify({ ordinaryLayout, expectedLockedRows, locked })}`);
   }
   await assertNoViewportOverflow("speech-lock-replay-controls");
 
-  await selectLabel("Clear");
+  await assertAndActivateSpeechLockTile("speak");
+  if (!await evaluate(`Boolean(document.querySelector(".shell.speech-lock"))`)) {
+    throw new Error("Speak unexpectedly left replay lock mode");
+  }
+  await assertAndActivateSpeechLockTile("unlock-message");
+  await assertMessage("yes ");
+  if (await evaluate(`Boolean(document.querySelector(".shell.speech-lock"))`)) {
+    throw new Error("Edit did not leave replay lock mode");
+  }
+
+  await selectLabel("SAY");
+  await assertAndActivateSpeechLockTile("clear");
   await assertMessage("");
   if (await evaluate(`Boolean(document.querySelector(".shell.speech-lock"))`)) {
     throw new Error("Clear did not leave replay lock mode");
   }
-  steps.push(pass("speech-lock-replay", "layout lock preserves the ordinary message and board proportions while exposing only Speak/Clear/Edit"));
+  steps.push(pass("speech-lock-replay", "layout lock preserves every tile rectangle, dims every unreachable tile, and shares the bottom EDIT/SAY/CLR controls"));
+}
+
+async function assertAndActivateSpeechLockTile(action) {
+  const ownership = await evaluate(`
+    new Promise((resolve, reject) => {
+      const deadline = performance.now() + 8000;
+      const check = () => {
+        const activeTiles = [...document.querySelectorAll(".tile.active-cell")];
+        if (activeTiles.length === 1 && activeTiles[0].dataset.action === ${JSON.stringify(action)}) {
+          const tile = activeTiles[0];
+          const result = {
+            action: tile.dataset.action,
+            label: tile.dataset.label,
+            insideBoard: Boolean(tile.closest('[data-testid="board"]')),
+            deferred: tile.classList.contains("scan-deferred"),
+            ariaDisabled: tile.getAttribute("aria-disabled"),
+            reachableMatches: document.querySelectorAll('.tile:not(.scan-deferred)[data-action="' + ${JSON.stringify(action)} + '"]').length,
+            groupHighlights: document.querySelectorAll(".scan-target-highlight:not([hidden]), .scan-context-highlight:not([hidden])").length,
+            progressOwners: document.querySelectorAll(".tile.is-current .progress-fill").length
+          };
+          globalThis.ShineAacInput.receive({ intent: "activate", source: "speech-lock-e2e" });
+          resolve(result);
+          return;
+        }
+        if (performance.now() >= deadline) {
+          reject(new Error("Timed out waiting for stable speech-lock tile " + ${JSON.stringify(action)}));
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      check();
+    })
+  `);
+  if (
+    ownership.action !== action ||
+    !ownership.insideBoard ||
+    ownership.deferred ||
+    ownership.ariaDisabled === "true" ||
+    ownership.reachableMatches !== 1 ||
+    ownership.groupHighlights !== 0 ||
+    ownership.progressOwners !== 1
+  ) {
+    throw new Error(`Speech-lock tile ownership was ambiguous: ${JSON.stringify(ownership)}`);
+  }
+  await delay(20);
 }
 
 async function scenarioSpeechLockConversationDisplay() {
@@ -2351,10 +2463,9 @@ async function scenarioSpeechLockConversationDisplay() {
   await waitForUi();
   await selectLabel("YES");
   await selectLabel("SAY");
-  await evaluate(`location.reload()`);
-  await waitForRenderedBoard();
+  await reloadAndWaitForRenderedBoard("speech-lock-restore");
   const restoredLabels = (await getSnapshot()).rows.flat().map((tile) => tile.label);
-  if (!["Speak", "Clear", "Edit"].every((label) => restoredLabels.includes(label))) {
+  if (!["J", "EDIT", "SAY", "CLR"].every((label) => restoredLabels.includes(label))) {
     const restoredState = await evaluate(`({
       labels: [...document.querySelectorAll(".tile")].map((tile) => tile.dataset.label),
       message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage,
@@ -2370,37 +2481,91 @@ async function scenarioSpeechLockConversationDisplay() {
     mode: document.querySelector(".shell")?.dataset.speechLockMode,
     enhanced: document.querySelector(".shell")?.classList.contains("speech-lock-enhanced"),
     previous: [...document.querySelectorAll(".conversation-context-message")].map((node) => node.textContent),
-    rows: [...document.querySelectorAll(".row")].map((row) => row.querySelectorAll('.tile:not([data-action="noop"])').length),
+    rows: [...document.querySelectorAll(".row")].map((row) =>
+      [...row.querySelectorAll(".tile")].map((tile) => tile.dataset.label)
+    ),
+    deferred: [...document.querySelectorAll(".tile.scan-deferred")].map((tile) => tile.dataset.label),
+    reachable: [...document.querySelectorAll(".tile:not(.scan-deferred)")].map((tile) => tile.dataset.label),
+    reachableTexts: [...document.querySelectorAll(".tile:not(.scan-deferred) .tile-label")]
+      .map((label) => label.textContent),
+    groupHighlights: document.querySelectorAll(".scan-target-highlight:not([hidden]), .scan-context-highlight:not([hidden])").length,
     message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage
   })`);
   if (
     locked.mode !== "conversation" ||
     !locked.enhanced ||
     JSON.stringify(locked.previous) !== JSON.stringify(["I need water", "Please wait"]) ||
-    JSON.stringify(locked.rows) !== JSON.stringify([3]) ||
+    JSON.stringify(locked.rows) !== JSON.stringify([["J", "EDIT", "SAY", "CLR"]]) ||
+    JSON.stringify(locked.deferred) !== JSON.stringify(["J"]) ||
+    JSON.stringify(locked.reachable) !== JSON.stringify(["EDIT", "SAY", "CLR"]) ||
+    JSON.stringify(locked.reachableTexts) !== JSON.stringify(["EDIT", "SAY", "CLR"]) ||
+    locked.groupHighlights !== 0 ||
     locked.message !== "yes "
   ) {
-    throw new Error(`Conversation display did not isolate spoken context and singleton controls: ${JSON.stringify(locked)}`);
+    throw new Error(`Conversation display did not isolate spoken context and share the bottom control row: ${JSON.stringify(locked)}`);
   }
   await assertNoViewportOverflow("speech-lock-conversation-display");
 
-  await selectLabel("Speak");
+  await evaluate(`globalThis.ShineAacInput.receive({ intent: "pause", source: "speech-lock-pause-e2e" })`);
+  await delay(30);
+  const paused = await evaluate(`({
+    phase: document.querySelector(".phase")?.dataset.scanPhase,
+    phaseText: document.querySelector(".phase")?.textContent,
+    activeTiles: document.querySelectorAll(".tile.active-cell").length,
+    groupHighlights: document.querySelectorAll(".scan-target-highlight:not([hidden]), .scan-context-highlight:not([hidden])").length,
+    rows: document.querySelectorAll(".row").length
+  })`);
+  if (
+    paused.phase !== "Stopped" ||
+    !paused.phaseText?.includes("Stopped") ||
+    paused.activeTiles !== 0 ||
+    paused.groupHighlights !== 0 ||
+    paused.rows !== 1
+  ) {
+    throw new Error(`Paused conversation display treated its sole bottom row as a top-level scan target: ${JSON.stringify(paused)}`);
+  }
+
+  await evaluate(`globalThis.ShineAacInput.receive({ intent: "activate", source: "speech-lock-resume-e2e" })`);
+  await delay(30);
+  const resumed = await evaluate(`({
+    phase: document.querySelector(".phase")?.dataset.scanPhase,
+    activeAction: document.querySelector(".tile.active-cell")?.dataset.action,
+    message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage
+  })`);
+  if (resumed.phase !== "SpeechLock" || resumed.activeAction !== "speak" || resumed.message !== "yes ") {
+    throw new Error(`Conversation lock did not resume directly into flat item scanning: ${JSON.stringify(resumed)}`);
+  }
+  const observedPhases = await evaluate(`new Promise((resolve) => {
+    const phases = new Set();
+    const deadline = performance.now() + 700;
+    const sample = () => {
+      phases.add(document.querySelector(".phase")?.dataset.scanPhase ?? "");
+      if (performance.now() >= deadline) resolve([...phases]);
+      else requestAnimationFrame(sample);
+    };
+    sample();
+  })`);
+  if (observedPhases.some((phase) => ["Blocks", "BlockCancel", "Rows", "Cancel"].includes(phase))) {
+    throw new Error(`Conversation lock entered a block/row stage: ${JSON.stringify(observedPhases)}`);
+  }
+
+  await assertAndActivateSpeechLockTile("speak");
   await assertMessage("yes ");
   const afterReplay = await getSnapshot();
-  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "Speak|Clear|Edit") {
+  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "J|EDIT|SAY|CLR") {
     throw new Error(`Speak did not preserve the locked subset: ${JSON.stringify(afterReplay.rows)}`);
   }
 
-  await selectLabel("Clear");
+  await assertAndActivateSpeechLockTile("clear");
   await assertMessage("");
   const afterNext = await getSnapshot();
   if (
-    afterNext.rows.flat().some((tile) => ["Speak", "Clear", "Edit"].includes(tile.label)) ||
+    afterNext.rows.flat().some((tile) => ["EDIT"].includes(tile.label)) ||
     await evaluate(`Boolean(document.querySelector('[data-testid="conversation-context"]'))`)
   ) {
     throw new Error("Clear did not leave the speech-lock conversation display");
   }
-  steps.push(pass("speech-lock-conversation", "enhanced mode shows two prior spoken messages, excludes drafts, and keeps Speak/Clear/Edit in one compact row"));
+  steps.push(pass("speech-lock-conversation", "enhanced mode shares the bottom EDIT/SAY/CLR row, excludes drafts, pauses without a row target, and resumes directly into flat item scanning"));
 }
 
 async function scenarioCameraHoldAdvancesHierarchy() {

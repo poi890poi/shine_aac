@@ -127,6 +127,57 @@ function isSpeechLockActive(candidateSession = session) {
     candidateSession.speechLockMessage.trim().length > 0;
 }
 
+function isReplaySpeechLockActive(candidateSession = session) {
+  return isSpeechLockActive(candidateSession) && uiConfig.speechAfterReadMode === "replay";
+}
+
+function speechLockControlCandidates(candidateSession, ordinaryRows) {
+  const logicalControls = visibleBoard(candidateSession)[0] ?? [];
+  const logicalByAction = new Map(logicalControls.map((candidate) => [candidate.action, candidate]));
+  const ordinaryByAction = new Map(ordinaryRows.flat().map((candidate) => [candidate.action, candidate]));
+  return [TileAction.UnlockMessage, TileAction.Speak, TileAction.Clear]
+    .map((action) => {
+      const logical = logicalByAction.get(action);
+      const ordinary = ordinaryByAction.get(action);
+      if (!logical || !ordinary) return logical;
+      return Object.freeze({
+        ...ordinary,
+        speechLabel: logical.speechLabel,
+        speechLockControl: true
+      });
+    })
+    .filter(Boolean);
+}
+
+function speechLockBottomRow(candidateSession, ordinaryRows) {
+  const controls = speechLockControlCandidates(candidateSession, ordinaryRows);
+  if (controls.length !== 3) return controls;
+  const ordinaryBottomRow = ordinaryRows.at(-1) ?? [];
+  const preservedPrefixLength = Math.max(0, ordinaryBottomRow.length - controls.length);
+  return Object.freeze([
+    ...ordinaryBottomRow.slice(0, preservedPrefixLength),
+    ...controls
+  ]);
+}
+
+function boardForDisplay(candidateSession = session) {
+  if (!isSpeechLockActive(candidateSession)) return visibleBoard(candidateSession);
+  const ordinaryRows = boardRows(
+    candidateSession.config,
+    candidateSession.message,
+    candidateSession.messageHistory.length > 0,
+    { ...candidateSession, speechLockMessage: null }
+  );
+  const bottomRow = speechLockBottomRow(candidateSession, ordinaryRows);
+  if (uiConfig.speechAfterReadMode === "conversation") return Object.freeze([bottomRow]);
+  if (ordinaryRows.length === 0) return Object.freeze([bottomRow]);
+  const bottomRowIndex = ordinaryRows.length - 1;
+  return ordinaryRows.map((row, rowIndex) => rowIndex === bottomRowIndex
+    ? bottomRow
+    : row
+  );
+}
+
 function speechLockEnabled() {
   return uiConfig.speechAfterReadMode !== "off";
 }
@@ -1464,8 +1515,8 @@ function isZhuyinSpeechTile(tile) {
 
 function render() {
   syncNativeCommunicationPaused();
-  const board = visibleBoard(session);
-  const boardKey = boardSignature(board);
+  const board = boardForDisplay(session);
+  const boardKey = `${boardSignature(board)}\u001c${isSpeechLockActive(session) ? uiConfig.speechAfterReadMode : "off"}`;
   const canPatch =
     renderedTiles.length > 0 &&
     renderedTiles[0].element.isConnected &&
@@ -1597,7 +1648,7 @@ function renderFull(board, boardKey) {
   board.forEach((row, rowIndex) => {
     const rowElement = document.createElement("div");
     rowElement.className = "row";
-    if (!speechLocked && session.config.profileId === "zh-TW" && rowIndex < 4) rowElement.classList.add("suggestion-row");
+    if (!enhancedSpeechLock && session.config.profileId === "zh-TW" && rowIndex < 4) rowElement.classList.add("suggestion-row");
     if (isDynamicEnglishSuggestionRow(rowIndex)) rowElement.classList.add("dynamic-suggestion-row");
     const visualColumns = visualColumnCountForRow(row, rowIndex);
     rowElement.dataset.visualColumns = String(visualColumns);
@@ -1625,6 +1676,9 @@ function renderFull(board, boardKey) {
       } else {
         tile.setAttribute("role", "button");
         if (!tile.hasAttribute("aria-label")) tile.setAttribute("aria-label", candidate.label);
+        if (speechLocked && candidate.speechLockControl !== true) {
+          tile.setAttribute("aria-disabled", "true");
+        }
       }
 
       const progressFill = document.createElement("div");
@@ -1674,6 +1728,7 @@ function renderFull(board, boardKey) {
 
 function updateScanPresentation(board) {
   const scanner = session.scannerState;
+  const speechLock = isSpeechLockActive(session);
   const blockRows = activeBlockRows(scanner, board);
   const selectedBlockRows = selectedBlockContextRows(scanner, board);
   document.body.classList.toggle("scan-stopped", scanner.stage === ScanStage.Stopped);
@@ -1707,10 +1762,11 @@ function updateScanPresentation(board) {
   for (const rendered of tilesToUpdate) {
     const candidate = rendered.candidate;
     const deferredThisPass = candidate.scanDeferred === true && scanner.passIndex === 1;
-    const activeCell =
-      (scanner.stage === ScanStage.FirstCell || scanner.stage === ScanStage.Cells) &&
-      scanner.rowIndex === rendered.rowIndex &&
-      scanner.cellIndex === rendered.cellIndex;
+    const activeCell = speechLock
+      ? nextActiveTiles.includes(rendered)
+      : (scanner.stage === ScanStage.FirstCell || scanner.stage === ScanStage.Cells) &&
+        scanner.rowIndex === rendered.rowIndex &&
+        scanner.cellIndex === rendered.cellIndex;
     const reviewHold = reviewHoldActive && activeCell;
     const cameraHold = cameraHoldActive && activeCell;
     const nextClassName = tileClass(candidate, false, activeCell, reviewHold, cameraHold, false);
@@ -1743,6 +1799,13 @@ function updateScanPresentation(board) {
 
 function activeRenderedTilesForScanner(scanner) {
   if (scanner.stage === ScanStage.Stopped) return [];
+  if (isSpeechLockActive(session)) {
+    const action = activeSpeechLockAction(scanner);
+    const renderedTile = renderedTiles.find((rendered) =>
+      rendered.candidate.speechLockControl === true && rendered.candidate.action === action
+    );
+    return renderedTile ? [renderedTile] : [];
+  }
   if (scanner.stage === ScanStage.SuggestionPages) {
     return renderedTileGrid.slice(0, 4).flat();
   }
@@ -1756,13 +1819,21 @@ function activeRenderedTilesForScanner(scanner) {
   return renderedTile ? [renderedTile] : [];
 }
 
+function activeSpeechLockAction(scanner) {
+  if (!isSpeechLockActive(session)) return null;
+  if (![ScanStage.FirstCell, ScanStage.Cells].includes(scanner.stage)) return null;
+  return visibleBoard(session)[0]?.[scanner.cellIndex]?.action ?? null;
+}
+
 function updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRows) {
   let contextKind = "";
   let contextRows = [];
   let targetKind = "";
   let targetRows = [];
 
-  if (scanner.stage === ScanStage.Stopped) {
+  if (isSpeechLockActive(session)) {
+    // Speech-lock modes flat-scan their shared control row, including after pause.
+  } else if (scanner.stage === ScanStage.Stopped) {
     targetKind = session.config.scanMode === ScanMode.BlockRowColumn ? "block" : "row";
     targetRows = targetKind === "block"
       ? scanRowBlocks(board.length, (row) => selectableCount(board[row]), session.config.scanBlockCount)[0] ?? [0]
@@ -1788,8 +1859,8 @@ function updateScanGroupPresentation(scanner, board, blockRows, selectedBlockRow
     renderedScanTarget.classList.toggle("review-hold", reviewHoldActive);
     renderedScanTarget.classList.toggle("camera-hold", cameraHoldActive);
   }
-  renderedBoardElement?.classList.toggle("group-review-hold", reviewHoldActive);
-  renderedBoardElement?.classList.toggle("group-camera-hold", cameraHoldActive);
+  renderedBoardElement?.classList.toggle("group-review-hold", !isSpeechLockActive(session) && reviewHoldActive);
+  renderedBoardElement?.classList.toggle("group-camera-hold", !isSpeechLockActive(session) && cameraHoldActive);
 }
 
 function positionScanHighlight(element, kind, rowIndices) {
@@ -1930,15 +2001,35 @@ function scrollMessageToEnd(messageElement) {
 function emitRenderState(board) {
   if (!globalThis.ShineAacAndroid?.onRender || !globalThis.ShineAacAndroid?.isE2E?.()) return;
   try {
+    const speechLockAction = isSpeechLockActive(session)
+      ? activeSpeechLockAction(session.scannerState)
+      : null;
+    const speechLockTiles = isSpeechLockActive(session) ? renderedTiles : [];
+    const speechLockReachableTiles = speechLockTiles.filter(({ element }) =>
+      !element.classList.contains("scan-deferred") && element.getAttribute("aria-disabled") !== "true"
+    );
     globalThis.ShineAacAndroid.onRender(JSON.stringify({
       message: session.message,
       stage: session.scannerState.stage,
       phase: statusPhaseCode(session.scannerState),
       scanMode: session.config.scanMode,
+      columns: session.config.columns,
       blockIndex: session.scannerState.blockIndex,
       rowIndex: session.scannerState.rowIndex,
       cellIndex: session.scannerState.cellIndex,
       speechLockMode: isSpeechLockActive(session) ? uiConfig.speechAfterReadMode : "off",
+      speechLockAction,
+      speechLockSurface: speechLockAction ? "board" : null,
+      speechLockDeferredCount: speechLockTiles.filter(({ element }) => element.classList.contains("scan-deferred")).length,
+      speechLockDisabledCount: speechLockTiles.filter(({ element }) => element.getAttribute("aria-disabled") === "true").length,
+      speechLockReachableActions: speechLockReachableTiles.map(({ candidate }) => candidate.action),
+      activeCellCount: renderedTiles.filter(({ element }) => element.classList.contains("active-cell")).length,
+      commitCandidateCount: renderedTiles.filter(({ candidate }) => candidate.action === TileAction.CommitCandidate).length,
+      activeCommitCandidateCount: renderedTiles.filter(({ candidate, element }) =>
+        candidate.action === TileAction.CommitCandidate && element.classList.contains("active-cell")
+      ).length,
+      replacementTileCount: renderedTiles.filter(({ element }) => element.classList.contains("replacement")).length,
+      groupHighlightCount: [renderedScanContext, renderedScanTarget].filter((element) => element && !element.hidden).length,
       rows: board.map((row) => row.map((candidate) => candidate.label))
     }));
   } catch {
@@ -1954,7 +2045,10 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   if (candidate.action === TileAction.Noop) classes.push("noop");
   if (session.config.suggestionWrapLabels?.[candidate.label]) classes.push("wrapped-word");
   if (candidate.toneFallback === true) classes.push("tone-fallback");
-  if (candidate.scanDeferred === true && session.scannerState.passIndex === 1) {
+  if (
+    (isSpeechLockActive(session) && candidate.speechLockControl !== true) ||
+    (candidate.scanDeferred === true && session.scannerState.passIndex === 1)
+  ) {
     classes.push("scan-deferred");
   }
   if (activeBlock) classes.push("active-block", "is-current");
@@ -1970,7 +2064,7 @@ function isFunctionTile(candidate) {
 }
 
 function isDynamicEnglishSuggestionRow(rowIndex) {
-  if (isSpeechLockActive(session)) return false;
+  if (isSpeechLockActive(session) && uiConfig.speechAfterReadMode === "conversation") return false;
   const hasEnglishSuggestions = session.config.profileId === "en-US" ||
     (session.config.profileId === "zh-TW" && session.activeCategory === "english");
   if (!hasEnglishSuggestions) return false;
@@ -1978,7 +2072,9 @@ function isDynamicEnglishSuggestionRow(rowIndex) {
 }
 
 function visualColumnCountForRow(row, rowIndex) {
-  if (isSpeechLockActive(session)) return Math.max(1, row.length);
+  if (isSpeechLockActive(session) && uiConfig.speechAfterReadMode === "conversation") {
+    return Math.max(1, row.length);
+  }
   const isEmbeddedEnglishInput = session.config.profileId === "zh-TW" &&
     session.activeCategory === "english";
   if (isEmbeddedEnglishInput) return LanguageProfiles["en-US"].columns;
@@ -2052,7 +2148,7 @@ function updateDynamicSuggestionSpans() {
     unspannedConfig,
     session.message,
     session.messageHistory.length > 0,
-    session
+    isReplaySpeechLockActive(session) ? { ...session, speechLockMessage: null } : session
   ).slice(0, rowElements.length);
   const nextSpans = Object.create(null);
   const nextWrapLabels = Object.create(null);
@@ -2146,7 +2242,7 @@ function tileLabelFits(label) {
 window.addEventListener("resize", () => {
   scheduleTileLabelFit();
   window.requestAnimationFrame(() => {
-    if (renderedBoardElement?.isConnected) updateScanPresentation(visibleBoard(session));
+    if (renderedBoardElement?.isConnected) updateScanPresentation(boardForDisplay(session));
   });
 });
 
@@ -2207,6 +2303,7 @@ function statusPhaseLabel(scanner) {
   const zhTw = session.config.profileId === "zh-TW";
   if (cameraHoldActive) return zhTw ? "眨眼確認中" : "Blink detected";
   if (reviewHoldActive) return zhTw ? "暫停確認" : "Review pause";
+  if (scanner.stage === ScanStage.Stopped) return phaseLabel(scanner);
   if (isSpeechLockActive(session)) {
     return zhTw ? "訊息已鎖定 · 選擇操作" : "Message locked · Choose an action";
   }
@@ -2216,6 +2313,7 @@ function statusPhaseLabel(scanner) {
 function statusPhaseCode(scanner) {
   if (cameraHoldActive) return "Blink";
   if (reviewHoldActive) return "Review";
+  if (scanner.stage === ScanStage.Stopped) return phaseCode(scanner.stage);
   if (isSpeechLockActive(session)) return "SpeechLock";
   return phaseCode(scanner.stage);
 }

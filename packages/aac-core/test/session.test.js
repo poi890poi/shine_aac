@@ -528,3 +528,35 @@ test("a locked spoken message flat-scans speak, clear, and edit without escape l
   assert.equal(edited.messageHistory, base.messageHistory);
   assert.equal(edited.speechLockMessage, null);
 });
+
+test("a paused locked message resumes directly at the first action without row scanning", () => {
+  const locked = createSession({
+    message: "I need water",
+    speechLockMessage: "I need water",
+    scannerState: createSpeechLockScannerState({ stage: ScanStage.Cells, cellIndex: 2 })
+  });
+  assert.deepEqual(
+    visibleBoard(locked).map((row) => row.map((candidate) => candidate.label)),
+    [["Speak", "Clear", "EDIT"]]
+  );
+  const paused = pauseSession(locked);
+
+  assert.equal(paused.scannerState.stage, ScanStage.Stopped);
+
+  const resumed = pressSwitch(paused, 0);
+  assert.equal(resumed.scannerState.stage, ScanStage.FirstCell);
+  assert.equal(resumed.scannerState.rowIndex, 0);
+  assert.equal(resumed.scannerState.cellIndex, 0);
+  assert.equal(resumed.lastSelection, null);
+  assert.equal(resumed.speechLockMessage, "I need water");
+
+  let scanning = resumed;
+  for (let step = 0; step < 12; step += 1) {
+    scanning = advanceSession(scanning);
+    assert.equal(
+      [ScanStage.FirstCell, ScanStage.Cells].includes(scanning.scannerState.stage),
+      true,
+      `locked scan entered ${scanning.scannerState.stage}`
+    );
+  }
+});

@@ -110,9 +110,17 @@ test("idle timeout defaults to five minutes but remains bounded and optional", (
   assert.match(appSource, /setCommunicationPaused\?\.\(paused\)/);
 });
 
-test("replay and conversation display share the same locked subset", () => {
+test("speech-lock modes share one dynamic bottom row and only its controls remain reachable", () => {
   assert.match(appSource, /speechLockMessage:\s*session\.message/);
   assert.match(appSource, /uiConfig\.speechAfterReadMode === "conversation"/);
+  assert.match(appSource, /function boardForDisplay[\s\S]*?speechLockMessage:\s*null/);
+  assert.match(appSource, /\[TileAction\.UnlockMessage, TileAction\.Speak, TileAction\.Clear\]/);
+  assert.match(appSource, /const preservedPrefixLength = Math\.max\(0, ordinaryBottomRow\.length - controls\.length\)/);
+  assert.match(appSource, /speechAfterReadMode === "conversation"\) return Object\.freeze\(\[bottomRow\]\)/);
+  assert.match(appSource, /const bottomRowIndex = ordinaryRows\.length - 1/);
+  assert.match(appSource, /rendered\.candidate\.speechLockControl === true && rendered\.candidate\.action === action/);
+  assert.match(appSource, /speechLocked && candidate\.speechLockControl !== true[\s\S]*?aria-disabled/);
+  assert.match(appSource, /isSpeechLockActive\(session\) && candidate\.speechLockControl !== true/);
   assert.match(styles, /\.shell\.speech-lock-enhanced[\s\S]*?grid-template-rows/);
   assert.match(styles, /\.shell\.speech-lock-enhanced \.message\.locked-message[\s\S]*?white-space:\s*normal/);
   assert.doesNotMatch(styles, /\.shell\.speech-lock\s*\{[\s\S]*?clamp\(96px, 18vh, 160px\)/);
@@ -151,7 +159,7 @@ test("compact phone status text remains grouped instead of wrapping per characte
 
 test("review pause freezes one group target without repainting its child tiles", () => {
   assert.match(styles, /\.board\.group-review-hold \.progress-fill\s*\{[\s\S]*?background:\s*transparent/);
-  assert.match(appSource, /renderedBoardElement\?\.classList\.toggle\("group-review-hold", reviewHoldActive\)/);
+  assert.match(appSource, /renderedBoardElement\?\.classList\.toggle\("group-review-hold", !isSpeechLockActive\(session\) && reviewHoldActive\)/);
   assert.doesNotMatch(styles, /\.row\.review-hold-row \.tile\s*\{/);
   assert.doesNotMatch(appSource, /classList\.toggle\(\s*"review-hold-row"/);
 });

@@ -3748,6 +3748,14 @@ export function pressSwitch(session, elapsedInHighlightMs) {
   }
   const rows = visibleBoard(session);
   const speechLocked = hasLockedSpeechMessage(session);
+  if (speechLocked && session.scannerState.stage === ScanStage.Stopped) {
+    return {
+      ...session,
+      scannerState: createSpeechLockScannerState(),
+      lockedRow: null,
+      lastSelection: null
+    };
+  }
   const selectableCellIndicesForRow = session.config.deferUnsupportedZhuyinOnFirstPass
     ? (rowIndex, passIndex) => scanSelectableCellIndices(
       rows[rowIndex],
