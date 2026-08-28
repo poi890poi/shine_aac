@@ -493,6 +493,8 @@ test("a locked spoken message flat-scans speak, clear, and edit without escape l
     visibleBoard(base).map((row) => row.map((candidate) => candidate.label)),
     [["朗讀", "清除", "修改"]]
   );
+  const editControl = visibleBoard(base)[0].find((candidate) => candidate.action === TileAction.UnlockMessage);
+  assert.equal(editControl.controlIcon, undefined);
 
   let advanced = advanceSession(base);
   assert.equal(advanced.scannerState.stage, ScanStage.Cells);
