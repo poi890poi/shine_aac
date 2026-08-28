@@ -3503,15 +3503,21 @@ async function scenarioZhuyinFilteredBlockStability() {
     (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex === 4,
     "filtered Zhuyin regrouped second block"
   );
-  assertArrayEqual(activeRowsFor(second, "activeBlock"), [4, 5, 6, 7, 8, 9, 10], "regrouped second-block visual span");
+  assertArrayEqual(activeRowsFor(second, "activeBlock"), [4], "gap-first singleton second-block rows");
+  await capturePhoneScanVisual("zhuyin-filtered-gap-first-singleton");
   const third = await waitForActive(
-    (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex === 11,
+    (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex === 9,
     "filtered Zhuyin regrouped third block"
   );
-  assertArrayEqual(activeRowsFor(third, "activeBlock"), [11, 12], "regrouped third-block rows");
+  assertArrayEqual(activeRowsFor(third, "activeBlock"), [9, 10], "gap-first third-block rows");
+  const fourth = await waitForActive(
+    (current) => current.phase === "Blocks" && current.activeBlock?.rowIndex === 11,
+    "filtered Zhuyin regrouped fourth block"
+  );
+  assertArrayEqual(activeRowsFor(fourth, "activeBlock"), [11, 12], "gap-first fourth-block rows");
   steps.push(pass(
     "zhuyin-filtered-block-stability",
-    "first-pass filtering preserves suggestion rows 0-3 as the full-board first block and regroups only later active rows"
+    "first-pass filtering preserves suggestion rows 0-3, keeps later contiguous runs tight, and uses all four available blocks"
   ));
 }
 

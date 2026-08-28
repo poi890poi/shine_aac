@@ -73,8 +73,12 @@ The main board should expose one communication action: activate the current scan
   appearance. Only the current scan cell may use active-cell styling.
 - In three-layer scanning, when first-pass filtering leaves the full-board first block
   intact, preserve that block and regroup only later active rows with the remaining
-  block budget. If filtering changes the first block, rebalance all active rows. The
-  full second pass always restores the ordinary full-board groups.
+  block budget. Form groups from contiguous active-row runs first, including singleton
+  runs. Only when runs exceed the block budget may a group bridge filtered rows, and
+  then it must bridge the smallest gap first with earlier gaps breaking ties. Split
+  longer runs only to use otherwise available blocks. If filtering changes the first
+  block, apply the same gap-first rule to all active rows. The full second pass always
+  restores the ordinary full-board groups.
 - Suggestion cells should prefer relevant fallback targets over dead empty cells when the row is active; never fill typed-buffer suggestions with unrelated words.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.

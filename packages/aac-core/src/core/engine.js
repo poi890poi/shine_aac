@@ -2780,13 +2780,13 @@ export function scanRowBlocksForPass(
     const remainingBlockBudget = Math.max(1, blocks.length - 1);
     return [
       fullFirstBlock,
-      ...compactBalancedRowBlocks(remainingRows, remainingBlockBudget, 2)
+      ...gapFirstBalancedRowBlocks(remainingRows, remainingBlockBudget)
     ];
   }
-  return compactBalancedRowBlocks(activeRows, requestedBlockCount, 2);
+  return gapFirstBalancedRowBlocks(activeRows, requestedBlockCount);
 }
 
-function compactBalancedRowBlocks(rows, requestedBlockCount, minimumRows) {
+function gapFirstBalancedRowBlocks(rows, requestedBlockCount) {
   if (rows.length === 0) return [];
   const runs = [];
   for (const row of rows) {
@@ -2795,19 +2795,10 @@ function compactBalancedRowBlocks(rows, requestedBlockCount, minimumRows) {
     else runs.push([row]);
   }
 
-  while (runs.length > 1 && runs.some((run) => run.length < minimumRows)) {
-    const index = runs.findIndex((run) => run.length < minimumRows);
-    const previousGap = index > 0
-      ? runs[index][0] - runs[index - 1].at(-1) - 1
-      : Number.POSITIVE_INFINITY;
-    const nextGap = index < runs.length - 1
-      ? runs[index + 1][0] - runs[index].at(-1) - 1
-      : Number.POSITIVE_INFINITY;
-    const mergeStart = previousGap <= nextGap ? index - 1 : index;
-    runs.splice(mergeStart, 2, [...runs[mergeStart], ...runs[mergeStart + 1]]);
-  }
-
   const requested = Math.max(1, clampInt(requestedBlockCount, 1, rows.length));
+  // Preserve every contiguous run as a spatially tight block whenever the
+  // configured block budget permits it. Only bridge filtered rows when there
+  // are more runs than blocks, choosing the smallest gap first.
   while (runs.length > requested) {
     let closestIndex = 0;
     let closestGap = Number.POSITIVE_INFINITY;
@@ -2822,17 +2813,13 @@ function compactBalancedRowBlocks(rows, requestedBlockCount, minimumRows) {
   }
 
   const blockCounts = runs.map(() => 1);
-  const maximumBlockCount = runs.reduce(
-    (sum, run) => sum + Math.max(1, Math.floor(run.length / minimumRows)),
-    0
-  );
-  const targetBlockCount = Math.min(requested, maximumBlockCount);
+  const targetBlockCount = Math.min(requested, rows.length);
   while (blockCounts.reduce((sum, count) => sum + count, 0) < targetBlockCount) {
     let splitIndex = -1;
     let largestProjectedSize = -1;
     for (let index = 0; index < runs.length; index += 1) {
       const nextCount = blockCounts[index] + 1;
-      if (Math.floor(runs[index].length / nextCount) < minimumRows) continue;
+      if (Math.floor(runs[index].length / nextCount) < 1) continue;
       const projectedSize = runs[index].length / nextCount;
       if (projectedSize > largestProjectedSize) {
         splitIndex = index;

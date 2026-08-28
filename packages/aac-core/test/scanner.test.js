@@ -3,16 +3,20 @@ import assert from "node:assert/strict";
 import {
   ScanMode,
   ScanStage,
+  ZhTwFrequencyDictionary,
   advanceScanner,
+  boardRows,
   confirmScanner,
   confirmWithLatencyCompensation,
+  createBoardConfig,
   createScannerState,
   scanAccessCost,
   scanDurationForStage,
   scanRecognitionLoad,
   scanRowBlocks,
   scanRowBlocksForPass,
-  scanSelectableCellIndices
+  scanSelectableCellIndices,
+  selectableCount
 } from "../src/index.js";
 
 const rowSizes = [6, 4, 5];
@@ -436,7 +440,7 @@ test("filtered first pass preserves an intact leading block and regroups only la
 
   assert.deepEqual(
     scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 1, indicesForPass),
-    [[0, 1, 2, 3], [4, 9, 10], [11, 12]]
+    [[0, 1, 2, 3], [4], [9, 10], [11, 12]]
   );
   assert.deepEqual(
     scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 2, indicesForPass),
@@ -444,11 +448,45 @@ test("filtered first pass preserves an intact leading block and regroups only la
   );
 });
 
-test("a compact first-pass block keeps its rows while scanning inside it", () => {
+test("a selected multi-row gap-first block keeps its rows while scanning inside it", () => {
   const sizes = Array.from({ length: 13 }, () => 4);
   const firstPassRows = new Set([0, 1, 2, 3, 4, 9, 10, 11, 12]);
   const indicesForPass = (rowIndex, passIndex) =>
     passIndex > 1 || firstPassRows.has(rowIndex) ? [0] : [];
+  const selection = confirmScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 2,
+      rowIndex: 9
+    }),
+    sizes.length,
+    (row) => sizes[row],
+    ScanMode.BlockRowColumn,
+    4,
+    indicesForPass
+  );
+
+  assert.deepEqual(selection.nextState.selectedBlockRows, [9, 10]);
+  const rowsState = advanceScanner(
+    selection.nextState,
+    sizes.length,
+    (row) => sizes[row],
+    2,
+    ScanMode.BlockRowColumn,
+    4,
+    indicesForPass
+  );
+  assert.equal(rowsState.stage, ScanStage.Rows);
+  assert.equal(rowsState.rowIndex, 9);
+  assert.deepEqual(rowsState.selectedBlockRows, [9, 10]);
+});
+
+test("a singleton gap-first block skips redundant row scanning without losing its row", () => {
+  const sizes = Array.from({ length: 13 }, () => 4);
+  const firstPassRows = new Set([0, 1, 2, 3, 4, 9, 10, 11, 12]);
+  const indicesForPass = (rowIndex, passIndex) =>
+    passIndex > 1 || firstPassRows.has(rowIndex) ? [0, 1] : [];
   const selection = confirmScanner(
     createScannerState({
       scanMode: ScanMode.BlockRowColumn,
@@ -463,8 +501,12 @@ test("a compact first-pass block keeps its rows while scanning inside it", () =>
     indicesForPass
   );
 
-  assert.deepEqual(selection.nextState.selectedBlockRows, [4, 9, 10]);
-  const rowsState = advanceScanner(
+  assert.equal(selection.type, "none");
+  assert.equal(selection.nextState.stage, ScanStage.RowSelected);
+  assert.equal(selection.nextState.rowIndex, 4);
+  assert.deepEqual(selection.nextState.selectedBlockRows, [4]);
+
+  const firstCell = advanceScanner(
     selection.nextState,
     sizes.length,
     (row) => sizes[row],
@@ -473,9 +515,41 @@ test("a compact first-pass block keeps its rows while scanning inside it", () =>
     4,
     indicesForPass
   );
-  assert.equal(rowsState.stage, ScanStage.Rows);
-  assert.equal(rowsState.rowIndex, 4);
-  assert.deepEqual(rowsState.selectedBlockRows, [4, 9, 10]);
+  assert.equal(firstCell.stage, ScanStage.FirstCell);
+  assert.equal(firstCell.rowIndex, 4);
+  assert.deepEqual(firstCell.selectedBlockRows, [4]);
+});
+
+test("a singleton block with one selectable cell activates that cell directly", () => {
+  const sizes = Array.from({ length: 5 }, () => 2);
+  const activeRows = new Set([0, 2, 4]);
+  const oneCellPerActiveRow = (rowIndex, passIndex) =>
+    passIndex > 1 || activeRows.has(rowIndex) ? [0] : [];
+  const blocks = scanRowBlocksForPass(
+    sizes.length,
+    (row) => sizes[row],
+    4,
+    1,
+    oneCellPerActiveRow
+  );
+  assert.deepEqual(blocks, [[0], [2], [4]]);
+
+  const selection = confirmScanner(
+    createScannerState({
+      scanMode: ScanMode.BlockRowColumn,
+      stage: ScanStage.Blocks,
+      blockIndex: 1,
+      rowIndex: 2
+    }),
+    sizes.length,
+    (row) => sizes[row],
+    ScanMode.BlockRowColumn,
+    4,
+    oneCellPerActiveRow
+  );
+  assert.equal(selection.type, "selected");
+  assert.equal(selection.rowIndex, 2);
+  assert.equal(selection.cellIndex, 0);
 });
 
 test("first-pass grouping rebalances all active rows when filtering changes the leading block", () => {
@@ -485,8 +559,133 @@ test("first-pass grouping rebalances all active rows when filtering changes the 
     passIndex > 1 || firstPassRows.has(rowIndex) ? [0] : [];
 
   const blocks = scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 1, indicesForPass);
-  assert.notDeepEqual(blocks[0], [0, 1, 2, 3]);
+  assert.deepEqual(blocks, [[0, 1], [3, 4], [9, 10], [11, 12]]);
   assert.deepEqual(blocks.flat(), [...firstPassRows]);
+});
+
+test("gap-first grouping bridges the earliest smallest gap only when runs exceed the block budget", () => {
+  const sizes = Array.from({ length: 9 }, () => 2);
+  const firstPassRows = new Set([0, 2, 4, 6, 8]);
+  const indicesForPass = (rowIndex, passIndex) =>
+    passIndex > 1 || firstPassRows.has(rowIndex) ? [0] : [];
+
+  assert.deepEqual(
+    scanRowBlocksForPass(sizes.length, (row) => sizes[row], 4, 1, indicesForPass),
+    [[0, 2], [4], [6], [8]]
+  );
+});
+
+test("gap-first grouping is exhaustive across source-backed Zhuyin prefixes and supported columns", () => {
+  const prefixes = new Set();
+  for (const entry of ZhTwFrequencyDictionary) {
+    if (!/^\p{Script=Han}$/u.test(entry.label)) continue;
+    for (const key of entry.keys ?? [entry.key]) {
+      for (let length = 1; length <= key.length; length += 1) {
+        prefixes.add(key.slice(0, length));
+      }
+    }
+  }
+  assert.ok(prefixes.size >= 1500, `expected broad source coverage, found ${prefixes.size} prefixes`);
+
+  let sixColumnMaximumInternalGap = 0;
+  let sixColumnMaximumBlockSpan = 0;
+  for (let columns = 3; columns <= 8; columns += 1) {
+    const config = createBoardConfig({
+      profileId: "zh-TW",
+      columns,
+      deferUnsupportedZhuyinOnFirstPass: true
+    });
+    for (const prefix of prefixes) {
+      const rows = boardRows(config, prefix, true, {});
+      const columnCountForRow = (rowIndex) => selectableCount(rows[rowIndex]);
+      const indicesForPass = (rowIndex, passIndex) =>
+        scanSelectableCellIndices(rows[rowIndex], passIndex, config.scanPassLimit);
+      const fullBlocks = scanRowBlocks(rows.length, columnCountForRow, config.scanBlockCount);
+      const activeRows = Array.from({ length: rows.length }, (_, rowIndex) => rowIndex)
+        .filter((rowIndex) => indicesForPass(rowIndex, 1).length > 0);
+      const blocks = scanRowBlocksForPass(
+        rows.length,
+        columnCountForRow,
+        config.scanBlockCount,
+        1,
+        indicesForPass
+      );
+
+      assert.deepEqual(blocks.flat(), activeRows, `${columns} columns / ${prefix}: active rows changed`);
+      assert.ok(blocks.length <= config.scanBlockCount, `${columns} columns / ${prefix}: block budget exceeded`);
+      assert.deepEqual(
+        scanRowBlocksForPass(
+          rows.length,
+          columnCountForRow,
+          config.scanBlockCount,
+          2,
+          indicesForPass
+        ),
+        fullBlocks,
+        `${columns} columns / ${prefix}: second pass changed`
+      );
+
+      const fullFirstBlock = fullBlocks[0] ?? [];
+      const firstBlockIntact = fullFirstBlock.length > 0 &&
+        fullFirstBlock.every((rowIndex) => activeRows.includes(rowIndex));
+      if (firstBlockIntact) {
+        assert.deepEqual(blocks[0], fullFirstBlock, `${columns} columns / ${prefix}: intact first block moved`);
+      }
+      const regroupedRows = firstBlockIntact
+        ? activeRows.filter((rowIndex) => !fullFirstBlock.includes(rowIndex))
+        : activeRows;
+      const regroupedBlocks = firstBlockIntact ? blocks.slice(1) : blocks;
+      const blockBudget = firstBlockIntact
+        ? Math.max(1, fullBlocks.length - 1)
+        : config.scanBlockCount;
+      const gaps = [];
+      for (let index = 1; index < regroupedRows.length; index += 1) {
+        const left = regroupedRows[index - 1];
+        const right = regroupedRows[index];
+        if (right > left + 1) gaps.push({ left, right, width: right - left - 1, index });
+      }
+      const runCount = regroupedRows.length === 0 ? 0 : gaps.length + 1;
+      const bridgesNeeded = Math.max(0, runCount - blockBudget);
+      const expectedBridges = new Set(
+        [...gaps]
+          .sort((left, right) => left.width - right.width || left.index - right.index)
+          .slice(0, bridgesNeeded)
+          .map((gap) => `${gap.left}:${gap.right}`)
+      );
+      const blockForRow = new Map();
+      regroupedBlocks.forEach((block, blockIndex) => {
+        block.forEach((rowIndex) => blockForRow.set(rowIndex, blockIndex));
+      });
+      const actualBridges = new Set(
+        gaps
+          .filter((gap) => blockForRow.get(gap.left) === blockForRow.get(gap.right))
+          .map((gap) => `${gap.left}:${gap.right}`)
+      );
+      assert.deepEqual(
+        actualBridges,
+        expectedBridges,
+        `${columns} columns / ${prefix}: did not bridge the smallest gaps first`
+      );
+
+      if (columns === 6) {
+        for (const block of blocks) {
+          sixColumnMaximumBlockSpan = Math.max(
+            sixColumnMaximumBlockSpan,
+            block.at(-1) - block[0] + 1
+          );
+          for (let index = 1; index < block.length; index += 1) {
+            sixColumnMaximumInternalGap = Math.max(
+              sixColumnMaximumInternalGap,
+              block[index] - block[index - 1] - 1
+            );
+          }
+        }
+      }
+    }
+  }
+
+  assert.ok(sixColumnMaximumInternalGap <= 2, `six-column internal gap grew to ${sixColumnMaximumInternalGap}`);
+  assert.ok(sixColumnMaximumBlockSpan <= 5, `six-column visual span grew to ${sixColumnMaximumBlockSpan}`);
 });
 
 test("six-column English can use three 4-3-3 row blocks", () => {
