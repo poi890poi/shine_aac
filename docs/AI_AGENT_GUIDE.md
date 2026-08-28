@@ -36,6 +36,24 @@ Never implement Mandarin by adding Chinese words to `DefaultSuggestionDictionary
 
 For UI claims, verify the rendered UI. A log line, broadcast receiver, hidden semantics value, or test-only state dump is not enough to prove that the user can see or activate the result.
 
+### After-read lock invariant
+
+Treat the after-read controls as one shared bottom-row mechanism, not a replacement board or a new header control:
+
+- Replay lock preserves the ordinary board geometry and replaces only its final three cells with `EDIT`, `SAY`, and `CLR` (Traditional Chinese: `修改`, `朗讀`, `清除`).
+- Conversation display renders that same generated bottom row as its sole board row. Any preserved prefix cell remains visible but is deferred and unreachable.
+- While either lock is active, every non-control tile reuses the skipped-Zhuyin dashed/dim treatment and is disabled. Only Edit, Say, and Clear participate in scanning.
+- The lock scan is flat and cell-only. It must never expose block, row, cancellation, or group-highlight stages, including when conversation display has only one rendered row.
+- A stopped lock has no active tile or group highlight. Its first activation only resumes at Say; it does not select, clear, edit, or enter row scanning.
+
+Keep the core state tests, focused browser/packaged E2E, and `e2e-switch-test.bat -SpeechLockUiOnly` phone regression aligned with this invariant. Do not change the normal board order to implement it.
+
+The full communication board supports 3–8 columns. A stored value below three
+migrates to the four-column English default; do not restore a two-column full
+board merely to enlarge targets. Users who need a two-choice or similarly large
+target layout need a deliberately reduced-vocabulary board, not the full board
+reflowed into 24–27 scan rows.
+
 Acceptable checks:
 
 - core state assertions for core rules

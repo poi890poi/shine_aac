@@ -5,7 +5,8 @@ param(
     [switch]$ColdBoot,
     [switch]$SkipDemo,
     [switch]$SkipZhTw,
-    [switch]$ScanUiOnly
+    [switch]$ScanUiOnly,
+    [switch]$SpeechLockUiOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -115,7 +116,9 @@ function Write-TestPreferences {
         [string]$ScanMode = "row-column",
         [int]$Columns = 4,
         [bool]$ActivationVoice = $true,
-        [string]$ArtifactName = "shine_aac_config.xml"
+        [string]$SpeechAfterReadMode = "replay",
+        [string]$ArtifactName = "shine_aac_config.xml",
+        [int]$TestScanIntervalMs = $scanIntervalMs
     )
     $activationVoiceValue = if ($ActivationVoice) { "true" } else { "false" }
     $prefsPath = Join-Path $artifactDir $ArtifactName
@@ -131,11 +134,12 @@ function Write-TestPreferences {
     <boolean name="scanVoice" value="false" />
     <boolean name="activationVoice" value="$activationVoiceValue" />
     <boolean name="restartScanFromTop" value="true" />
+    <string name="speechAfterReadMode">$SpeechAfterReadMode</string>
     <boolean name="hardwareButtons" value="true" />
     <string name="switchInputProfile">volume-buttons</string>
-    <float name="scanIntervalMs" value="$scanIntervalMs.0" />
+    <float name="scanIntervalMs" value="$TestScanIntervalMs.0" />
     <float name="transitionPauseMs" value="$transitionPauseMs.0" />
-    <float name="firstCellPauseMs" value="$firstCellPauseMs.0" />
+    <float name="firstCellPauseMs" value="$TestScanIntervalMs.0" />
     <float name="inputLatencyCompensationMs" value="250.0" />
 </map>
 "@
@@ -181,13 +185,13 @@ function Dismiss-SystemAnrDialogIfPresent {
     return $true
 }
 
-function Wait-E2EReady([int]$TimeoutMs = 30000) {
+function Wait-E2EReady([int]$TimeoutMs = 30000, [string]$ReadyLabel = '"WANT"') {
     $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
     $nextSystemDialogCheck = (Get-Date).AddSeconds(4)
     while ((Get-Date) -lt $deadline) {
         $logText = (Get-E2ELog) -join "`n"
         if ($logText -match 'SHINE_AAC_E2E_STATE' -and
-            $logText -match '"WANT"') {
+            $logText.Contains($ReadyLabel)) {
             return
         }
         if ((Get-Date) -ge $nextSystemDialogCheck) {
@@ -318,16 +322,104 @@ function Wait-ForScanIndex(
     throw "Timed out waiting for $Description at $IndexName $ExpectedIndex. Last state: $($lastState | ConvertTo-Json -Compress)"
 }
 
-function Start-DeterministicScan([string]$ScanMode) {
+function Wait-ForAppProcessExit([int]$TimeoutMs = 5000) {
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    while ((Get-Date) -lt $deadline) {
+        $processId = ((& $script:adb shell pidof org.shineaac.app) -join "").Trim()
+        if (-not $processId) {
+            return
+        }
+        Start-Sleep -Milliseconds 50
+    }
+
+    throw "SHINE AAC process did not exit after force-stop; refusing to launch a non-deterministic test session."
+}
+
+function Wait-ForSpeechLockAction(
+    [string]$ExpectedAction,
+    [string]$ExpectedMode = "replay",
+    [int]$TimeoutMs = 15000
+) {
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $lastState = $null
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $lastState = Get-LatestE2EState
+        } catch {
+            $lastState = $null
+            Start-Sleep -Milliseconds 50
+            continue
+        }
+        if ([string]$lastState.phase -ceq "SpeechLock" -and
+            [string]$lastState.speechLockMode -ceq $ExpectedMode -and
+            [string]$lastState.speechLockAction -ceq $ExpectedAction -and
+            [string]$lastState.speechLockSurface -ceq "board") {
+            return $lastState
+        }
+        Start-Sleep -Milliseconds 50
+    }
+
+    throw "Timed out waiting for $ExpectedMode-lock board action $ExpectedAction. Last state: $($lastState | ConvertTo-Json -Compress)"
+}
+
+function Wait-ForUnlockedMessage(
+    [string]$ExpectedMessage,
+    [int]$TimeoutMs = 15000
+) {
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    $lastState = $null
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $lastState = Get-LatestE2EState
+        } catch {
+            Start-Sleep -Milliseconds 50
+            continue
+        }
+        if ([string]$lastState.phase -ceq "Rows" -and
+            [string]$lastState.speechLockMode -ceq "off" -and
+            [string]$lastState.message -ceq $ExpectedMessage) {
+            return $lastState
+        }
+        Start-Sleep -Milliseconds 50
+    }
+
+    throw "Timed out waiting to leave speech lock with message '$ExpectedMessage'. Last state: $($lastState | ConvertTo-Json -Compress)"
+}
+
+function Start-DeterministicScan(
+    [string]$ScanMode,
+    [int]$TestScanIntervalMs = $scanIntervalMs,
+    [string]$SpeechAfterReadMode = "replay",
+    [int]$TestColumns = 4,
+    [string]$ProfileId = "en-US"
+) {
     # run-apk launches the app after installation. Stop that activity before clearing
     # data so its delayed lifecycle pause cannot reach the newly configured WebView.
     Invoke-AdbQuiet shell am force-stop org.shineaac.app
+    Wait-ForAppProcessExit
     Invoke-AdbQuiet shell pm clear org.shineaac.app
     Invoke-AdbQuiet logcat -c
-    Write-TestPreferences -ScanMode $ScanMode
+    Write-TestPreferences -ProfileId $ProfileId -ScanMode $ScanMode -Columns $TestColumns -TestScanIntervalMs $TestScanIntervalMs -SpeechAfterReadMode $SpeechAfterReadMode
+    Invoke-AdbQuiet shell cmd statusbar collapse
     Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
-    Wait-E2EReady
+    $moreLabel = -join ([char]0x66F4, [char]0x591A)
+    $readyLabel = if ($ProfileId -ceq "zh-TW") { '"' + $moreLabel + '"' } else { '"WANT"' }
+    Wait-E2EReady -ReadyLabel $readyLabel
     Assert-LatestPhase "Review" "$ScanMode initial state"
+}
+
+function Test-TwoColumnMigration {
+    Write-Step "Verifying a stored two-column board migrates to four columns"
+    Start-DeterministicScan "row-column" $scanIntervalMs "replay" 2
+    $state = Get-LatestE2EState
+    if ([int]$state.columns -ne 4) {
+        throw "Stored two-column board rendered with $($state.columns) columns instead of migrating to four."
+    }
+    $rowWidths = @($state.rows | ForEach-Object { $_.Count })
+    if (-not ($rowWidths -contains 4) -or ($rowWidths | Where-Object { $_ -gt 4 }).Count -gt 0) {
+        throw "Migrated board row widths were inconsistent with four columns: $($rowWidths -join ',')."
+    }
+    Capture-PhoneState "columns-two-migrated-to-four"
 }
 
 function Test-ScanModeVisualFlow([string]$ScanMode) {
@@ -384,6 +476,139 @@ function Test-ScanModeVisualFlow([string]$ScanMode) {
     Capture-PhoneState "$prefix-second-run-selection-review"
     Wait-AfterActivation "$prefix release second-run selection review" $firstStage
     Capture-PhoneState "$prefix-second-run-resumed"
+}
+
+function Assert-NeutralCandidateState([string]$Description) {
+    $state = Get-LatestE2EState
+    if ([int]$state.commitCandidateCount -le 0) {
+        throw "$Description did not render any phrase candidates. Last state: $($state | ConvertTo-Json -Compress)"
+    }
+    if ([int]$state.replacementTileCount -ne 0) {
+        throw "$Description rendered $($state.replacementTileCount) replacement candidates with a special visual state."
+    }
+    if ([string]$state.phase -ceq "Review" -and [int]$state.activeCommitCandidateCount -ne 0) {
+        throw "$Description styled $($state.activeCommitCandidateCount) candidate cells as active during review."
+    }
+}
+
+function Test-ZhuyinCandidateStyleParity {
+    Write-Step "Verifying phrase and Zhuyin activation keep inactive candidates visually neutral"
+    Start-DeterministicScan -ScanMode "row-column" -TestColumns 6 -ProfileId "zh-TW"
+    Wait-AfterActivation "release initial zh-TW review" "Rows"
+
+    $yesLabel = -join ([char]0x662F)
+    Select-RenderedLabel $yesLabel
+    Assert-NeutralCandidateState "Phrase activation"
+    Capture-PhoneState "candidate-style-phrase-neutral"
+    Wait-AfterActivation "release phrase review" "Rows"
+
+    $clearLabel = -join ([char]0x6E05, [char]0x9664)
+    Select-RenderedLabel $clearLabel
+    Wait-AfterActivation "release clear review" "Rows"
+
+    $zhuyinBo = -join ([char]0x3105)
+    Select-RenderedLabel $zhuyinBo
+    Assert-NeutralCandidateState "Zhuyin activation"
+    Capture-PhoneState "candidate-style-zhuyin-neutral"
+}
+
+function Assert-SpeechLockBottomRow($OrdinaryState, $LockedState, [string]$Mode) {
+    $expectedRowCount = if ($Mode -ceq "conversation") { 1 } else { $OrdinaryState.rows.Count }
+    if ($LockedState.rows.Count -ne $expectedRowCount) {
+        throw "$Mode lock rendered $($LockedState.rows.Count) rows; expected $expectedRowCount."
+    }
+    $bottomRowIndex = $OrdinaryState.rows.Count - 1
+    $expectedBottomRow = @($OrdinaryState.rows[$bottomRowIndex])
+    $controlStart = $expectedBottomRow.Count - 3
+    $expectedBottomRow[$controlStart] = "EDIT"
+    $expectedBottomRow[$controlStart + 1] = "SAY"
+    $expectedBottomRow[$controlStart + 2] = "CLR"
+
+    if ($Mode -ceq "conversation") {
+        $actualBottomRowText = @($LockedState.rows[0]) -join "|"
+        $expectedBottomRowText = $expectedBottomRow -join "|"
+        if ($actualBottomRowText -cne $expectedBottomRowText) {
+            throw "Conversation lock bottom row '$actualBottomRowText' did not match '$expectedBottomRowText'."
+        }
+    } else {
+        for ($rowIndex = 0; $rowIndex -lt $OrdinaryState.rows.Count; $rowIndex++) {
+            if ($LockedState.rows[$rowIndex].Count -ne $OrdinaryState.rows[$rowIndex].Count) {
+                throw "Replay lock changed the cell count in row $rowIndex."
+            }
+            for ($cellIndex = 0; $cellIndex -lt $OrdinaryState.rows[$rowIndex].Count; $cellIndex++) {
+                $expected = if ($rowIndex -eq $bottomRowIndex) { [string]$expectedBottomRow[$cellIndex] } else { [string]$OrdinaryState.rows[$rowIndex][$cellIndex] }
+                if ([string]$LockedState.rows[$rowIndex][$cellIndex] -cne $expected) {
+                    throw "Replay lock changed row $rowIndex cell $cellIndex from '$($OrdinaryState.rows[$rowIndex][$cellIndex])' to '$($LockedState.rows[$rowIndex][$cellIndex])'; expected '$expected'."
+                }
+            }
+        }
+    }
+
+    $tileCount = @($LockedState.rows | ForEach-Object { $_ }).Count
+    if ([int]$LockedState.speechLockDeferredCount -ne ($tileCount - 3) -or
+        [int]$LockedState.speechLockDisabledCount -ne ($tileCount - 3)) {
+        throw "$Mode lock did not defer and disable every non-control tile: $($LockedState | ConvertTo-Json -Compress)."
+    }
+    $reachableActionsText = @($LockedState.speechLockReachableActions) -join "|"
+    if ($reachableActionsText -cne "unlock-message|speak|clear") {
+        throw "$Mode lock reachable controls were not exactly EDIT, SAY, CLR: $($LockedState | ConvertTo-Json -Compress)."
+    }
+    if ([int]$LockedState.groupHighlightCount -ne 0) {
+        throw "$Mode lock displayed a block or row scan overlay."
+    }
+}
+
+function Test-SpeechLockPersistentLayout([string]$Mode) {
+    Write-Step "Verifying $Mode lock shares the dynamic bottom row and flat control scan"
+    Start-DeterministicScan "row-column" 3000 $Mode
+    Wait-AfterActivation "release $Mode-lock initial review" "Rows"
+    Select-RenderedLabel "YES"
+    $ordinaryState = Get-LatestE2EState
+    Capture-PhoneState "speech-lock-$Mode-before"
+
+    Wait-AfterActivation "release $Mode-lock message review" "Rows"
+    Select-RenderedLabel "SAY"
+    $lockedState = Wait-ForSpeechLockAction "speak" $Mode
+    Assert-SpeechLockBottomRow $ordinaryState $lockedState $Mode
+    Capture-PhoneState "speech-lock-$Mode-speak-target"
+
+    if ($Mode -ceq "conversation") {
+        Invoke-AdbQuiet shell input keyevent KEYCODE_HOME
+        Wait-RenderState "pause conversation lock" @('"phase":"Stopped"', '"speechLockMode":"conversation"', '"activeCellCount":0', '"groupHighlightCount":0')
+        Invoke-AdbQuiet shell am start -W -n org.shineaac.app/.MainActivity
+        Assert-ShineForeground
+        # am start -W returns before the launcher-to-app animation is guaranteed
+        # to finish. Keep transition pixels out of the visual regression artifact.
+        Start-Sleep -Milliseconds 750
+        Capture-PhoneState "speech-lock-conversation-paused"
+        Invoke-AdbQuiet logcat -c
+        Switch-Activate "resume conversation lock"
+        $resumedState = Wait-ForSpeechLockAction "speak" "conversation"
+        if ([int]$resumedState.activeCellCount -ne 1 -or [string]$resumedState.message -cne "yes ") {
+            throw "Conversation lock did not resume at Say without selecting: $($resumedState | ConvertTo-Json -Compress)."
+        }
+        Capture-PhoneState "speech-lock-conversation-resumed"
+    }
+
+    $null = Wait-ForSpeechLockAction "speak" $Mode
+    Switch-Activate "$Mode locked Speak"
+    $null = Wait-ForSpeechLockAction "speak" $Mode
+
+    $null = Wait-ForSpeechLockAction "clear" $Mode
+    Capture-PhoneState "speech-lock-$Mode-clear-target"
+    $null = Wait-ForSpeechLockAction "unlock-message" $Mode
+    Capture-PhoneState "speech-lock-$Mode-edit-target"
+    $null = Wait-ForSpeechLockAction "unlock-message" $Mode
+    Switch-Activate "$Mode locked EDIT"
+    $null = Wait-ForUnlockedMessage "yes "
+    Capture-PhoneState "speech-lock-$Mode-after-edit"
+
+    Select-RenderedLabel "SAY"
+    $null = Wait-ForSpeechLockAction "clear" $Mode
+    $null = Wait-ForSpeechLockAction "clear" $Mode
+    Switch-Activate "$Mode locked Clear"
+    $null = Wait-ForUnlockedMessage ""
+    Capture-PhoneState "speech-lock-$Mode-after-clear"
 }
 
 function Ensure-ActiveScan([string]$ExpectedPhase, [string]$Label) {
@@ -530,13 +755,24 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+if ($SpeechLockUiOnly) {
+    Test-TwoColumnMigration
+    Test-SpeechLockPersistentLayout "replay"
+    Test-SpeechLockPersistentLayout "conversation"
+    Write-Host ""
+    Write-Host "E2E PASS: stored two-column boards migrated to four; replay and conversation locks shared the dynamic EDIT/SAY/CLR bottom row, deferred every other tile, skipped group scanning, handled conversation pause/resume, and exercised all controls." -ForegroundColor Green
+    Write-Host "Artifacts: $artifactDir"
+    exit 0
+}
+
 Test-ScanModeVisualFlow "row-column"
 Test-ScanModeVisualFlow "block-row-column"
 
 if ($ScanUiOnly) {
+    Test-ZhuyinCandidateStyleParity
     Write-Host ""
-    Write-Host "E2E PASS: automatic phone regression completed two selection/review cycles in both scan modes, including different automatically advanced blocks, rows, and cells." -ForegroundColor Green
-    Write-Host "The app was left actively scanning in three-layer mode."
+    Write-Host "E2E PASS: automatic phone regression completed two selection/review cycles in both scan modes and verified neutral phrase/Zhuyin candidate styling after real activations." -ForegroundColor Green
+    Write-Host "The app was left in the Zhuyin post-activation review state."
     Write-Host "Artifacts: $artifactDir"
     exit 0
 }
