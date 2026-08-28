@@ -2387,7 +2387,7 @@ function applyNativeSettings(configJson, uiConfigJson, action = "") {
   let config = createBoardConfig({
     ...profileDefaults,
     profileId,
-    columns: clamp(Number(storedConfig.columns), 2, 8),
+    columns: clamp(Number(storedConfig.columns), 3, 8),
     scanIntervalMs: clamp(Number(storedConfig.scanIntervalMs), 300, 5000),
     transitionPauseMs: clamp(Number(storedConfig.transitionPauseMs), 0, 4000),
     firstCellPauseMs: clamp(Number(storedConfig.firstCellPauseMs), 300, 6000),
@@ -2672,7 +2672,7 @@ function renderConfig() {
         </select>
       </label>
       <label class="field">${uiText("Maximum symbol columns", "每列最多格數")}
-        <input name="columns" type="number" min="2" max="8" step="1" value="${session.config.columns}">
+        <input name="columns" type="number" min="3" max="8" step="1" value="${session.config.columns}">
       </label>
       <label class="field">${uiText("Scanning method", "掃描方式")}
         <select name="scanMode">
@@ -2866,7 +2866,7 @@ function renderConfig() {
     const profile = LanguageProfiles[profileId] ?? LanguageProfiles["en-US"];
     const config = createBoardConfig({
       profileId,
-      columns: clamp(Number(data.get("columns")), 2, 8),
+      columns: clamp(Number(data.get("columns")), 3, 8),
       scanIntervalMs: clamp(Number(data.get("scanIntervalMs")), 300, 5000),
       transitionPauseMs: clamp(Number(data.get("transitionPauseMs")), 0, 4000),
       firstCellPauseMs: clamp(Number(data.get("firstCellPauseMs")), 300, 6000),

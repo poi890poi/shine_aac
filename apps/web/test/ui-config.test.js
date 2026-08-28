@@ -257,6 +257,13 @@ test("configuration form controls retain 48px targets on short screens", () => {
   assert.match(styles, /\.config-panel \.secondary-button,[\s\S]*?\.config-panel \.primary-button\s*\{[\s\S]*?min-height:\s*48px/);
 });
 
+test("full AAC boards no longer offer the inefficient two-column layout", () => {
+  assert.match(appSource, /name="columns" type="number" min="3" max="8"/);
+  assert.match(appSource, /columns:\s*clamp\(Number\(storedConfig\.columns\), 3, 8\)/);
+  assert.match(appSource, /columns:\s*clamp\(Number\(data\.get\("columns"\)\), 3, 8\)/);
+  assert.doesNotMatch(appSource, /name="columns"[^>]*min="2"/);
+});
+
 test("consecutive phone checkbox rows do not inherit the form block gap", () => {
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.config-grid > \.check-field \+ \.check-field\s*\{[\s\S]*?margin-block-start:\s*-12px/);
 });

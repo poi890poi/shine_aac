@@ -5,6 +5,16 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceDataStore
 import org.json.JSONObject
 
+internal const val MinimumBoardColumns = 3
+internal const val MaximumBoardColumns = 8
+internal const val DefaultBoardColumns = 4
+
+internal fun normalizedBoardColumns(value: Int?): Int {
+    val columns = value ?: return DefaultBoardColumns
+    if (columns < MinimumBoardColumns) return DefaultBoardColumns
+    return columns.coerceAtMost(MaximumBoardColumns)
+}
+
 internal object SettingsStore {
     const val PreferencesName = "shine_aac_config"
     const val ChoicesKey = "nativeSettingsChoices"
@@ -31,7 +41,7 @@ internal object SettingsStore {
         putInt(editor, config, "configVersion", 28)
         putString(editor, config, "profileId", "en-US")
         editor.putString(SourceProfileKey, config.optString("profileId", "en-US"))
-        putInt(editor, config, "columns", 4)
+        editor.putInt("columns", normalizedBoardColumns(config.optInt("columns", DefaultBoardColumns)))
         putString(editor, config, "scanMode", "row-column")
         putString(editor, config, "scanTimingPreset", "custom")
         putFloat(editor, config, "scanIntervalMs", 1800f)
@@ -67,11 +77,16 @@ internal object SettingsStore {
 
     fun configJson(context: Context): String {
         val prefs = preferences(context)
+        val storedColumns = intValue(prefs, "columns", DefaultBoardColumns)
+        val columns = normalizedBoardColumns(storedColumns)
+        if (columns != storedColumns) {
+            prefs.edit().putInt("columns", columns).apply()
+        }
         return JSONObject()
             .put("configVersion", intValue(prefs, "configVersion", 28))
             .put("profileId", stringValue(prefs, "profileId", "en-US"))
             .put("sourceProfileId", stringValue(prefs, SourceProfileKey, "en-US"))
-            .put("columns", intValue(prefs, "columns", 4))
+            .put("columns", columns)
             .put("scanMode", stringValue(prefs, "scanMode", "row-column"))
             .put("scanTimingPreset", stringValue(prefs, "scanTimingPreset", "custom"))
             .put("scanIntervalMs", floatValue(prefs, "scanIntervalMs", 1800f).toDouble())
@@ -119,6 +134,7 @@ internal object SettingsStore {
     fun putString(context: Context, key: String, value: String?) {
         val editor = preferences(context).edit()
         when (key) {
+            "columns" -> editor.putInt(key, normalizedBoardColumns(value?.toIntOrNull()))
             in integerKeys -> editor.putInt(key, value?.toIntOrNull() ?: 0)
             in floatKeys -> editor.putFloat(key, value?.toFloatOrNull() ?: 0f)
             else -> editor.putString(key, value.orEmpty().take(MaxStoredTextChars))
@@ -128,6 +144,14 @@ internal object SettingsStore {
 
     fun getString(context: Context, key: String, defaultValue: String?): String? {
         val raw = preferences(context).all[key] ?: return defaultValue
+        if (key == "columns") {
+            val storedColumns = raw.toString().toIntOrNull()
+            val columns = normalizedBoardColumns(storedColumns)
+            if (storedColumns != columns) {
+                preferences(context).edit().putInt(key, columns).apply()
+            }
+            return columns.toString()
+        }
         return raw.toString()
     }
 

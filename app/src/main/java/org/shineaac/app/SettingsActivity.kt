@@ -146,7 +146,7 @@ class SectionSettingsPreferenceFragment : PreferenceFragmentCompat() {
         configureList("switchInputProfile")
         configureList("contrastTheme")
         configureList("idleTimeoutMinutes")
-        configureNumericEditor("columns")
+        configureNumericEditor("columns", MinimumBoardColumns, MaximumBoardColumns)
         configureLargeTextEditor("suggestionDictionary", R.string.settings_dictionary_summary)
         configureLargeTextEditor("symbols", R.string.settings_symbols_summary)
         configureProfileVisibility(currentProfileId())
@@ -256,14 +256,18 @@ class SectionSettingsPreferenceFragment : PreferenceFragmentCompat() {
         else -> emptyList()
     }
 
-    private fun configureNumericEditor(key: String) {
-        findPreference<EditTextPreference>(key)?.setOnBindEditTextListener { editText ->
+    private fun configureNumericEditor(key: String, minimum: Int, maximum: Int) {
+        val preference = findPreference<EditTextPreference>(key) ?: return
+        preference.setOnBindEditTextListener { editText ->
             editText.inputType = InputType.TYPE_CLASS_NUMBER
             editText.selectAll()
         }
-        findPreference<EditTextPreference>(key)?.summaryProvider =
-            Preference.SummaryProvider<EditTextPreference> { preference ->
-                preference.text?.takeIf { it.isNotBlank() } ?: getString(R.string.settings_not_set)
+        preference.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, nextValue ->
+            nextValue?.toString()?.toIntOrNull() in minimum..maximum
+        }
+        preference.summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { editPreference ->
+                editPreference.text?.takeIf { it.isNotBlank() } ?: getString(R.string.settings_not_set)
             }
     }
 

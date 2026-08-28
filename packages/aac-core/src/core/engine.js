@@ -42,6 +42,8 @@ export const TileAction = Object.freeze({
 });
 
 export const DefaultColumns = 4;
+export const MinimumColumns = 3;
+export const MaximumColumns = 8;
 export const DefaultScanIntervalMs = 1800;
 export const DefaultTransitionPauseMs = 0;
 export const DefaultFirstCellPauseMs = 2400;
@@ -847,7 +849,6 @@ export function createBoardConfig(overrides = {}) {
     profileId: profile.id,
     autoSpace: profile.autoSpace,
     speechLocale: profile.speechLocale,
-    columns: profile.columns,
     scanIntervalMs: profile.scanIntervalMs,
     transitionPauseMs: profile.transitionPauseMs,
     firstCellPauseMs: profile.firstCellPauseMs,
@@ -855,6 +856,7 @@ export function createBoardConfig(overrides = {}) {
     suggestionDictionary: profile.suggestionDictionary,
     symbols: profile.symbols,
     ...safeOverrides,
+    columns: normalizeBoardColumns(safeOverrides.columns, profile.columns),
     scanMode: normalizeScanMode(safeOverrides.scanMode ?? profile.scanMode),
     autoScanSuggestionPages: safeOverrides.autoScanSuggestionPages === true,
     deferUnsupportedZhuyinOnFirstPass:
@@ -865,6 +867,14 @@ export function createBoardConfig(overrides = {}) {
     ),
     scanPassLimit: normalizeScanPassLimit(safeOverrides.scanPassLimit ?? profile.scanPassLimit)
   };
+}
+
+export function normalizeBoardColumns(value, fallback = DefaultColumns) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  const columns = Math.trunc(numeric);
+  if (columns < MinimumColumns) return DefaultColumns;
+  return clampInt(columns, MinimumColumns, MaximumColumns);
 }
 
 export function scanTimingPresetForId(presetId) {
@@ -899,7 +909,7 @@ export function applyScanTimingPreset(config = createBoardConfig(), presetId = "
 
 export function boardRows(config = createBoardConfig(), message = "", canUndo = false, inputState = {}) {
   const normalized = createBoardConfig(config);
-  const safeColumns = clampInt(normalized.columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(normalized.columns);
   if (hasLockedSpeechMessage(inputState)) {
     return speechLockRows(normalized.profileId, safeColumns);
   }
@@ -961,7 +971,7 @@ export function speechLockRows(profileId = DefaultProfileId, columns = DefaultCo
 }
 
 function zhTwSuggestionColumnCount(symbolColumns) {
-  return Math.min(clampInt(symbolColumns, 2, 8), DefaultColumns);
+  return Math.min(normalizeBoardColumns(symbolColumns), DefaultColumns);
 }
 
 function zhTwFirstLayerRows(symbols, symbolColumns) {
@@ -984,7 +994,7 @@ function zhTwFirstLayerRows(symbols, symbolColumns) {
 }
 
 function zhTwSymbolRows(items, maxColumns) {
-  const safeMaxColumns = clampInt(maxColumns, 2, 8);
+  const safeMaxColumns = normalizeBoardColumns(maxColumns);
   if (items.length === ZhuyinInputSymbols.length && safeMaxColumns === 6) {
     // Preserve the conventional linear order. Among the 21 possible placements
     // of two six-key rows, this stable pattern minimizes corpus-weighted row +
@@ -1006,7 +1016,7 @@ function chunkByRowSizes(items, rowSizes) {
 
 function balancedChunk(items, maxColumns) {
   if (items.length === 0) return [];
-  const safeMaxColumns = clampInt(maxColumns, 2, 8);
+  const safeMaxColumns = normalizeBoardColumns(maxColumns);
   const rowCount = Math.ceil(items.length / safeMaxColumns);
   const baseRowSize = Math.floor(items.length / rowCount);
   const widerRowCount = items.length % rowCount;
@@ -1124,7 +1134,11 @@ export function loadProfileColumnsForConfig(
   storedSymbols = ""
 ) {
   const profile = languageProfileForId(profileId);
-  const columns = clampInt(storedColumns, 2, 8);
+  const storedNumeric = Number(storedColumns);
+  if (Number.isFinite(storedNumeric) && Math.trunc(storedNumeric) < MinimumColumns) {
+    return DefaultColumns;
+  }
+  const columns = normalizeBoardColumns(storedColumns, profile.columns);
   const previousBuiltInColumns = storedVersion >= 19 ? 5 : DefaultColumns;
   if (profile.id !== "zh-TW" || columns !== previousBuiltInColumns || storedVersion >= CurrentConfigVersion) {
     return columns;
@@ -1363,7 +1377,7 @@ export function suggestionRow(message, dictionary, columns, canUndo = false, opt
 }
 
 function englishSuggestionRows(message, dictionary, columns, canUndo = false, options = {}) {
-  const safeColumns = clampInt(columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(columns);
   const suggestionCount = Math.min(safeColumns, 4);
   const rowCount = clampInt(options.rowCount ?? 2, 1, 2);
   const hasWideSuggestions = Object.values(options.suggestionColumnSpans ?? {})
@@ -1439,7 +1453,7 @@ function isSpannableWordSuggestion(candidate) {
 }
 
 function zhTwSuggestionRows(message, dictionary, columns, canUndo = false, inputState = {}, staticTiles = ZhTwTiles) {
-  const safeColumns = clampInt(columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(columns);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const totalSuggestions = zhTwReachableSuggestions(
     message,
@@ -1492,7 +1506,7 @@ function zhTwUnbufferedSuggestionTiles(
   }
 
   return concatenateTileCandidates(
-    contextCompletions.slice(0, clampInt(columns, 2, 8)),
+    contextCompletions.slice(0, normalizeBoardColumns(columns)),
     configuredSuggestions,
     zhTwSourceBackfillCandidates()
   );
@@ -1644,7 +1658,7 @@ function zhTwMergeBufferedIntentPredictions(candidates, predictions, buffer, col
   if (predictions.length === 0) return candidates;
   const exactCandidateLimit = Math.min(
     MinZhTwExactCandidatesBeforeIntent,
-    Math.max(1, clampInt(columns, 2, 8) - 1)
+    Math.max(1, normalizeBoardColumns(columns) - 1)
   );
   const reservedExact = candidates
     .filter((candidate) =>
@@ -1696,7 +1710,7 @@ function zhTwPromoteProtectedGlyphs(candidates, buffer, columns) {
   // the reachable window. Keep a small source-ranked front for strong phrase
   // predictions, then guarantee common glyphs before long-tail candidates.
   // Phrases remain constructible glyph by glyph.
-  const pageSize = clampInt(columns, 2, 8) * ZhTwSuggestionRowCount;
+  const pageSize = normalizeBoardColumns(columns) * ZhTwSuggestionRowCount;
   const candidateCapacityWithUndo = Math.max(1, (pageSize - 1) * MaxZhTwSuggestionPages - 1);
   const preliminarySourceFrontCount = Math.min(
     MaxZhTwSourcePredictionsBeforeProtectedGlyphs,
@@ -1863,7 +1877,7 @@ function zhTwIsLastChanceGlyph(candidate, buffer) {
 }
 
 function zhTwRepairSuggestionTiles(buffer, columns) {
-  const safeColumns = clampInt(columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(columns);
   const repairs = zhTwRepairPrefixes(buffer)
     .map((repair) => ({
       ...repair,
@@ -1996,7 +2010,7 @@ function zhTwImmediateCandidateCount(
   exactCandidateCount = 0,
   priorityNextSymbolCount = nextSymbolCount
 ) {
-  const safeColumns = clampInt(columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(columns);
   const preferredCount = zhTwPreferredCandidateCountBeforeNextSymbols(
     buffer,
     safeColumns,
@@ -2018,7 +2032,7 @@ function zhTwImmediateCandidateCount(
 function zhTwFirstPageNextSymbolCount(buffer, columns, nextSymbolCount, candidateCount) {
   if (!zhTwNeedsPhoneticContinuationSpace(buffer)) return 0;
 
-  const safeColumns = clampInt(columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(columns);
   const firstPageUsableCount = safeColumns * ZhTwSuggestionRowCount - 1;
   return clampInt(firstPageUsableCount - candidateCount, 0, nextSymbolCount);
 }
@@ -2199,7 +2213,7 @@ function isHanCharacter(character) {
 }
 
 function zhTwSuggestionPageCount(message, dictionary, columns, canUndo = false, staticTiles = ZhTwTiles) {
-  const safeColumns = clampInt(columns, 2, 8);
+  const safeColumns = normalizeBoardColumns(columns);
   const pageSize = safeColumns * ZhTwSuggestionRowCount;
   const count = zhTwReachableSuggestions(
     message,

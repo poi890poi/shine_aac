@@ -732,6 +732,15 @@ test("zh-TW column migration preserves custom column choices", () => {
   assert.equal(loadProfileColumnsForConfig(3, 18, "zh-TW", serializeSymbols(custom)), 3);
 });
 
+test("two-column boards migrate to four while three columns remain supported", () => {
+  assert.equal(createBoardConfig({ profileId: "en-US", columns: 2 }).columns, 4);
+  assert.equal(createBoardConfig({ profileId: "zh-TW", columns: 2 }).columns, 4);
+  assert.equal(createBoardConfig({ profileId: "en-US", columns: 3 }).columns, 3);
+  assert.equal(loadProfileColumnsForConfig(2, CurrentConfigVersion, "en-US"), 4);
+  assert.equal(loadProfileColumnsForConfig(2, CurrentConfigVersion, "zh-TW"), 4);
+  assert.equal(loadProfileColumnsForConfig(3, CurrentConfigVersion, "zh-TW"), 3);
+});
+
 test("version 19 built-in zh-TW board migrates to six maximum symbol columns", () => {
   const version19Board = createBoardConfig({ profileId: "zh-TW" }).symbols;
 

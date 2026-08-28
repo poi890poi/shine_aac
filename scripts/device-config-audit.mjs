@@ -763,7 +763,7 @@ async function main() {
     ...["off", "replay", "conversation"].map((value) => [`after-read mode ${value}`, { speechAfterReadMode: value }]),
     ...["default", "high-contrast", "high-contrast-dark"].map((value) => [`contrast theme ${value}`, { contrastTheme: value }]),
     ...["hardware-buttons", "volume-buttons", "camera-long-blink", "hardware-and-camera", "off"].map((value) => [`switch input ${value}`, { switchInputProfile: value }]),
-    ["numeric lower bounds", { columns: 2, scanIntervalMs: 300, transitionPauseMs: 0, firstCellPauseMs: 300, inputLatencyCompensationMs: 0 }],
+    ["numeric lower bounds", { columns: 3, scanIntervalMs: 300, transitionPauseMs: 0, firstCellPauseMs: 300, inputLatencyCompensationMs: 0 }],
     ["numeric upper bounds", { columns: 8, scanIntervalMs: 5000, transitionPauseMs: 4000, firstCellPauseMs: 6000, inputLatencyCompensationMs: 1200 }],
     ["language English", { profileId: "en-US" }],
     ["language Traditional Chinese", { profileId: "zh-TW" }]
@@ -780,7 +780,7 @@ async function main() {
 
   await verifyRoundTrip("reset setup", {
     profileId: "zh-TW",
-    columns: 2,
+    columns: 3,
     scanMode: "block-row-column",
     scanPassLimit: 0,
     rowScanVoice: true,
@@ -797,7 +797,7 @@ async function main() {
   await evaluate(`document.querySelector('[data-reset-action="cancel"]')?.click()`);
   const afterResetCancel = await formSnapshot();
   const resetCancelMismatches = mismatchedValues(afterResetCancel, {
-    profileId: "zh-TW", columns: 2, scanMode: "block-row-column", scanPassLimit: 0,
+    profileId: "zh-TW", columns: 3, scanMode: "block-row-column", scanPassLimit: 0,
     rowScanVoice: true, scanVoice: false, activationVoice: false,
     switchInputProfile: "off", contrastTheme: "high-contrast-dark"
   });
