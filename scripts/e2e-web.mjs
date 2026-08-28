@@ -142,6 +142,7 @@ try {
   }
 
   if (scanVisualOnlyMode) {
+    await scenarioZhuyinCandidateStylingParity();
     await scenarioScanVisualOwnership();
     writeReport(true);
     console.log("PHONE SCAN VISUAL E2E PASS");
@@ -3200,6 +3201,81 @@ async function scenarioVisibleEscapeLadder() {
   await waitForUi();
 }
 
+async function scenarioZhuyinCandidateStylingParity() {
+  await evaluate(`
+    localStorage.setItem("shine-aac-web-config-v1", JSON.stringify({
+      configVersion: 33,
+      profileId: "zh-TW",
+      columns: 6,
+      scanMode: "row-column",
+      scanIntervalMs: 300,
+      transitionPauseMs: 0,
+      firstCellPauseMs: 300,
+      inputLatencyCompensationMs: 0,
+      scanPassLimit: 0
+    }));
+    localStorage.setItem("shine-aac-web-ui-v1", JSON.stringify({
+      uiConfigVersion: 1,
+      rowScanVoice: false,
+      scanVoice: false,
+      activationVoice: false,
+      restartScanFromTop: true,
+      contrastTheme: "high-contrast-dark"
+    }));
+    localStorage.removeItem("shine-aac-session-draft-v1");
+  `);
+  await reloadAndWaitForRenderedBoard("zhuyin-candidate-style-setup");
+  await releaseFirstRowHold();
+
+  await selectLabel("是");
+  await assertMessage("是");
+  const phraseStyle = await candidateStyleSnapshot();
+
+  await selectLabel("清除");
+  await assertMessage("");
+  await selectLabel("ㄅ");
+  await assertMessage("ㄅ");
+  const zhuyinStyle = await candidateStyleSnapshot();
+  await capturePhoneScanVisual("zhuyin-candidates-neutral");
+
+  const visualKeys = ["background", "borderColor", "boxShadow", "outline"];
+  const visualMismatch = visualKeys.some((key) => phraseStyle[key] !== zhuyinStyle[key]);
+  if (
+    phraseStyle.candidateCount === 0 ||
+    zhuyinStyle.candidateCount === 0 ||
+    phraseStyle.replacementCount !== 0 ||
+    zhuyinStyle.replacementCount !== 0 ||
+    phraseStyle.activeCandidateCount !== 0 ||
+    zhuyinStyle.activeCandidateCount !== 0 ||
+    visualMismatch
+  ) {
+    throw new Error(`Phrase and Zhuyin suggestions do not share neutral, inactive styling: ${JSON.stringify({ phraseStyle, zhuyinStyle })}`);
+  }
+  steps.push(pass(
+    "zhuyin-candidate-style",
+    "phrase and Zhuyin input keep all noncurrent suggestions neutral; replacement metadata does not impersonate active cells"
+  ));
+}
+
+async function candidateStyleSnapshot() {
+  return evaluate(`(() => {
+    const candidates = [...document.querySelectorAll('.tile[data-action="commit-candidate"]:not(.tone-fallback)')];
+    const reference = candidates.find((tile) => !tile.classList.contains("wrapped-word")) ?? candidates[0];
+    const style = reference ? getComputedStyle(reference) : null;
+    return {
+      candidateCount: candidates.length,
+      replacementCount: document.querySelectorAll(".tile.replacement").length,
+      activeCandidateCount: candidates.filter((tile) => tile.classList.contains("active-cell")).length,
+      referenceLabel: reference?.dataset.label ?? "",
+      className: reference?.className ?? "",
+      background: style?.backgroundColor ?? "",
+      borderColor: style?.borderTopColor ?? "",
+      boxShadow: style?.boxShadow ?? "",
+      outline: style?.outline ?? ""
+    };
+  })()`);
+}
+
 async function scenarioScanVisualOwnership() {
   for (const scanMode of ["row-column", "block-row-column"]) {
     const threeLayer = scanMode === "block-row-column";
@@ -3865,6 +3941,24 @@ async function waitForRenderedBoard() {
     await delay(50);
   }
   throw new Error("Timed out waiting for rendered board");
+}
+
+async function reloadAndWaitForRenderedBoard(marker) {
+  await evaluate(`
+    document.documentElement.dataset.e2eReloadMarker = ${JSON.stringify(marker)};
+    location.reload();
+  `);
+  const deadline = Date.now() + UiWaitTimeoutMs;
+  while (Date.now() < deadline) {
+    const state = await evaluate(`({
+      marker: document.documentElement.dataset.e2eReloadMarker ?? "",
+      ready: document.readyState,
+      rows: document.querySelectorAll(".row").length
+    })`).catch(() => null);
+    if (state && state.marker !== marker && state.ready === "complete" && state.rows > 0) return;
+    await delay(50);
+  }
+  throw new Error(`Timed out waiting for ${marker} reload`);
 }
 
 async function waitForDemoActive() {

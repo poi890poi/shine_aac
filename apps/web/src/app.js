@@ -1953,7 +1953,6 @@ function tileClass(candidate, activeRow, activeCell, reviewHold = false, cameraH
   if (isFunctionTile(candidate)) classes.push("function-key");
   if (candidate.action === TileAction.Noop) classes.push("noop");
   if (session.config.suggestionWrapLabels?.[candidate.label]) classes.push("wrapped-word");
-  if (candidate.action === TileAction.CommitCandidate && candidate.replaceLength > 0) classes.push("replacement");
   if (candidate.toneFallback === true) classes.push("tone-fallback");
   if (candidate.scanDeferred === true && session.scannerState.passIndex === 1) {
     classes.push("scan-deferred");

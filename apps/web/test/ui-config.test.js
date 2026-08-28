@@ -187,6 +187,12 @@ test("block and row scanning use group elements while only a cell may style a ti
   assert.doesNotMatch(styles, /\.tile\.active-(?:block|row)\s*\{/);
 });
 
+test("Zhuyin replacement candidates do not impersonate active scan cells", () => {
+  assert.doesNotMatch(appSource, /classes\.push\("replacement"\)/);
+  assert.doesNotMatch(styles, /\.tile\.replacement\s*\{/);
+  assert.doesNotMatch(styles, /--color-tile-replacement-/);
+});
+
 test("vertical block and row progress is optional while cell progress remains horizontal", () => {
   assert.equal(defaultUiConfig.verticalGroupProgress, false);
   assert.match(appSource, /name="verticalGroupProgress"/);

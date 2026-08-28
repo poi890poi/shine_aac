@@ -50,6 +50,9 @@ The main board should expose one communication action: activate the current scan
 ## Preserve Stability
 
 - The suggestion row stays in the same position.
+- Phrase and Zhuyin suggestions share the same neutral candidate style. `replaceLength`
+  is composition metadata only and must never create an active, selected, or scan-progress
+  appearance. Only the current scan cell may use active-cell styling.
 - Suggestion cells should prefer relevant fallback targets over dead empty cells when the row is active; never fill typed-buffer suggestions with unrelated words.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.
@@ -67,6 +70,11 @@ Optimizing input speed is not only about fewer scan steps. It also means reducin
 - latency compensation is limited to symbols in the same selected row
 - progress hints are full-height fills inside the active target; do not add extra latency bars unless user testing clearly calls for them
 - auditory scan and activation feedback are useful access features, but tests may disable them for determinism
+
+When candidate styling changes, exercise both a completed phrase and an unfinished
+Zhuyin buffer. The regression must assert that their inactive candidate tiles have the
+same rendered background, border, shadow, and outline, rather than inferring appearance
+from scanner state alone.
 
 ## Testing Order
 
