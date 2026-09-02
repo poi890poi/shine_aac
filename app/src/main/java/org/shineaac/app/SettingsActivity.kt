@@ -414,7 +414,7 @@ class SpeechVoicePreferenceFragment : PreferenceFragmentCompat() {
             populateVoiceList(
                 textToSpeech?.voices
                     .orEmpty()
-                    .filter { it.name.isNotBlank() }
+                    .filter { it.name.isNotBlank() && isSupportedSpeechVoiceLocale(it.locale) }
                     .sortedWith(compareBy({ it.locale.getDisplayName(Locale.getDefault()) }, { it.name })),
             )
         }
@@ -429,7 +429,6 @@ class SpeechVoicePreferenceFragment : PreferenceFragmentCompat() {
 
     private fun populateVoiceList(voices: List<android.speech.tts.Voice>) {
         val preference = findPreference<ListPreference>("speechVoiceName") ?: return
-        val currentValue = SettingsStore.getString(requireContext(), "speechVoiceName", "").orEmpty()
         val labels = mutableListOf(
             getString(R.string.settings_builtin_voice),
             getString(R.string.settings_system_voice),
@@ -444,10 +443,6 @@ class SpeechVoicePreferenceFragment : PreferenceFragmentCompat() {
             }
             labels += "${voice.locale.getDisplayName(Locale.getDefault())} — ${voice.name}$networkSuffix"
             values += voice.name
-        }
-        if (currentValue.isNotBlank() && currentValue !in values) {
-            labels += currentValue + getString(R.string.settings_current_voice_suffix)
-            values += currentValue
         }
         preference.entries = labels.toTypedArray()
         preference.entryValues = values.toTypedArray()
@@ -502,6 +497,9 @@ class SpeechVoicePreferenceFragment : PreferenceFragmentCompat() {
         const val AndroidSystemVoiceName = "android-system-default"
     }
 }
+
+internal fun isSupportedSpeechVoiceLocale(locale: Locale): Boolean =
+    locale.language == Locale.CHINESE.language || locale.language == Locale.ENGLISH.language
 
 class AppInfoPreferenceFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {

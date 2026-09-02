@@ -30,6 +30,10 @@ Before adding `zh-TW`, graphical symbols, or another language:
 
 Shared core may own scanning, board validation, history, input latency compensation, and profile loading. Profile code owns symbols, dictionary, suggestion ranking, tokenizer, auto-spacing/no-spacing, speech locale, and layout defaults.
 
+The native speech-voice picker exposes only Chinese and English installed voices, plus
+the app's built-in voice and Android system-default choices. Do not reintroduce unrelated
+installed languages or a stale unsupported saved voice as a selectable entry.
+
 Never implement Mandarin by adding Chinese words to `DefaultSuggestionDictionary`. Never implement graphical symbols by only adding emoji-like text labels to the English board.
 
 ## Do Not Trust Hidden Debug Output
