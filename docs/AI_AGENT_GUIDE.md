@@ -91,6 +91,11 @@ The main board should expose one communication action: activate the current scan
 - A row selected for column scanning is locked until the scan returns to row mode.
 - Switching language/profile must not mutate another profile's layout, dictionary, timing, or composition rules.
 
+Camera Setup requests portrait as an interim compact-device guard until its preview,
+overlay, controls, and camera transforms have an adaptive implementation with physical
+rotation coverage. Preserve the activity manifest request, but do not claim it protects
+Android 16 large displays: the platform can ignore orientation requests at `sw600dp`.
+
 ## Error Recovery Is Part Of Throughput
 
 Optimizing input speed is not only about fewer scan steps. It also means reducing costly mistakes:
