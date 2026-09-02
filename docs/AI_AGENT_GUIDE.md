@@ -83,6 +83,9 @@ The main board should expose one communication action: activate the current scan
   longer runs only to use otherwise available blocks. If filtering changes the first
   block, apply the same gap-first rule to all active rows. The full second pass always
   restores the ordinary full-board groups.
+- A deferred Zhuyin tile keeps its dashed/dim tile treatment on the first pass, but it
+  must not punch a transparent hole in block or row progress. Parent-group progress is
+  continuous across every tile in the highlighted group, including deferred tiles.
 - Suggestion cells should prefer relevant fallback targets over dead empty cells when the row is active; never fill typed-buffer suggestions with unrelated words.
 - Static board rows do not shift when suggestions change.
 - A row selected for column scanning is locked until the scan returns to row mode.

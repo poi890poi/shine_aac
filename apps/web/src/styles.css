@@ -767,11 +767,6 @@ body.demo-active .phase::after {
   box-shadow: none;
 }
 
-.tile.scan-deferred .progress-fill {
-  background: transparent;
-  border-color: transparent;
-}
-
 .tile.camera-hold {
   border-style: dashed;
   box-shadow: inset 0 0 0 4px rgba(26, 74, 92, 0.28);

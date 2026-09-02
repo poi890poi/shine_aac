@@ -21,6 +21,7 @@ const zhTwLayoutOnlyMode = process.argv.includes("--zh-tw-layout-only");
 const zhTwLanguageSwitchOnlyMode = process.argv.includes("--zh-tw-language-switch-only");
 const speechLockOnlyMode = process.argv.includes("--speech-lock-only");
 const scanVisualOnlyMode = process.argv.includes("--scan-visual-only");
+const deferredZhuyinOnlyMode = process.argv.includes("--deferred-zhuyin-only");
 const blockModeOnly = process.argv.includes("--block-only") ||
   process.argv.includes("--four-block-only") ||
   process.argv.includes("--five-block-only");
@@ -147,6 +148,14 @@ try {
     await scenarioScanVisualOwnership();
     writeReport(true);
     console.log("PHONE SCAN VISUAL E2E PASS");
+    process.exitCode = 0;
+    return;
+  }
+
+  if (deferredZhuyinOnlyMode) {
+    await scenarioDeferredZhuyinFirstPass();
+    writeReport(true);
+    console.log("DEFERRED ZHUYIN E2E PASS");
     process.exitCode = 0;
     return;
   }
@@ -2764,9 +2773,6 @@ async function scenarioDeferredZhuyinFirstPass() {
         deferredClass: deferred?.classList.contains("scan-deferred") === true,
         supportedClass: supported?.classList.contains("scan-deferred") === true,
         borderStyle: deferred ? getComputedStyle(deferred).borderStyle : "",
-        progressBackground: deferred
-          ? getComputedStyle(deferred.querySelector(".progress-fill")).backgroundColor
-          : "",
         description: deferred?.getAttribute("aria-description") ?? ""
       };
     })()
@@ -2775,10 +2781,63 @@ async function scenarioDeferredZhuyinFirstPass() {
     !presentation.deferredClass ||
     presentation.supportedClass ||
     presentation.borderStyle !== "dashed" ||
-    presentation.progressBackground !== "rgba(0, 0, 0, 0)" ||
     !presentation.description.includes("第二輪")
   ) {
     throw new Error(`Deferred Zhuyin styling is not clear and temporary: ${JSON.stringify(presentation)}`);
+  }
+
+  const deferredPosition = await findLabel("ㄩ");
+  await releaseFirstRowHold();
+  await activateWhenRenderedTargetIsCurrent(
+    "active-row",
+    deferredPosition.rowIndex,
+    0,
+    30000
+  );
+  const returned = await waitForActive(
+    (snapshot) => snapshot.phase === "Rows" && snapshot.activeRow?.rowIndex === deferredPosition.rowIndex,
+    "deferred Zhuyin item passes to return to rows",
+    5000
+  );
+  const returnedPresentation = await evaluate(`
+    (() => {
+      const byLabel = (label) => [...document.querySelectorAll(".tile")]
+        .find((tile) => tile.dataset.label === label && tile.dataset.action === "append");
+      const deferred = byLabel("ㄩ");
+      const supported = byLabel("ㄨ");
+      const deferredProgress = deferred?.querySelector(".progress-fill");
+      const supportedProgress = supported?.querySelector(".progress-fill");
+      const deferredProgressStyle = deferredProgress ? getComputedStyle(deferredProgress) : null;
+      const supportedProgressStyle = supportedProgress ? getComputedStyle(supportedProgress) : null;
+      return {
+        phase: document.querySelector(".phase")?.textContent ?? "",
+        deferredClass: deferred?.classList.contains("scan-deferred") === true,
+        deferredActive: deferred?.classList.contains("active-cell") === true,
+        supportedClass: supported?.classList.contains("scan-deferred") === true,
+        borderStyle: deferred ? getComputedStyle(deferred).borderStyle : "",
+        description: deferred?.getAttribute("aria-description") ?? "",
+        deferredProgressBackground: deferredProgressStyle?.backgroundColor ?? "",
+        supportedProgressBackground: supportedProgressStyle?.backgroundColor ?? "",
+        deferredProgressEdge: deferredProgressStyle?.borderRightColor ?? "",
+        supportedProgressEdge: supportedProgressStyle?.borderRightColor ?? "",
+        deferredProgressTransform: deferredProgress?.style.transform ?? "",
+        supportedProgressTransform: supportedProgress?.style.transform ?? ""
+      };
+    })()
+  `);
+  if (
+    !returnedPresentation.phase.startsWith("返回選列 · 第 1 / 2 次") ||
+    returned.message !== "ㄈ" ||
+    !returnedPresentation.deferredClass ||
+    returnedPresentation.deferredActive ||
+    returnedPresentation.supportedClass ||
+    returnedPresentation.borderStyle !== "dashed" ||
+    !returnedPresentation.description.includes("第二輪") ||
+    returnedPresentation.deferredProgressBackground !== returnedPresentation.supportedProgressBackground ||
+    returnedPresentation.deferredProgressEdge !== returnedPresentation.supportedProgressEdge ||
+    returnedPresentation.deferredProgressTransform !== returnedPresentation.supportedProgressTransform
+  ) {
+    throw new Error(`Deferred Zhuyin broke the parent row progress after pass escape: ${JSON.stringify(returnedPresentation)}`);
   }
 
   await selectLabel("ㄩ", { activationDelayMs: 30 });
@@ -2791,7 +2850,7 @@ async function scenarioDeferredZhuyinFirstPass() {
   if (persisted !== true) throw new Error("Zhuyin first-pass deferral option was not persisted");
   steps.push(pass(
     "deferred-zhuyin-first-pass",
-    "unsupported ㄈㄩ is visibly deferred on pass one, selectable on pass two, and invalid buffers fail open"
+    "unsupported ㄈㄩ is visibly deferred on pass one, keeps continuous parent-row progress after escape, is selectable on pass two, and invalid buffers fail open"
   ));
 }
 
