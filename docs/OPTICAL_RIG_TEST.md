@@ -1,15 +1,54 @@
-# Monitor-to-camera optical regression rig
+# Display-to-camera optical regression rig
 
 The optical rig exercises SHINE AAC through the physical path that matters:
 
 ```text
-OpenCV framebuffer -> monitor pixels -> phone camera -> SHINE detector
+exact-size presenter -> display pixels -> DUT camera -> SHINE detector
 -> hold classifier -> normal AAC board state
 ```
 
-The phone can see only part of the monitor. Fix it in a comfortable position,
-aim the selected camera at the display, and use SHINE's normal Camera Setup zoom.
-The verified rig framing uses 4.0x zoom; this is session setup, not an app default.
+The presenter can be the PC monitor or a second Android device. Fix the devices
+in a comfortable position, aim the selected DUT camera at the presenter, and use
+SHINE's normal Camera Setup zoom. The atlas measures the actual geometry; no
+device-specific zoom is assumed or written as an app default.
+
+## Two-Android-device presenter
+
+The preferred compact rig uses the native IRIS/aria-trace phone-target contract
+v2 on the presenter device. Its full-bleed `SurfaceView` reports its real canvas,
+holds the natural display orientation, and acknowledges the exact painted
+revision. The host connects only through `adb reverse`; the presenter does not
+need LAN access.
+
+With one compatible presenter and one other authorized device, roles are
+detected without relying on model names or on which devices happen to have SHINE
+installed:
+
+```bat
+optical-rig-test.bat --geometry-only --no-build --no-install
+```
+
+For a stable bench, make the roles explicit (environment variables with the same
+names are also supported):
+
+```bat
+optical-rig-test.bat --presenter-mode android ^
+  --dut-serial RFCR91GWXLX --presenter-serial R9JT201YLJF
+```
+
+If the compatible target is not installed, pass its verified APK with
+`--presenter-apk`. The SHINE repository does not vendor the presenter because the
+referenced aria-trace repository currently has no declared source license.
+
+Calibration renders SHINE's existing luminance atlas at the native presenter
+surface size. The camera-decoded homography maps the Camera Setup preview centre
+back into presenter pixels, so every public face/video is drawn in the observed
+location. If the preview centre lies outside the presenter screen, zoom cannot
+repair the physical aim. The run stops, preserves the DUT screenshot, and writes
+`position-guidance.json` with movement in **DUT preview coordinates**; this stays
+unambiguous when a front camera mirrors left and right. Reposition the devices and
+rerun. A saved session fixture also records the presenter serial, surface size,
+and contract version and is rejected after any of them changes.
 
 ## Full calibration
 
@@ -26,22 +65,22 @@ is explicitly supplied.
 
 The full flow:
 
-1. Opens one native, borderless OpenCV framebuffer over the virtual desktop.
+1. Opens one exact-size native presenter surface (Android or borderless OpenCV).
 2. Displays a monochrome coordinate atlas edge-to-edge, including partial tiles.
 3. Navigates SHINE's normal Settings and Camera Setup UI.
 4. Tries available cameras through the real **Next camera** control until the
    preview decodes a consistent projective atlas mapping.
 5. Uses SHINE's real zoom controls and the decoded homography to center the
-   camera aim on the monitor.
+   camera aim on the presenter at about 70% view occupancy.
 6. Replays open/closed test-video poses through native long-blink calibration.
 7. Caches the resulting test-session preferences under the gitignored
    `testdata/optical-rig/session/` directory.
 8. Restores the user's original camera/calibration preferences and Switch input
    selection on exit.
 
-The atlas is luminance-only. The rig does no color, white-balance, gamma, or
-tone matching. Face media is shown at intrinsic size, centered at the decoded
-camera aim. It is not cropped or rescaled to imitate the app; optical framing is
+The atlas is luminance-only. The rig does no color, white-balance, gamma, or tone
+matching. Face media is shown at intrinsic size, centered at the decoded camera
+aim. It is not cropped or rescaled to imitate the app; optical framing is
 controlled through the same zoom function a user uses.
 
 ## Focused replay without recalibration
@@ -122,11 +161,13 @@ The test closes only the named idle presenter, uses the same native OpenCV
 window for atlas and face stimuli, and relaunches the black idle presenter on
 exit. Black is also used between cases and during cooldown.
 
-The runner needs the visible interactive Windows `Default` desktop. Windows can
-remain unlocked with display sleep disabled or managed separately; ordinary
-apps cannot draw calibration patterns over the secure Winlogon desktop. During
-a run, `SetThreadExecutionState` prevents system/display timeout and the runner
-temporarily disables an active screen saver, restoring it in `finally`.
+The PC-monitor backend needs the visible interactive Windows `Default` desktop.
+The Android presenter backend has no PC window: it suppresses PC system sleep but
+allows the PC monitor to turn off, and it never launches the idle topmost black
+window. Windows can remain unlocked; ordinary apps cannot draw calibration
+patterns over the secure Winlogon desktop. The monitor backend still suppresses
+system/display timeout and temporarily disables an active screen saver, restoring
+it in `finally`.
 
 At Android thermal MODERATE or approximately 42 C battery temperature, the rig
 blacks the stimulus, force-stops SHINE to release camera resources, turns off the

@@ -31,6 +31,14 @@ from ctypes import wintypes
 from pathlib import Path
 
 from android_apk import parse_device_abis, resolve_debug_apk
+from android_surface_stimulus import (
+    AndroidSurfaceStimulus,
+    PRESENTER_PACKAGE,
+    parse_adb_devices,
+    parse_package_version,
+    parse_wm_size,
+    resolve_device_roles,
+)
 from device_test_common import ThermalGovernor
 from optical_stimulus import (
     OpenCvStimulus,
@@ -337,6 +345,70 @@ def load_device_test_module():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def adb_device_inventory(adb):
+    result = run([adb, "devices", "-l"], check=False, timeout=20, cwd=ROOT)
+    if result.returncode != 0:
+        raise ValueError("could not enumerate ADB devices: %s" % (result.stdout or "").strip())
+    return parse_adb_devices(result.stdout)
+
+
+def adb_presenter_versions(adb, devices):
+    versions = {}
+    for item in devices:
+        serial = item["serial"]
+        result = run(
+            [adb, "-s", serial, "shell", "dumpsys", "package", PRESENTER_PACKAGE],
+            check=False, timeout=20, cwd=ROOT,
+        )
+        version = parse_package_version(result.stdout)
+        if version:
+            versions[serial] = version
+    return versions
+
+
+def adb_display_size(adb, serial):
+    result = run(
+        [adb, "-s", serial, "shell", "wm", "size"],
+        check=False, timeout=20, cwd=ROOT,
+    )
+    if result.returncode != 0:
+        raise ValueError("could not read presenter display size")
+    return parse_wm_size(result.stdout)
+
+
+def serial_deep_test(device_module, adb, root, outdir, serial):
+    """Create the existing device harness with every ADB command scoped to DUT."""
+    class SerialDeepTest(device_module.DeepTest):
+        def __init__(self):
+            super().__init__(adb, root, outdir)
+            self.serial = serial
+
+        def adb_cmd(self, *args, check=True, timeout=60):
+            return run(
+                [self.adb, "-s", self.serial] + list(args),
+                check=check, timeout=timeout, cwd=self.root,
+            )
+
+        def screenshot(self, name):
+            path = self.outdir / "screenshots" / (name + ".png")
+            with path.open("wb") as output:
+                result = subprocess.run(
+                    [
+                        self.adb, "-s", self.serial,
+                        "exec-out", "screencap", "-p",
+                    ],
+                    cwd=str(self.root),
+                    stdout=output,
+                    stderr=subprocess.STDOUT,
+                    timeout=30,
+                )
+            if result.returncode != 0:
+                raise RuntimeError("DUT screenshot failed for %s" % self.serial)
+            return path
+
+    return SerialDeepTest()
 
 STIMULUS_WINDOW_TITLE = "SHINE AAC Optical Rig"
 
@@ -1289,6 +1361,65 @@ def monitor_polygon_from_atlas(decoded):
     ]
 
 
+def camera_alignment_guidance(decoded, preview_rect, presenter_rect):
+    """Describe physical alignment in preview coordinates, including mirroring."""
+    polygon = monitor_polygon_from_atlas(decoded)
+    left, top, right, bottom = preview_rect
+    preview_center = ((left + right) * 0.5, (top + bottom) * 0.5)
+    presenter_center_in_preview = (
+        sum(point[0] for point in polygon) / len(polygon),
+        sum(point[1] for point in polygon) / len(polygon),
+    )
+    move_in_preview = (
+        preview_center[0] - presenter_center_in_preview[0],
+        preview_center[1] - presenter_center_in_preview[1],
+    )
+    aim = desktop_aim_from_atlas(decoded, preview_rect, presenter_rect)
+    preview_width = max(1.0, float(right - left))
+    preview_height = max(1.0, float(bottom - top))
+
+    horizontal = "none"
+    if abs(move_in_preview[0]) >= preview_width * 0.03:
+        horizontal = "right" if move_in_preview[0] > 0 else "left"
+    vertical = "none"
+    if abs(move_in_preview[1]) >= preview_height * 0.03:
+        vertical = "down" if move_in_preview[1] > 0 else "up"
+    phrases = []
+    if horizontal != "none":
+        phrases.append(
+            "move the presenter's image %s by about %.0f%% of preview width"
+            % (horizontal, abs(move_in_preview[0]) * 100.0 / preview_width)
+        )
+    if vertical != "none":
+        phrases.append(
+            "move it %s by about %.0f%% of preview height"
+            % (vertical, abs(move_in_preview[1]) * 100.0 / preview_height)
+        )
+    return {
+        "preview_rect": list(preview_rect),
+        "preview_center": [round(value, 2) for value in preview_center],
+        "presenter_polygon_in_dut": [
+            [round(x, 2), round(y, 2)] for x, y in polygon
+        ],
+        "presenter_center_in_dut": [
+            round(value, 2) for value in presenter_center_in_preview
+        ],
+        "move_presenter_image_by_dut_px": [
+            round(value, 2) for value in move_in_preview
+        ],
+        "move_presenter_image_fraction": [
+            round(move_in_preview[0] / preview_width, 4),
+            round(move_in_preview[1] / preview_height, 4),
+        ],
+        "preview_center_in_presenter_px": [round(value, 2) for value in aim],
+        "preview_center_inside_presenter": point_in_convex_polygon(
+            preview_center, polygon
+        ),
+        "operator_guidance": "; then ".join(phrases) if phrases else "alignment is centered",
+        "direction_space": "DUT Camera Setup preview; safe for mirrored front cameras",
+    }
+
+
 def _cross(a, b, point):
     return ((b[0] - a[0]) * (point[1] - a[1]) -
             (b[1] - a[1]) * (point[0] - a[0]))
@@ -1529,7 +1660,7 @@ class PcDisplayGuard:
         )
         return bool(changed), ctypes.get_last_error()
 
-    def start(self):
+    def start(self, require_display=True):
         if os.name != "nt":
             print("PC stay-awake guard: non-Windows host; no Windows guard needed")
             return
@@ -1539,17 +1670,20 @@ class PcDisplayGuard:
         kernel32.SetThreadExecutionState.restype = wintypes.DWORD
         user32, _ = windows_user32()
 
-        previous = kernel32.SetThreadExecutionState(
-            self.ES_CONTINUOUS |
-            self.ES_SYSTEM_REQUIRED |
-            self.ES_DISPLAY_REQUIRED
-        )
+        flags = self.ES_CONTINUOUS | self.ES_SYSTEM_REQUIRED
+        if require_display:
+            flags |= self.ES_DISPLAY_REQUIRED
+        previous = kernel32.SetThreadExecutionState(flags)
         if previous == 0:
             raise RuntimeError(
                 "Windows SetThreadExecutionState failed; refusing unattended "
-                "optical testing because the PC may sleep or turn off its display."
+                "optical testing because the PC may sleep."
             )
         self.enabled = True
+
+        if not require_display:
+            print("PASS PC kept awake: system sleep suppressed; monitor may turn off")
+            return
 
         # SetThreadExecutionState prevents the next timeout but does not
         # necessarily illuminate a monitor that is already powered down.
@@ -1631,8 +1765,21 @@ class OpticalRig:
         self.outdir.mkdir(parents=True, exist_ok=True)
         self.mod = load_device_test_module()
         self.adb = self.mod.find_adb()
-        self.device = self.mod.DeepTest(self.adb, ROOT, outdir / "device")
-        self.host = OpenCvStimulus(ROOT, DOWNLOADED, virtual_desktop_rect())
+        self.device = serial_deep_test(
+            self.mod, self.adb, ROOT, outdir / "device", args.dut_serial
+        )
+        if args.presenter_mode == "android":
+            self.host = AndroidSurfaceStimulus(
+                ROOT,
+                DOWNLOADED,
+                self.adb,
+                args.presenter_serial,
+                args.presenter_size,
+                apk_path=args.presenter_apk,
+            )
+        else:
+            self.host = OpenCvStimulus(ROOT, DOWNLOADED, virtual_desktop_rect())
+        self.presenter_mode = args.presenter_mode
         self.stimulus_center = None
         self.selected_setup_camera_id = None
         self.camera_setup_ui_path = None
@@ -1668,10 +1815,14 @@ class OpticalRig:
 
     def thermal_suspend(self):
         self.host.set_state(mode="standby", label="THERMAL COOLDOWN")
+        if hasattr(self.host, "suspend"):
+            self.host.suspend()
         self.device.shell("am","force-stop",PACKAGE,check=False)
         self.device.shell("input","keyevent","223",check=False)
 
     def thermal_resume(self):
+        if hasattr(self.host, "resume"):
+            self.host.resume()
         self.device.shell("input","keyevent","224",check=False)
         self.device.shell("wm","dismiss-keyguard",check=False)
         time.sleep(1)
@@ -1947,7 +2098,10 @@ class OpticalRig:
             "selected_camera_id": str(calibration["selected_camera_id"]),
             "desktop_stimulus_center": calibration["desktop_stimulus_center"],
             "estimated_visible_size": calibration["estimated_visible_size"],
-            "desktop_rect": list(virtual_desktop_rect()),
+            "desktop_rect": list(self.host.desktop_rect),
+            "presenter": self.host.fixture_identity() if hasattr(
+                self.host, "fixture_identity"
+            ) else {"kind": "windows_opencv", "rect": list(self.host.desktop_rect)},
             "zoom_ratio": float(values["zoomRatio"]),
             "quality_label": values.get("qualityLabel", "unknown"),
             "quality_detail": values.get("qualityDetail", ""),
@@ -1981,7 +2135,10 @@ class OpticalRig:
             "selected_camera_id": str(calibration["selected_camera_id"]),
             "desktop_stimulus_center": calibration["desktop_stimulus_center"],
             "estimated_visible_size": calibration["estimated_visible_size"],
-            "desktop_rect": list(virtual_desktop_rect()),
+            "desktop_rect": list(self.host.desktop_rect),
+            "presenter": self.host.fixture_identity() if hasattr(
+                self.host, "fixture_identity"
+            ) else {"kind": "windows_opencv", "rect": list(self.host.desktop_rect)},
             "zoom_ratio": float(values["zoomRatio"]),
             "quality_label": values.get("cheekQualityLabel", "unknown"),
             "quality_detail": values.get("cheekQualityDetail", ""),
@@ -2010,11 +2167,19 @@ class OpticalRig:
             fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
             if fixture.get("purpose") != "rig-session-only":
                 raise ValueError("fixture is not marked rig-session-only")
-            current_rect = list(virtual_desktop_rect())
+            current_rect = list(self.host.desktop_rect)
             if fixture.get("desktop_rect") != current_rect:
                 raise ValueError(
                     "desktop geometry changed from %s to %s"
                     % (fixture.get("desktop_rect"), current_rect)
+                )
+            expected_presenter = self.host.fixture_identity() if hasattr(
+                self.host, "fixture_identity"
+            ) else {"kind": "windows_opencv", "rect": current_rect}
+            if fixture.get("presenter") != expected_presenter:
+                raise ValueError(
+                    "presenter identity changed from %s to %s"
+                    % (fixture.get("presenter"), expected_presenter)
                 )
             values = self._install_camera_preferences(
                 preference_path.read_text(encoding="utf-8"),
@@ -2093,14 +2258,14 @@ class OpticalRig:
         return manifest
 
     def start_host(self, source_by_id):
-        if not windows_desktop_is_interactive():
+        if self.presenter_mode == "monitor" and not windows_desktop_is_interactive():
             self.add(
                 "P0",
                 "Windows console is not accessible to the rig process",
                 "The runner is not attached to the Windows Default input desktop."
             )
             return False
-        vx, vy, vw, vh = virtual_desktop_rect()
+        vx, vy, vw, vh = self.host.desktop_rect
         initial_state = {
             "mode": "atlas",
             "label": "ONE-SHOT CAMERA VIEW ATLAS",
@@ -2119,7 +2284,7 @@ class OpticalRig:
                 )
                 initial_state = runtime_bootstrap_face_state(
                     fixture, source_by_id["commons_blinking"],
-                    virtual_desktop_rect(),
+                    self.host.desktop_rect,
                 )
             except (KeyError, OSError, TypeError, ValueError):
                 initial_state = {
@@ -2134,7 +2299,7 @@ class OpticalRig:
             self.add("P0", "OpenCV stimulus failed to start", str(error))
             return False
         if not self.host.reassert_window(self.host.desktop_rect, timeout=8.0):
-            if not windows_desktop_is_interactive():
+            if self.presenter_mode == "monitor" and not windows_desktop_is_interactive():
                 self.add(
                     "P0",
                     "Windows console access lost during atlas launch",
@@ -2143,8 +2308,8 @@ class OpticalRig:
                 return False
             self.add(
                 "P0",
-                "Stimulus window could not be automated",
-                "The single OpenCV window could not be found/foregrounded."
+                "Stimulus presenter could not be verified",
+                "The selected presenter did not report a usable target surface."
             )
             return False
         if not self.host.wait_event(token, "state_applied", 20.0):
@@ -2152,7 +2317,7 @@ class OpticalRig:
                 "token": token,
                 "events": list(self.host.events),
                 "presenter_error": str(self.host.error) if self.host.error else None,
-                "presenter_hwnd_registered": bool(self.host.hwnd),
+                "presenter_hwnd_registered": bool(getattr(self.host, "hwnd", None)),
             }
             (self.outdir / "host-startup-diagnostics.json").write_text(
                 json.dumps(diagnostics, indent=2), encoding="utf-8"
@@ -2160,14 +2325,14 @@ class OpticalRig:
             self.add(
                 "P0",
                 "Atlas did not become ready",
-                "The OpenCV presenter did not acknowledge the pre-armed atlas state.",
+                "The presenter did not acknowledge the pre-armed atlas state.",
                 ["host-startup-diagnostics.json"]
             )
             return False
 
         if self.args.runtime_only:
             print(
-                "%s active across virtual desktop %dx%d at (%d,%d); "
+                "%s active across presenter surface %dx%d at (%d,%d); "
                 "camera-crop-safe standby is the fallback."
                 % (
                     "Relaxed public face" if initial_state["mode"] == "video_still"
@@ -2177,7 +2342,7 @@ class OpticalRig:
             )
         else:
             print(
-                "One-shot coordinate atlas active immediately across virtual desktop "
+                "One-shot coordinate atlas active immediately across presenter surface "
                 "%dx%d at (%d,%d); no gray intermediate window."
                 % (vw, vh, vx, vy)
             )
@@ -2185,7 +2350,7 @@ class OpticalRig:
         return True
 
     def ensure_stimulus_visible(self, token, label):
-        if not windows_desktop_is_interactive():
+        if self.presenter_mode == "monitor" and not windows_desktop_is_interactive():
             self.add(
                 "P0", "Windows console access lost during optical test",
                 "The runner left the Windows Default input desktop before %s."
@@ -2194,14 +2359,14 @@ class OpticalRig:
             return False
         if not self.host.reassert_window(self.host.desktop_rect, timeout=4.0):
             self.add(
-                "P0", "Stimulus window lost",
-                "Could not foreground the single OpenCV window for %s." % label
+                "P0", "Stimulus presenter lost",
+                "Could not verify the selected presenter for %s." % label
             )
             return False
         if not self.host.wait_event(token, "state_applied", 5.0):
             self.add(
                 "P1", "Stimulus state not acknowledged",
-                "OpenCV did not acknowledge %s before measurement." % label
+                "The presenter did not acknowledge %s before measurement." % label
             )
             return False
         return True
@@ -2325,11 +2490,11 @@ class OpticalRig:
         return None, None, captures
 
     def discover_visible_patch(self, timeout):
-        vx, vy, vw, vh = virtual_desktop_rect()
+        vx, vy, vw, vh = self.host.desktop_rect
         if not self.host.reassert_window((vx, vy, vw, vh), timeout=4.0):
             self.add(
                 "P0", "Stimulus window could not be positioned",
-                "The input-desktop presenter thread did not acknowledge the full-desktop atlas rectangle."
+                "The presenter did not acknowledge its complete atlas rectangle."
             )
             return None
         token = self.host.set_state(
@@ -2424,7 +2589,8 @@ class OpticalRig:
             changed = self.device.find_tap(
                 [
                     "Next front camera", "下一個前置相機",
-                    "Next camera", "下一個相機"
+                    "Next camera", "下一個相機",
+                    "Switch camera", "切換相機",
                 ],
                 "rig_next_camera_%02d" % attempted,
                 swipes=4
@@ -3471,7 +3637,7 @@ class OpticalRig:
         if zoom_result is None:
             return None
 
-        vx, vy, vw, vh = virtual_desktop_rect()
+        vx, vy, vw, vh = self.host.desktop_rect
         final_ui = self.device.ui_dump("rig_final_atlas_geometry")
         self.camera_setup_ui_path = final_ui
         try:
@@ -4517,10 +4683,22 @@ class OpticalRig:
             )
             return None
         if multiplier is None:
+            guidance = camera_alignment_guidance(
+                found["decoded"], geometry["preview_rect"], self.host.desktop_rect
+            )
+            (self.outdir / "position-guidance.json").write_text(
+                json.dumps(guidance, indent=2), encoding="utf-8"
+            )
             self.add(
-                "P0", "Monitor is not centered in the camera preview",
-                "The atlas monitor quadrilateral does not contain the preview center; camera zoom alone cannot correct physical aim.",
-                ["device/screenshots/rig_atlas_camera_00.png", "atlas-calibration.json"]
+                "P0", "Presenter is not centered in the camera preview",
+                "The atlas presenter quadrilateral does not contain the preview center; "
+                "camera zoom alone cannot correct physical aim. In the DUT preview, %s."
+                % guidance["operator_guidance"],
+                [
+                    "device/screenshots/rig_atlas_camera_00_try_00.png",
+                    "atlas-calibration.json",
+                    "position-guidance.json",
+                ]
             )
             return None
 
@@ -4778,7 +4956,7 @@ class OpticalRig:
             "- Positive blink still cases keep the verified closed pose until observable activation (bounded by a generous timeout); fixed-duration negative controls enforce false-positive counts, while boundary-timing cases are non-blocking diagnostics.",
             "- Downloaded cheek-movement calibration trials first exercise native personalization, then enforce runtime missed/duplicate activation counts.",
             "- Test-video calibration values are session fixtures only; the rig restores SHINE's original camera/calibration preferences and Switch input choice after the run.",
-            "- Replay uses one persistent full-screen host window. Licensed media is centered at the atlas-projected camera aim and scaled against the measured camera zoom; cheek framing is measured from the phone overlay.",
+            "- Replay uses one persistent exact-size presenter surface. Licensed media is centered at the atlas-projected camera aim and scaled against the measured camera zoom; cheek framing is measured from the DUT overlay.",
             "- Passing this rig does not replace testing on a real user; it makes regressions reproducible.",
         ]
         (self.outdir/"FINDINGS.md").write_text("\n".join(report),encoding="utf-8")
@@ -5264,6 +5442,22 @@ def main():
                     help="with --runtime-only, capture Camera Setup metrics for verified blink poses")
     ap.add_argument("--no-build",action="store_true")
     ap.add_argument("--no-install",action="store_true")
+    ap.add_argument(
+        "--presenter-mode", choices=("auto", "monitor", "android"), default="auto",
+        help="use the PC monitor, a second Android SurfaceView, or auto-detect",
+    )
+    ap.add_argument(
+        "--dut-serial", default=os.environ.get("SHINE_DUT_SERIAL"),
+        help="ADB serial of the Android device running SHINE",
+    )
+    ap.add_argument(
+        "--presenter-serial", default=os.environ.get("SHINE_PRESENTER_SERIAL"),
+        help="ADB serial of the second Android display",
+    )
+    ap.add_argument(
+        "--presenter-apk", default=os.environ.get("SHINE_PRESENTER_APK"),
+        help="optional verified IRIS/aria-trace phone-target APK",
+    )
     ap.add_argument("--calibration-timeout",type=int,default=120)
     ap.add_argument("--thermal-stop-status",type=int,default=2,
                     help="pause at Android thermal status >= this value (2=MODERATE)")
@@ -5311,14 +5505,52 @@ def main():
 
     if not SOURCES_PATH.exists():
         raise SystemExit("Optical rig is not installed; run the repo installer.")
-    enable_per_monitor_dpi_awareness()
+    device_module = load_device_test_module()
+    adb = device_module.find_adb()
+    devices = adb_device_inventory(adb)
+    presenter_versions = adb_presenter_versions(adb, devices)
+    try:
+        roles = resolve_device_roles(
+            devices,
+            presenter_versions,
+            requested_mode=args.presenter_mode,
+            dut_serial=args.dut_serial,
+            presenter_serial=args.presenter_serial,
+        )
+    except ValueError as error:
+        inventory = ", ".join(
+            "%s (%s%s)" % (
+                item["serial"], item["model"],
+                ", presenter v%d" % presenter_versions[item["serial"]]
+                if item["serial"] in presenter_versions else "",
+            )
+            for item in devices
+        ) or "none"
+        raise SystemExit("Optical rig device roles are unresolved: %s\nDevices: %s" % (error, inventory))
+    args.presenter_mode = roles["mode"]
+    args.dut_serial = roles["dut_serial"]
+    args.presenter_serial = roles["presenter_serial"]
+    args.presenter_size = (
+        adb_display_size(adb, args.presenter_serial)
+        if args.presenter_mode == "android" else None
+    )
+    if args.presenter_mode == "monitor":
+        enable_per_monitor_dpi_awareness()
+    else:
+        print(
+            "Two-device rig: DUT=%s presenter=%s surface=%dx%d"
+            % (
+                args.dut_serial, args.presenter_serial,
+                args.presenter_size[0], args.presenter_size[1],
+            )
+        )
     stamp=time.strftime("%Y%m%d-%H%M%S")
     out=ROOT/"test-results"/("optical-"+stamp)
     rig = OpticalRig(args,out)
     pc_guard = PcDisplayGuard()
     try:
         try:
-            pc_guard.start()
+            pc_guard.start(require_display=args.presenter_mode == "monitor")
         except RuntimeError as error:
             rig.add(
                 "P0", "Windows input desktop unavailable to rig process", str(error)
@@ -5337,7 +5569,8 @@ def main():
         except Exception:
             pass
         try:
-            launch_idle_presenter(ROOT)
+            if args.presenter_mode == "monitor":
+                launch_idle_presenter(ROOT)
         except Exception as error:
             print("WARNING could not launch idle standby presenter:", error)
 

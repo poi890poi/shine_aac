@@ -15,11 +15,99 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import optical_stimulus
 import optical_sources
+import android_surface_stimulus
 SPEC = importlib.util.spec_from_file_location(
     "shine_optical_rig", SCRIPT_DIR / "optical-rig-test.py"
 )
 RIG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RIG)
+
+
+class TwoDeviceRigRoleTest(unittest.TestCase):
+    DEVICES = [
+        {"serial": "TABLET", "model": "SM_X200", "product": "gta8wifi"},
+        {"serial": "PHONE", "model": "SM_G781B", "product": "r8q"},
+    ]
+
+    def test_adb_inventory_excludes_offline_and_unauthorized_devices(self):
+        parsed = android_surface_stimulus.parse_adb_devices(
+            "List of devices attached\n"
+            "TABLET device product:gta8wifi model:SM_X200 transport_id:3\n"
+            "PHONE unauthorized usb:1-2\n"
+            "OLD offline transport_id:5\n"
+        )
+        self.assertEqual(["TABLET"], [item["serial"] for item in parsed])
+        self.assertEqual("SM_X200", parsed[0]["model"])
+
+    def test_unique_verified_presenter_selects_other_device_as_dut(self):
+        roles = android_surface_stimulus.resolve_device_roles(
+            self.DEVICES, {"TABLET": 2}, requested_mode="auto"
+        )
+        self.assertEqual({
+            "mode": "android",
+            "dut_serial": "PHONE",
+            "presenter_serial": "TABLET",
+        }, roles)
+
+    def test_role_resolution_refuses_to_guess_between_two_ordinary_devices(self):
+        with self.assertRaisesRegex(ValueError, "multiple ADB devices"):
+            android_surface_stimulus.resolve_device_roles(
+                self.DEVICES, {}, requested_mode="auto"
+            )
+
+    def test_explicit_roles_must_be_different(self):
+        with self.assertRaisesRegex(ValueError, "must be different"):
+            android_surface_stimulus.resolve_device_roles(
+                self.DEVICES,
+                {"TABLET": 2},
+                requested_mode="android",
+                dut_serial="TABLET",
+                presenter_serial="TABLET",
+            )
+
+    def test_versioned_frame_store_never_substitutes_a_newer_image(self):
+        store = android_surface_stimulus._FrameStore()
+        first = store.publish("image", "a", "first", b"one")
+        second = store.publish("image", "b", "second", b"two")
+        self.assertEqual(b"one", store.image(first))
+        self.assertEqual(b"two", store.image(second))
+        self.assertEqual("a", store.revision_state(first)["token"])
+        self.assertEqual("b", store.revision_state(second)["token"])
+
+    def test_stream_ack_accepts_exact_older_revision_from_same_video_token(self):
+        presenter = object.__new__(android_surface_stimulus.AndroidSurfaceStimulus)
+        presenter._frames = android_surface_stimulus._FrameStore()
+        presenter.condition = threading.Condition()
+        presenter.desktop_rect = (0, 0, 1200, 1920)
+        presenter._applied_tokens = set()
+        presenter._playing_tokens = set()
+        presenter.state = {"mode": "video", "token": "video-a"}
+        presenter.ready_event = threading.Event()
+        presenter._emit = mock.Mock()
+        acknowledged = presenter._frames.publish(
+            "image", "video-a", "frame 1", b"one"
+        )
+        presenter._frames.publish("image", "video-a", "frame 2", b"two")
+
+        presenter._receive_ack({
+            "revision": acknowledged,
+            "token": "video-a",
+            "painted": True,
+            "target_contract_version": 2,
+            "canonical_orientation_ready": True,
+            "display_rotation": 0,
+            "canvas_width": 1200,
+            "canvas_height": 1920,
+        })
+
+        self.assertTrue(presenter.ready_event.is_set())
+        self.assertEqual(
+            [
+                mock.call("video-a", "state_applied", viewport=[1200, 1920]),
+                mock.call("video-a", "playing"),
+            ],
+            presenter._emit.call_args_list,
+        )
 
 
 def write_rgb_png(path, width, height, pixel):
@@ -555,6 +643,24 @@ class CameraZoomGeometryTest(unittest.TestCase):
         )
         self.assertAlmostEqual(0.25, atlas[0])
         self.assertAlmostEqual(0.75, atlas[1])
+
+    def test_alignment_guidance_uses_preview_directions_despite_mirroring(self):
+        decoded = {
+            "screenshot_width": 1000,
+            "screenshot_height": 2000,
+            "spatial_fit": {
+                # Presenter occupies the lower half of the DUT image and is
+                # horizontally mirrored.  Guidance must describe what the
+                # operator sees in Camera Setup, not guess a physical left/right.
+                "coefficients": [-1.0, 0.0, 1.0, 0.0, 2.0, -1.0, 0.0, 0.0],
+            },
+        }
+        guidance = RIG.camera_alignment_guidance(
+            decoded, (0, 200, 1000, 1800), (0, 0, 1200, 1920)
+        )
+        self.assertLess(guidance["move_presenter_image_fraction"][1], -0.25)
+        self.assertIn("up", guidance["operator_guidance"])
+        self.assertIn("DUT Camera Setup preview", guidance["direction_space"])
 
     def test_calculates_center_crop_needed_to_cover_preview(self):
         monitor = [(25, 25), (75, 25), (75, 75), (25, 75)]
