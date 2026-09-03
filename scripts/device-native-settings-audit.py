@@ -63,6 +63,8 @@ def bounds(value):
 class NativeSettingsAudit:
     def __init__(self):
         self.adb = find_adb()
+        serial = (os.environ.get("ANDROID_SERIAL") or "").strip()
+        self.adb_args = [self.adb] + (["-s", serial] if serial else [])
         stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.out = ROOT / "test-results" / ("native-config-" + stamp)
         (self.out / "screenshots").mkdir(parents=True, exist_ok=True)
@@ -74,7 +76,7 @@ class NativeSettingsAudit:
 
     def adb_run(self, *args, binary=False, check=True):
         result = subprocess.run(
-            [self.adb] + list(args), cwd=str(ROOT), capture_output=True,
+            self.adb_args + list(args), cwd=str(ROOT), capture_output=True,
             text=not binary, encoding="utf-8" if not binary else None,
             errors="replace" if not binary else None, check=False,
         )

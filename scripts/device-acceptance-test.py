@@ -20,6 +20,10 @@
 #   --skip-rotation    skip landscape layout pass
 #   --leave-awake      do not restore screen timeout/stay-awake settings
 #
+# Set ANDROID_SERIAL when more than one device is connected. Every device
+# operation, including screenshots and installation, is then pinned to that
+# serial.
+#
 # Output:
 #   test-results/deep-YYYYMMDD-HHMMSS/
 #     FINDINGS.md          ranked findings with evidence
@@ -127,8 +131,10 @@ def parse_bounds(value):
     return tuple(map(int, m.groups())) if m else None
 
 class DeepTest:
-    def __init__(self, adb, root, outdir):
+    def __init__(self, adb, root, outdir, serial=None):
         self.adb = adb
+        self.adb_args = [adb] + (["-s", serial] if serial else [])
+        self.serial = serial
         self.root = root
         self.outdir = outdir
         self.findings = []
@@ -147,7 +153,7 @@ class DeepTest:
             (outdir / name).mkdir(parents=True, exist_ok=True)
 
     def adb_cmd(self, *args, check=True, timeout=60):
-        return run([self.adb] + list(args), check=check, timeout=timeout, cwd=self.root)
+        return run(self.adb_args + list(args), check=check, timeout=timeout, cwd=self.root)
 
     def shell(self, *args, check=True, timeout=60):
         return self.adb_cmd("shell", *args, check=check, timeout=timeout)
@@ -200,7 +206,7 @@ class DeepTest:
         p = self.outdir / "screenshots" / (name + ".png")
         with p.open("wb") as f:
             r = subprocess.run(
-                [self.adb, "exec-out", "screencap", "-p"],
+                self.adb_args + ["exec-out", "screencap", "-p"],
                 stdout=f, stderr=subprocess.STDOUT, timeout=30
             )
         return p
@@ -1652,18 +1658,20 @@ def main():
                              (outdir / "prereq-android.txt"))
 
     adb = find_adb()
+    serial = (os.environ.get("ANDROID_SERIAL") or "").strip() or None
     if requested_apk_path is not None:
         apk_path = requested_apk_path.resolve()
     else:
         abi_result = run(
-            [adb, "shell", "getprop", "ro.product.cpu.abilist"],
+            [adb] + (["-s", serial] if serial else []) +
+            ["shell", "getprop", "ro.product.cpu.abilist"],
             check=False, timeout=20, cwd=root,
         )
         apk_path = resolve_debug_apk(
             root / "app/build/outputs/apk/debug",
             parse_device_abis(abi_result.stdout),
         )
-    t = DeepTest(adb, root, outdir)
+    t = DeepTest(adb, root, outdir, serial=serial)
 
     if apk_path.exists():
         apk_sha256 = hashlib.sha256(apk_path.read_bytes()).hexdigest()
@@ -1691,6 +1699,8 @@ def main():
         if x.strip() and not x.startswith("List of devices")
     ]
     authorized = [x for x in lines if re.search(r"\sdevice(?:\s|$)", x)]
+    if serial:
+        authorized = [x for x in authorized if x.split()[0] == serial]
     if len(authorized) != 1:
         raise SystemExit("Expected exactly one authorized adb device.\n" + (dev.stdout or ""))
     t.passed("ADB device", authorized[0].split()[0])
