@@ -291,7 +291,7 @@ class NativeSettingsAudit:
             ]),
             "speech": (["Speech", "語音"], [
                 ["row", "列"], ["symbol", "格"], ["activation", "選定"],
-                ["voice", "聲音", "語音"], ["after reading", "朗讀後"],
+                ["Speech voice", "語音"], ["Board after speaking", "朗讀後版面"],
             ]),
             "input": (["Input", "輸入"], [
                 ["Switch input", "開關輸入"], ["Camera setup", "相機設定"],
@@ -316,7 +316,7 @@ class NativeSettingsAudit:
             (sections["communication"][0], "communication", ["Language", "語言"], "language"),
             (sections["scanning"][0], "scanning", ["Scan mode", "掃描模式"], "scan-method"),
             (sections["scanning"][0], "scanning", ["Timing preset", "速度"], "timing-preset"),
-            (sections["speech"][0], "speech", ["after reading", "朗讀後"], "after-reading"),
+            (sections["speech"][0], "speech", ["Board after speaking", "朗讀後版面"], "after-reading"),
             (sections["input"][0], "input", ["Switch input", "開關輸入"], "switch-input"),
             (sections["display"][0], "display", ["contrast", "對比"], "contrast"),
         ]
@@ -327,14 +327,17 @@ class NativeSettingsAudit:
         if self.tap_text(["Advanced timing", "進階時間"], "advanced_timing", 4):
             texts, _, evidence = self.collect_page("advanced-timing", 1)
             self.require_labels("Advanced timing", texts, [
-                ["Scan interval", "開關掃描速度"], ["Transition", "換列停頓"],
+                ["Switch speed", "開關掃描速度"], ["Transition", "換列停頓"],
                 ["First", "第一"], ["latency", "延遲"],
             ], evidence)
 
         self.open_section(sections["speech"][0], "speech")
-        if self.tap_text(["voice", "聲音", "語音"], "speech_voice", 3):
+        if self.tap_text(["Speech voice", "語音"], "speech_voice", 3):
             texts, _, evidence = self.collect_page("speech-voice", 1)
-            self.require_labels("Speech voice", texts, [["Preview", "試聽"], ["Manage", "管理"]], evidence)
+            self.require_labels("Speech voice", texts, [
+                ["Preview selected voice", "試聽所選語音"],
+                ["Manage speech voices", "管理語音"],
+            ], evidence)
 
         self.open_section(sections["input"][0], "input")
         if self.tap_text(["Input Test", "輸入測試"], "input_test", 2) and self.wait_activity(INPUT_TEST_ACTIVITY, 5):
