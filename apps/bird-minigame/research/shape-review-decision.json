@@ -1,0 +1,17 @@
+{
+  "date": "2026-09-05",
+  "decision": "rejected",
+  "scope": "procedural bird and flower rendition",
+  "reviewer": "user, current conversation",
+  "reason": "Substantial shape and drawing-quality degradation relative to previous versions",
+  "baselineStatus": "Previous raster sprites are provisional visual references; formal component acceptance was not located",
+  "hashes": {
+    "src/pixel-art.js": "3829fbbf7888806e39aea54591b0e9ff16bb8c03bf13be62283373df72f44898",
+    "assets/concepts/flower-neutral.png": "7caff44c408b8bb2a40bc66285bdfb144e7776fa5cbf55880f0de11b8926f11a",
+    "assets/concepts/flower-hit-faces-poc.png": "b4c6e6303397b29024d6ac34a9b41ed7eeee67e23d05d35346384bd30a7819de",
+    "assets/pilots/bird-flight-pilot-taiwan-blue-magpie-transparent.png": "714756675171f3d291165ffcc0dacb350d8bdbaee349a55532ccf09ea482ff73",
+    "rules/pixel-style.json": "ba24a5e38eb43a5c6c72ab808121c116ca836fd113827740db543d5ad33f72af"
+  },
+  "gateStatus": "Current tests do not enforce rendered shape acceptance",
+  "audit": "research/SHAPE_CONSISTENCY_AUDIT.md"
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "1.0.0",
+  "policy": "Source species controls anatomy and plumage. A declared analogue may control flight mechanics only.",
+  "species": {
+    "taiwan_blue_magpie":{"anatomy":"direct","motion":"direct","analogue":null,"urls":["https://search.macaulaylibrary.org/catalog?taxonCode=formag1&view=grid","https://www.tfri.gov.tw/en/News_Video_Content.aspx?n=7595&s=16565&sms=12386"]},
+    "taiwan_barbet":{"anatomy":"direct","motion":"direct","analogue":null,"urls":["https://www.inaturalist.org/taxa/367544-Psilopogon-nuchalis","https://www.flickr.com/photos/fuyi/51537788337"]},
+    "taiwan_whistling_thrush":{"anatomy":"direct","motion":"direct-plus-family-check","analogue":"large Muscicapidae thrush flight wing","urls":["https://macaulaylibrary.org/asset/615417748","https://www.youtube.com/watch?v=llf9k5LcMCk"]},
+    "yellow_tit":{"anatomy":"direct","motion":"analogue","analogue":"Great Tit (Parus major), family Paridae","urls":["https://siberia.russia.birding.day/m/v2photo.php?l=ru&n=1&s=099800011&si=sib"]},
+    "flamecrest":{"anatomy":"direct","motion":"same-genus-analogue","analogue":"Goldcrest (Regulus regulus)","urls":["https://www.flickr.com/photos/tinyfishy2/40610104043/","https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.8205"]},
+    "white_eared_sibia":{"anatomy":"direct","motion":"direct","analogue":null,"urls":["https://macaulaylibrary.org/video/201008491"]},
+    "taiwan_yuhina":{"anatomy":"direct","motion":"same-family-analogue","analogue":"Japanese White-eye (Zosterops japonicus), family Zosteropidae","urls":["https://search.macaulaylibrary.org/zh/catalog?mediaType=photo&sort=rating_rank_desc&taxonCode=taiyuh1&view=list","https://photohito.com/photo/8713849/"]},
+    "taiwan_liocichla":{"anatomy":"direct","motion":"same-family-analogue","analogue":"airborne Leiothrichidae laughingthrush","urls":["https://search.macaulaylibrary.org/catalog?taxonCode=stelio1&view=grid","https://dp.pconline.com.cn/dphoto/list_2151291.html"]},
+    "collared_bush_robin":{"anatomy":"direct","motion":"direct-plus-same-genus","analogue":"Red-flanked Bluetail (Tarsiger cyanurus)","urls":["https://search.macaulaylibrary.org/pt-PT/catalog?mediaType=video&sort=rating_rank_desc&taxonCode=cobrob1&view=list","https://blog.livedoor.jp/aoirotoridori/archives/50733387.html"]},
+    "taiwan_barwing":{"anatomy":"direct","motion":"direct","analogue":null,"urls":["https://kstku.org.tw/albums_view.php?new_csn=3641","https://depositphotos.com/video/taiwan-barwing-taking-flight-branch-707894200.html"]},
+    "taiwan_rosefinch":{"anatomy":"direct","motion":"direct-plus-same-genus","analogue":"Common Rosefinch (Carpodacus erythrinus)","urls":["https://search.macaulaylibrary.org/catalog?mediaType=video&taxonCode=vinros3&view=grid","https://www.bto.org/learn/about-birds/birdfacts/common-rosefinch"]},
+    "taiwan_scimitar_babbler":{"anatomy":"direct","motion":"direct-plus-same-genus","analogue":"White-browed Scimitar-Babbler (Pomatorhinus schisticeps)","urls":["https://macaulaylibrary.org/video/201008681","https://www.oiseaux.net/en/white-browed.scimitar.babbler.html"]},
+    "mikado_pheasant":{"anatomy":"direct","motion":"direct-plus-family","analogue":"documented Phasianidae explosive escape flight","urls":["https://www.theguardian.com/science/punctuated-equilibrium/2011/oct/23/7","https://collections.culture.tw/ntm_collectionsweb/en/collection.aspx?GID=0BMRMA04MB"]},
+    "swinhoes_pheasant":{"anatomy":"direct","motion":"direct-plus-same-genus","analogue":"Silver Pheasant (Lophura nycthemera)","urls":["https://www.ysnp.gov.tw/Video/C005100?ID=5baebbd9-93f1-4aa4-a150-4d724f227d41&PageIndex=2&PageType=1","https://news.cnr.cn/native/city/20210320/t20210320_525441624.shtml"]},
+    "rufous_crowned_laughingthrush":{"anatomy":"direct","motion":"same-genus-analogue","analogue":"Black-throated Laughingthrush (Pterorhinus chinensis)","urls":["https://search.macaulaylibrary.org/catalog?taxonCode=ruclau1&view=grid","https://dp.pconline.com.cn/dphoto/list_2151291.html"]},
+    "taiwan_thrush":{"anatomy":"direct","motion":"direct-plus-same-genus","analogue":"other Turdus direct-flight photographs","urls":["https://macaulaylibrary.org/video/719493","https://www.youtube.com/watch?v=L0y4nZh22f0"]}
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "1.1.0",
+  "intent": "Friendly, readable bird characters whose biological identity survives cartoon simplification.",
+  "canonicalCanvas": {
+    "width": 1024,
+    "height": 1024,
+    "facing": "right",
+    "background": "solid white for review; transparent PNG for production cutouts",
+    "subjectFillPercent": 68
+  },
+  "sharedExaggeration": {
+    "headDiameter": 1.12,
+    "eyeDiameter": 1.35,
+    "torsoDepth": 1.04,
+    "billLength": 1.0,
+    "wingLength": 1.0,
+    "tailLength": 1.0,
+    "legLength": 0.9
+  },
+  "lockedGeometry": [
+    "bill-to-head ratio after shared exaggeration",
+    "head-to-torso ratio after shared exaggeration",
+    "wing-root position",
+    "wing length and taper",
+    "tail-root position",
+    "tail length and feather count class",
+    "eye position",
+    "body center of mass"
+  ],
+  "rendering": {
+    "medium": "native-grid pixel art with deliberate connected color clusters; see pixel-style.json",
+    "outline": "shared native outline.width from pixel-style.json; no per-object resolution or outline scaling",
+    "shadingBands": 3,
+    "maximumColorsPerCharacter": 14,
+    "nearWingDominant": true,
+    "farWingTreatment": "smaller, partly occluded, and lower contrast",
+    "avoid": [
+      "painterly blending",
+      "soft antialiased vector edges",
+      "photographic feather noise",
+      "symmetrical heraldic wings",
+      "extra limbs or tail feathers",
+      "per-species improvisation of cartoon scale"
+    ]
+  }
+}

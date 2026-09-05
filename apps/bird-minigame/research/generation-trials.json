@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-04",
+  "trials": [
+    {
+      "asset": "assets/generated/pilots/yellow-tit-anchor-v1.png",
+      "result": "candidate",
+      "finding": "Species identity and shared cartoon style are coherent; exact silhouette ratios still require measurement."
+    },
+    {
+      "asset": "assets/generated/pilots/yellow-tit-power-downstroke-v1.png",
+      "result": "rejected",
+      "finding": "Airborne pose and identity are usable, but the requested transparent background was rendered as checkerboard pixels."
+    },
+    {
+      "asset": "assets/generated/rejected/mikado-pheasant-anchor-text-only-v1.png",
+      "result": "rejected",
+      "finding": "Text-only numeric ratios did not preserve the Mikado Pheasant's 230:100 tail-to-torso contract."
+    },
+    {
+      "asset": "assets/generated/rejected/mikado-pheasant-anchor-guide-plus-style-v1.png",
+      "result": "rejected",
+      "finding": "A conventional-style reference overrode the geometry guide and pulled the proportions off model."
+    },
+    {
+      "asset": "assets/generated/rejected/mikado-pheasant-anchor-guide-only-v2.png",
+      "result": "rejected",
+      "finding": "Guide-only conditioning improved the long-tail silhouette substantially, but the visible tail-to-torso ratio remains outside the 6 percent acceptance tolerance."
+    },
+    {
+      "asset": "assets/generated/taiwan-endemic-birds-16-rigged-flight-v7.png",
+      "result": "candidate",
+      "finding": "The two-pass sheet contains exactly sixteen labeled, visibly airborne birds. A targeted Mikado edit substantially improved the diagnostic long-tail proportion; per-cell silhouette measurement remains required before production acceptance."
+    },
+    {
+      "asset": "assets/generated/taiwan-endemic-birds-16-rigged-flight-v8-curved-tails.png",
+      "result": "candidate",
+      "finding": "Seven long-tailed species were edited from v7 using parameter-derived cubic Bezier centerlines. Tail arc length is preserved while bend start, tip drop, tip tangent, and bundle coherence vary by species."
+    }
+  ],
+  "conclusion": "Prompting is a candidate generator, not the geometry authority. Production characters need an approved component-separated anchor and deterministic rig/compositing for poses."
+}

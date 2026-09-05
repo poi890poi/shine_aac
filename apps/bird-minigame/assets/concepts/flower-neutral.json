@@ -1,0 +1,10 @@
+{
+  "status": "mvp-candidate",
+  "purpose": "Unsplashed neutral face before a flower is hit",
+  "source": "Built-in image generation referencing flower-hit-faces-poc.png",
+  "date": "2026-09-05",
+  "file": "flower-neutral.png",
+  "dimensions": [1024, 1536],
+  "alpha": "Verified ARGB with transparent corner; compositing checked in game",
+  "note": "Original hit-expression sheet remains the hit-reaction source. Neutral sprite does not alter species assets."
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "1.0.0",
+  "reviewScale": ["canonical resolution", "actual sprite resolution", "silhouette only"],
+  "ratioTolerancePercent": 6,
+  "hardFailures": [
+    "missing or extra wing, leg, foot, bill, eye, or tail component",
+    "bill, wing, or tail length outside tolerance without documented occlusion",
+    "long tail feathers rendered as rigid straight rods instead of the declared curve",
+    "curved tail measured by chord length or visibly shortened instead of preserving arc length",
+    "wing root detached from shoulder",
+    "tail root detached from body axis",
+    "both wings folded in a single-frame airborne presentation",
+    "feet hanging vertically during transit",
+    "support object under an airborne character",
+    "plumage copied from a motion-analogue species",
+    "different cartoon exaggeration factors from cartoon-style.json",
+    "label mismatch"
+  ],
+  "requiredManifestFields": [
+    "speciesId",
+    "assetKind",
+    "promptFile",
+    "speciesRuleVersion",
+    "styleRuleVersion",
+    "rigRuleVersion",
+    "featherDynamicsRuleVersion",
+    "sourceIds",
+    "generatorMode",
+    "reviewStatus"
+  ]
+}

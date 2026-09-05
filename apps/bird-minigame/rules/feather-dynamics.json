@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "1.0.0",
+  "coordinateSystem": "Right-facing side view. Tail root is s=0, tail tip is s=1, and positive vertical displacement points downward.",
+  "curveModel": "cubic-bezier-centerline",
+  "lengthMetric": "All declared tail lengths are arc lengths measured along the curved feather centerline, never straight root-to-tip chords.",
+  "globalInvariants": {
+    "arcLengthPreserved": true,
+    "rootTangentMatchesBodyAxis": true,
+    "noRigidStraightLongFeathers": true,
+    "noRibbonCurl": true,
+    "individualFeathersRemainDistinct": true
+  },
+  "parameters": {
+    "bendStartRatio": "Fraction of feather arc length that remains nearly tangent to the body axis before visible downward bending.",
+    "tipDropRatio": "Vertical drop of the tip divided by preserved feather arc length.",
+    "tipTangentDegrees": "Downward tangent angle at the tip relative to the rearward body axis.",
+    "bundleCoherence": "0..1; higher values keep long feathers following parallel curves with small natural separation."
+  },
+  "species": {
+    "taiwan_blue_magpie": {"bendStartRatio":0.28,"tipDropRatio":0.20,"tipTangentDegrees":24,"bundleCoherence":0.90},
+    "taiwan_barbet": {"bendStartRatio":0.72,"tipDropRatio":0.02,"tipTangentDegrees":3,"bundleCoherence":0.96},
+    "taiwan_whistling_thrush": {"bendStartRatio":0.58,"tipDropRatio":0.05,"tipTangentDegrees":7,"bundleCoherence":0.94},
+    "yellow_tit": {"bendStartRatio":0.64,"tipDropRatio":0.04,"tipTangentDegrees":6,"bundleCoherence":0.94},
+    "flamecrest": {"bendStartRatio":0.72,"tipDropRatio":0.02,"tipTangentDegrees":3,"bundleCoherence":0.96},
+    "white_eared_sibia": {"bendStartRatio":0.40,"tipDropRatio":0.12,"tipTangentDegrees":16,"bundleCoherence":0.92},
+    "taiwan_yuhina": {"bendStartRatio":0.70,"tipDropRatio":0.03,"tipTangentDegrees":4,"bundleCoherence":0.95},
+    "taiwan_liocichla": {"bendStartRatio":0.56,"tipDropRatio":0.06,"tipTangentDegrees":8,"bundleCoherence":0.94},
+    "collared_bush_robin": {"bendStartRatio":0.62,"tipDropRatio":0.05,"tipTangentDegrees":7,"bundleCoherence":0.94},
+    "taiwan_barwing": {"bendStartRatio":0.42,"tipDropRatio":0.10,"tipTangentDegrees":14,"bundleCoherence":0.90},
+    "taiwan_rosefinch": {"bendStartRatio":0.64,"tipDropRatio":0.04,"tipTangentDegrees":6,"bundleCoherence":0.94},
+    "taiwan_scimitar_babbler": {"bendStartRatio":0.43,"tipDropRatio":0.10,"tipTangentDegrees":14,"bundleCoherence":0.91},
+    "mikado_pheasant": {"bendStartRatio":0.24,"tipDropRatio":0.22,"tipTangentDegrees":27,"bundleCoherence":0.88},
+    "swinhoes_pheasant": {"bendStartRatio":0.34,"tipDropRatio":0.14,"tipTangentDegrees":19,"bundleCoherence":0.89},
+    "rufous_crowned_laughingthrush": {"bendStartRatio":0.46,"tipDropRatio":0.08,"tipTangentDegrees":11,"bundleCoherence":0.92},
+    "taiwan_thrush": {"bendStartRatio":0.58,"tipDropRatio":0.05,"tipTangentDegrees":7,"bundleCoherence":0.94}
+  }
+}

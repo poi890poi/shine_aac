@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "1.0.0",
+  "coordinateSystem": "Angles are degrees from the rearward body axis in a right-facing side view. Lengths always come from species-proportions.json and may not be rescaled by a pose.",
+  "globalPoseInvariants": {
+    "bodyUnsupported": true,
+    "feetTransit": "tucked or occluded",
+    "nearWingScale": 1.0,
+    "farWingScale": 0.82,
+    "farWingMayBeOccluded": true,
+    "componentResizeAllowed": false
+  },
+  "rigs": {
+    "corvid_transit":{"bodyPitch":-4,"tailFan":8,"phases":{"power_downstroke":{"nearWingAngle":-58,"nearWingSpread":0.94,"farWingAngle":-28},"recovery_upstroke":{"nearWingAngle":62,"nearWingSpread":0.84,"farWingAngle":42}}},
+    "barbet_direct":{"bodyPitch":-2,"tailFan":3,"phases":{"power_downstroke":{"nearWingAngle":-52,"nearWingSpread":0.9,"farWingAngle":-24},"recovery_upstroke":{"nearWingAngle":55,"nearWingSpread":0.78,"farWingAngle":34}}},
+    "heavy_thrush":{"bodyPitch":-3,"tailFan":12,"phases":{"power_downstroke":{"nearWingAngle":-62,"nearWingSpread":0.96,"farWingAngle":-30},"recovery_upstroke":{"nearWingAngle":58,"nearWingSpread":0.84,"farWingAngle":35}}},
+    "parid_open_bound":{"bodyPitch":-5,"tailFan":7,"phases":{"power_downstroke":{"nearWingAngle":-48,"nearWingSpread":0.9,"farWingAngle":-20},"recovery_upstroke":{"nearWingAngle":48,"nearWingSpread":0.74,"farWingAngle":30}}},
+    "regulus_hover":{"bodyPitch":35,"tailFan":14,"phases":{"power_downstroke":{"nearWingAngle":-20,"nearWingSpread":0.92,"farWingAngle":10},"recovery_upstroke":{"nearWingAngle":72,"nearWingSpread":0.72,"farWingAngle":52}}},
+    "sibia_crossing":{"bodyPitch":-3,"tailFan":5,"phases":{"power_downstroke":{"nearWingAngle":-52,"nearWingSpread":0.9,"farWingAngle":-24},"recovery_upstroke":{"nearWingAngle":56,"nearWingSpread":0.8,"farWingAngle":36}}},
+    "zosteropid_flutter":{"bodyPitch":8,"tailFan":9,"phases":{"power_downstroke":{"nearWingAngle":-36,"nearWingSpread":0.86,"farWingAngle":-8},"recovery_upstroke":{"nearWingAngle":60,"nearWingSpread":0.72,"farWingAngle":40}}},
+    "leiothrichid_dash":{"bodyPitch":-9,"tailFan":13,"phases":{"power_downstroke":{"nearWingAngle":-50,"nearWingSpread":0.92,"farWingAngle":-22},"recovery_upstroke":{"nearWingAngle":54,"nearWingSpread":0.78,"farWingAngle":32}}},
+    "tarsiger_brake":{"bodyPitch":18,"tailFan":18,"phases":{"power_downstroke":{"nearWingAngle":-28,"nearWingSpread":0.9,"farWingAngle":2},"recovery_upstroke":{"nearWingAngle":65,"nearWingSpread":0.82,"farWingAngle":44}}},
+    "barwing_launch":{"bodyPitch":7,"tailFan":22,"phases":{"power_downstroke":{"nearWingAngle":-66,"nearWingSpread":0.98,"farWingAngle":-31},"recovery_upstroke":{"nearWingAngle":68,"nearWingSpread":0.9,"farWingAngle":42}}},
+    "finch_power":{"bodyPitch":-4,"tailFan":8,"phases":{"power_downstroke":{"nearWingAngle":-55,"nearWingSpread":0.91,"farWingAngle":-25},"recovery_upstroke":{"nearWingAngle":50,"nearWingSpread":0.76,"farWingAngle":30}}},
+    "scimitar_dash":{"bodyPitch":-8,"tailFan":12,"phases":{"power_downstroke":{"nearWingAngle":-50,"nearWingSpread":0.92,"farWingAngle":-22},"recovery_upstroke":{"nearWingAngle":53,"nearWingSpread":0.78,"farWingAngle":31}}},
+    "phasianid_burst_longtail":{"bodyPitch":2,"tailFan":4,"phases":{"power_downstroke":{"nearWingAngle":-72,"nearWingSpread":1.0,"farWingAngle":-38},"recovery_upstroke":{"nearWingAngle":76,"nearWingSpread":0.94,"farWingAngle":48}}},
+    "phasianid_burst_broadtail":{"bodyPitch":3,"tailFan":10,"phases":{"power_downstroke":{"nearWingAngle":-74,"nearWingSpread":1.0,"farWingAngle":-40},"recovery_upstroke":{"nearWingAngle":78,"nearWingSpread":0.95,"farWingAngle":50}}},
+    "laughingthrush_dash":{"bodyPitch":-2,"tailFan":18,"phases":{"power_downstroke":{"nearWingAngle":-58,"nearWingSpread":0.95,"farWingAngle":-28},"recovery_upstroke":{"nearWingAngle":60,"nearWingSpread":0.84,"farWingAngle":38}}},
+    "turdus_direct":{"bodyPitch":-4,"tailFan":6,"phases":{"power_downstroke":{"nearWingAngle":-60,"nearWingSpread":0.96,"farWingAngle":-29},"recovery_upstroke":{"nearWingAngle":58,"nearWingSpread":0.82,"farWingAngle":36}}}
+  }
+}
