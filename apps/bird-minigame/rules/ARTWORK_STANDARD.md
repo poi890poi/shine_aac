@@ -4,6 +4,15 @@ This is the governing artwork workflow. It supersedes conflicting procedural-art
 recommendations in prototype documents. The September 5 procedural bird and flower
 are rejected; numerical rule checks did not establish their visual quality.
 
+Integration decision, September 5: the user approved the regenerated magpie and
+flower designs and requested an app update. The exact source sheets and crop/pivot
+records are in `rules/sprite-layout.json` and the candidate manifest. Their bitmap
+sampling at fixed uniform scale onto a shared scene grid is an explicit integration
+exception to the original no-resampling direction. It does not authorize replacing
+their shapes, claim an exact hand-authored pixel grid, or certify the unimplemented
+component-mask acceptance gate. The baked checkerboard is removed by the renderer's
+exterior matte; the original candidate files remain unchanged.
+
 ## Character design is the shape authority
 
 Keep the earlier Blue Magpie flight strip and flower artwork as provisional visual

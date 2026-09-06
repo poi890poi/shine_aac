@@ -1,15 +1,28 @@
 {
   "schemaVersion": 1,
-  "ruleVersion": "1.0.0",
+  "ruleVersion": "1.2.0",
   "intent": "One deliberately drawn pixel language across every garden object. Geometry is rasterized onto one square grid, never filtered from mixed-resolution art.",
-  "grid": { "minimumWidth": 240, "columnPitch": 36, "minimumHeight": 260, "maximumHeight": 420 },
+  "grid": { "minimumWidth": 320, "columnPitch": 40, "minimumHeight": 320, "maximumHeight": 760 },
   "outline": { "width": 1, "foreground": "ink", "background": "cloudShadow" },
   "shading": { "bands": 3, "lightDirection": [-1, -1], "highlightThreshold": -0.25, "shadowThreshold": 0.4 },
   "clusters": { "minimumArea": 3, "textureDensity": 0.16, "singlePixelExceptions": ["eyes", "bill tip", "grass blade tips", "liquid splash tips"] },
   "animation": { "framesPerSecond": 8, "cloudPixelsPerSecond": 3, "snapPositions": true },
   "bird": { "speciesId": "taiwan_blue_magpie", "torsoPixels": 20, "tailFeathers": 3, "eyePixels": 1, "tailTipFraction": 0.17 },
   "flower": { "headRadius": 13, "faceRadius": 6, "petalCount": 8, "petalRadius": 4, "petalRingRadius": 9, "stemWidth": 3, "leafLength": 8, "leafWidth": 4, "leafLevels": [0.35, 0.67] },
-  "cloud": { "width": 42, "height": 18, "lobeCenters": [[0.18, 0.66, 0.18], [0.42, 0.46, 0.27], [0.7, 0.61, 0.22], [0.86, 0.75, 0.13]] },
+  "cloud": {
+    "count": 6, "width": 88, "height": 38, "sizeVariation": 0.2,
+    "altitudeRange": [0.08, 0.58], "puffiness": 1.6, "baseHeight": 0.9,
+    "lobeCenters": [[0.18, 0.66, 0.18], [0.42, 0.46, 0.27], [0.7, 0.61, 0.22], [0.86, 0.75, 0.13]],
+    "shapes": [
+      { "name": "rounded", "widthScale": 1, "heightScale": 1 },
+      { "name": "broad", "widthScale": 1.15, "heightScale": 0.68,
+        "lobeCenters": [[0.12, 0.7, 0.14], [0.3, 0.6, 0.18], [0.5, 0.55, 0.22], [0.72, 0.62, 0.18], [0.9, 0.73, 0.1]] },
+      { "name": "towering", "widthScale": 0.8, "heightScale": 1.5,
+        "lobeCenters": [[0.18, 0.76, 0.19], [0.4, 0.58, 0.27], [0.56, 0.36, 0.25], [0.8, 0.71, 0.2]] },
+      { "name": "twin-peaked", "widthScale": 1.15, "heightScale": 1.1,
+        "lobeCenters": [[0.1, 0.7, 0.14], [0.27, 0.45, 0.25], [0.5, 0.7, 0.22], [0.73, 0.4, 0.25], [0.9, 0.7, 0.12]] }
+    ]
+  },
   "grass": { "tileSize": 16, "bladeHeight": 4, "tuftWidth": 5 },
   "palette": {
     "ink": "#20243a", "white": "#ffffff", "sky": "#91d5db", "cloudShadow": "#65a8c0",

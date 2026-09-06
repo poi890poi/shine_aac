@@ -1,5 +1,11 @@
 # Workspace handoff rules
 
+- After physical-device testing or media capture, turn off displays that the agent
+  woke or used for testing, including on failure or interruption. Verify the device
+  display state before handoff. Do not leave test displays awake between runs or
+  change the user's persistent display settings; preserve an explicit request to
+  leave a display on for their immediate use.
+
 - A local filesystem path is not a user-downloadable artifact in a remote Codex session.
 - When the user asks to download an APK, AAB, document, image, or other generated file, publish it through a client-accessible attachment or HTTPS URL and verify that delivery endpoint before responding.
 - Local workspace links may be provided only when explicitly labeled as internal paths, never as the primary download.

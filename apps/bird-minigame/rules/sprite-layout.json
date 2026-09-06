@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "1.1.0",
+  "visualDecision": "User approved the September 5 generated bird and flower designs and requested app integration",
+  "bird": {
+    "file": "magpie-v1.png",
+    "scale": 0.24,
+    "poses": [
+      {"rect": [28,288,502,335], "anchor": [398,253]},
+      {"rect": [552,448,458,260], "anchor": [337,94]},
+      {"rect": [1038,424,480,203], "anchor": [342,122]}
+    ],
+    "cycle": [0,2,1,2], "settledPose": 2
+  },
+  "flower": {
+    "file": "flower-v1.png", "scale": 0.125, "headSourceHeight": 325,
+    "expressions": [[180,18,355,563],[718,17,362,565],[179,644,359,541],[718,641,368,542]],
+    "leafRect": [65,345,190,105],
+    "leafScale": 0.125, "leafAnchorX": 128,
+    "variants": [
+      {"name":"coral","headScale":1,"curvePixels":2,"stemHalfWidth":3,"stemRamp":["#67bd06","#a3e916"],"leafSize":1,"leafLevels":[0.48],"petalRamp":null},
+      {"name":"lavender","headScale":0.94,"curvePixels":5,"stemHalfWidth":2,"stemRamp":["#4d9660","#93c980"],"leafSize":0.9,"leafLevels":[0.33,0.68],"petalRamp":["#75519d","#b38ad6","#e7d3f4"]},
+      {"name":"buttercup","headScale":1.1,"curvePixels":-3,"stemHalfWidth":3,"stemRamp":["#719a38","#b4ce63"],"leafSize":1.1,"leafLevels":[0.58],"petalRamp":["#b67c32","#edc46a","#fff0b9"]},
+      {"name":"sky","headScale":1.04,"curvePixels":3,"stemHalfWidth":2,"stemRamp":["#3b9275","#88c9a0"],"leafSize":1,"leafLevels":[0.3,0.64],"petalRamp":["#497aa5","#87bfd9","#d8edf4"]}
+    ],
+    "stem": {"halfWidth": 3, "curvePixels": 2, "outline": "#15162b", "base": "#67bd06", "light": "#a3e916"}
+  },
+  "preparation": "Exterior neutral-background matte; enclosed whites retained. Approved images are sampled onto the single scene grid at fixed uniform scale; no per-axis sprite stretching."
+}

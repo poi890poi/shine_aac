@@ -1,9 +1,9 @@
 # Taiwan Bird Garden — game design specification
 
-Status: gameplay prototype demonstrated; latest procedural bird and flower art
-rejected by the user. Shape-consistency methods require correction; see
+Status: generated bird and flower designs approved by the user and integrated.
+The earlier procedural bird and flower art remains rejected. See
 `research/SHAPE_CONSISTENCY_AUDIT.md`.
-Last updated: 2026-09-05.
+Last updated: 2026-09-06.
 
 This is the source of truth for the standalone bird mini-game and its later SHINE
 AAC integration. Read it before changing gameplay, art, input, or rewards. Tests
@@ -24,6 +24,8 @@ or require repeated activations to keep the bird airborne.
 
 No hosted app publication is required. Test the local game on the connected phone.
 Capture short H.264 MP4 demonstrations directly; do not create MJPEG recordings.
+Every demo must include an actual miss, hit, collision/recovery and complete landing.
+Keep event evidence and verify the final edited clip retains all four outcomes.
 
 ## Agreed game rules
 
@@ -37,8 +39,18 @@ Capture short H.264 MP4 demonstrations directly; do not create MJPEG recordings.
    it lower; after a short transition it returns from the left. Player input never
    controls altitude, flap velocity, steering, or horizontal flight speed.
 4. One activation releases one **white, liquid bird dropping**. It falls toward
-   the flowers beneath the release point. There is at most one active dropping.
-   Additional activations must not produce a projectile queue or rapid-fire burst.
+   the flowers beneath the release point. Default `flyby` mode permits exactly
+   one per flyby, including misses and resolved hits; only the next flyby refills
+   it. Optional `recharge` mode starts with three charges and serially replenishes
+   one every six active seconds, up to three. Preserve partial recharge on spending;
+   no banking time at capacity or bonus refill on collision/pass transitions.
+   Both modes allow one active projectile and never queue extra activations.
+   Pause freezes recharge. Reset starts full. Helpers choose the mode between
+   rounds; progression does not silently change it. A fixed upper-left HUD uses
+   filled/empty drop icons and a filling next charge, without text or an action
+   button. Nothing showing drop readiness follows the bird's head.
+   HUD background and empty icon interiors are transparent, with dark visible
+   outlines on icons and the refill bar; do not draw a solid background panel.
 5. A hit lowers the struck flower. Its head moves down and its continuous stem
    becomes shorter. Hit counts are internal state, never visible bamboo joints,
    stacked blocks, or detachable stem segments.
@@ -53,8 +65,13 @@ Capture short H.264 MP4 demonstrations directly; do not create MJPEG recordings.
 9. The objective is **safe landing**, optionally followed by automatically picking
    up a small item such as a twig or worm. A gate count or arbitrary score target
    is not the completion condition. No second timed action is required to finish.
-10. The game remains playable with one switch. Touching the playfield, the action
-    button, Space, Enter, and the host activation event perform the same action.
+10. The game remains playable with one switch. Touching the playfield, Space,
+    Enter, and the host activation event perform the same action. There is no
+    droplet/action button. Start and replay use icons, and a switch can replay.
+11. The live game has zero visible text: no title, species label, instructions,
+    status sentences, score counter, or text on buttons. Icons provide start,
+    replay, pause/resume and exit. Optional icon-only mode/speed/sound helper settings
+    sit outside the playfield. Preserve invisible accessibility names and status.
 
 ## Baseline tuning and recovery
 
@@ -71,21 +88,36 @@ Change them deliberately, retaining the rules above, and record material changes
 | Flower reduction | Several hits, depending on height | Preserve height progression |
 | Inactivity exit | 90 seconds | Return control if the activity is abandoned |
 
-Standard collision recovery cancels the pass, identifies the blocking flower,
-briefly recoils the bird, and restarts at the previous safe altitude. It does not
-undo any hit. The bird body/head core collides; long tail feathers and raised
+Collision recovery briefly recoils the bird, flutters its wings, wobbles the flower,
+and sheds four blue/white pixel feathers in a brief falling/fluttering burst,
+alongside small comic stars. It then lifts the bird smoothly above the remaining
+flowers and continues the same pass, retaining any active dropping and the drop
+budget. It does not restart from the left or undo a hit. The default lift provides
+clearance for three subsequent flybys, based on three descent steps plus body
+radius and a small margin above the tallest remaining flower. `recoveryPasses`
+accepts two or three, with three chosen as the friendlier default. The bird body/head core collides; long tail feathers and raised
 wings are visual only. A flower's central upper area blocks; petal edges should
 not make near misses unfair.
 
-Repeated collisions on the same flower should make the next attempt easier:
-slower passage after repeated difficulty, then a guided retry that waits in a
-safe dropping position for one activation. Assistance never shortens a flower
-without a hit. The exact collision animation and assistance thresholds may be
-tuned; no lives, game-over loop, or lost flower progress may be introduced.
+Repeated collisions use the same predictable recovery. Flight continues without
+a guided stop or automatic speed change. As in the requested Super Blitz rhythm,
+each completed pass still descends, including no-input and missed passes; the
+three-pass lift is the forgiving recovery. No lives, game-over loop, lost progress
+or automatic flower shortening may be introduced. Reduced motion suppresses
+decorative feathers/stars, extra flutter and flower wobble while preserving the safe climb.
 
 The MVP clears every configured flower to ground level before the automatic final
 landing. An optional pickup animation is a later cosmetic addition, not a separate
 challenge or prerequisite for finishing the MVP.
+
+Landing must approach smoothly from the left or right, never fall vertically onto
+the centre. Continue the current horizontal flight until the whole bird is off
+screen, turn out of view, then follow a curved approach that levels out and slows
+to a stop on grass. `landingSide` accepts `auto`, `left`, or `right`; auto chooses
+from the bird's position when the last flower clears. `landingSeconds` controls the
+approach duration (default 4.5 seconds). Pause freezes the complete landing path;
+completion requires no input. `test/landing.test.mjs` covers both sides at three
+frame rates, off-screen turns, horizontal travel, flare, and pause/resume.
 
 ## Art, motion, and sound
 
@@ -109,12 +141,24 @@ challenge or prerequisite for finishing the MVP.
   expression references. Preserve their designed contours using the workflow in
   `rules/ARTWORK_STANDARD.md`; the rejected primitive renderer is not a shape authority.
   A neutral flower needs an unsplashed face; hit expressions appear only after hits.
+- The user subsequently approved `magpie-v1.png` and `flower-v1.png` from the
+  September 5 shape-preserving trial. `rules/sprite-layout.json` records source
+  crops, fixed pivots, uniform scales, expressions and stem settings. The loader
+  removes only connected exterior neutral background, retaining enclosed white
+  eyes and tail tips. Head and wing artwork is not replaced by primitive drawings.
+  This reviewed bitmap integration samples onto the common native scene grid;
+  it supersedes the earlier blanket prohibition on sampling existing sprites.
+  Flowers shorten through continuous stalk geometry; heads retain fixed scale.
 - Follow `rules/species-proportions.json`, `rules/cartoon-style.json`,
   `rules/flight-rigs.json`, and `rules/feather-dynamics.json`. Long feathers curve
   naturally downward while retaining their specified length. Do not regenerate
   unrelated artwork as a substitute for obeying those parameters.
 - Clouds move slowly behind the action and never affect collisions. Reduced
   motion stops decorative cloud motion and suppresses unnecessary recoil/shaking.
+- The six-cloud field uses rounded, broad, towering and twin-peaked parameterized
+  silhouettes. Whole-plant variants include petal palette, fixed uniform head size,
+  stem thickness/curve/green ramp, and leaf size/count/placement. Variant identity
+  stays fixed per AAC column across hits; stems remain continuous as they shorten.
 - Cute, brief effects accompany release, impact, recovery, and landing. Provide
   mute; sound never carries essential information alone. No continuous music is
   needed. Later integration must stop effects for AAC speech and on exit.

@@ -1,0 +1,65 @@
+[
+  {
+    "file": "magpie-v1.png",
+    "sha256": "b6c5077932d098846c090e0941a023882a51001515f079562a80cc887969cc3b",
+    "size": [
+      1536,
+      1024
+    ],
+    "expectedSize": [
+      1536,
+      512
+    ],
+    "mode": "RGB",
+    "alphaExtrema": [
+      255,
+      255
+    ],
+    "hasTransparentPixels": false,
+    "requestedDimensionsMatch": false,
+    "colorCountIncludingBackground": 55849,
+    "visualAcceptance": "not assessed by this script"
+  },
+  {
+    "file": "magpie-alpha-v2.png",
+    "sha256": "d594ca78846d455e70ac5ed4917724a01546b81b672ea4648c3f03a0830ef369",
+    "size": [
+      1536,
+      1024
+    ],
+    "expectedSize": [
+      1536,
+      1024
+    ],
+    "mode": "RGB",
+    "alphaExtrema": [
+      255,
+      255
+    ],
+    "hasTransparentPixels": false,
+    "requestedDimensionsMatch": true,
+    "colorCountIncludingBackground": 50574,
+    "visualAcceptance": "not assessed by this script"
+  },
+  {
+    "file": "flower-v1.png",
+    "sha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec",
+    "size": [
+      1254,
+      1254
+    ],
+    "expectedSize": [
+      1024,
+      1024
+    ],
+    "mode": "RGB",
+    "alphaExtrema": [
+      255,
+      255
+    ],
+    "hasTransparentPixels": false,
+    "requestedDimensionsMatch": false,
+    "colorCountIncludingBackground": 85785,
+    "visualAcceptance": "not assessed by this script"
+  }
+]

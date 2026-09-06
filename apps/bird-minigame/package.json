@@ -1,0 +1,13 @@
+{
+  "name": "@shine-aac/bird-minigame",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test",
+    "validate": "node scripts/validate-rules.mjs",
+    "prompt": "node scripts/build-prompt.mjs",
+    "build": "node scripts/build-app.mjs",
+    "dev": "node scripts/serve.mjs",
+    "preview": "node scripts/serve.mjs --dist"
+  }
+}

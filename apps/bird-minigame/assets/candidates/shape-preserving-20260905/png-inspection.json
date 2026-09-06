@@ -1,0 +1,23 @@
+[
+  {
+    "file": "flower-v1.png",
+    "sha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec",
+    "width": 1254,
+    "height": 1254,
+    "pngColorType": 2
+  },
+  {
+    "file": "magpie-alpha-v2.png",
+    "sha256": "d594ca78846d455e70ac5ed4917724a01546b81b672ea4648c3f03a0830ef369",
+    "width": 1536,
+    "height": 1024,
+    "pngColorType": 2
+  },
+  {
+    "file": "magpie-v1.png",
+    "sha256": "b6c5077932d098846c090e0941a023882a51001515f079562a80cc887969cc3b",
+    "width": 1536,
+    "height": 1024,
+    "pngColorType": 2
+  }
+]

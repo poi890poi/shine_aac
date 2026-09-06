@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-05",
+  "standardVersion": "1.0.0",
+  "standardCommit": "c1eca51",
+  "generatorMode": "built-in-image-generation",
+  "reviewStatus": "design-approved-integrated-with-exterior-matte",
+  "reviewer": "User: Yes these are good. Update the app.; assistant verified runtime display on physical phone",
+  "ruleVersions": {
+    "pixel-style.json": "1.0.0",
+    "flight-rigs.json": "1.0.0",
+    "image-validation.json": "1.0.0",
+    "feather-dynamics.json": "1.0.0",
+    "cartoon-style.json": "1.1.0",
+    "species-proportions.json": "1.0.0"
+  },
+  "sourceImages": [
+    {
+      "sha256": "714756675171f3d291165ffcc0dacb350d8bdbaee349a55532ccf09ea482ff73",
+      "path": "assets/pilots/bird-flight-pilot-taiwan-blue-magpie-transparent.png"
+    },
+    {
+      "sha256": "7caff44c408b8bb2a40bc66285bdfb144e7776fa5cbf55880f0de11b8926f11a",
+      "path": "assets/concepts/flower-neutral.png"
+    },
+    {
+      "sha256": "b4c6e6303397b29024d6ac34a9b41ed7eeee67e23d05d35346384bd30a7819de",
+      "path": "assets/concepts/flower-hit-faces-poc.png"
+    }
+  ],
+  "trials": [
+    {
+      "inputImages": [
+        "assets/pilots/bird-flight-pilot-taiwan-blue-magpie-transparent.png"
+      ],
+      "promptFile": "prompts/trials/magpie-shape-preserving-v1.md",
+      "asset": "magpie-v1.png"
+    },
+    {
+      "inputImages": [
+        "assets/concepts/flower-neutral.png",
+        "assets/concepts/flower-hit-faces-poc.png"
+      ],
+      "promptFile": "prompts/trials/flower-shape-preserving-v1.md",
+      "asset": "flower-v1.png"
+    },
+    {
+      "inputImages": [
+        "assets/candidates/shape-preserving-20260905/magpie-v1.png"
+      ],
+      "promptFile": "prompts/trials/magpie-alpha-correction-v2.md",
+      "asset": "magpie-alpha-v2.png"
+    }
+  ],
+  "validation": [
+    {
+      "file": "magpie-v1.png",
+      "sha256": "b6c5077932d098846c090e0941a023882a51001515f079562a80cc887969cc3b",
+      "size": [
+        1536,
+        1024
+      ],
+      "expectedSize": [
+        1536,
+        512
+      ],
+      "mode": "RGB",
+      "alphaExtrema": [
+        255,
+        255
+      ],
+      "hasTransparentPixels": false,
+      "requestedDimensionsMatch": false,
+      "colorCountIncludingBackground": 55849,
+      "visualAcceptance": "not assessed by this script"
+    },
+    {
+      "file": "magpie-alpha-v2.png",
+      "sha256": "d594ca78846d455e70ac5ed4917724a01546b81b672ea4648c3f03a0830ef369",
+      "size": [
+        1536,
+        1024
+      ],
+      "expectedSize": [
+        1536,
+        1024
+      ],
+      "mode": "RGB",
+      "alphaExtrema": [
+        255,
+        255
+      ],
+      "hasTransparentPixels": false,
+      "requestedDimensionsMatch": true,
+      "colorCountIncludingBackground": 50574,
+      "visualAcceptance": "not assessed by this script"
+    },
+    {
+      "file": "flower-v1.png",
+      "sha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec",
+      "size": [
+        1254,
+        1254
+      ],
+      "expectedSize": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "alphaExtrema": [
+        255,
+        255
+      ],
+      "hasTransparentPixels": false,
+      "requestedDimensionsMatch": false,
+      "colorCountIncludingBackground": 85785,
+      "visualAcceptance": "not assessed by this script"
+    }
+  ],
+  "reviewFile": "REVIEW.md",
+  "productionIntegrated": true,
+  "integrationRules": "rules/sprite-layout.json"
+}

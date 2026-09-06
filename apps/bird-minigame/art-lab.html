@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>花園美術規格 · Garden art studio</title>
+<link rel="stylesheet" href="src/styles.css">
+<style>
+body{padding:1rem;max-width:74rem;margin:auto}h1{margin-bottom:.7rem}p{line-height:1.6}a{color:#91d5db}
+.studio{display:grid;grid-template-columns:minmax(20rem,30rem) 1fr;gap:2rem}.controls{display:grid;gap:.9rem;align-content:start}
+.controls label{display:grid;grid-template-columns:1fr minmax(8rem,1fr) 3rem;gap:.6rem;align-items:center;font-size:1rem}
+.controls select{grid-column:2 / 4}.swatches{display:flex;flex-wrap:wrap;gap:4px}.swatches span{width:24px;height:24px;border:1px solid white}
+.atlas-wrap{overflow:auto;border:1px solid #65a8c0;padding:.5rem;margin-top:1rem}.atlas{image-rendering:pixelated;display:block}
+textarea{width:100%;min-height:18rem;background:#101624;color:#d8ead8;padding:.75rem;font:14px monospace}summary{cursor:pointer;margin:1rem 0}
+#notice{min-height:1.6rem;color:#f2ca67}.buttons{display:flex;gap:.5rem;flex-wrap:wrap}#game{height:34rem}.game-stage{height:27rem;aspect-ratio:auto}
+@media(max-width:760px){.studio{grid-template-columns:1fr}body{padding:.7rem}.controls label{grid-template-columns:1fr 8rem 2.5rem}}
+</style>
+<h1>花園美術規格</h1>
+<p>鳥、花、雲和草共用同一像素網格。調整後立即比較；匯出規格可保存這一版。<a href="index.html">回到遊戲</a></p>
+<div class="studio"><div><div id="game"></div><h2>同一尺度比較</h2><p>核准的鳥類素材、四種整株花朵與四種雲形。每個像素使用相同放大倍率。</p>
+<label>預覽倍率 <select id="zoom"><option>1</option><option selected>2</option><option>3</option><option>4</option></select> ×</label>
+<div class="atlas-wrap"><canvas id="atlas" class="atlas"></canvas></div></div>
+<div><div id="controls" class="controls"></div><p id="notice" role="status"></p><div id="swatches" class="swatches"></div>
+<div class="buttons"><button id="reset">還原預設</button><button id="export">匯出 JSON</button></div>
+<details><summary>完整規格 JSON · 進階編輯</summary><textarea id="json" aria-label="完整美術規格 JSON"></textarea><button id="apply">套用 JSON</button></details>
+<p>鳥與花沿用核准素材。花冠、莖和葉的變化參數在 rules/sprite-layout.json；雲形參數在上方 JSON 的 cloud.shapes。</p>
+<p>參考：<a href="https://pixeljoint.com/forum/forum_posts.asp?TID=11299">Cure · Pixel Art Tutorial</a>、<a href="https://saint11.art/pixel_art_articles/article2/">Saint11 · Cluster Sketching</a>。</p>
+</div></div><script type="module" src="src/art-lab.js"></script>
+</html>

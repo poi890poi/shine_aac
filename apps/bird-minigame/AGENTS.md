@@ -1,7 +1,44 @@
 # Bird mini-game working rules
 
+- The live game is text-free: no titles, instructions, score counters, visible
+  labels or droplet/action button. Keep invisible accessibility labels and status.
+  Playfield touch, Space/Enter and the host switch are the activation paths.
+- Default `flyby` mode allows one drop per flyby, including misses. Optional
+  `recharge` mode starts with three charges, capped at three, refilling one every
+  six active seconds. Both modes have one active projectile and never queue input.
+  Pause freezes refill; collision/pass transitions grant no recharge bonus. Select
+  mode only between rounds. Protect both contracts with behavioral tests.
+- Readiness belongs in a fixed upper corner, never on the bird's head. Use filled
+  and empty icons and visual recharge progress, without visible text or buttons.
+  Keep the HUD background and empty interiors transparent; preserve dark visible
+  outlines on charge icons and the refill bar. Never restore an opaque panel.
+- Each collision emits one brief blue/white feather burst that falls and flutters.
+  Preserve bird contours; pause freezes particles and reduced motion hides them.
+- Clouds use a shared parameterized field: six by default, nominal 88×38 native
+  pixels with size variation. Keep count, lobe shape, puffiness, base height,
+  altitude and drift tunable; never restore two hard-coded placements.
+  Use distinct parameterized silhouettes, not merely different sizes of one shape.
+- Flower variants are deterministic per column and parameterized in sprite-layout.
+  Reuse approved petal/face/leaf contours; vary petal palettes, uniform fixed head
+  scale, stem curvature and leaf levels. Preserve variant identity across hits.
+  "Flower" includes the entire plant: stem width/curve/green ramp and leaf size,
+  number and placement are parameters too. Stems remain continuous when shortened.
+- Every demo video must show a miss, a hit, a collision with recovery, and the final
+  side-approach landing. Verify coverage from actual game events and retain it in
+  the edited clip; never infer coverage from a recording filename or planned inputs.
+- Preserve Super Blitz-style descent each pass. On a tall-flower collision, show
+  a brief comic bump/flutter and flower wobble, then climb smoothly in place to
+  give three more clear flybys (default). Preserve progress; no restart or lives.
+- Phone UI regression: `scripts/phone-textfree-check.mjs`. Every phone automation
+  must sleep the display and verify OFF in a finally block, including failures.
+
 - Read `rules/ARTWORK_STANDARD.md` first for artwork. It is the governing workflow
   and supersedes conflicting prototype rendering recommendations below.
+- The user approved the September 5 generated magpie and flower designs and asked
+  for app integration. Preserve their source contours and `rules/sprite-layout.json`
+  crop/pivot records. The older procedural rendition remains rejected.
+- Final landing must approach from a side, level out, and decelerate onto grass.
+  Keep `test/landing.test.mjs` passing for left/right at 30/60/120 Hz.
 
 - Read `research/SHAPE_CONSISTENCY_AUDIT.md` before another shape/style change.
   The 2026-09-05 procedural bird and flower rendition is user-rejected. Do not

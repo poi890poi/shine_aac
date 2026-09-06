@@ -25,7 +25,12 @@ owns feather curves. A style change must not silently change those independent r
 | `bird.torsoPixels` | Uniform character scale. All component lengths derive from the locked bird ratios. Do not use it as a head/wing/tail exaggeration control. |
 | `tailFeathers`, `tailTipFraction`, `eyePixels` | Two/three feather identity, white tip marking, and minimum readable eye detail. |
 | `flower.*` | Native petal/face sizes, count, stem width, and leaf shape/locations. Stems are redrawn continuously at each height, never stretched source images. |
-| `cloud.*` | Native size and normalized lobe placement. Shape and lighting remain connected to the common outline/grid. |
+| `cloud.count` | Number of background clouds, 1–10; default six. Deterministic spacing wraps fully off-screen. |
+| `cloud.width`, `height` | Nominal native geometry, default 88×38. All lobes are rasterized directly on the shared grid. |
+| `cloud.lobeCenters` | 3–8 `[x, y, radius]` triples normalized to the cloud box; change these to author its silhouette. |
+| `cloud.puffiness`, `baseHeight` | Vertical lobe radius multiplier (default 1.6) and normalized flat base position (0.9). |
+| `cloud.sizeVariation`, `altitudeRange` | Bounded size variation (0.2) and normalized scene altitude interval ([0.08, 0.58]). |
+| `cloud.shapes` | Named rounded, broad, towering and twin-peaked silhouettes. Each has width/height multipliers and optional lobe overrides; omitted lobes inherit the base template. Shapes repeat deterministically across the field. |
 | `grass.*` | Reusable tuft size, blade height, and texture-cluster width. The ground is always a grass meadow. |
 
 The validation function rejects out-of-range values and malformed palette/ramp
