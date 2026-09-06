@@ -28,9 +28,11 @@ owns feather curves. A style change must not silently change those independent r
 | `cloud.count` | Number of background clouds, 1–10; default six. Deterministic spacing wraps fully off-screen. |
 | `cloud.width`, `height` | Nominal native geometry, default 88×38. All lobes are rasterized directly on the shared grid. |
 | `cloud.lobeCenters` | 3–8 `[x, y, radius]` triples normalized to the cloud box; change these to author its silhouette. |
-| `cloud.puffiness`, `baseHeight` | Vertical lobe radius multiplier (default 1.6) and normalized flat base position (0.9). |
-| `cloud.sizeVariation`, `altitudeRange` | Bounded size variation (0.2) and normalized scene altitude interval ([0.08, 0.58]). |
+| `cloud.puffiness`, `baseHeight` | Vertical lobe radius multiplier (default 1.6) and rounded underside center control (0.9). No horizontal clipping plane. |
+| `cloud.lobeBlend`, `bellyRoundness`, `shadowDepth` | Puff blending (0.16), rounded underside radius (0.23), and pale curved shadow depth (0.15). Preserve crisp native pixels without angular shading planes. |
+| `cloud.sizeVariation`, `altitudeRange` | Bounded size variation (0.2) and fallback altitude interval ([0.08, 0.58]); explicit layer altitude ranges override the fallback. |
 | `cloud.shapes` | Named rounded, broad, towering and twin-peaked silhouettes. Each has width/height multipliers and optional lobe overrides; omitted lobes inherit the base template. Shapes repeat deterministically across the field. |
+| `cloud.layers` | Two layers in drawing order: far (0.7× size, 0.45× drift) then near (1.15× size, 1.4× drift). Each has an altitude interval. Total cloud count is divided between the layers; reduced motion freezes both. |
 | `grass.*` | Reusable tuft size, blade height, and texture-cluster width. The ground is always a grass meadow. |
 
 The validation function rejects out-of-range values and malformed palette/ramp

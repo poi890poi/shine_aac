@@ -1,0 +1,5 @@
+Mountain photograph: 日出前的北大武山 by Greenigor (2016-02-10).
+https://commons.wikimedia.org/wiki/File:日出前的北大武山.jpg
+CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
+Changes: Crop; source-specific sky matte; uniform BOX reduction; four-tone daylight blue-green mapping. No generated or perturbed mountain geometry.
+The adapted mountain image and composed review image are distributed under CC BY-SA 4.0. No endorsement implied.

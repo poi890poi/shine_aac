@@ -1,0 +1,75 @@
+{
+  "status": "partial-review-ready-mountain-source-selection-pending",
+  "date": "2026-09-06",
+  "scope": "Static artwork review only; no app integration",
+  "decisions": {
+    "cloudDesignAccepted": true,
+    "cloudNativeGridCertified": false,
+    "cottages": "Flat front elevations of modest early rural Taiwanese homes",
+    "flowers": "Existing approved heads and stems; more approved leaf clusters at varied uniform sizes",
+    "mountains": "Recognizable high mountains viewed from lowlands; static licensed photograph only"
+  },
+  "mountainTargets": [
+    {
+      "mountain": "北大武山",
+      "viewFrom": "屏東"
+    },
+    {
+      "mountain": "玉山",
+      "viewFrom": "嘉義"
+    },
+    {
+      "mountain": "南湖大山",
+      "viewFrom": "宜蘭"
+    },
+    {
+      "mountain": "奇萊",
+      "viewFrom": "花蓮"
+    }
+  ],
+  "superseded": [
+    "mountains-review.png",
+    "mountains-photo-review.png",
+    "mountains-dongli-review.png",
+    "cottages-review.png",
+    "cottages-front-review.png",
+    "garden-layers-review.png",
+    "garden-taiwan-review.png"
+  ],
+  "files": [
+    {
+      "file": "cottages-taiwan-review.png",
+      "sha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3",
+      "method": "Built-in imagegen; new historically informed candidate",
+      "prompt": "cottages-taiwan-prompt.txt",
+      "https": "https://though-ham-hang-applications.trycloudflare.com/cottages-taiwan-review.png",
+      "https200AndSha256Verified": true
+    },
+    {
+      "file": "flowers-leaves-review.png",
+      "sha256": "eb81a9d378efe119b87d908bb18981ada7a3e77d10074c0f50f490dbdb53af3c",
+      "method": "Existing approved flower painter and leaf crops, review-only composition",
+      "https": "https://though-ham-hang-applications.trycloudflare.com/flowers-leaves-review.png",
+      "https200AndSha256Verified": true
+    }
+  ],
+  "sourceCandidates": [
+    {
+      "fileTitle": "日出前的北大武山.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:日出前的北大武山.jpg",
+      "author": "Greenigor",
+      "license": "CC BY-SA 4.0",
+      "viewpoint": "大新村, 內埔鄉, 屏東; looking up toward 北大武山",
+      "status": "File-page description and license read; license-scope preference pending; not downloaded or transformed"
+    }
+  ],
+  "validation": {
+    "visualReview": true,
+    "headlessReviewRenderCompleted": true,
+    "nativePixelGridCertified": false,
+    "exactPaletteCertified": false,
+    "physicalDeviceUsed": false,
+    "appIntegrated": false
+  },
+  "notes": "Do not use earlier generated scenes as the accepted mountain composition. High mountain profile and viewpoint must be verified against selected source before transformation. Native-grid and palette cleanup remain required before app integration. A stylistic imagegen interpretation is not a literal quantization or a geographic shape certificate."
+}

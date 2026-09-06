@@ -1,0 +1,20 @@
+{
+  "status": "pending-user-review",
+  "date": "2026-09-06",
+  "scope": "Static artwork review only; no app integration",
+  "files": [
+    {"file":"flowers-review.png","sha256":"62eea1fc9e02d6c97dbe4b75ebdb04b1eccc36faef60f15fdf45921df52a2ecb","method":"Headless browser rendering of existing paintFlower at native size and integer zoom","script":"../../../scripts/render-flower-review.mjs"},
+    {"file":"clouds-review.png","sha256":"48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f","method":"imagegen candidate with approved flower sheet as style-only reference","sourceOutput":"exec-ed019bc6-407e-42d8-8273-5905b10b06ad.png"},
+    {"file":"mountains-review.png","sha256":"7d4a74ab5397ebd328055131d722db5fc19847f1f8173d633459bd367e1bdd42","method":"imagegen concept atlas with two corrective edits","sourceOutput":"exec-2a79bdca-2fed-4950-9d53-f784178dc63a.png"}
+  ],
+  "validation": {
+    "reviewSheetsVisuallyInspected": true,
+    "httpsDownloadsVerifiedByHash": true,
+    "nativePixelGridCertified": false,
+    "exactThreeTonePaletteCertified": false,
+    "geographicProfilesCertified": false,
+    "userApproved": false,
+    "physicalDeviceUsed": false
+  },
+  "notes": "Flower sheet documents current output, not a newly approved variation set. Cloud candidates restore interior puff shading but still require native-grid cleanup. Mountain profiles are artistic interpretations; image labels are not geographic shape evidence. Do not promote these candidates merely because generation succeeded."
+}

@@ -41,6 +41,7 @@ await copyInPlace(join(moduleRoot, "index.html"), join(output, "index.html"));
 await copyInPlace(join(moduleRoot, "art-lab.html"), join(output, "art-lab.html"));
 await copyDirectoryInPlace(join(moduleRoot, "src"), join(output, "src"));
 await copyDirectoryInPlace(join(moduleRoot, "rules"), join(output, "rules"));
+await copyDirectoryInPlace(join(moduleRoot,'assets','scenery'),join(output,'assets','scenery'));
 for(const name of ['magpie-v1.png','flower-v1.png']) await copyInPlace(
   join(moduleRoot,'assets','candidates','shape-preserving-20260905',name),
   join(output,'assets','candidates','shape-preserving-20260905',name));

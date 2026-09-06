@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0-review",
+  "source": "assets/candidates/scenery-review-20260906/beidawu-source.jpg",
+  "sha256": "319598811793d5df11d844734efe4b2616c9b15ca8fd587a61bb263e8a7c9892",
+  "title": "日出前的北大武山",
+  "author": "Greenigor",
+  "date": "2016-02-10",
+  "viewpoint": "Looking up from 大新村, 內埔鄉, 屏東",
+  "sourcePage": "https://commons.wikimedia.org/wiki/File:日出前的北大武山.jpg",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "crop": [0, 950, 4608, 1370],
+  "nativeWidth": 480,
+  "matte": {"maximumLuminance": 112, "minimumBlueMinusRed": -12, "verticalRun": 16},
+  "toneMedianSize": 5,
+  "toneStops": [48, 61, 74],
+  "palette": ["#52777f", "#678e9c", "#87aaba", "#a6c4cc"],
+  "baseY": 520,
+  "adaptation": "Crop; source-specific sky matte; uniform BOX reduction; four-tone daylight blue-green mapping. No generated or perturbed mountain geometry.",
+  "status": "Photo and viewpoint verified; converted artwork pending visual acceptance"
+}

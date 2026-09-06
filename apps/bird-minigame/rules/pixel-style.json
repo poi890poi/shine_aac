@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "ruleVersion": "1.2.0",
+  "ruleVersion": "1.4.0",
   "intent": "One deliberately drawn pixel language across every garden object. Geometry is rasterized onto one square grid, never filtered from mixed-resolution art.",
-  "grid": { "minimumWidth": 320, "columnPitch": 40, "minimumHeight": 320, "maximumHeight": 760 },
+  "grid": { "minimumWidth": 480, "columnPitch": 60, "minimumHeight": 320, "maximumHeight": 1200 },
   "outline": { "width": 1, "foreground": "ink", "background": "cloudShadow" },
   "shading": { "bands": 3, "lightDirection": [-1, -1], "highlightThreshold": -0.25, "shadowThreshold": 0.4 },
   "clusters": { "minimumArea": 3, "textureDensity": 0.16, "singlePixelExceptions": ["eyes", "bill tip", "grass blade tips", "liquid splash tips"] },
@@ -12,6 +12,11 @@
   "cloud": {
     "count": 6, "width": 88, "height": 38, "sizeVariation": 0.2,
     "altitudeRange": [0.08, 0.58], "puffiness": 1.6, "baseHeight": 0.9,
+    "lobeBlend": 0.16, "bellyRoundness": 0.23, "shadowDepth": 0.15,
+    "layers": [
+      { "name": "far", "scale": 0.7, "speedMultiplier": 0.45, "altitudeRange": [0.08, 0.35] },
+      { "name": "near", "scale": 1.15, "speedMultiplier": 1.4, "altitudeRange": [0.22, 0.58] }
+    ],
     "lobeCenters": [[0.18, 0.66, 0.18], [0.42, 0.46, 0.27], [0.7, 0.61, 0.22], [0.86, 0.75, 0.13]],
     "shapes": [
       { "name": "rounded", "widthScale": 1, "heightScale": 1 },
@@ -25,11 +30,11 @@
   },
   "grass": { "tileSize": 16, "bladeHeight": 4, "tuftWidth": 5 },
   "palette": {
-    "ink": "#20243a", "white": "#ffffff", "sky": "#91d5db", "cloudShadow": "#65a8c0",
+    "ink": "#20243a", "white": "#ffffff", "sky": "#91d5db", "cloudShadow": "#81b9c7",
     "blueShadow": "#344b88", "blue": "#4876bd", "blueLight": "#83b5dd",
     "greenShadow": "#386541", "green": "#69a64b", "greenLight": "#a5cc62",
     "petalShadow": "#aa4863", "petal": "#e5788c", "petalLight": "#ffc1a0",
-    "goldShadow": "#be793d", "gold": "#f2ca67", "cloudLight": "#d8ead8"
+    "goldShadow": "#be793d", "gold": "#f2ca67", "cloudLight": "#d6ebe8"
   },
   "ramps": {
     "bird": ["blueShadow", "blue", "blueLight"], "plant": ["greenShadow", "green", "greenLight"],

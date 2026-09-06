@@ -5,6 +5,16 @@ The earlier procedural bird and flower art remains rejected. See
 `research/SHAPE_CONSISTENCY_AUDIT.md`.
 Last updated: 2026-09-06.
 
+Scenery acceptance, September 6: use the reviewed shaded cloud sprites in far/slow
+and near/fast layers, the approved whole flowers with fuller varied leaves, two
+equal sunny Taiwanese cottages, rice fields, and the attributed static Beidawu
+photograph conversion. `src/reviewed-scenery.js` owns this integrated artwork.
+Cloud motion changes translation only. The reference grid is 480 pixels wide;
+adaptive portrait height and integer display scaling preserve the accepted pixels.
+Source/license records are in `assets/scenery/ATTRIBUTION.txt` and
+`rules/mountain-photo.json`. These photo conversions do not alter gameplay.
+Full-length POC videos preserve every flyby at normal speed through settled landing.
+
 This is the source of truth for the standalone bird mini-game and its later SHINE
 AAC integration. Read it before changing gameplay, art, input, or rewards. Tests
 must protect its requirements. A plausible implementation is not evidence that
@@ -156,7 +166,9 @@ frame rates, off-screen turns, horizontal travel, flare, and pause/resume.
 - Clouds move slowly behind the action and never affect collisions. Reduced
   motion stops decorative cloud motion and suppresses unnecessary recoil/shaking.
 - The six-cloud field uses rounded, broad, towering and twin-peaked parameterized
-  silhouettes. Whole-plant variants include petal palette, fixed uniform head size,
+  silhouettes with blended round puffs and a soft curved underside. Draw three
+  distant, smaller, slower clouds behind three nearby, larger, faster clouds.
+  Both layers remain behind characters. Whole-plant variants include petal palette, fixed uniform head size,
   stem thickness/curve/green ramp, and leaf size/count/placement. Variant identity
   stays fixed per AAC column across hits; stems remain continuous as they shorten.
 - Cute, brief effects accompany release, impact, recovery, and landing. Provide

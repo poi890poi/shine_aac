@@ -1,0 +1,277 @@
+{
+  "status": "candidate; visual review separate from technical checks",
+  "python": "3.12.14",
+  "pillow": "12.3.0",
+  "numpy": "2.3.5",
+  "profileSha256": "12d3557a5efd02e5ee8c727462b3378dca363ad6323b35e62046eb6c66e201bb",
+  "scriptSha256": "4524af77ff5f60fe5ad131c902f17779d76edcb81049f1c527bbb8239bce378c",
+  "vendorSha256": "92ab0d74e664092154580c6a80e78b88ad868bf93e667352e471bcba39e69583",
+  "records": [
+    {
+      "id": "cottage",
+      "method": "nearest",
+      "split": "development",
+      "file": "cottage-nearest.png",
+      "sha256": "7941bd5d66a3d1161bf26de0173a4d0cbf686b582b434e2f5b44cce1100b209c",
+      "size": [
+        84,
+        44
+      ],
+      "opaqueColors": 12,
+      "alphaSha256": "1b011c478977ae660a28356c1b91107767476a5de8f6f0ab9cedd7d6f045a0a1",
+      "conversionSeconds": 0.0059,
+      "sourceSha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3"
+    },
+    {
+      "id": "cottage",
+      "method": "box",
+      "split": "development",
+      "file": "cottage-box.png",
+      "sha256": "ed285a635a478236f12bccf7a1f285ef8993159d0f6df287aeb6507cd1205d9c",
+      "size": [
+        84,
+        44
+      ],
+      "opaqueColors": 10,
+      "alphaSha256": "1b011c478977ae660a28356c1b91107767476a5de8f6f0ab9cedd7d6f045a0a1",
+      "conversionSeconds": 0.0044,
+      "sourceSha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3"
+    },
+    {
+      "id": "cottage",
+      "method": "k-centroid",
+      "split": "development",
+      "file": "cottage-k-centroid.png",
+      "sha256": "5b57e8eac16d4948d40f36458b88ce8637dcbd8e80f10b8f362aaa3cef9ff33c",
+      "size": [
+        84,
+        44
+      ],
+      "opaqueColors": 10,
+      "alphaSha256": "1b011c478977ae660a28356c1b91107767476a5de8f6f0ab9cedd7d6f045a0a1",
+      "conversionSeconds": 0.1318,
+      "sourceSha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3"
+    },
+    {
+      "id": "cloud-a",
+      "method": "nearest",
+      "split": "development",
+      "file": "cloud-a-nearest.png",
+      "sha256": "f6816c5997cd7c9a2f3e8cb740e29a5e40da18300e782394061d727f26ba1932",
+      "size": [
+        88,
+        41
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "ed1dc021ec80be8bd241fa67caa49ad4ebc96bafc1d9a100fe4f2084bd46a84a",
+      "conversionSeconds": 0.0047,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-a",
+      "method": "box",
+      "split": "development",
+      "file": "cloud-a-box.png",
+      "sha256": "66050cdc68c70b1eb291077619a7ad4577ca6e19651e6ebdb6035044f4e3a2a3",
+      "size": [
+        88,
+        41
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "ed1dc021ec80be8bd241fa67caa49ad4ebc96bafc1d9a100fe4f2084bd46a84a",
+      "conversionSeconds": 0.0043,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-a",
+      "method": "k-centroid",
+      "split": "development",
+      "file": "cloud-a-k-centroid.png",
+      "sha256": "09e99a08b549275ec57b1de13fdd07e974d667b9d45d1c295ed34fb9154ba3ae",
+      "size": [
+        88,
+        41
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "ed1dc021ec80be8bd241fa67caa49ad4ebc96bafc1d9a100fe4f2084bd46a84a",
+      "conversionSeconds": 0.0951,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-e",
+      "method": "nearest",
+      "split": "holdout",
+      "file": "cloud-e-nearest.png",
+      "sha256": "069b8eb95232800d938fcedb0b48a5dc696fec7e45f559dd72c7480193f038ad",
+      "size": [
+        88,
+        55
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "782623f739e0b9f7244b67e7e0cc23b8bdeee09277ec220c76f25d799ef80653",
+      "conversionSeconds": 0.005,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-e",
+      "method": "box",
+      "split": "holdout",
+      "file": "cloud-e-box.png",
+      "sha256": "9ddd4132c12508e433c00b79cc6af2dae38b0bae8c25ded507961b693ecfa087",
+      "size": [
+        88,
+        55
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "782623f739e0b9f7244b67e7e0cc23b8bdeee09277ec220c76f25d799ef80653",
+      "conversionSeconds": 0.005,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-e",
+      "method": "k-centroid",
+      "split": "holdout",
+      "file": "cloud-e-k-centroid.png",
+      "sha256": "b7553be7b6c0675461ee72b4281110ca47c4e813d731af8d9a954eff8a65edb6",
+      "size": [
+        88,
+        55
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "782623f739e0b9f7244b67e7e0cc23b8bdeee09277ec220c76f25d799ef80653",
+      "conversionSeconds": 0.119,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "flower-head",
+      "method": "nearest",
+      "split": "holdout",
+      "file": "flower-head-nearest.png",
+      "sha256": "99403db8f078b197767719b3bbd2ab14d22b4ccb9b6ad3de9d6f48ca3969b0d9",
+      "size": [
+        44,
+        41
+      ],
+      "opaqueColors": 11,
+      "alphaSha256": "1d150b11418825a11f5738e92a8ac27c39b3cd4de75e25e00341ad15c79030e2",
+      "conversionSeconds": 0.0037,
+      "sourceSha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec"
+    },
+    {
+      "id": "flower-head",
+      "method": "box",
+      "split": "holdout",
+      "file": "flower-head-box.png",
+      "sha256": "a175c4a21424fe2797ebcd95138614aeaad6e3b9592c8d242f76df0506f07994",
+      "size": [
+        44,
+        41
+      ],
+      "opaqueColors": 11,
+      "alphaSha256": "1d150b11418825a11f5738e92a8ac27c39b3cd4de75e25e00341ad15c79030e2",
+      "conversionSeconds": 0.0044,
+      "sourceSha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec"
+    },
+    {
+      "id": "flower-head",
+      "method": "k-centroid",
+      "split": "holdout",
+      "file": "flower-head-k-centroid.png",
+      "sha256": "039fe13ee093d3e864b36eba137eaa75e5a3d1d55230bcb6d4ed44f6920ea6cf",
+      "size": [
+        44,
+        41
+      ],
+      "opaqueColors": 8,
+      "alphaSha256": "1d150b11418825a11f5738e92a8ac27c39b3cd4de75e25e00341ad15c79030e2",
+      "conversionSeconds": 0.0644,
+      "sourceSha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec"
+    },
+    {
+      "id": "photo-fixture",
+      "method": "nearest",
+      "split": "holdout",
+      "file": "photo-fixture-nearest.png",
+      "sha256": "65cfa7f50f12e68f5b8c86215d362c1c5b63153f1386f975d565538138970d8f",
+      "size": [
+        320,
+        67
+      ],
+      "opaqueColors": 6,
+      "alphaSha256": "f32000acdbca17523690e6cfd359334c9641fb83d68e18bac6c3148a11294dc1",
+      "conversionSeconds": 0.0189,
+      "sourceSha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128"
+    },
+    {
+      "id": "photo-fixture",
+      "method": "box",
+      "split": "holdout",
+      "file": "photo-fixture-box.png",
+      "sha256": "33df88012f33643c2959eee4fbdcb84ab0c41ffcf14cc8f24d9dbfa94b4fb3bf",
+      "size": [
+        320,
+        67
+      ],
+      "opaqueColors": 6,
+      "alphaSha256": "f32000acdbca17523690e6cfd359334c9641fb83d68e18bac6c3148a11294dc1",
+      "conversionSeconds": 0.0202,
+      "sourceSha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128"
+    },
+    {
+      "id": "photo-fixture",
+      "method": "k-centroid",
+      "split": "holdout",
+      "file": "photo-fixture-k-centroid.png",
+      "sha256": "593abb932f5e5a23a522488b36dc27e56b2db22a91443044f7584138dde7a918",
+      "size": [
+        320,
+        67
+      ],
+      "opaqueColors": 6,
+      "alphaSha256": "f32000acdbca17523690e6cfd359334c9641fb83d68e18bac6c3148a11294dc1",
+      "conversionSeconds": 1.4275,
+      "sourceSha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128"
+    }
+  ],
+  "artifacts": {
+    "cloud-a-box-4x.png": "7a261f34fc6d1c168f6a18d01a4fc04e73d09996c29ebf4b2327b999d20466ac",
+    "cloud-a-box.png": "66050cdc68c70b1eb291077619a7ad4577ca6e19651e6ebdb6035044f4e3a2a3",
+    "cloud-a-k-centroid-4x.png": "9d453103301f29aeb79ff7ca88908ed37766b021e82b9d377ef4c06b16c13e38",
+    "cloud-a-k-centroid.png": "09e99a08b549275ec57b1de13fdd07e974d667b9d45d1c295ed34fb9154ba3ae",
+    "cloud-a-nearest-4x.png": "86e18fd02e8e989266ba91d1e637aca296089963b12afebae205548826af5c95",
+    "cloud-a-nearest.png": "f6816c5997cd7c9a2f3e8cb740e29a5e40da18300e782394061d727f26ba1932",
+    "cloud-a-prepared.png": "8c9b0857c7896b67346cfc81eb524dbd228f16cc4e5d1131d1264313fca91260",
+    "cloud-e-box-4x.png": "ae4ed431cc987639e00b28e267f673a134a74d061321deee5f3f99caba93c0ef",
+    "cloud-e-box.png": "9ddd4132c12508e433c00b79cc6af2dae38b0bae8c25ded507961b693ecfa087",
+    "cloud-e-k-centroid-4x.png": "d8c5ea4dd1fa50cfcfb8c5e7c7c0d6504e5d66e64c9a2989880b9271d868e33b",
+    "cloud-e-k-centroid.png": "b7553be7b6c0675461ee72b4281110ca47c4e813d731af8d9a954eff8a65edb6",
+    "cloud-e-nearest-4x.png": "8703bee7081642d8d058fa6db34cd75039160f52d89f304567d0415a409dba9a",
+    "cloud-e-nearest.png": "069b8eb95232800d938fcedb0b48a5dc696fec7e45f559dd72c7480193f038ad",
+    "cloud-e-prepared.png": "7f51785cd6eef91501b42b19dca59cd8db7d79189cc2624e0dae8dc17ca61cc1",
+    "conversion-comparison.png": "9e88da6109143e602c5a392af0f9998c2b0ed23aa6d8d22556a375d8b8f03973",
+    "cottage-box-4x.png": "efc305d57763201381396857d68312b91b3d7556d098f9e1c3e19cfa30d94d9c",
+    "cottage-box.png": "ed285a635a478236f12bccf7a1f285ef8993159d0f6df287aeb6507cd1205d9c",
+    "cottage-k-centroid-4x.png": "be26fb10bb3fdba86bd5f561b99d4b445351371a99783a2485e2b26e7622b284",
+    "cottage-k-centroid.png": "5b57e8eac16d4948d40f36458b88ce8637dcbd8e80f10b8f362aaa3cef9ff33c",
+    "cottage-nearest-4x.png": "2ae432ccec1591de6ffee7cbd5d47e63cd46b97b7b09f031451d862616903cc3",
+    "cottage-nearest.png": "7941bd5d66a3d1161bf26de0173a4d0cbf686b582b434e2f5b44cce1100b209c",
+    "cottage-prepared.png": "0426c380cb5294bc49d3c26659aea3f5b76c40c9df9c621d981332fc4cf03acb",
+    "flower-head-box-4x.png": "4fc7a203cc762c5483a9651a18cd685c621771151715a6b747d8262c1c32ac79",
+    "flower-head-box.png": "a175c4a21424fe2797ebcd95138614aeaad6e3b9592c8d242f76df0506f07994",
+    "flower-head-k-centroid-4x.png": "c02bf729dd36c17450bd2ca49aae27cde1e50ff77cb6bab619eeb8cb6aa4febc",
+    "flower-head-k-centroid.png": "039fe13ee093d3e864b36eba137eaa75e5a3d1d55230bcb6d4ed44f6920ea6cf",
+    "flower-head-nearest-4x.png": "678a94b54e2d594ae5be5d6631881d7cc0330d5dc26ad85061c4548a4551a016",
+    "flower-head-nearest.png": "99403db8f078b197767719b3bbd2ab14d22b4ccb9b6ad3de9d6f48ca3969b0d9",
+    "flower-head-prepared.png": "08cdd983bb03e9097134903ac415f866ec92b2caab158b067a872cf050d977fe",
+    "photo-conversion-comparison.png": "8c4ed67cff8f7976287e70b06a13658251e4a03ee9bad771143b32af1e845d91",
+    "photo-fixture-box-4x.png": "0e63ea4850ddda5054924d7db1c908fca998866efef66b7c9fd23b312e96a1df",
+    "photo-fixture-box.png": "33df88012f33643c2959eee4fbdcb84ab0c41ffcf14cc8f24d9dbfa94b4fb3bf",
+    "photo-fixture-k-centroid-4x.png": "43a4fd410db4b4b8e661348a46553aa5cf5228b9e05627894c0605ee9dcd6bd6",
+    "photo-fixture-k-centroid.png": "593abb932f5e5a23a522488b36dc27e56b2db22a91443044f7584138dde7a918",
+    "photo-fixture-nearest-4x.png": "0e5579b05963f676ccaf0612f87a03782f38cd2c37edb30f6cbe124395ec6276",
+    "photo-fixture-nearest.png": "65cfa7f50f12e68f5b8c86215d362c1c5b63153f1386f975d565538138970d8f",
+    "photo-fixture-prepared.png": "60134150c4a2d5415e8833ef57203c4319c83091d968ee0594afc9c3a7b6eec9",
+    "rice-cottages-native.png": "eedfebd22f703bfb38cef87c72ddc6c4237607bfbfa055bcdbc04e5b99f50182",
+    "rice-cottages-review.png": "cd4fde42bb7fae31bc78e90be2eef134f2c05cceb68a87a78d3151154ae4c3ab"
+  }
+}

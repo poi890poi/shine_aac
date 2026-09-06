@@ -1,0 +1,262 @@
+{
+  "status": "candidate; visual review separate from technical checks",
+  "python": "3.12.14",
+  "pillow": "12.3.0",
+  "numpy": "2.3.5",
+  "profileSha256": "00efc1ef9e5c0e22560bb26c98414839ace2e96423bb69e3e7734db9f9cc80ba",
+  "scriptSha256": "96518c9624abf7ebcc6ce10ec257d9c241d4b2ba76432e43e9dab1e1f1e5a819",
+  "vendorSha256": "92ab0d74e664092154580c6a80e78b88ad868bf93e667352e471bcba39e69583",
+  "records": [
+    {
+      "id": "cottage",
+      "method": "nearest",
+      "split": "development",
+      "file": "cottage-nearest.png",
+      "sha256": "7941bd5d66a3d1161bf26de0173a4d0cbf686b582b434e2f5b44cce1100b209c",
+      "size": [
+        84,
+        44
+      ],
+      "opaqueColors": 12,
+      "alphaSha256": "1b011c478977ae660a28356c1b91107767476a5de8f6f0ab9cedd7d6f045a0a1",
+      "conversionSeconds": 0.0052,
+      "sourceSha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3"
+    },
+    {
+      "id": "cottage",
+      "method": "box",
+      "split": "development",
+      "file": "cottage-box.png",
+      "sha256": "ed285a635a478236f12bccf7a1f285ef8993159d0f6df287aeb6507cd1205d9c",
+      "size": [
+        84,
+        44
+      ],
+      "opaqueColors": 10,
+      "alphaSha256": "1b011c478977ae660a28356c1b91107767476a5de8f6f0ab9cedd7d6f045a0a1",
+      "conversionSeconds": 0.0049,
+      "sourceSha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3"
+    },
+    {
+      "id": "cottage",
+      "method": "k-centroid",
+      "split": "development",
+      "file": "cottage-k-centroid.png",
+      "sha256": "5b57e8eac16d4948d40f36458b88ce8637dcbd8e80f10b8f362aaa3cef9ff33c",
+      "size": [
+        84,
+        44
+      ],
+      "opaqueColors": 10,
+      "alphaSha256": "1b011c478977ae660a28356c1b91107767476a5de8f6f0ab9cedd7d6f045a0a1",
+      "conversionSeconds": 0.1125,
+      "sourceSha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3"
+    },
+    {
+      "id": "cloud-a",
+      "method": "nearest",
+      "split": "development",
+      "file": "cloud-a-nearest.png",
+      "sha256": "1133adb3f2a09f57d0c52f654520ae6e0495770c246fbbf5f4c6f5a50ec745be",
+      "size": [
+        88,
+        41
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "a26cc9dc8839da08b3a7e3faa7df9b6121e17d29494f901fa4812775a3fe157f",
+      "conversionSeconds": 0.0037,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-a",
+      "method": "box",
+      "split": "development",
+      "file": "cloud-a-box.png",
+      "sha256": "327fd4023e27a054a266210b433e85288765d4fb0bd5078f6e97d66e1fffc726",
+      "size": [
+        88,
+        41
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "a26cc9dc8839da08b3a7e3faa7df9b6121e17d29494f901fa4812775a3fe157f",
+      "conversionSeconds": 0.0039,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-a",
+      "method": "k-centroid",
+      "split": "development",
+      "file": "cloud-a-k-centroid.png",
+      "sha256": "31f75eeaa3dcbe81b79ec5ed6fdbfba188f5b8c5f597f073fb42b1369dbdabdf",
+      "size": [
+        88,
+        41
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "a26cc9dc8839da08b3a7e3faa7df9b6121e17d29494f901fa4812775a3fe157f",
+      "conversionSeconds": 0.0853,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-e",
+      "method": "nearest",
+      "split": "holdout",
+      "file": "cloud-e-nearest.png",
+      "sha256": "ac96fa89654e38effd0efbb80ba5e2ed138f59e880ad1e677657b394b89de5e7",
+      "size": [
+        88,
+        55
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "0aed2b05684c67e2d2c9607a6fa577677e95763b7d225dbc73aa848f0aae03a6",
+      "conversionSeconds": 0.0048,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-e",
+      "method": "box",
+      "split": "holdout",
+      "file": "cloud-e-box.png",
+      "sha256": "ee3a617421894db09f92253c5d79b402b86980e8c79e28913af894a54e41ca38",
+      "size": [
+        88,
+        55
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "0aed2b05684c67e2d2c9607a6fa577677e95763b7d225dbc73aa848f0aae03a6",
+      "conversionSeconds": 0.0052,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "cloud-e",
+      "method": "k-centroid",
+      "split": "holdout",
+      "file": "cloud-e-k-centroid.png",
+      "sha256": "0cb9f70cb7308e4d4311df0f9716c683efa500f706d7d0b6b086e93ed7f953f8",
+      "size": [
+        88,
+        55
+      ],
+      "opaqueColors": 3,
+      "alphaSha256": "0aed2b05684c67e2d2c9607a6fa577677e95763b7d225dbc73aa848f0aae03a6",
+      "conversionSeconds": 0.1114,
+      "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f"
+    },
+    {
+      "id": "flower-head",
+      "method": "nearest",
+      "split": "holdout",
+      "file": "flower-head-nearest.png",
+      "sha256": "31f3c1703a558dfa495b85ca6fd5495c947335a1d5989df78e5fbda14d1dd4e1",
+      "size": [
+        44,
+        40
+      ],
+      "opaqueColors": 10,
+      "alphaSha256": "decd095b24f5cff79bde6f513c62bbf1563477962dc455e4912b3803da247e3a",
+      "conversionSeconds": 0.0032,
+      "sourceSha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec"
+    },
+    {
+      "id": "flower-head",
+      "method": "box",
+      "split": "holdout",
+      "file": "flower-head-box.png",
+      "sha256": "c64a3ef5a9d9c9f1c7b20474c3a9fc8dcd24736c58df274c7d7575356a721e4f",
+      "size": [
+        44,
+        40
+      ],
+      "opaqueColors": 11,
+      "alphaSha256": "decd095b24f5cff79bde6f513c62bbf1563477962dc455e4912b3803da247e3a",
+      "conversionSeconds": 0.0041,
+      "sourceSha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec"
+    },
+    {
+      "id": "flower-head",
+      "method": "k-centroid",
+      "split": "holdout",
+      "file": "flower-head-k-centroid.png",
+      "sha256": "b1d2e781782e947cea7e4a4ae1b6ebb19c8d0ce8323424afe67e2f651dfb84a5",
+      "size": [
+        44,
+        40
+      ],
+      "opaqueColors": 8,
+      "alphaSha256": "decd095b24f5cff79bde6f513c62bbf1563477962dc455e4912b3803da247e3a",
+      "conversionSeconds": 0.062,
+      "sourceSha256": "00fcbff03661c7cb5bf0a512d788c259cb986347ded99eeb8d309105a4cf60ec"
+    },
+    {
+      "id": "photo-fixture",
+      "method": "nearest",
+      "split": "holdout",
+      "file": "photo-fixture-nearest.png",
+      "sha256": "65cfa7f50f12e68f5b8c86215d362c1c5b63153f1386f975d565538138970d8f",
+      "size": [
+        320,
+        67
+      ],
+      "opaqueColors": 6,
+      "alphaSha256": "f32000acdbca17523690e6cfd359334c9641fb83d68e18bac6c3148a11294dc1",
+      "conversionSeconds": 0.0181,
+      "sourceSha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128"
+    },
+    {
+      "id": "photo-fixture",
+      "method": "box",
+      "split": "holdout",
+      "file": "photo-fixture-box.png",
+      "sha256": "33df88012f33643c2959eee4fbdcb84ab0c41ffcf14cc8f24d9dbfa94b4fb3bf",
+      "size": [
+        320,
+        67
+      ],
+      "opaqueColors": 6,
+      "alphaSha256": "f32000acdbca17523690e6cfd359334c9641fb83d68e18bac6c3148a11294dc1",
+      "conversionSeconds": 0.0203,
+      "sourceSha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128"
+    },
+    {
+      "id": "photo-fixture",
+      "method": "k-centroid",
+      "split": "holdout",
+      "file": "photo-fixture-k-centroid.png",
+      "sha256": "593abb932f5e5a23a522488b36dc27e56b2db22a91443044f7584138dde7a918",
+      "size": [
+        320,
+        67
+      ],
+      "opaqueColors": 6,
+      "alphaSha256": "f32000acdbca17523690e6cfd359334c9641fb83d68e18bac6c3148a11294dc1",
+      "conversionSeconds": 1.0802,
+      "sourceSha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128"
+    }
+  ],
+  "artifacts": {
+    "cloud-a-box.png": "327fd4023e27a054a266210b433e85288765d4fb0bd5078f6e97d66e1fffc726",
+    "cloud-a-k-centroid.png": "31f75eeaa3dcbe81b79ec5ed6fdbfba188f5b8c5f597f073fb42b1369dbdabdf",
+    "cloud-a-nearest.png": "1133adb3f2a09f57d0c52f654520ae6e0495770c246fbbf5f4c6f5a50ec745be",
+    "cloud-a-prepared.png": "217b600728b210d2b217c7e3944bad5bca5de132a9c3b8d85e99d2c664320465",
+    "cloud-e-box.png": "ee3a617421894db09f92253c5d79b402b86980e8c79e28913af894a54e41ca38",
+    "cloud-e-k-centroid.png": "0cb9f70cb7308e4d4311df0f9716c683efa500f706d7d0b6b086e93ed7f953f8",
+    "cloud-e-nearest.png": "ac96fa89654e38effd0efbb80ba5e2ed138f59e880ad1e677657b394b89de5e7",
+    "cloud-e-prepared.png": "5df26059f2b929c506c4b17a8b96c69066018ad9e306f9cf19e00194b944eb00",
+    "conversion-comparison.png": "33aa57381f7f63f48b479ede2978d654785df65850789dcc926aa760afdb5668",
+    "cottage-box.png": "ed285a635a478236f12bccf7a1f285ef8993159d0f6df287aeb6507cd1205d9c",
+    "cottage-k-centroid.png": "5b57e8eac16d4948d40f36458b88ce8637dcbd8e80f10b8f362aaa3cef9ff33c",
+    "cottage-nearest.png": "7941bd5d66a3d1161bf26de0173a4d0cbf686b582b434e2f5b44cce1100b209c",
+    "cottage-prepared.png": "0426c380cb5294bc49d3c26659aea3f5b76c40c9df9c621d981332fc4cf03acb",
+    "flower-head-box.png": "c64a3ef5a9d9c9f1c7b20474c3a9fc8dcd24736c58df274c7d7575356a721e4f",
+    "flower-head-k-centroid.png": "b1d2e781782e947cea7e4a4ae1b6ebb19c8d0ce8323424afe67e2f651dfb84a5",
+    "flower-head-nearest.png": "31f3c1703a558dfa495b85ca6fd5495c947335a1d5989df78e5fbda14d1dd4e1",
+    "flower-head-prepared.png": "08cdd983bb03e9097134903ac415f866ec92b2caab158b067a872cf050d977fe",
+    "photo-conversion-comparison.png": "8c4ed67cff8f7976287e70b06a13658251e4a03ee9bad771143b32af1e845d91",
+    "photo-fixture-box.png": "33df88012f33643c2959eee4fbdcb84ab0c41ffcf14cc8f24d9dbfa94b4fb3bf",
+    "photo-fixture-k-centroid.png": "593abb932f5e5a23a522488b36dc27e56b2db22a91443044f7584138dde7a918",
+    "photo-fixture-nearest.png": "65cfa7f50f12e68f5b8c86215d362c1c5b63153f1386f975d565538138970d8f",
+    "photo-fixture-prepared.png": "60134150c4a2d5415e8833ef57203c4319c83091d968ee0594afc9c3a7b6eec9",
+    "rice-cottages-native.png": "866db976a4ce5ea26488765c553b2987409b1c95ba92750ae9bcbcca35a1a525",
+    "rice-cottages-review.png": "16d29bd425f9ccb0a29d7b5a8036b0142ea3628fc349b3e18967273d3b748664"
+  }
+}

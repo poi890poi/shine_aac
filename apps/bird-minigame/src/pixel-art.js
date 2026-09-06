@@ -19,7 +19,7 @@ export class PixelSurface {
       this.data.fill(this.indices[color],py*this.width+start,py*this.width+end);
   }
   clear(color) {this.data.fill(this.indices[color]);}
-  shape(bounds,inside,material,{outline=this.style.outline.foreground,flat=null,normalAt=null}={}) {
+  shape(bounds,inside,material,{outline=this.style.outline.foreground,flat=null,normalAt=null,colorAt=null}={}) {
     const [left,top,right,bottom]=bounds.map(Math.round),radius=this.style.outline.width;
     const ramp=this.style.ramps[material],light=this.style.shading.lightDirection,norm=Math.hypot(...light);
     for(let y=Math.max(0,top);y<=Math.min(this.height-1,bottom);y++)for(let x=Math.max(0,left);x<=Math.min(this.width-1,right);x++) {
@@ -29,7 +29,7 @@ export class PixelSurface {
       const [nx,ny]=normalAt?normalAt(x,y):[(x-(left+right)/2)/Math.max(1,(right-left)/2),(y-(top+bottom)/2)/Math.max(1,(bottom-top)/2)];
       const away=-(nx*light[0]+ny*light[1])/norm;
       const band=away>this.style.shading.shadowThreshold?0:this.style.shading.bands===3&&away<this.style.shading.highlightThreshold?2:1;
-      this.pixel(x,y,edge?outline:flat??ramp[band]);
+      this.pixel(x,y,edge?outline:colorAt?.(x,y)??flat??ramp[band]);
     }
   }
   ellipse(cx,cy,rx,ry,material,options) {
@@ -156,27 +156,60 @@ export function drawCloud(p,x,y,scale=1,shapeIndex=0) {
   const s=p.style.cloud,shape=s.shapes?.[shapeIndex%s.shapes.length]??{};
   const w=Math.round(s.width*scale*(shape.widthScale??1)),h=Math.round(s.height*scale*(shape.heightScale??1));
   x=Math.round(x);y=Math.round(y);
-  const lobes=(shape.lobeCenters??s.lobeCenters).map(([cx,cy,r])=>[Math.round(x+cx*w),Math.round(y+cy*h),Math.max(1,Math.round(r*w)),Math.max(1,Math.round(r*h*(s.puffiness??1.6)))]);
-  const bottom=y+Math.round(h*(s.baseHeight??0.9));
-  p.shape([x,y,x+w,bottom],(px,py)=>px>=x&&px<=x+w&&py>=y&&py<=bottom&&lobes.some(([cx,cy,rx,ry])=>
-    ((px-cx)/rx)**2+((py-cy)/ry)**2<=1),'cloud',{outline:p.style.outline.background,
-      normalAt:(px,py)=>{
-        let best=Infinity,normal=[0,0];
-        for(const [cx,cy,rx,ry] of lobes){const nx=(px-cx)/rx,ny=(py-cy)/ry,d=nx*nx+ny*ny;if(d<best){best=d;normal=[nx,ny];}}
-        return normal;
-      }});
+  // Cache native tiles while clouds drift; rebuilding the silhouette every frame
+  // would repeat the same geometry work. Parameter edits invalidate all tiles.
+  const signature=JSON.stringify([s,p.style.outline,p.style.shading]);
+  if(p.cloudCache?.signature!==signature)p.cloudCache={signature,tiles:new Map()};
+  const key=`${shapeIndex}:${w}:${h}`;
+  let tile=p.cloudCache.tiles.get(key);
+  if(!tile) {
+    const raw=(shape.lobeCenters??s.lobeCenters).map(([cx,cy,r])=>[cx,cy,r,r*(s.puffiness??1.6)]);
+    // A rounded belly joins the puffs; baseHeight positions it instead of cutting
+    // every lobe at a horizontal line, which previously produced sharp corners.
+    raw.push([.5,(s.baseHeight??.9)-.17,.43,s.bellyRoundness??.23]);
+    const left=Math.min(...raw.map(v=>v[0]-v[2])),right=Math.max(...raw.map(v=>v[0]+v[2]));
+    const top=Math.min(...raw.map(v=>v[1]-v[3])),bottom=Math.max(...raw.map(v=>v[1]+v[3]));
+    const lobes=raw.map(([cx,cy,rx,ry])=>[2+(cx-left)*w/(right-left),2+(cy-top)*h/(bottom-top),rx*w/(right-left),ry*h/(bottom-top)]);
+    tile=new PixelSurface(w+5,h+5,p.style);tile.data.fill(255);
+    const mask=new Uint8Array(tile.width*tile.height),blend=(s.lobeBlend??.16)*h;
+    for(let py=0;py<tile.height;py++)for(let px=0;px<tile.width;px++) {
+      let distance=Infinity;
+      for(const [cx,cy,rx,ry] of lobes) {
+        const d=(Math.hypot((px-cx)/rx,(py-cy)/ry)-1)*Math.min(rx,ry);
+        const join=Math.max(blend-Math.abs(distance-d),0)/blend;
+        distance=Math.min(distance,d)-join*join*blend*.25;
+      }
+      mask[py*tile.width+px]=distance<=0?1:0;
+    }
+    const inside=(px,py)=>px>=0&&py>=0&&px<tile.width&&py<tile.height&&mask[py*tile.width+px]===1;
+    const light=p.style.shading.lightDirection,norm=Math.hypot(...light),depth=Math.max(2,Math.round(h*(s.shadowDepth??.15)));
+    const dx=Math.round(-light[0]/norm*depth*.6),dy=Math.round(-light[1]/norm*depth);
+    tile.shape([0,0,tile.width-1,tile.height-1],inside,'cloud',{outline:p.style.outline.background,
+      // A pale, curved underside, rather than diagonal planes across each puff.
+      colorAt:(px,py)=>inside(px+dx,py+dy)?'white':'cloudLight'});
+    p.cloudCache.tiles.set(key,tile);
+  }
+  for(let py=0;py<tile.height;py++)for(let px=0;px<tile.width;px++) {
+    const color=tile.data[py*tile.width+px],tx=x+px-2,ty=y+py-2;
+    if(color!==255&&tx>=0&&ty>=0&&tx<p.width&&ty<p.height)p.data[ty*p.width+tx]=color;
+  }
 }
 
 export function cloudPlacements(style,width,height,time=0,reducedMotion=false) {
   const s=style.cloud,count=s.count??6,variation=s.sizeVariation??0.2;
-  const [low,high]=s.altitudeRange??[0.08,0.58],t=reducedMotion?0:time;
+  const t=reducedMotion?0:time;
+  const layers=s.layers??[{name:'far',scale:.7,speedMultiplier:.45},{name:'near',scale:1.15,speedMultiplier:1.4}];
   return Array.from({length:count},(_,i)=>{
+    // Back-to-front order is explicit: nearby clouds can cover distant ones.
+    const layerIndex=Math.floor(i*2/count),layer=layers[layerIndex];
+    const first=Math.ceil(layerIndex*count/2),layerCount=Math.ceil((layerIndex+1)*count/2)-first;
+    const [low,high]=layer.altitudeRange??s.altitudeRange??[.08,.58];
     const shapeIndex=i%(s.shapes?.length??1),shape=s.shapes?.[shapeIndex]??{};
-    const scale=1+variation*Math.sin(i*2.4+1),cloudWidth=Math.round(s.width*scale*(shape.widthScale??1));
+    const scale=layer.scale*(1+variation*Math.sin(i*2.4+1)),cloudWidth=Math.round(s.width*scale*(shape.widthScale??1));
     const span=width+cloudWidth+2,phase=(.24+i*.61803398875)%1;
-    const drift=t*style.animation.cloudPixelsPerSecond*(.8+(i%3)*.15);
+    const drift=t*style.animation.cloudPixelsPerSecond*layer.speedMultiplier;
     return {x:Math.floor(((phase*span+drift)%span+span)%span)-cloudWidth-1,
-      y:Math.round(height*(low+(high-low)*(count===1?.5:i/(count-1)))),scale,shapeIndex,cloudWidth};
+      y:Math.round(height*(low+(high-low)*(layerCount===1?.5:(i-first)/(layerCount-1)))),scale,shapeIndex,cloudWidth,layer:layer.name};
   });
 }
 

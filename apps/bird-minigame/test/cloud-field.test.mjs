@@ -49,3 +49,26 @@ test('cloud tuning validation rejects invalid or unbounded values; older styles 
   const legacy=structuredClone(style);for(const key of ['count','puffiness','baseHeight','sizeVariation','altitudeRange'])delete legacy.cloud[key];
   validatePixelStyle(legacy);assert.ok(area(raster(legacy,true))>0);
 });
+test('far clouds draw first and move more slowly than near clouds',()=>{
+  const before=cloudPlacements(style,320,640,0),after=cloudPlacements(style,320,640,10);
+  assert.deepEqual(before.map(c=>c.layer),['far','far','far','near','near','near']);
+  const travel=before.map((c,i)=>{const span=320+c.cloudWidth+2;return (after[i].x-c.x+span)%span;});
+  assert.ok(Math.min(...travel.slice(3))>Math.max(...travel.slice(0,3))*2);
+  assert.ok(before.slice(3).reduce((s,c)=>s+c.scale,0)>before.slice(0,3).reduce((s,c)=>s+c.scale,0));
+  assert.deepEqual(cloudPlacements(style,320,640,0,true),cloudPlacements(style,320,640,100,true));
+  const bad=structuredClone(style);bad.cloud.layers[0].speedMultiplier=2;
+  assert.throws(()=>validatePixelStyle(bad),/smaller and slower/);
+});
+test('rounded cloud masks stay connected and parameter edits invalidate cached shading',()=>{
+  for(let shape=0;shape<4;shape++) {
+    const p=new PixelSurface(180,120,style);p.clear('sky');drawCloud(p,25,20,1,shape);
+    const mask=new Set();p.data.forEach((v,i)=>{if(v!==p.indices.sky)mask.add(i);});
+    const pending=[mask.values().next().value];mask.delete(pending[0]);
+    while(pending.length){const i=pending.pop();for(const j of [i-1,i+1,i-p.width,i+p.width])if(mask.delete(j))pending.push(j);}
+    assert.equal(mask.size,0,'all cloud puffs form one connected silhouette');
+  }
+  const custom=structuredClone(style),p=new PixelSurface(180,120,custom);p.clear('sky');drawCloud(p,25,20);
+  const before=p.data.slice();custom.cloud.shadowDepth=.25;p.clear('sky');drawCloud(p,25,20);
+  assert.notDeepEqual(before,p.data,'cached tile must reflect new shadow parameters');
+  for(const change of [{lobeBlend:0},{bellyRoundness:.8},{shadowDepth:1}])assert.throws(()=>validatePixelStyle({...style,cloud:{...style.cloud,...change}}),RangeError);
+});

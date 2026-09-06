@@ -12,6 +12,7 @@ const controls=[
   ['雲朵數量','cloud.count',1,10,1],['雲朵寬度','cloud.width',32,128,1],
   ['雲朵高度','cloud.height',14,64,1],['雲朵蓬鬆度','cloud.puffiness',0.8,2.2,0.1],
   ['雲底高度','cloud.baseHeight',0.65,1,0.05],['雲朵大小差異','cloud.sizeVariation',0,0.35,0.05],
+  ['雲瓣融合','cloud.lobeBlend',0.05,0.3,0.01],['雲底圓潤度','cloud.bellyRoundness',0.15,0.35,0.01],['雲底陰影厚度','cloud.shadowDepth',0.08,0.25,0.01],
   ['草葉高度','grass.bladeHeight',2,6,1]
 ];
 const get=path=>path.split('.').reduce((o,k)=>o[k],style);

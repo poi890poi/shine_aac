@@ -7,7 +7,7 @@ import {demoSegments} from './demo-coverage.mjs';
 const exec=promisify(execFile),device=process.env.BIRD_DEVICE??'RFCR91GWXLX',adb=process.env.ADB??'E:/Android/Sdk/platform-tools/adb.exe';
 const run=async(...args)=>(await exec(adb,['-s',device,...args],{encoding:'buffer',maxBuffer:12e6})).stdout;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-const dir=new URL('../tmp/complete-demo-20260906/',import.meta.url);await mkdir(dir,{recursive:true});
+const dir=new URL(process.env.BIRD_DEMO_DIR??'../tmp/complete-demo-20260906/',import.meta.url);await mkdir(dir,{recursive:true});
 let ws,pid,finished;
 const stop=async()=>{if(pid){await run('shell','kill','-2',pid);pid=null;await finished;}};
 try {
@@ -15,18 +15,31 @@ try {
  await run('shell','input','keyevent','KEYCODE_WAKEUP');await run('shell','wm','dismiss-keyguard');
  const url='http://127.0.0.1:4184/?dropMode=recharge';
  await run('shell','am','start','-a','android.intent.action.VIEW','-d',url,'com.android.chrome');await wait(1800);
+ // Some test devices show Android's legacy-app notice on each Chrome launch.
+ // Dismiss only that observed system notice, never an arbitrary screen coordinate.
+ if(process.env.BIRD_DISMISS_COMPAT_NOTICE==='1'){
+   await run('shell','uiautomator','dump','/sdcard/Download/poc-ui.xml');
+   const xml=(await run('shell','cat','/sdcard/Download/poc-ui.xml')).toString();
+   if(xml.includes('這個應用程式與最新版的 Android 不相容')){
+     const button=xml.match(/<node\b[^>]*resource-id="android:id\/button1"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+     assert.ok(button,'Known compatibility notice must have its system OK button');
+     await run('shell','input','tap',String(Math.round((+button[1]+ +button[3])/2)),String(Math.round((+button[2]+ +button[4])/2)));await wait(1000);
+   }
+ }
  const target=(await(await fetch('http://127.0.0.1:9223/json')).json()).find(t=>t.url.includes(':4184/'));
  ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>ws.addEventListener('open',r,{once:true}));
  let id=0;const pending=new Map();ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){pending.get(m.id)?.(m);pending.delete(m.id)}});
- const call=(method,params={})=>new Promise((res,rej)=>{const n=++id;pending.set(n,m=>m.error?rej(m.error):res(m.result));ws.send(JSON.stringify({id:n,method,params}));});
+ ws.addEventListener('close',()=>{for(const respond of pending.values())respond({error:new Error('Phone debugging connection closed')});pending.clear();});
+ const call=(method,params={})=>new Promise((res,rej)=>{const n=++id,timer=setTimeout(()=>{pending.delete(n);rej(new Error('Phone debugging request timed out: '+method));},10000);pending.set(n,m=>{clearTimeout(timer);m.error?rej(m.error):res(m.result)});ws.send(JSON.stringify({id:n,method,params}));});
  const ev=async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw r.exceptionDetails;return r.result.value;};
  await call('Page.navigate',{url});await wait(1600);await ev('birdGame.ready');
  await ev(`window.demoTrace=[];for(const type of ['drop','miss','hit','collision','landing','won'])document.querySelector('.bird-game').addEventListener('birdgame:'+type,e=>demoTrace.push({type,elapsed:(performance.now()-window.demoStart)/1000,pass:e.detail.state.pass,score:e.detail.state.score,flowerId:e.detail.flowerId}));document.activeElement.blur()`);
  await writeFile(new URL('garden.png',dir),await run('exec-out','screencap','-p'));
- const remote='/sdcard/Download/complete-garden-demo-20260906.mp4';
+ const canvasInfo=await ev(`(()=>{const c=document.querySelector('canvas'),r=c.getBoundingClientRect();return {width:c.width,height:c.height,cssWidth:r.width,cssHeight:r.height,dpr:devicePixelRatio}})()`);
+ const remote='/sdcard/Download/'+(process.env.BIRD_DEMO_NAME??'complete-garden-demo-20260906')+'.mp4';
  assert.equal((await run('shell','sh','-c',"'pidof screenrecord || true'")).toString().trim(),'');
  await ev('window.demoStart=performance.now()');
- const recorder=spawn(adb,['-s',device,'shell','screenrecord','--size','540x1200','--bit-rate','2000000','--time-limit','180',remote],{stdio:'pipe'});
+ const recorder=spawn(adb,['-s',device,'shell','screenrecord','--size',process.env.BIRD_VIDEO_SIZE??'540x1200','--bit-rate','4000000','--time-limit','180',remote],{stdio:'pipe'});
  finished=new Promise(r=>recorder.on('exit',r));await wait(800);
  pid=(await run('shell','pidof','screenrecord')).toString().trim();assert.match(pid,/^\d+$/);
  assert.ok((await run('shell','cat',`/proc/${pid}/cmdline`)).toString().includes(remote));
@@ -52,7 +65,7 @@ try {
  const trace=await ev('window.demoTrace'),duration=await ev('(performance.now()-window.demoStart)/1000');
  const segments=demoSegments(trace,duration);assert.ok(collisionShot);
  await stop();await run('pull',remote,fileURLToPath(new URL('phone.mp4',dir)));
- const report={device,input:'Physical phone Chrome; normal game timing and browser playfield touches; no physics/state overrides',trace,segments,duration,final:{phase:state.phase,score:state.score,heights:state.flowers.map(f=>f.height)}};
+ const report={device,canvasInfo,input:'Physical test-device Chrome; normal game timing and browser playfield touches; no physics/state overrides',trace,segments,fullLengthSegments:[[0,duration]],duration,final:{phase:state.phase,score:state.score,heights:state.flowers.map(f=>f.height)}};
  await writeFile(new URL('recording.json',dir),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 } finally {
  try{await stop();}finally{ws?.close();await run('shell','input','keyevent','KEYCODE_SLEEP');await wait(900);assert.match((await run('shell','dumpsys','display')).toString(),/mScreenState=OFF/);console.log('Verified test display OFF');}

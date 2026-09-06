@@ -4,6 +4,15 @@ This is the governing artwork workflow. It supersedes conflicting procedural-art
 recommendations in prototype documents. The September 5 procedural bird and flower
 are rejected; numerical rule checks did not establish their visual quality.
 
+Integration decision, September 6: the complete Beidawu/cottages/rice scene was
+accepted for a new full-length POC. The packaged renderer reuses the reviewed
+cloud crops/matte/shading and full flower rendering. A 480×640 static comparison
+against the frozen earlier layer must remain pixel-identical; motion may translate
+clouds and gameplay may shorten flowers using their existing curved-stem renderer.
+The 480-pixel reference width preserves approved sprite sampling without resizing
+individual subjects. Portrait height adapts; display enlargement is integer-only.
+The photographic mountain adaptation retains its source/license/attribution record.
+
 Integration decision, September 5: the user approved the regenerated magpie and
 flower designs and requested an app update. The exact source sheets and crop/pivot
 records are in `rules/sprite-layout.json` and the candidate manifest. Their bitmap
@@ -51,6 +60,30 @@ column count equals active AAC columns (3–8), including portrait layouts. Art
 changes must preserve those requirements and the existing gameplay behavior.
 
 ## Repeatable candidate generation
+
+### Deterministic conversion of source scenery
+
+Source-photo conversion is an offline asset preparation step, not image generation.
+Use the researched workflow in `research/PIXEL_CONVERSION_METHOD.md` and explicit
+`rules/scenery-conversion.json` recipes. Sample once onto the shared logical grid,
+then map to a shared indexed palette; preserve a separately rasterized mask across
+color/sampler comparisons. Disable outline expansion and dithering by default.
+Native cleanup and visual acceptance remain necessary. Keep generated source art,
+converted candidates and approved native assets distinct; never infer compliance
+with a requested pixel size or palette from an image-generation prompt.
+
+The current 0.3.0 conversion palette is a scenery review candidate, not an implicit
+replacement for live pixel-style.json or the approved character source contours.
+The user's September 6 scope correction freezes flowers AND clouds in full,
+including curved stems, leaf variations and shading. Exclude them from conversion.
+The scenery recipe owns cottages and photographic mountain preparation only.
+The review renderer compares the protected layer pixel-for-pixel with the frozen
+previous rendering; never update that baseline merely to accommodate a change.
+Brightening cottages substitutes palette entries without changing indices or alpha.
+Run `scripts/test_pixel_conversion.py` for mechanical and ground-continuity checks.
+These tests deliberately make no aesthetic acceptance claim.
+
+### Generating or editing source designs
 
 1. Select one species and existing pose, or edit its existing pose strip in place.
    Supply actual earlier art as the shape reference. For a new anchor, supply a

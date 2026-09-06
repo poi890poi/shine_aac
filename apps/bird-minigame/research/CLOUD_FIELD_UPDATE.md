@@ -28,3 +28,23 @@ Normalized silhouette tests compare masks at identical dimensions, so a size-onl
 change cannot satisfy the shape variation requirement. Whole-cloud wrap widths
 include the variant width multiplier. These changes are included in the requested
 game commit and a new phone demonstration covering all four gameplay outcomes.
+
+Soft-cloud refinement: user rejected the sharp appearance. The previous normal
+calculation created diagonal shade planes and the bottom clip produced corners.
+Replace both with blended elliptical puffs, a rounded joining belly and a pale
+curved underside shadow. Keep the four parameterized silhouettes and crisp native
+pixels. Cache native tiles during drift, invalidating them when parameters change.
+Risk/verification: check silhouette connectivity, parameter invalidation and palette
+roles; compare actual clouds visually. This changes clouds only, not character art
+or gameplay. No physical display is needed for the cloud-only preview.
+
+User-requested depth: split the six clouds into two explicit layers, drawing the
+far three first (0.7× size, 1.35 native pixels/second) and the near three second
+(1.15× size, 4.2 pixels/second). Size/speed multipliers and altitude bands are
+parameters. Layer order, actual displacement and reduced-motion freezing have
+regression coverage. No cloud can affect bird/flower physics.
+
+Verification of rounded layers: all 62 tests and the build pass. Native preview
+`tmp/clouds-20260906/field-rounded.png` was visually reviewed: rounded, connected
+white puffs with a pale curved underside replace the diagonal slabs and clipped
+corners. No test display was woken. Cloud geometry is cached between drift frames.

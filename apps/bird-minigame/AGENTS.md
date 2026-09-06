@@ -18,6 +18,10 @@
   pixels with size variation. Keep count, lobe shape, puffiness, base height,
   altitude and drift tunable; never restore two hard-coded placements.
   Use distinct parameterized silhouettes, not merely different sizes of one shape.
+  Clouds must look soft and rounded: blend the puffs into a rounded underside,
+  without clipped flat corners, detached sharp lobes or diagonal slab-like shading.
+  Draw two cloud layers back to front: distant/small/slow, then nearby/large/fast.
+  Both remain behind gameplay; reduced motion freezes both layers.
 - Flower variants are deterministic per column and parameterized in sprite-layout.
   Reuse approved petal/face/leaf contours; vary petal palettes, uniform fixed head
   scale, stem curvature and leaf levels. Preserve variant identity across hits.
@@ -34,6 +38,32 @@
 
 - Read `rules/ARTWORK_STANDARD.md` first for artwork. It is the governing workflow
   and supersedes conflicting prototype rendering recommendations below.
+- Offline scenery conversion follows `research/PIXEL_CONVERSION_METHOD.md` and
+  the versioned `rules/scenery-conversion.json` review recipe. Conversion is
+  deterministic sampling plus shared indexed palette mapping, never a fresh
+  image-generation prompt or a filter over the whole game. Technical checks do
+  not grant artwork approval. Keep exact source hashes, crops and frozen masks.
+- Cottages use one visible size and flat front elevations of older rural Taiwan.
+  Keep placements sparse and use the daylight material ramp in the reusable recipe.
+  Connect cottage bases to foreground grass with rice fields and narrow banks;
+  no sky-colored gap in the ground. Review tools protect these requirements in
+  `scripts/test_pixel_conversion.py`. The user accepted the September 6 complete
+  scenery and requested its live POC integration and a full-length video.
+- Scenery edits must not change the accepted flowers or clouds, including stem
+  curves, leaves, colors, shading, sampling, or placement. Reuse the previous
+  review renderer, never redraw plants in a scenery script or quantize these
+  protected assets. Run `node scripts/render-flower-review.mjs --leaf-revision
+  --rural-scene`: it compares all protected pixels with a frozen earlier rendering
+  and must report zero changed pixels. Do not regenerate the baseline to pass.
+  Live integration additionally runs `scripts/verify-live-scenery.mjs` against
+  the packaged renderer and the same frozen protected-layer reference.
+- Mountain sources must show high mountains from lowlands: 北大武山 from 屏東,
+  玉山 from 嘉義, 南湖大山 from 宜蘭, or 奇萊 from 花蓮. Verify the named profile
+  and source viewpoint; do not substitute aerial slopes or unidentified local hills.
+  Attributed open-license photos are authorized for pixel conversion and color
+  matching. Record author, source page, license and adaptation details. Complete
+  scenery reviews must include a visible static mountain backdrop; test the real
+  missing-layer failure with `--test-missing-mountain` (expected nonzero exit).
 - The user approved the September 5 generated magpie and flower designs and asked
   for app integration. Preserve their source contours and `rules/sprite-layout.json`
   crop/pivot records. The older procedural rendition remains rejected.

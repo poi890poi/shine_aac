@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "version": "0.3.0-review",
+  "status": "candidate; not a replacement for live pixel-style.json",
+  "nativeScene": [
+    480,
+    640
+  ],
+  "previewScale": 4,
+  "alphaThreshold": 128,
+  "dither": false,
+  "outlineExpansion": false,
+  "palette": {
+    "ink": "#20243a",
+    "white": "#ffffff",
+    "sky": "#91d5db",
+    "cloudShadow": "#849bd2",
+    "cloudLight": "#c4d0e8",
+    "blueShadow": "#344b88",
+    "blue": "#4876bd",
+    "blueLight": "#83b5dd",
+    "greenShadow": "#386541",
+    "green": "#69a64b",
+    "greenLight": "#a5cc62",
+    "petalShadow": "#aa4863",
+    "petal": "#e5788c",
+    "petalLight": "#ffc1a0",
+    "goldShadow": "#be793d",
+    "gold": "#f2ca67",
+    "goldLight": "#fff0b9",
+    "brickDark": "#743e32",
+    "brick": "#b35c40",
+    "brickLight": "#dc9463",
+    "woodDark": "#493729",
+    "wood": "#71533b",
+    "woodLight": "#a98255",
+    "cream": "#e8d6ad",
+    "creamShade": "#bda77f",
+    "mountainDark": "#405c76",
+    "mountain": "#5d7d98",
+    "mountainLight": "#8ca9ba",
+    "water": "#729f8d",
+    "bank": "#968a5c",
+    "purple": "#b38ad6",
+    "purpleShadow": "#75519d"
+  },
+  "subsets": {
+    "cottage": [
+      "ink",
+      "brickDark",
+      "brick",
+      "brickLight",
+      "woodDark",
+      "wood",
+      "woodLight",
+      "creamShade",
+      "cream",
+      "greenShadow",
+      "green",
+      "greenLight"
+    ],
+    "mountain": [
+      "sky",
+      "mountainDark",
+      "mountain",
+      "mountainLight",
+      "greenShadow",
+      "water"
+    ]
+  },
+  "scene": {
+    "cottageWidth": 84,
+    "cottageHeight": 44,
+    "cottageX": [
+      55,
+      331
+    ],
+    "minCottageGap": 180,
+    "cottageBaseY": 520,
+    "riceTop": 520,
+    "riceBottom": 610,
+    "bankWidth": 3,
+    "rowStep": 5,
+    "plantStep": 7,
+    "grassTop": 610,
+    "seed": 906,
+    "riceColors": [
+      "#aabd55",
+      "#cbd775",
+      "#809a44",
+      "#e7d992"
+    ],
+    "bankY": [
+      520,
+      550,
+      585
+    ],
+    "pathPoints": [
+      [
+        295,
+        520
+      ],
+      [
+        285,
+        536
+      ],
+      [
+        268,
+        550
+      ],
+      [
+        255,
+        568
+      ],
+      [
+        241,
+        585
+      ],
+      [
+        235,
+        609
+      ]
+    ],
+    "pathWidth": 5
+  },
+  "recipes": [
+    {
+      "id": "cottage",
+      "split": "development",
+      "source": "assets/candidates/scenery-review-20260906/cottages-taiwan-review.png",
+      "sha256": "187d36fc7c008b708cbdbf822c71050f17bd29baa1776989e1e8a474661c0dc3",
+      "crop": [
+        8,
+        336,
+        480,
+        252
+      ],
+      "width": 84,
+      "subset": "cottage",
+      "matte": "alpha",
+      "sourceStatus": "generated candidate"
+    },
+    {
+      "id": "photo-fixture",
+      "split": "holdout",
+      "source": "assets/candidates/scenery-review-20260906/dongli-source.jpg",
+      "sha256": "b8ea08c275c341a2ab6f90a650273a5a42835b3a932d3df4c0a9511b005ae128",
+      "crop": [
+        0,
+        920,
+        3000,
+        630
+      ],
+      "width": 320,
+      "subset": "mountain",
+      "matte": "opaque",
+      "sourceStatus": "CC0 Hannah Kao; converter fixture ONLY; rejected as game mountain",
+      "sourcePage": "https://wordpress.org/photos/photo/18665d24a3/"
+    }
+  ],
+  "daylightPalette": {
+    "brickDark": "#994b35",
+    "brick": "#d7784c",
+    "brickLight": "#f5b775",
+    "woodDark": "#624234",
+    "wood": "#916645",
+    "woodLight": "#cda06b",
+    "creamShade": "#d4ba83",
+    "cream": "#fff0c4"
+  }
+}

@@ -2,10 +2,11 @@ import { PixelSurface, drawCloudField, drawGrass } from './pixel-art.js';
 import { loadArtRules, sceneSize, validatePixelStyle } from './style-rules.js';
 import {loadSprites,paintBird,paintFlower} from './sprite-assets.js';
 import {paintAmmo,paintFeathers} from './game-feedback.js';
+import {loadReviewedScenery,paintReviewedScenery,prepareReviewedFlowers,paintReviewedFlower} from './reviewed-scenery.js';
 
 export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,columns=4,featherDynamics}={}) {
   const ctx=canvas.getContext('2d',{alpha:false});
-  let rules=null,sprites=null,surface=null,frame=null,currentColumns=columns,lastState=null;
+  let rules=null,sprites=null,scenery=null,surface=null,frame=null,currentColumns=columns,lastState=null;
   function resize() {
     if(!rules)return;
     const box=canvas.parentElement.getBoundingClientRect();
@@ -17,17 +18,16 @@ export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,column
     surface=new PixelSurface(canvas.width,canvas.height,rules.style);frame=ctx.createImageData(canvas.width,canvas.height);
     if(lastState)render(lastState);
   }
-  const ready=Promise.all([loadArtRules(pixelStyle),loadSprites()]).then(([loaded,assets])=>{
-    rules=loaded;sprites=assets;if(featherDynamics)rules.feathers={...rules.feathers,...featherDynamics};resize();
+  const ready=Promise.all([loadArtRules(pixelStyle),loadSprites(),loadReviewedScenery()]).then(([loaded,assets,background])=>{
+    rules=loaded;sprites=prepareReviewedFlowers(assets);scenery=background;if(featherDynamics)rules.feathers={...rules.feathers,...featherDynamics};resize();
   });
   function render(state) {
     lastState=state;if(!surface)return;
     if(currentColumns!==state.flowers.length){currentColumns=state.flowers.length;resize();return;}
     const w=canvas.width,h=canvas.height,ground=Math.round(state.config.groundY*h);
     const t=reducedMotion?0:state.time;
-    surface.clear('sky');drawCloudField(surface,t,reducedMotion);drawGrass(surface,ground);
-    surface.rgba(frame.data);ctx.putImageData(frame,0,0);
-    for(const flower of state.flowers)if(flower.displayHeight>.001)paintFlower(ctx,sprites,reducedMotion?{...flower,blocked:0}:flower,w,h,ground);
+    paintReviewedScenery(ctx,scenery,w,h,ground,t,reducedMotion);
+    for(const flower of state.flowers)if(flower.displayHeight>.001)paintReviewedFlower(ctx,sprites,reducedMotion?{...flower,blocked:0}:flower,w,h,ground);
     if(state.drop){const x=Math.round(state.drop.x*w),y=Math.round(state.drop.y*h);
       ctx.fillStyle='#20243a';ctx.fillRect(x-2,y-4,5,8);ctx.fillStyle='#ffffff';ctx.fillRect(x-1,y-3,3,6);}
     const pose=['ready','won','paused'].includes(state.phase)?sprites.layout.bird.settledPose:
