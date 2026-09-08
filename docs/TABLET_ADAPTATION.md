@@ -38,3 +38,20 @@ with behavioral browser/native tests, packaged asset checks, device-test.bat
 on phone and tablet, and the declared public-stimulus optical rig for camera
 and input changes. Source/unit checks alone are not physical acceptance.
 Always turn off used test displays and verify their state after each run.
+
+## Device installation
+
+The phone uses the pinned direct-install debug certificate. The tablet's existing
+0.4.1 installation has the Google Play signing certificate, so local APKs cannot
+update it. Preserve that installation and its data: build the same runtime with
+`-PshineAacTabletPreview=true` to install `org.shineaac.app.preview`, labelled
+SHINE AAC Preview. It uses separate storage and the normal debug test key.
+Run `device-test.bat --no-build --no-install` with `ANDROID_SERIAL` selecting
+the tablet and `SHINE_AAC_TEST_PACKAGE=org.shineaac.app.preview`. The default
+package, signing identity and release process remain unchanged.
+
+Camera rotation follows Android's [resizable Camera2 preview guidance](https://developer.android.com/codelabs/android-camera2-preview).
+TextureView supplies sensor orientation and front-camera mirroring; the app
+compensates display rotation and fits the upright image into the same rectangle
+used for normalized overlay coordinates. Direct USB frames retain their own
+upright, unmirrored convention and centered digital zoom.

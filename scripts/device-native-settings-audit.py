@@ -13,8 +13,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGE = "org.shineaac.app"
-MAIN_ACTIVITY = PACKAGE + "/.MainActivity"
+PACKAGE = os.environ.get("SHINE_AAC_TEST_PACKAGE", "org.shineaac.app")
+MAIN_ACTIVITY = PACKAGE + "/org.shineaac.app.MainActivity"
 SETTINGS_ACTIVITY = "SettingsActivity"
 INPUT_TEST_ACTIVITY = "InputTestActivity"
 RESOURCE_ACTIVITY = "ResourceManagementActivity"

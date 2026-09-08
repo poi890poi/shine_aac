@@ -62,8 +62,8 @@ from device_test_common import (
     touch_target_size_exemption,
 )
 
-PACKAGE = "org.shineaac.app"
-MAIN_ACTIVITY = "org.shineaac.app/.MainActivity"
+PACKAGE = os.environ.get("SHINE_AAC_TEST_PACKAGE", "org.shineaac.app")
+MAIN_ACTIVITY = PACKAGE + "/org.shineaac.app.MainActivity"
 CAMERA_ACTIVITY_FRAGMENT = "CameraSwitchCalibrationActivity"
 SETTINGS_ACTIVITY_FRAGMENT = "SettingsActivity"
 PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4, "INFO": 5}

@@ -41,6 +41,12 @@ android {
         targetSdk = 36
         versionCode = shineVersionCode
         versionName = shineVersionName
+        manifestPlaceholders["shineAppLabel"] = "@string/app_name"
+        if (providers.gradleProperty("shineAacTabletPreview").orNull == "true") {
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            manifestPlaceholders["shineAppLabel"] = "SHINE AAC Preview"
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
