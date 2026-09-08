@@ -1,0 +1,31 @@
+{
+  "promptFile": "yellow-tit-prompt.md",
+  "reviewStatus": "candidate-for-user-review",
+  "inputs": [
+    {
+      "path": "assets/guides/yellow_tit-proportion-guide.png",
+      "sha256": "3434a35998394ed23852f55c11ee779f6b2bf7274b73eea24d7fb118b7ad0f39",
+      "role": "dimension-guide"
+    },
+    {
+      "path": "assets/generated/pilots/yellow-tit-anchor-v1.png",
+      "sha256": "d4d2ab5088a33067c9cf7c8f90db344c5de4ea36284e4d00ac7370c604d9a8c2",
+      "role": "character-anchor"
+    },
+    {
+      "path": "assets/candidates/shape-preserving-20260905/magpie-v1.png",
+      "sha256": "b6c5077932d098846c090e0941a023882a51001515f079562a80cc887969cc3b",
+      "role": "pixel-style-reference"
+    }
+  ],
+  "speciesId": "yellow_tit",
+  "actualSourceAlpha": false,
+  "assetSha256": "91eaa7660aeba53880dacdfbf8f00cdc4653e5b8081f335f88f6f9921a3fbab4",
+  "generatorMode": "built-in-image-generation",
+  "requestedAlpha": true,
+  "asset": "yellow-tit-v1.png",
+  "sourceMode": "RGB",
+  "layout": "rules/yellow-tit-sprite.json",
+  "userSelection": "User: 黃山雀 it is. User requested larger phone readability.",
+  "preparation": "Existing exterior neutral matte at runtime; enclosed whites preserved"
+}

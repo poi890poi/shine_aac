@@ -54,19 +54,19 @@ test('HUD raster is fixed to the selected corner and visibly distinguishes store
   assert.notDeepEqual(a,empty);assert.notDeepEqual(empty,partial);
   for(const pixels of [a,empty,partial]) {
     assert.equal(pixels.has('10,10'),false,'HUD background stays transparent');
-    assert.equal(pixels.has('27,20'),false,'scene remains visible between icons');
-    assert.equal(pixels.get('17,20'),'#20243a','dark charge outline remains visible');
+    assert.equal(pixels.has('61,40'),false,'scene remains visible between icons');
+    assert.equal(pixels.get('31,40'),'#20243a','dark charge outline remains visible');
   }
-  assert.equal(empty.has('20,20'),false,'empty charge interior is transparent');
-  assert.equal(a.get('20,20'),'#ffffff','stored charge has a white fill');
-  assert.equal(partial.get('20,20'),'#f5df72','partial charge fills upwards');
-  assert.equal(empty.has('18,29'),false,'empty refill bar interior is transparent');
-  assert.equal(empty.get('17,29'),'#20243a','refill bar retains its dark outline');
-  assert.equal(partial.get('18,29'),'#f5df72','refill bar shows progress');
-  assert.ok([...a.keys()].every(k=>{const[x,y]=k.split(',').map(Number);return x>=10&&x<68&&y>=10&&y<35;}));
+  assert.equal(empty.has('40,40'),false,'empty charge interior is transparent');
+  assert.equal(a.get('40,40'),'#ffffff','stored charge has a white fill');
+  assert.equal(partial.get('40,40'),'#f5df72','partial charge fills upwards');
+  assert.equal(empty.has('34,67'),false,'empty refill bar interior is transparent');
+  assert.equal(empty.get('31,67'),'#20243a','refill bar retains its dark outline');
+  assert.equal(partial.get('34,67'),'#f5df72','refill bar shows progress');
+  assert.ok([...a.keys()].every(k=>{const[x,y]=k.split(',').map(Number);return x>=10&&x<184&&y>=10&&y<82;}));
   const right=raster({...full,config:{...full.config,ammoSide:'right'}});
-  assert.ok([...right.keys()].every(k=>Number(k.split(',')[0])>=252));
-  assert.equal(dropBudget(createGameState()).capacity,1);
+  assert.ok([...right.keys()].every(k=>Number(k.split(',')[0])>=136));
+  assert.equal(dropBudget(createGameState()).capacity,3);
   const rects=[];paintFeathers({fillRect(...r){rects.push(r)}},{x:.5,y:.5,age:1},320,640);
   assert.ok(rects.length>0);assert.ok(rects.every(r=>r.every(Number.isInteger)&&r[2]===1&&r[3]===1));
 });

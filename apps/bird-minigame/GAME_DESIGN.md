@@ -27,7 +27,13 @@ loop. A bird flies automatically across a fixed garden. The player chooses when
 to release a white liquid dropping. Hits shorten flowers, making room for the
 bird to descend and land safely.
 
-The current MVP is a standalone browser app using **one Taiwan Blue Magpie**.
+The POC supports all sixteen species in `rules/species-proportions.json`, selected
+manually through picture-only pages. The reusable SHINE AAC host defaults to a
+uniformly random species at each new round, with no manual picker. Keep that choice
+fixed until the round ends; pause, collisions, flybys and landing never reroll it.
+Manual POC replays retain the chosen species. Explicit `speciesSelection: 'manual'`
+and `species` support repeatable review; `speciesSelection: 'random'` prepares the
+host behavior without changing Android integration in this POC task.
 It must be reusable through a small host API for later SHINE AAC integration.
 It is not the communication board or Guided Practice. It does not train flapping
 or require repeated activations to keep the bird airborne.
@@ -49,9 +55,9 @@ Keep event evidence and verify the final edited clip retains all four outcomes.
    it lower; after a short transition it returns from the left. Player input never
    controls altitude, flap velocity, steering, or horizontal flight speed.
 4. One activation releases one **white, liquid bird dropping**. It falls toward
-   the flowers beneath the release point. Default `flyby` mode permits exactly
+   the flowers beneath the release point. Optional `flyby` mode permits exactly
    one per flyby, including misses and resolved hits; only the next flyby refills
-   it. Optional `recharge` mode starts with three charges and serially replenishes
+   it. Default `recharge` mode starts with three charges and serially replenishes
    one every six active seconds, up to three. Preserve partial recharge on spending;
    no banking time at capacity or bonus refill on collision/pass transitions.
    Both modes allow one active projectile and never queue extra activations.

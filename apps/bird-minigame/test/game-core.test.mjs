@@ -79,7 +79,7 @@ test("body collision bumps upward in place and preserves all flower progress", (
 });
 
 test("tail overlap does not collide; repeat collisions preserve the same pass and drop budget", () => {
-  const base = start();
+  const base = updateGame(createGameState({dropMode:'flyby'}),{type:'START'}).state;
   const tailOnly = { ...base, mode: "flying", bird: { x: base.flowers[3].x + 0.09, y: 0.5, rotation: 0 } };
   assert.equal(advance(tailOnly, 0.02).events.some(e => e.type === "collision"), false);
   const repeated = { ...base, mode: "flying", dropUsed:true,bird: { x: base.flowers[3].x, y: 0.5, rotation: 0 },

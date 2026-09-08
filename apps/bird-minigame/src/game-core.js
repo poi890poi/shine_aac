@@ -7,7 +7,7 @@ export const DEFAULT_GAME_CONFIG = Object.freeze({
   flowerHeights: Object.freeze([0.22, 0.36, 0.27, 0.42]),
   flowerLeft: 0.17, flowerRight: 0.83, hitWidth: 0.068, hitReduction: 0.12,
   dropSpeed: 1.05, birdRadiusX: 0.026, birdRadiusY: 0.018,
-  dropMode: 'flyby', ammoCapacity: 3, refillSeconds: 6, ammoSide: 'left',
+  dropMode: 'recharge', ammoCapacity: 3, refillSeconds: 6, ammoSide: 'left',
   rescueSeconds: 1, recoveryPasses: 3, inactivitySeconds: 90, landingSeconds: 4.5, landingSide: 'auto'
 });
 

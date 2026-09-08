@@ -1,0 +1,115 @@
+{
+  "pageid": 87787043,
+  "ns": 6,
+  "title": "File:View south toward Mount Guanyin from Tamsui.jpg",
+  "imagerepository": "local",
+  "imageinfo": [
+    {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/24/View_south_toward_Mount_Guanyin_from_Tamsui.jpg/960px-View_south_toward_Mount_Guanyin_from_Tamsui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 960,
+      "thumbheight": 640,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/24/View_south_toward_Mount_Guanyin_from_Tamsui.jpg/1920px-View_south_toward_Mount_Guanyin_from_Tamsui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/24/View_south_toward_Mount_Guanyin_from_Tamsui.jpg/960px-View_south_toward_Mount_Guanyin_from_Tamsui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 960,
+        "height": 640,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/24/View_south_toward_Mount_Guanyin_from_Tamsui.jpg/1920px-View_south_toward_Mount_Guanyin_from_Tamsui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/24/View_south_toward_Mount_Guanyin_from_Tamsui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:View_south_toward_Mount_Guanyin_from_Tamsui.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=87787043",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2020-03-07 17:20:02",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "View south toward Mount Guanyin from Tamsui",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Taiwan photographs taken on 2018-01-21|Flickr files uploaded by Kai3952|Files with coordinates missing SDC location of creation|Flickr images reviewed by FlickreviewR 2|2018 photographs of New Taipei|Mount Guanyin (New Taipei) with clouds|Gray and white clouds in Taiwan",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "25.168768",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "121.442654",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "View south toward Mount Guanyin from Tamsui.",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2018-01-21 12:39:28",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.flickr.com/photos/pangyuliu/39831599001/\">https://www.flickr.com/photos/pangyuliu/39831599001/</a>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "pang yu liu",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 2.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 2.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/2.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-2.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    }
+  ]
+}

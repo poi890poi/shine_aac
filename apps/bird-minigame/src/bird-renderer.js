@@ -1,18 +1,23 @@
 import { PixelSurface, drawCloudField, drawGrass } from './pixel-art.js';
 import { loadArtRules, sceneSize, validatePixelStyle } from './style-rules.js';
 import {loadSprites,paintBird,paintFlower} from './sprite-assets.js';
+import {birdPose} from './bird-animation.js';
 import {paintAmmo,paintFeathers} from './game-feedback.js';
 import {loadReviewedScenery,paintReviewedScenery,prepareReviewedFlowers,paintReviewedFlower} from './reviewed-scenery.js';
+import {birdSpecies} from './bird-species.js';
+import {createClearing} from './clearing-scenery.js';
+import {fitGameViewport,gameplayBounds} from './viewport.js';
 
-export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,columns=4,featherDynamics}={}) {
+export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,columns=4,featherDynamics,species='taiwan_blue_magpie'}={}) {
   const ctx=canvas.getContext('2d',{alpha:false});
+  let selectedSpecies=birdSpecies(species);
+  let clearing=createClearing(0);
   let rules=null,sprites=null,scenery=null,surface=null,frame=null,currentColumns=columns,lastState=null;
   function resize() {
     if(!rules)return;
     const box=canvas.parentElement.getBoundingClientRect();
-    const dimensions=sceneSize(rules.style,currentColumns,box.width/Math.max(1,box.height));
     const dpr=window.devicePixelRatio||1;
-    const scale=Math.max(1,Math.floor(Math.min(box.width*dpr/dimensions.width,box.height*dpr/dimensions.height)));
+    const dimensions=fitGameViewport(box.width,box.height,dpr),scale=dimensions.scale;
     canvas.style.width=`${dimensions.width*scale/dpr}px`;canvas.style.height=`${dimensions.height*scale/dpr}px`;
     canvas.width=dimensions.width;canvas.height=dimensions.height;ctx.imageSmoothingEnabled=false;
     surface=new PixelSurface(canvas.width,canvas.height,rules.style);frame=ctx.createImageData(canvas.width,canvas.height);
@@ -24,26 +29,40 @@ export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,column
   function render(state) {
     lastState=state;if(!surface)return;
     if(currentColumns!==state.flowers.length){currentColumns=state.flowers.length;resize();return;}
-    const w=canvas.width,h=canvas.height,ground=Math.round(state.config.groundY*h);
+    const w=canvas.width,bounds=gameplayBounds(w,canvas.height),h=bounds.height,ground=Math.round(state.config.groundY*h);
     const t=reducedMotion?0:state.time;
-    paintReviewedScenery(ctx,scenery,w,h,ground,t,reducedMotion);
+    paintReviewedScenery(ctx,scenery,w,canvas.height,ground+bounds.top,t,reducedMotion,clearing);
+    ctx.save();ctx.translate(0,bounds.top);
     for(const flower of state.flowers)if(flower.displayHeight>.001)paintReviewedFlower(ctx,sprites,reducedMotion?{...flower,blocked:0}:flower,w,h,ground);
     if(state.drop){const x=Math.round(state.drop.x*w),y=Math.round(state.drop.y*h);
       ctx.fillStyle='#20243a';ctx.fillRect(x-2,y-4,5,8);ctx.fillStyle='#ffffff';ctx.fillRect(x-1,y-3,3,6);}
-    const pose=['ready','won','paused'].includes(state.phase)?sprites.layout.bird.settledPose:
-      state.mode==='rescue'&&!reducedMotion?[0,1][Math.floor(t*16)%2]:sprites.layout.bird.cycle[Math.floor(t*8)%4];
-    paintBird(ctx,sprites,state,w,h,pose);
-    if(!reducedMotion)paintFeathers(ctx,state.featherBurst,w,h);
+    const selected=sprites.birds[selectedSpecies.id],birdSprites={...sprites,bird:selected.frames,layout:{...sprites.layout,bird:selected.layout}};
+    const pose=birdPose(state,selected.layout,selectedSpecies.frameRate,reducedMotion);
+    paintBird(ctx,birdSprites,state,w,h,pose);
+    if(!reducedMotion)paintFeathers(ctx,state.featherBurst,w,h,selectedSpecies.featherColors);
     if(state.mode==='rescue'&&!reducedMotion) {
       const x=Math.round(state.bird.x*w)+18,y=Math.round(state.bird.y*h)-20;
       for(let i=0;i<3;i++){const a=t*7+i*Math.PI*2/3,px=Math.round(x+Math.cos(a)*13),py=Math.round(y+Math.sin(a)*6);
         ctx.fillStyle='#20243a';ctx.fillRect(px-2,py-1,5,3);ctx.fillRect(px-1,py-2,3,5);
         ctx.fillStyle='#f5df72';ctx.fillRect(px-1,py,3,1);ctx.fillRect(px,py-1,1,3);}
     }
-    paintAmmo(ctx,state,w);
+    ctx.restore();paintAmmo(ctx,state,w);
   }
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(resize):null;observer?.observe(canvas.parentElement);
   return {ready,render,resize,
+    setScenerySeed(seed){clearing=createClearing(seed);if(lastState)render(lastState);},
+    getScenery:()=>clearing,
+    setSpecies(id){selectedSpecies=birdSpecies(id);if(lastState)render(lastState);},
+    paintChoice(target,id){
+      const selected=sprites.birds[birdSpecies(id).id],sprite=selected.frames[selected.layout.settledPose];
+      target.width=96;target.height=48;const cx=target.getContext('2d');cx.imageSmoothingEnabled=false;
+      const data=sprite.image.getContext('2d').getImageData(0,0,sprite.image.width,sprite.image.height).data;
+      let left=sprite.image.width,top=sprite.image.height,right=0,bottom=0;
+      for(let y=0;y<sprite.image.height;y++)for(let x=0;x<sprite.image.width;x++)if(data[(y*sprite.image.width+x)*4+3]>128){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}
+      const sw=right-left+1,sh=bottom-top+1,scale=Math.min(88/sw,40/sh);
+      cx.clearRect(0,0,96,48);
+      cx.drawImage(sprite.image,left,top,sw,sh,Math.round((96-sw*scale)/2),Math.round((48-sh*scale)/2),Math.round(sw*scale),Math.round(sh*scale));
+    },
     setStyle(style){if(!rules)throw new Error('Await renderer.ready before setting style');rules={...rules,style:validatePixelStyle(style)};resize();},
     getRules:()=>rules,destroy(){observer?.disconnect();lastState=null;}
   };

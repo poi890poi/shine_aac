@@ -1,0 +1,12 @@
+{
+  "speciesId": "",
+  "assetKind": "anchor-or-pose",
+  "promptFile": "",
+  "speciesRuleVersion": "1.0.0",
+  "styleRuleVersion": "1.0.0",
+  "rigRuleVersion": "1.0.0",
+  "featherDynamicsRuleVersion": "1.0.0",
+  "sourceIds": [],
+  "generatorMode": "built-in-image-generation",
+  "reviewStatus": "candidate"
+}

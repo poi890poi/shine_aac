@@ -1,0 +1,372 @@
+[
+  {
+    "id": "taiwan_barbet",
+    "name": "五色鳥",
+    "scale": 0.18,
+    "eyes": [
+      [
+        511,
+        340
+      ],
+      [
+        1044,
+        341
+      ],
+      [
+        514,
+        844
+      ],
+      [
+        993,
+        816
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_whistling_thrush",
+    "name": "臺灣紫嘯鶇",
+    "scale": 0.2,
+    "eyes": [
+      [
+        519,
+        335
+      ],
+      [
+        1110,
+        325
+      ],
+      [
+        557,
+        833
+      ],
+      [
+        1072,
+        774
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "flamecrest",
+    "name": "火冠戴菊鳥",
+    "scale": 0.18,
+    "eyes": [
+      [
+        491,
+        321
+      ],
+      [
+        1071,
+        320
+      ],
+      [
+        507,
+        873
+      ],
+      [
+        1008,
+        850
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "white_eared_sibia",
+    "name": "白耳畫眉",
+    "scale": 0.2,
+    "eyes": [
+      [
+        529,
+        307
+      ],
+      [
+        1127,
+        304
+      ],
+      [
+        511,
+        854
+      ],
+      [
+        1057,
+        807
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_yuhina",
+    "name": "冠羽畫眉",
+    "scale": 0.18,
+    "eyes": [
+      [
+        545,
+        358
+      ],
+      [
+        1088,
+        354
+      ],
+      [
+        544,
+        842
+      ],
+      [
+        1047,
+        833
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_liocichla",
+    "name": "黃胸藪眉",
+    "scale": 0.19,
+    "eyes": [
+      [
+        524,
+        301
+      ],
+      [
+        1066,
+        286
+      ],
+      [
+        528,
+        801
+      ],
+      [
+        1062,
+        794
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "collared_bush_robin",
+    "name": "栗背林鴝",
+    "scale": 0.18,
+    "eyes": [
+      [
+        503,
+        325
+      ],
+      [
+        1103,
+        325
+      ],
+      [
+        516,
+        855
+      ],
+      [
+        1071,
+        807
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_barwing",
+    "name": "紋翼畫眉",
+    "scale": 0.2,
+    "eyes": [
+      [
+        531,
+        324
+      ],
+      [
+        1108,
+        267
+      ],
+      [
+        531,
+        803
+      ],
+      [
+        1108,
+        783
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_rosefinch",
+    "name": "臺灣朱雀",
+    "scale": 0.18,
+    "eyes": [
+      [
+        517,
+        282
+      ],
+      [
+        1068,
+        282
+      ],
+      [
+        526,
+        833
+      ],
+      [
+        1053,
+        798
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_scimitar_babbler",
+    "name": "小彎嘴",
+    "scale": 0.19,
+    "eyes": [
+      [
+        449,
+        301
+      ],
+      [
+        1072,
+        318
+      ],
+      [
+        465,
+        846
+      ],
+      [
+        1005,
+        803
+      ]
+    ],
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "mikado_pheasant",
+    "name": "黑長尾雉",
+    "scale": 0.27,
+    "eyes": [[549,323],[1151,324],[568,828],[1155,817]],
+    "feetSourceY": 1015,
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "swinhoes_pheasant",
+    "name": "藍腹鷴",
+    "scale": 0.24,
+    "eyes": [[542,336],[1162,273],[541,792],[1110,773]],
+    "feetSourceY": 1038,
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "rufous_crowned_laughingthrush",
+    "name": "臺灣白喉噪眉",
+    "scale": 0.2,
+    "eyes": [[538,300],[1102,292],[547,778],[1077,792]],
+    "feetSourceY": 1070,
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  },
+  {
+    "id": "taiwan_thrush",
+    "name": "白頭鶇",
+    "scale": 0.2,
+    "eyes": [[534,332],[1089,343],[534,817],[1047,789]],
+    "feetSourceY": 1049,
+    "flightEyeOffset": [
+      75,
+      -55
+    ],
+    "settledEyeOffset": [
+      75,
+      -85
+    ]
+  }
+]

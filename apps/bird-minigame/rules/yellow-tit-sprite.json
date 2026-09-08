@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "speciesId": "yellow_tit",
+  "reviewStatus": "generated-pose-candidate-for-review",
+  "file": "../assets/candidates/second-bird-20260906/yellow-tit-v1.png",
+  "sourceSha256": "91eaa7660aeba53880dacdfbf8f00cdc4653e5b8081f335f88f6f9921a3fbab4",
+  "scale": 0.18,
+  "poses": [
+    {"rect": [0,0,627,627], "anchor": [432,389]},
+    {"rect": [627,0,627,627], "anchor": [395,417]},
+    {"rect": [0,627,627,627], "anchor": [432,289]},
+    {"rect": [627,627,627,627], "anchor": [300,313]}
+  ],
+  "cycle": [0,2,1,2],
+  "settledPose": 3,
+  "previewPose": 2,
+  "groundContactY": 461,
+  "preparation": "Source RGB has baked checkerboard despite alpha request. Reuse the accepted exterior-neutral matte, preserving enclosed eye/cheek whites. Fixed uniform 0.18 scale sizes the torso for phone readability; anchors align flight eye landmarks. Source contours remain unchanged."
+}

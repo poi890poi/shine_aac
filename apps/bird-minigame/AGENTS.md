@@ -1,10 +1,63 @@
 # Bird mini-game working rules
 
+- September 8: respond to mountain-variety work with a substantial batch, minimum
+  eight distinct source-backed mountain identities. Haze, recolors and alternate
+  crops of one mountain do not count as additional identities. Review the whole
+  batch together; `scripts/test_mountain_batch.py` protects the candidate library,
+  source/contour and palette invariants. The September 8 request to install the APK
+  after reviewing the batch authorizes all eight profiles, including the additional
+  Taiwan locations. Preserve their explicitly recorded viewpoints and source masks.
+
+- Leaf size/direction must never alter the stem's curve, width, outline or color.
+  Use isolated leaf art with an attachment landmark, behind the independent stem
+  pass. Never scale a crop containing a stalk fragment. Run
+  scripts/verify-leaf-attachments.mjs against stem-only pixels. Historical flawed
+  composites stay available only for frozen-baseline comparison, not live play.
+
+- September 7 clearing approval supersedes cottages/rice in live scenes. Use 5–8
+  seeded bush clusters and three muted palettes, stable for the entire round.
+  Mountains use licensed lowland photo profiles with discrete haze/framing
+  variants, now including the Qilai-direction panorama above Hualien station.
+  Keep source/viewpoint evidence in mountain-variants.json. Never perturb
+  peaks or reroll scenery on ticks, collision, pause, rotation or bird selection.
+  Keep scenery randomness independent of bird choice. Preserve flowers/clouds and
+  the grassy landing surface; historical rural baselines remain immutable.
+
+- All 16 species are selectable in the standalone POC via a picture-only paged
+  picker. SHINE AAC hosting defaults to `speciesSelection: 'random'`: sample once
+  per new round, hide manual choices, and keep the bird fixed through flybys,
+  pause, collision and landing. POC uses explicit manual mode and retains selection
+  on replay. Test uniform random boundaries with an injected RNG; repeats are valid.
+
+- Species choice is picture-only and available between rounds. Keep the magpie as
+  default; a second species changes sprites, cosmetic cadence and feather palette,
+  never drop/collision/landing physics or AAC columns. Preserve selection on replay.
+  The yellow-tit pose sheet remains an explicit POC art candidate; source hashes and
+  fixed cells/pivots/scales belong in its sprite record, not ad hoc per-frame edits.
+  Size the yellow tit for readable body/head details (roughly 90 native pixels
+  bill-to-tail in flight), and keep completion choices clear of the landed bird.
+
+- The foreground meadow must overlap the rice margin with an uneven connected
+  fringe and varied grass blades, not a straight horizontal cutoff. Keep this
+  transition within 24 native pixels above the old meadow seam; preserve the rice
+  above it and the existing landing height. `test/grass-transition.test.mjs`
+  verifies the rendered edge varies, remains bounded and has no gaps below it.
+
+- September 6 follow-up explicitly authorizes bigger charge icons, 15% bigger
+  flower heads, three-tone flatter clouds and textured foreground grass.
+  `src/visual-tuning.js` owns these cosmetic controls. Stem geometry, leaves,
+  cloud silhouettes/placements/drift and gameplay remain unchanged. This narrow
+  amendment supersedes the older full cloud/head pixel freeze below. Keep the
+  historical baseline immutable; verify it with original cosmetic settings and
+  separately compare current stem/leaf pixels and cloud alpha in
+  `scripts/verify-visual-tuning.mjs`.
+
 - The live game is text-free: no titles, instructions, score counters, visible
   labels or droplet/action button. Keep invisible accessibility labels and status.
   Playfield touch, Space/Enter and the host switch are the activation paths.
-- Default `flyby` mode allows one drop per flyby, including misses. Optional
-  `recharge` mode starts with three charges, capped at three, refilling one every
+- September 7: default `recharge` mode starts with three charges, capped at three,
+  refilling one every six active seconds. Explicit `flyby` remains selectable and
+  allows one drop per flyby including misses. The recharge mode refills one every
   six active seconds. Both modes have one active projectile and never queue input.
   Pause freezes refill; collision/pass transitions grant no recharge bonus. Select
   mode only between rounds. Protect both contracts with behavioral tests.
@@ -68,6 +121,12 @@
   for app integration. Preserve their source contours and `rules/sprite-layout.json`
   crop/pivot records. The older procedural rendition remains rejected.
 - Final landing must approach from a side, level out, and decelerate onto grass.
+  Keep flight poses animated until touchdown for every species; never select a
+  standing pose throughout approach. Reduced-motion mode may freeze a flight pose.
+  September 7 low-vision readability: shared ammo scale 3, bird multiplier 1.3,
+  flower head multiplier 1.4. Preserve stem/leaf geometry and character proportions.
+  Tablet playfield fills the viewport with square pixels in both orientations;
+  controls overlay it and native system bars stay transient. No phone-width cap.
   Keep `test/landing.test.mjs` passing for left/right at 30/60/120 Hz.
 
 - Read `research/SHAPE_CONSISTENCY_AUDIT.md` before another shape/style change.

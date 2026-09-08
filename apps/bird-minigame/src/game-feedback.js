@@ -1,4 +1,5 @@
 import {dropBudget,COLLISION_FEATHER_SECONDS} from './game-core.js';
+import {VISUAL_TUNING} from './visual-tuning.js';
 
 // Cosmetic templates use the scene's native square pixels; never rotate/rescale
 // the bird to create particles. D = shared outline, B = blue, W = white tip.
@@ -17,10 +18,10 @@ export function featherParticles(burst,width,height) {
       mirrored:Math.sin(t*5+phase)<0};
   });
 }
-export function paintFeathers(ctx,burst,width,height) {
+export function paintFeathers(ctx,burst,width,height,palette=colors) {
   for(const p of featherParticles(burst,width,height)) {
     FEATHER_EFFECT.rows.forEach((row,y)=>[...row].forEach((v,x)=>{
-      if(v!=='.'){ctx.fillStyle=colors[v];ctx.fillRect(p.x+(p.mirrored?row.length-1-x:x),p.y+y,1,1);}
+      if(v!=='.'){ctx.fillStyle=palette[v];ctx.fillRect(p.x+(p.mirrored?row.length-1-x:x),p.y+y,1,1);}
     }));
   }
 }
@@ -28,10 +29,11 @@ export function paintFeathers(ctx,burst,width,height) {
 // Fixed HUD, deliberately separate from bird position and input hit targets.
 export function paintAmmo(ctx,state,width) {
   if(['landing','won','exited'].includes(state.phase))return;
-  const {capacity,available,progress}=dropBudget(state),hudWidth=capacity*16+10;
+  const {capacity,available,progress}=dropBudget(state),scale=VISUAL_TUNING.ammoScale,hudWidth=(capacity*16+10)*scale;
   const left=state.config.ammoSide==='right'?width-hudWidth-10:10,top=10;
+  const rect=(x,y,w,h)=>ctx.fillRect(left+x*scale,top+y*scale,w*scale,h*scale);
   for(let i=0;i<capacity;i++) {
-    const x=left+7+i*16,y=top+5;
+    const x=7+i*16,y=5;
     const rows=['...D...','..DDD..','..DDD..','.DDDDD.','DDDDDDD','DDDDDDD','DDDDDDD','.DDDDD.','..DDD..'];
     const fill=i<available?1:i===available?progress:0;
     rows.forEach((row,ry)=>[...row].forEach((v,rx)=>{
@@ -40,13 +42,13 @@ export function paintAmmo(ctx,state,width) {
       // Leave unfilled pixels untouched so the actual scene shows through.
       if(interior&&ry<8-Math.floor(fill*6))return;
       ctx.fillStyle=interior?(i<available?'#ffffff':'#f5df72'):'#20243a';
-      ctx.fillRect(x+rx,y+ry,1,1);
+      rect(x+rx,y+ry,1,1);
     }));
     if(i===available&&state.config.dropMode==='recharge') {
       ctx.fillStyle='#20243a';
-      ctx.fillRect(x,top+18,7,1);ctx.fillRect(x,top+21,7,1);
-      ctx.fillRect(x,top+19,1,2);ctx.fillRect(x+6,top+19,1,2);
-      ctx.fillStyle='#f5df72';ctx.fillRect(x+1,top+19,Math.floor(progress*5),2);
+      rect(x,18,7,1);rect(x,21,7,1);
+      rect(x,19,1,2);rect(x+6,19,1,2);
+      ctx.fillStyle='#f5df72';rect(x+1,19,Math.floor(progress*5),2);
     }
   }
 }

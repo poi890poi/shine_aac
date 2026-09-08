@@ -1,0 +1,102 @@
+{
+  "pageid": 5567278,
+  "ns": 6,
+  "title": "File:Chihsingshan, Tatun volcanoes.jpg",
+  "imagerepository": "local",
+  "imageinfo": [
+    {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Chihsingshan%2C_Tatun_volcanoes.jpg/960px-Chihsingshan%2C_Tatun_volcanoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 960,
+      "thumbheight": 638,
+      "responsiveUrls": {
+        "2": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Chihsingshan%2C_Tatun_volcanoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Chihsingshan%2C_Tatun_volcanoes.jpg/960px-Chihsingshan%2C_Tatun_volcanoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 960,
+        "height": 638,
+        "srcset": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Chihsingshan%2C_Tatun_volcanoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Chihsingshan%2C_Tatun_volcanoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Chihsingshan,_Tatun_volcanoes.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=5567278",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2008-12-25 07:17:35",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Chihsingshan, Tatun volcanoes",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "GFDL|Taken with Konica Minolta Dynax 5D|CC-BY-SA-2.5,2.0,1.0|Xiaoyoukeng|License migration redundant|Taiwan photographs taken on 2006-07-31|Self-published work|White clouds in Taiwan|2006 photographs of Taipei|Mount Qixing with clouds",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "Chihsingshan (七星山), the highest peak of the Tatun volcanoes, Taiwan, has a height of 1120 m.",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2006-07-31 16:59",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a href=\"//commons.wikimedia.org/wiki/User:Peellden\" title=\"User:Peellden\">peellden</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 3.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 3.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "http://creativecommons.org/licenses/by-sa/3.0/",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-3.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    }
+  ]
+}

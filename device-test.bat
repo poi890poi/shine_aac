@@ -1,5 +1,6 @@
 @echo off
 setlocal
+if /I "%~1"=="--bird-poc" goto bird_poc
 python "%~dp0scripts\device-acceptance-test.py" %*
 set "acceptance_exit=%ERRORLEVEL%"
 
@@ -12,3 +13,8 @@ python "%~dp0scripts\device-native-settings-audit.py"
 set "config_exit=%ERRORLEVEL%"
 if not %acceptance_exit% EQU 0 exit /b %acceptance_exit%
 exit /b %config_exit%
+
+:bird_poc
+if not defined BIRD_NODE set "BIRD_NODE=node"
+"%BIRD_NODE%" "%~dp0scripts\device-bird-poc.mjs" "%~2"
+exit /b %ERRORLEVEL%

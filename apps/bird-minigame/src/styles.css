@@ -6,10 +6,10 @@ button { display:grid; place-items:center; cursor:pointer; color:#f5e397; backgr
 button svg { display:block; width:100%; height:100%; }
 button:disabled { opacity:.35; cursor:default; }
 button:focus-visible,canvas:focus-visible { outline:3px solid #f5e397; outline-offset:2px; }
-.app-shell { width:min(100%,34rem); height:100svh; margin:auto; padding:max(4px,env(safe-area-inset-top)) 4px max(4px,env(safe-area-inset-bottom)); }
+.app-shell { width:100%; height:100svh; margin:0; padding:0; }
 #game-mount,.bird-game { height:100%; min-height:0; }
-.bird-game { display:flex; flex-direction:column; background:#20243a; }
-.game-hud { flex:none; display:flex; justify-content:flex-end; gap:8px; padding:4px 6px 8px; }
+.bird-game { display:flex; flex-direction:column; position:relative; background:#20243a; }
+.game-hud { position:absolute; z-index:3; top:max(4px,env(safe-area-inset-top)); right:max(4px,env(safe-area-inset-right)); display:flex; gap:8px; padding:0; }
 [data-game-settings] { margin-right:auto; }
 .game-stage { flex:1; min-height:0; position:relative; display:grid; place-items:center; width:100%; overflow:hidden; }
 .game-canvas { display:block; image-rendering:pixelated; touch-action:manipulation; }
@@ -17,6 +17,24 @@ button:focus-visible,canvas:focus-visible { outline:3px solid #f5e397; outline-o
 .game-overlay[hidden],.helper-controls[hidden] { display:none; }
 .game-overlay button { pointer-events:auto; width:96px; height:96px; padding:22px; color:#20243a; background:#f5df72; border:4px solid #fff5ce; box-shadow:0 5px 0 #253b5c; border-radius:50%; }
 .bird-game[data-phase="won"] .game-overlay { align-items:start; padding-top:15%; }
-.helper-controls { flex:none; display:flex; gap:12px; justify-content:center; padding:0 8px 8px; }
+.bird-picker { position:absolute; bottom:5%; display:grid; gap:8px; pointer-events:auto; }
+.bird-picker[hidden],.bird-choices button[hidden] { display:none; }
+.bird-choices { display:grid; grid-template-columns:repeat(2,104px); gap:8px; }
+.game-overlay .bird-choices button { width:104px; height:64px; padding:2px; border-radius:12px; background:#20243a; border:2px solid #93b5e2; box-shadow:none; }
+.game-overlay .bird-choices button[aria-pressed="true"] { border:3px solid #fff5ce; background:#466f55; }
+.bird-choices canvas { width:96px; height:48px; image-rendering:pixelated; }
+.bird-game[data-phase="won"] .bird-picker { top:36%; bottom:auto; }
+.bird-pages { display:flex; justify-content:space-between; align-items:center; }
+.game-overlay .bird-pages button { width:40px; height:36px; padding:8px; border:2px solid #93b5e2; border-radius:8px; background:#20243a; color:#fff5ce; box-shadow:none; }
+.bird-page-dots { display:flex; gap:8px; }
+.bird-page-dots span { width:7px; height:7px; border:1px solid #20243a; background:#7aa59e; }
+.bird-page-dots span.active { background:#fff5ce; }
+@media (max-height:540px) and (orientation:landscape) {
+  .game-overlay,.bird-game[data-phase="won"] .game-overlay { align-items:start; padding-top:4px; }
+  .game-overlay>[data-game-primary] { width:60px; height:60px; padding:12px; }
+  .bird-picker,.bird-game[data-phase="won"] .bird-picker { top:auto; bottom:2%; gap:4px; }
+  .bird-choices { grid-template-columns:repeat(4,104px); gap:6px; }
+}
+.helper-controls { position:absolute; z-index:4; top:60px; right:4px; display:flex; gap:12px; justify-content:center; padding:0 8px 8px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-@media (orientation:landscape) { .app-shell { width:min(100%,48rem); } }
+@media (max-width:380px) { .game-hud { gap:4px; } .game-hud button { width:40px; height:40px; } }

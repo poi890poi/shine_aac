@@ -1,5 +1,44 @@
 # Artwork standard — version 1.0.0
 
+September 8 batch integration: the user requested tablet APK installation after
+the eight-profile review. Promote the exact reviewed photographic masks/palettes
+for Beidawu, Qilai-direction, Yushan/Chenyoulan, Dulan, Guanyin, Qixing, Huoyan and
+Dajian. This authorizes the recorded additional Taiwanese locations and the
+Qixing lower-hillside viewpoint. Keep all eight source credits in the package.
+Haze and framing remain separate from mountain identity; preserve all characters,
+flowers/stems/leaves, clouds, grass and gameplay.
+
+September 7 tablet/readability amendment: fill the physical viewport with a square
+pixel canvas, with no width cap. Shared display controls enlarge ammo from 2 to 3,
+birds by 1.3, and flower heads from 1.15 to 1.4. Do not resize or straighten stems
+or leaves. Airborne landing uses each species' existing flight cycle until won.
+Mountain identity is sampled separately from haze; the source-backed Hualien
+station/Qilai-direction profile is an additional photograph, not a warped Beidawu.
+
+September 7 leaf/stem correction: leaf size must not scale embedded stalk pixels.
+The source sheet remains immutable; isolate the left leaf via its recorded mask
+and anchor, mirror as a pair behind the unchanged stem/head renderer. This fixes
+the flawed legacy composite while preserving the actual stem curve and width.
+Historical rendering is explicitly opt-in for the frozen baseline. Live acceptance
+requires zero changed stem pixels against a leaves-disabled render across all
+variants, expressions and short/tall heights (verify-leaf-attachments.mjs).
+
+September 7 clearing approval: live scenery replaces cottages and rice with the
+reviewed simple meadow/bush direction. Curated bush lobe profiles and bounded
+placement/palette variation live in clearing-scenery.js. Mountain moods uniformly
+frame and recolor the verified Beidawu image without altering source alpha or
+inventing peaks. Freeze one cosmetic seed per round and preserve all existing
+bird, flower/stem/leaf and cloud source contours. Historical rural assets and
+baselines remain unchanged for reference; they are not the active background.
+
+September 6 follow-up: user requests larger readiness icons, grass on the landing
+foreground, flatter cloud shading, and slightly bigger flower heads without stem
+changes. Apply a fixed 1.15 head-only display multiplier about the lower attachment;
+retain the original stem and leaf calculations and source expression crops. Clouds
+keep exact alpha and reduce RGB to three semantic tones. Historical pixel baselines
+remain frozen and run with original cosmetic settings; current settings require
+independent stem/leaf raster and cloud alpha/palette checks plus visual review.
+
 This is the governing artwork workflow. It supersedes conflicting procedural-art
 recommendations in prototype documents. The September 5 procedural bird and flower
 are rejected; numerical rule checks did not establish their visual quality.

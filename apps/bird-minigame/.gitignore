@@ -1,3 +1,8 @@
 assets/generated/rejected/
 tmp/
 dist/
+__pycache__/
+*.pyc
+*.apk
+*.aab
+*.zip

@@ -25,7 +25,7 @@ print(json.dumps(crop))`;
 const c=report.canvasInfo;
 const crop=JSON.parse((await exec(python,['-c',code,file('garden.png'),String(c.cssWidth),String(c.cssHeight),String(c.dpr),String(video.width),String(video.height)])).stdout);
 const [x,y,w,h]=crop;
-const attribution='Mountain photograph: Greenigor, 日出前的北大武山 (2016), Wikimedia Commons, CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/ . Cropped, sky removed, pixelated and recolored. Adapted mountain and POC video: CC BY-SA 4.0. Source: https://commons.wikimedia.org/wiki/File:日出前的北大武山.jpg';
+const attribution='Mountain photographs: Greenigor, 日出前的北大武山 (2016), https://commons.wikimedia.org/wiki/File:日出前的北大武山.jpg ; Mfpan9389115, 花蓮車站遠眺 (2019), https://commons.wikimedia.org/wiki/File:花蓮車站遠眺.jpg . Both CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/ . Cropped, sky removed, pixelated and recolored. Adapted mountain images and POC video: CC BY-SA 4.0. No endorsement implied.';
 await exec('ffmpeg',['-y','-hide_banner','-loglevel','error','-i',file('phone.mp4'),'-vf',`crop=${w}:${h}:${x}:${y},fps=30`,'-an','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart','-metadata','comment='+attribution,file('bird-garden-full-poc.mp4')],{maxBuffer:4e6});
 const out=JSON.parse((await exec('ffprobe',['-v','error','-show_entries','format=duration:stream=width,height,codec_name','-of','json',file('bird-garden-full-poc.mp4')])).stdout);
 const outputDuration=Number(out.format.duration);if(Math.abs(outputDuration-duration)>.1)throw Error('Full-length export changed duration');

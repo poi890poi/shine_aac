@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 2,
+  "approval": "September 8 user requested tablet installation after eight-profile review",
+  "profiles": [
+    {
+      "id": "qilai-hualien",
+      "source": "assets/candidates/mountain-variants-20260907/qilai-hualien-source.jpg",
+      "sha256": "496287f99735b0e95f077009bf766d7f2e776d95b94a8b3f76bc74ef5abe2d2d",
+      "title": "花蓮車站遠眺",
+      "author": "Mfpan9389115",
+      "date": "2019-10-14",
+      "viewpoint": "Hualien station district, low city elevation looking up toward the Qilai range",
+      "identification": "Direction and ridgeline cross-check against the annotated Qilai Main Peak view from the same station district. This panorama includes intervening foothills; it is not an isolated peak portrait.",
+      "identificationSource": "https://commons.wikimedia.org/wiki/File:花莲火车站前广场_-_Hualien_Railway_Station_Square_-_2012.02_-_panoramio.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:花蓮車站遠眺.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "crop": [
+        0,
+        0,
+        3000,
+        640
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 145,
+        "minimumBlueMinusRed": -30,
+        "verticalRun": 8
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        96,
+        116,
+        133
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Crop above all station buildings; source-specific sky matte; uniform BOX reduction; median interior tones and shared four-tone blue-green palette. Source ridge shape retained, no generated peaks.",
+      "label": "奇萊方向 · 花蓮",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "nativeSize": [
+        480,
+        102
+      ],
+      "nativeSha256": "6ab2e72a4dbe15158ee743aa12db1cd04f152e463b90b1f4d83e9c4e583b758f",
+      "alphaSha256": "9ab217494881973f0b3a906a6adbc2d664213a41ffde95a395f96ceb026ef228",
+      "colorCount": 4,
+      "sourceSkylineRange": [
+        35,
+        242
+      ]
+    },
+    {
+      "id": "yushan-chenyoulan",
+      "label": "玉山 · 陳有蘭溪谷",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "source": "assets/candidates/mountain-batch-20260908/yushan-chenyoulan-source.jpg",
+      "sha256": "2daa0dc72206995c8ff1c0ad2284bf0d1078249f7a5139c1e158f23cde19d2e3",
+      "title": "Distant view of Yushan Main Peak, which taken on the Chenyoulan River Bridge during dawn on 17 July 2021.jpg",
+      "author": "Kai3952",
+      "date": "2021-07-17 05:35:52",
+      "viewpoint": "Chenyoulan River Bridge, Nantou; valley looking upward, not Chiayi",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Distant_view_of_Yushan_Main_Peak,_which_taken_on_the_Chenyoulan_River_Bridge_during_dawn_on_17_July_2021.jpg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Distant_view_of_Yushan_Main_Peak%2C_which_taken_on_the_Chenyoulan_River_Bridge_during_dawn_on_17_July_2021.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sourceResolution": [
+        4000,
+        3000
+      ],
+      "sourceSampling": "original file",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "crop": [
+        0,
+        400,
+        4000,
+        1200
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 155,
+        "minimumBlueMinusRed": -255,
+        "verticalRun": 8
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        65,
+        87,
+        113
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.",
+      "nativeSize": [
+        480,
+        144
+      ],
+      "nativeSha256": "83bd1aa0ce5f193e3ecd1e224bb017f45160a26e84235b56fd2a4202c2f8ff0e",
+      "alphaSha256": "48c1a344bb77021f94a5565f2d8ed2c1a12c371043e3ad1fcf77ee7f2f4eb588",
+      "colorCount": 4,
+      "sourceSkylineRange": [
+        111,
+        674
+      ]
+    },
+    {
+      "id": "dulan",
+      "label": "都蘭山 · 臺東",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "source": "assets/candidates/mountain-batch-20260908/dulan-source.jpg",
+      "sha256": "39e3bd6f8d2a3326389b1b8d1ef5d2c5fff0bdda45e5d9155fc55256f9540145",
+      "title": "都蘭山.jpg",
+      "author": "Fcuk1203",
+      "date": "2011-10-26 07:33",
+      "viewpoint": "Ground view from the Dulan area, Taitung; vegetation below the massif",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:%E9%83%BD%E8%98%AD%E5%B1%B1.jpg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/%E9%83%BD%E8%98%AD%E5%B1%B1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sourceResolution": [
+        945,
+        709
+      ],
+      "sourceSampling": "original file",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "crop": [
+        0,
+        270,
+        945,
+        260
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 155,
+        "minimumBlueMinusRed": -255,
+        "verticalRun": 3
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        103,
+        124,
+        139
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.",
+      "nativeSize": [
+        480,
+        132
+      ],
+      "nativeSha256": "0f97870d7bae978284bec0849943264e335fe3ad555687533aaf4721529cdc62",
+      "alphaSha256": "ea809640e949bebaa6eae52adcb6c561a6eeed12a2399687b1b2cdfca5a52c61",
+      "colorCount": 4,
+      "sourceSkylineRange": [
+        27,
+        149
+      ]
+    },
+    {
+      "id": "guanyin-tamsui",
+      "label": "觀音山 · 淡水河岸",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "source": "assets/candidates/mountain-batch-20260908/guanyin-tamsui-source.jpg",
+      "sha256": "fa75b7c323e10943f95dbffa6da1ec47a5a0557961197f2a26e38cdc5a98c767",
+      "title": "View south toward Mount Guanyin from Tamsui.jpg",
+      "author": "pang yu liu",
+      "date": "2018-01-21 12:39:28",
+      "viewpoint": "Tamsui waterfront looking south across the river, toward Mount Guanyin",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:View_south_toward_Mount_Guanyin_from_Tamsui.jpg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/2/24/View_south_toward_Mount_Guanyin_from_Tamsui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sourceResolution": [
+        7726,
+        5152
+      ],
+      "sourceSampling": "original file",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "crop": [
+        500,
+        450,
+        7226,
+        2150
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 95,
+        "minimumBlueMinusRed": -255,
+        "verticalRun": 10
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        50,
+        73,
+        97
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.",
+      "nativeSize": [
+        480,
+        143
+      ],
+      "nativeSha256": "e71c25d1ad9b0fa7ca0f74fa794ab1c2122faa5a4afd946594512b3f00af5eb0",
+      "alphaSha256": "deef276881fa8c596d9e4d28d95faed4f4803f27bb60b0c3948f58fc9b3bce22",
+      "colorCount": 4,
+      "sourceSkylineRange": [
+        289,
+        1795
+      ]
+    },
+    {
+      "id": "qixing",
+      "label": "七星山 · 山腳仰望",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "source": "assets/candidates/mountain-batch-20260908/qixing-source.jpg",
+      "sha256": "ab014ca7fe2c787de99966dbaa131f1201c46d1f509ed48ccc36edf74f1b1ec9",
+      "title": "Chihsingshan, Tatun volcanoes.jpg",
+      "author": "Peellden",
+      "date": "2006-07-31 16:59",
+      "viewpoint": "Ground/hillside viewpoint below Mount Qixing, looking up at Xiaoyoukeng; not a lowland plain",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Chihsingshan,_Tatun_volcanoes.jpg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Chihsingshan%2C_Tatun_volcanoes.jpg/960px-Chihsingshan%2C_Tatun_volcanoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourceResolution": [
+        960,
+        638
+      ],
+      "sourceSampling": "Wikimedia 960-pixel preview",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "crop": [
+        0,
+        140,
+        960,
+        270
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 190,
+        "minimumBlueMinusRed": -255,
+        "verticalRun": 3,
+        "maximumBlueMinusRed": 30
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        60,
+        94,
+        125
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.",
+      "nativeSize": [
+        480,
+        135
+      ],
+      "nativeSha256": "2187f559f355dea45901e1553d7c2123f3b59e1a7dbd418cac3df514c6cbdfb1",
+      "alphaSha256": "eefd3e0e864b036f191cb25d3e8cc060d113b3c60d9d7570c7f405502348fbf2",
+      "colorCount": 4,
+      "sourceSkylineRange": [
+        25,
+        165
+      ]
+    },
+    {
+      "id": "huoyan-daan",
+      "label": "火炎山 · 大安溪畔",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "source": "assets/candidates/mountain-batch-20260908/huoyan-daan-source.jpg",
+      "sha256": "3d143a95a278874c6611f3738921c3348cf8eba0bcb5133c983d25dd85876d40",
+      "title": "Huoyan Mountain weisheng lu 3.jpg",
+      "author": "Luws",
+      "date": "2023-05-28 18:02:35",
+      "viewpoint": "Da’an River bed looking north across the river, at ground level",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Huoyan_Mountain_weisheng_lu_3.jpg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Huoyan_Mountain_weisheng_lu_3.jpg/960px-Huoyan_Mountain_weisheng_lu_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourceResolution": [
+        960,
+        640
+      ],
+      "sourceSampling": "Wikimedia 960-pixel preview",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "crop": [
+        0,
+        90,
+        960,
+        155
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 100,
+        "minimumBlueMinusRed": -255,
+        "verticalRun": 2,
+        "maximumBlueMinusRed": 4
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        29,
+        49,
+        80
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.",
+      "nativeSize": [
+        480,
+        78
+      ],
+      "nativeSha256": "58e4bcae377db9b8f117aa8a39739a2cfc11b30423f9d6774af40f4b95022c1c",
+      "alphaSha256": "21f67c136a1bf6750149a37917065669d9c05dd16e4d31554761da427ccec435",
+      "colorCount": 3,
+      "sourceSkylineRange": [
+        28,
+        120
+      ]
+    },
+    {
+      "id": "dajian-kenting",
+      "label": "大尖山 · 墾丁平地",
+      "status": "User requested APK integration after eight-profile review, 2026-09-08",
+      "source": "assets/candidates/mountain-batch-20260908/dajian-kenting-source.jpg",
+      "sha256": "f5ed04514f75ababf319313f56fd04bf566fd48030067e35ea7f54c03d124e5a",
+      "title": "Kenting, Taiwan (51885078713).jpg",
+      "author": "Jirka Matousek",
+      "date": "2021-12-05 13:27",
+      "viewpoint": "Kenting grassland looking up toward Dajian Mountain",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Kenting,_Taiwan_(51885078713).jpg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/Kenting%2C_Taiwan_%2851885078713%29.jpg/960px-Kenting%2C_Taiwan_%2851885078713%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourceResolution": [
+        960,
+        640
+      ],
+      "sourceSampling": "Wikimedia 960-pixel preview",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "crop": [
+        0,
+        135,
+        960,
+        215
+      ],
+      "nativeWidth": 480,
+      "matte": {
+        "maximumLuminance": 150,
+        "minimumBlueMinusRed": -255,
+        "verticalRun": 3
+      },
+      "toneMedianSize": 5,
+      "toneStops": [
+        66,
+        83,
+        106
+      ],
+      "palette": [
+        "#52777f",
+        "#678e9c",
+        "#87aaba",
+        "#a6c4cc"
+      ],
+      "adaptation": "Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.",
+      "nativeSize": [
+        480,
+        108
+      ],
+      "nativeSha256": "4a7e96764719c72d1d5496ff8c6f46ed0e59fcd8eb1f7b0398f3c79fcf3d6911",
+      "alphaSha256": "dac1bdeef8c55df26c088b37ed9c24d13b7b44243a20d92a089f1de2de39f389",
+      "colorCount": 4,
+      "sourceSkylineRange": [
+        28,
+        150
+      ]
+    }
+  ]
+}

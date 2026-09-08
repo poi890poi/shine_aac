@@ -17,6 +17,10 @@ def convert(photo, recipe):
     luma=data @ np.array([.299,.587,.114])
     m=recipe['matte']
     eligible=(luma<m['maximumLuminance']) & ((data[:,:,2]-data[:,:,0])>=m['minimumBlueMinusRed'])
+    # Optional source-specific blue-sky rejection. Dark blue sky can have the
+    # same luminance as land; this does not change legacy backlit-photo mattes.
+    if 'maximumBlueMinusRed' in m:
+        eligible &= (data[:,:,2]-data[:,:,0])<=m['maximumBlueMinusRed']
     run=m['verticalRun']
     # Require a continuous source-column transition, then retain the entire land
     # below it. This is an explicit matte for this backlit photo, not a generic AI mask.

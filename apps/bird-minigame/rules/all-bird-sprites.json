@@ -1,0 +1,1265 @@
+{
+  "schemaVersion": 1,
+  "species": [
+    {
+      "speciesId": "taiwan_barbet",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_barbet.png",
+      "sourceSha256": "f2a5d6124b26283510b36db7e666c95de5b458a61b27fdfcc591e8b7525d4102",
+      "scale": 0.18,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            637
+          ],
+          "anchor": [
+            436,
+            395
+          ],
+          "foregroundBounds": [
+            126,
+            98,
+            602,
+            498
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            637
+          ],
+          "anchor": [
+            342,
+            396
+          ],
+          "foregroundBounds": [
+            35,
+            290,
+            511,
+            634
+          ]
+        },
+        {
+          "rect": [
+            0,
+            637,
+            627,
+            617
+          ],
+          "anchor": [
+            439,
+            262
+          ],
+          "foregroundBounds": [
+            124,
+            153,
+            602,
+            336
+          ]
+        },
+        {
+          "rect": [
+            627,
+            637,
+            627,
+            617
+          ],
+          "anchor": [
+            291,
+            264
+          ],
+          "foregroundBounds": [
+            122,
+            130,
+            457,
+            424
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 424,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_whistling_thrush",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_whistling_thrush.png",
+      "sourceSha256": "ca509a2516f3d99805d3cf14a966c16dd64dca077e4506de01a9a4cc1294db88",
+      "scale": 0.2,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            444,
+            390
+          ],
+          "foregroundBounds": [
+            61,
+            81,
+            596,
+            485
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            408,
+            380
+          ],
+          "foregroundBounds": [
+            23,
+            290,
+            562,
+            612
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            638,
+            627
+          ],
+          "anchor": [
+            482,
+            261
+          ],
+          "foregroundBounds": [
+            78,
+            170,
+            635,
+            352
+          ]
+        },
+        {
+          "rect": [
+            638,
+            627,
+            616,
+            627
+          ],
+          "anchor": [
+            359,
+            232
+          ],
+          "foregroundBounds": [
+            32,
+            114,
+            512,
+            448
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 448,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "flamecrest",
+      "file": "../assets/candidates/all-birds-20260906/flamecrest.png",
+      "sourceSha256": "5fc92d4f33ba9e614bee269fc200b9af88962c235388258418e6f6b85bbc2527",
+      "scale": 0.18,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            629
+          ],
+          "anchor": [
+            416,
+            376
+          ],
+          "foregroundBounds": [
+            86,
+            50,
+            596,
+            530
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            629
+          ],
+          "anchor": [
+            369,
+            375
+          ],
+          "foregroundBounds": [
+            26,
+            219,
+            552,
+            626
+          ]
+        },
+        {
+          "rect": [
+            0,
+            629,
+            627,
+            625
+          ],
+          "anchor": [
+            432,
+            299
+          ],
+          "foregroundBounds": [
+            76,
+            154,
+            609,
+            425
+          ]
+        },
+        {
+          "rect": [
+            627,
+            629,
+            627,
+            625
+          ],
+          "anchor": [
+            306,
+            306
+          ],
+          "foregroundBounds": [
+            45,
+            129,
+            488,
+            508
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 508,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "white_eared_sibia",
+      "file": "../assets/candidates/all-birds-20260906/white_eared_sibia.png",
+      "sourceSha256": "cf681c78b757561cd32f4517312655a24bd31d7e4d4b71f9ea366e6613531139",
+      "scale": 0.2,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            454,
+            362
+          ],
+          "foregroundBounds": [
+            41,
+            56,
+            603,
+            461
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            425,
+            359
+          ],
+          "foregroundBounds": [
+            13,
+            255,
+            577,
+            624
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            436,
+            282
+          ],
+          "foregroundBounds": [
+            21,
+            179,
+            586,
+            382
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            355,
+            265
+          ],
+          "foregroundBounds": [
+            38,
+            128,
+            510,
+            492
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 492,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_yuhina",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_yuhina.png",
+      "sourceSha256": "800ace880f6a7706c8d89cb9b3598d313fc74bc6768e6c2e6f315e9b1115077e",
+      "scale": 0.18,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            631,
+            636
+          ],
+          "anchor": [
+            470,
+            413
+          ],
+          "foregroundBounds": [
+            87,
+            100,
+            628,
+            492
+          ]
+        },
+        {
+          "rect": [
+            631,
+            0,
+            623,
+            636
+          ],
+          "anchor": [
+            382,
+            409
+          ],
+          "foregroundBounds": [
+            37,
+            241,
+            540,
+            633
+          ]
+        },
+        {
+          "rect": [
+            0,
+            636,
+            627,
+            618
+          ],
+          "anchor": [
+            469,
+            261
+          ],
+          "foregroundBounds": [
+            94,
+            91,
+            624,
+            337
+          ]
+        },
+        {
+          "rect": [
+            627,
+            636,
+            627,
+            618
+          ],
+          "anchor": [
+            345,
+            282
+          ],
+          "foregroundBounds": [
+            67,
+            83,
+            500,
+            448
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 448,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_liocichla",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_liocichla.png",
+      "sourceSha256": "92cd00ab66274a28c250b2aeda1bf181fc6c3f37650599a6f8f3d3c10a326dfd",
+      "scale": 0.19,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            449,
+            356
+          ],
+          "foregroundBounds": [
+            86,
+            75,
+            602,
+            482
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            364,
+            341
+          ],
+          "foregroundBounds": [
+            10,
+            229,
+            520,
+            561
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            453,
+            229
+          ],
+          "foregroundBounds": [
+            73,
+            119,
+            609,
+            327
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            360,
+            252
+          ],
+          "foregroundBounds": [
+            46,
+            113,
+            515,
+            433
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 433,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "collared_bush_robin",
+      "file": "../assets/candidates/all-birds-20260906/collared_bush_robin.png",
+      "sourceSha256": "972088759e174184456cda1f5d581b584de47caf26f87a53d681cb96e9dd1344",
+      "scale": 0.18,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            428,
+            380
+          ],
+          "foregroundBounds": [
+            62,
+            86,
+            583,
+            517
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            401,
+            380
+          ],
+          "foregroundBounds": [
+            27,
+            280,
+            550,
+            607
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            441,
+            283
+          ],
+          "foregroundBounds": [
+            68,
+            182,
+            592,
+            369
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            369,
+            265
+          ],
+          "foregroundBounds": [
+            77,
+            131,
+            522,
+            493
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 493,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_barwing",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_barwing.png",
+      "sourceSha256": "1bff73030edecbf246e1421163c4af9a588dbde1c1ad413ce02e155cb94b7f23",
+      "scale": 0.2,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            456,
+            379
+          ],
+          "foregroundBounds": [
+            58,
+            80,
+            606,
+            532
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            406,
+            322
+          ],
+          "foregroundBounds": [
+            27,
+            220,
+            558,
+            569
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            456,
+            231
+          ],
+          "foregroundBounds": [
+            60,
+            131,
+            606,
+            322
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            406,
+            241
+          ],
+          "foregroundBounds": [
+            22,
+            109,
+            558,
+            454
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 454,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_rosefinch",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_rosefinch.png",
+      "sourceSha256": "15d42c0994d78a03271aeefed36fe1a0c49516b66cb94f7325b115c2b2c03002",
+      "scale": 0.18,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            442,
+            337
+          ],
+          "foregroundBounds": [
+            116,
+            75,
+            592,
+            474
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            366,
+            337
+          ],
+          "foregroundBounds": [
+            32,
+            233,
+            519,
+            612
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            451,
+            261
+          ],
+          "foregroundBounds": [
+            91,
+            158,
+            603,
+            397
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            351,
+            256
+          ],
+          "foregroundBounds": [
+            77,
+            124,
+            497,
+            467
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 467,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_scimitar_babbler",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_scimitar_babbler.png",
+      "sourceSha256": "0cb0ed90ea6b5e2e62691bb231e640831a1e092f5830123b00e62ec5bf33abe3",
+      "scale": 0.19,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            613,
+            627
+          ],
+          "anchor": [
+            374,
+            356
+          ],
+          "foregroundBounds": [
+            56,
+            93,
+            583,
+            492
+          ]
+        },
+        {
+          "rect": [
+            613,
+            0,
+            641,
+            627
+          ],
+          "anchor": [
+            384,
+            373
+          ],
+          "foregroundBounds": [
+            4,
+            278,
+            595,
+            570
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            390,
+            274
+          ],
+          "foregroundBounds": [
+            56,
+            182,
+            592,
+            345
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            303,
+            261
+          ],
+          "foregroundBounds": [
+            33,
+            136,
+            506,
+            455
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 455,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "mikado_pheasant",
+      "file": "../assets/candidates/all-birds-20260906/mikado_pheasant.png",
+      "sourceSha256": "8b3e582e646d11b0650eef25b8d89cecd4e5ac7a97f344dbb4f4fc310c3f5c8c",
+      "scale": 0.27,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            474,
+            378
+          ],
+          "foregroundBounds": [
+            48,
+            128,
+            588,
+            511
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            449,
+            379
+          ],
+          "foregroundBounds": [
+            27,
+            299,
+            562,
+            544
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            493,
+            256
+          ],
+          "foregroundBounds": [
+            53,
+            162,
+            608,
+            364
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            453,
+            275
+          ],
+          "foregroundBounds": [
+            27,
+            167,
+            570,
+            402
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 388,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "swinhoes_pheasant",
+      "file": "../assets/candidates/all-birds-20260906/swinhoes_pheasant.png",
+      "sourceSha256": "7ff4bc8a36a329d52ce4c473d2f5d10f2bc7ac2311aadaa2e2ca2e787e233e92",
+      "scale": 0.24,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            467,
+            391
+          ],
+          "foregroundBounds": [
+            42,
+            106,
+            588,
+            527
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            460,
+            328
+          ],
+          "foregroundBounds": [
+            25,
+            245,
+            582,
+            561
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            466,
+            220
+          ],
+          "foregroundBounds": [
+            35,
+            141,
+            588,
+            348
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            408,
+            231
+          ],
+          "foregroundBounds": [
+            24,
+            117,
+            527,
+            415
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 411,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "rufous_crowned_laughingthrush",
+      "file": "../assets/candidates/all-birds-20260906/rufous_crowned_laughingthrush.png",
+      "sourceSha256": "de44a06413ad546b9790458e200633fdd41f6ad00db45024c3eafebbf5be5089",
+      "scale": 0.2,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            630,
+            627
+          ],
+          "anchor": [
+            463,
+            355
+          ],
+          "foregroundBounds": [
+            64,
+            57,
+            627,
+            495
+          ]
+        },
+        {
+          "rect": [
+            630,
+            0,
+            624,
+            627
+          ],
+          "anchor": [
+            397,
+            347
+          ],
+          "foregroundBounds": [
+            26,
+            236,
+            566,
+            612
+          ]
+        },
+        {
+          "rect": [
+            0,
+            627,
+            642,
+            627
+          ],
+          "anchor": [
+            472,
+            206
+          ],
+          "foregroundBounds": [
+            64,
+            92,
+            639,
+            352
+          ]
+        },
+        {
+          "rect": [
+            642,
+            627,
+            612,
+            627
+          ],
+          "anchor": [
+            360,
+            250
+          ],
+          "foregroundBounds": [
+            37,
+            104,
+            530,
+            512
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 443,
+      "reviewStatus": "candidate-for-user-review"
+    },
+    {
+      "speciesId": "taiwan_thrush",
+      "file": "../assets/candidates/all-birds-20260906/taiwan_thrush.png",
+      "sourceSha256": "aafc4cd9a745d20d95fbba07317b8f6e2bd348fa4ebc6af1875c117cc139c554",
+      "scale": 0.2,
+      "poses": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            638
+          ],
+          "anchor": [
+            459,
+            387
+          ],
+          "foregroundBounds": [
+            82,
+            121,
+            602,
+            494
+          ]
+        },
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            638
+          ],
+          "anchor": [
+            387,
+            398
+          ],
+          "foregroundBounds": [
+            40,
+            301,
+            529,
+            635
+          ]
+        },
+        {
+          "rect": [
+            0,
+            638,
+            627,
+            616
+          ],
+          "anchor": [
+            459,
+            234
+          ],
+          "foregroundBounds": [
+            89,
+            138,
+            600,
+            329
+          ]
+        },
+        {
+          "rect": [
+            627,
+            638,
+            627,
+            616
+          ],
+          "anchor": [
+            345,
+            236
+          ],
+          "foregroundBounds": [
+            83,
+            110,
+            489,
+            418
+          ]
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 411,
+      "reviewStatus": "candidate-for-user-review"
+    }
+  ]
+}

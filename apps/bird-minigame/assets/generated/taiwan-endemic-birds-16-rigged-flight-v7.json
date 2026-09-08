@@ -1,0 +1,17 @@
+{
+  "speciesId": "all-16",
+  "assetKind": "4x4-flight-review-sheet",
+  "promptFile": "prompts/trials/16-bird-sheet-v6.md + prompts/trials/16-bird-sheet-v7-mikado-fix.md",
+  "speciesRuleVersion": "1.0.0",
+  "styleRuleVersion": "1.0.0",
+  "rigRuleVersion": "1.0.0",
+  "featherDynamicsRuleVersion": "1.0.0",
+  "sourceIds": [
+    "v5-layout-and-label-reference",
+    "yellow_tit-proportion-guide",
+    "yellow_tit-identity-anchor",
+    "mikado_pheasant-proportion-guide"
+  ],
+  "generatorMode": "built-in-image-generation",
+  "reviewStatus": "candidate-needs-per-cell-silhouette-measurement"
+}

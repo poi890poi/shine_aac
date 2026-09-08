@@ -1,0 +1,16 @@
+{
+  "speciesId": "all-16",
+  "assetKind": "4x4-flight-review-sheet",
+  "promptFile": "prompts/trials/16-bird-sheet-v8-tail-curvature.md",
+  "speciesRuleVersion": "1.0.0",
+  "styleRuleVersion": "1.0.0",
+  "rigRuleVersion": "1.0.0",
+  "featherDynamicsRuleVersion": "1.0.0",
+  "sourceIds": [
+    "v7-edit-target",
+    "parameter-derived-tail-curvature-atlas"
+  ],
+  "generatorMode": "built-in-image-generation",
+  "reviewStatus": "candidate-curvature-applied"
+}
+

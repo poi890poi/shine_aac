@@ -17,6 +17,7 @@
     "expressions": [[180,18,355,563],[718,17,362,565],[179,644,359,541],[718,641,368,542]],
     "leafRect": [65,345,190,105],
     "leafScale": 0.125, "leafAnchorX": 128,
+    "isolatedLeaf": {"rect":[100,362,76,76],"anchor":[74,66],"mask":[[0,0],[76,0],[76,65],[65,74],[0,74]],"source":"left leaf of neutral expression; exclude captured stalk at lower-right join"},
     "variants": [
       {"name":"coral","headScale":1,"curvePixels":2,"stemHalfWidth":3,"stemRamp":["#67bd06","#a3e916"],"leafSize":1,"leafLevels":[0.48],"petalRamp":null},
       {"name":"lavender","headScale":0.94,"curvePixels":5,"stemHalfWidth":2,"stemRamp":["#4d9660","#93c980"],"leafSize":0.9,"leafLevels":[0.33,0.68],"petalRamp":["#75519d","#b38ad6","#e7d3f4"]},

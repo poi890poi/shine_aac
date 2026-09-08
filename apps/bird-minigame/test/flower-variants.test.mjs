@@ -19,11 +19,12 @@ test('petal tint preserves alpha, eyes, outline, yellow face, white splash and l
 });
 test('shortening keeps variant head size fixed and leaf count follows its parameters',()=>{
   for(let id=0;id<4;id++) {
-    const image={width:355},sprites={layout:{flower:layout},flower:[image,image,image,image]};
+    const image={width:355},leaf={width:76,height:76},sprites={layout:{flower:layout},flower:[image,image,image,image],isolatedLeaves:Array(4).fill(leaf)};
     const paint=height=>{const draws=[];const ctx={save(){},restore(){},translate(){},scale(){},fillRect(){},drawImage(...args){draws.push(args)}};
       paintFlower(ctx,sprites,{id,x:.5,displayHeight:height,reaction:0,hits:0,blocked:0},320,640,576);return draws;};
     const tall=paint(.4),short=paint(.2);
-    assert.equal(tall.length,layout.variants[id].leafLevels.length+1);
+    assert.equal(tall.length,layout.variants[id].leafLevels.length*2+1);
+    assert.ok(tall.slice(0,-1).every(draw=>draw[0]===leaf),'leaf draws use isolated components, never the whole stalk sheet');
     assert.deepEqual(tall.at(-1).slice(-2),short.at(-1).slice(-2));
     assert.equal(tall.at(-1).at(-1),Math.round(layout.headSourceHeight*layout.scale*layout.variants[id].headScale));
   }
@@ -43,7 +44,7 @@ test('whole-plant presets draw continuous curved stems at configured widths and 
   for(let id=0;id<4;id++)for(const height of [.4,.2]) {
     const rows=new Map(),image={width:355};
     const ctx={fillStyle:'',save(){},restore(){},translate(){},scale(){},drawImage(){},fillRect(x,y,w,h){if(!rows.has(y))rows.set(y,[]);rows.get(y).push({x,w,color:this.fillStyle});}};
-    paintFlower(ctx,{layout:{flower:layout},flower:[image]}, {id,x:.5,displayHeight:height,reaction:0,hits:0,blocked:0},320,640,576);
+    paintFlower(ctx,{layout:{flower:layout},flower:[image],isolatedLeaves:Array(4).fill({width:76,height:76})}, {id,x:.5,displayHeight:height,reaction:0,hits:0,blocked:0},320,640,576);
     const ys=[...rows.keys()];assert.equal(ys.at(-1),576);assert.equal(ys.length,576-ys[0]+1,'no gaps along the stalk');
     for(const paints of rows.values()){assert.equal(paints[0].w,layout.variants[id].stemHalfWidth*2+1);assert.equal(paints[1].color,layout.variants[id].stemRamp[0]);}
     assert.ok(new Set([...rows.values()].map(p=>p[0].x)).size>1,'curved stem silhouette');

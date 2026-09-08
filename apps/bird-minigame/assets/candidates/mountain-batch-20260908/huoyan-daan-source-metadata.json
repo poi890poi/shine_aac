@@ -1,0 +1,115 @@
+{
+  "pageid": 132446992,
+  "ns": 6,
+  "title": "File:Huoyan Mountain weisheng lu 3.jpg",
+  "imagerepository": "local",
+  "imageinfo": [
+    {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Huoyan_Mountain_weisheng_lu_3.jpg/960px-Huoyan_Mountain_weisheng_lu_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 960,
+      "thumbheight": 640,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Huoyan_Mountain_weisheng_lu_3.jpg/1920px-Huoyan_Mountain_weisheng_lu_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Huoyan_Mountain_weisheng_lu_3.jpg/960px-Huoyan_Mountain_weisheng_lu_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 960,
+        "height": 640,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Huoyan_Mountain_weisheng_lu_3.jpg/1920px-Huoyan_Mountain_weisheng_lu_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Huoyan_Mountain_weisheng_lu_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Huoyan_Mountain_weisheng_lu_3.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=132446992",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2023-05-29 13:17:18",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Huoyan Mountain weisheng lu 3",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Mount Huoyan|Taiwan photographs taken on 2023-05-28|Images from Wiki Loves Earth 2023 in Taiwan|Self-published work|Images from Wiki Loves Earth 2023 Human Rights and Environment Special Nomination|Files with coordinates missing SDC location of creation|2023 photographs of Miaoli|Images from Wiki Loves Earth 2023|Uploaded via Campaign:wle-tw|Images from Wiki Loves Earth missing SDC depicts|Images from Wiki Loves Earth missing SDC location of creation|WLE 2023 in Taiwan +",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "24.351648",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "120.720541",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "​隔著大安溪北望火炎山，可以發現溪谷和山脈呈現兩種完全不同的地貌。",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2023-05-28 18:02:35",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Luws&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Luws (page does not exist)\">Luws</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 4.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 4.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-4.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    }
+  ]
+}

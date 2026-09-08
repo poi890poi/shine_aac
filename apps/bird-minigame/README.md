@@ -11,7 +11,8 @@ Android packaging unless an explicit integration change is made later.
 
 ## MVP
 
-The standalone POC stars the Taiwan Blue Magpie (`Urocissa caerulea`). It is a
+The completed standalone POC includes 16 Taiwanese bird species, with the Taiwan
+Blue Magpie (`Urocissa caerulea`) selected initially. It is a
 fixed-screen, single-action garden game: the bird crosses automatically and
 descends each pass. Activate to release a white liquid dropping. Equally
 spaced flowers shorten on impact, react with comic faces, and make room for safe
@@ -25,7 +26,8 @@ import { mountBirdGame } from "./src/embed.js";
 
 const game = mountBirdGame(document.querySelector("#game-slot"), {
   getAacConfig: () => session.config, // active AAC columns, re-read on start/reset
-  physics: { passSeconds: 6, dropMode: 'flyby' },
+  speciesSelection: 'random', // SHINE host samples once for each new round
+  physics: { passSeconds: 6, dropMode: 'recharge' },
   inputTarget: document,
   onEvent(event) {
     // start, drop, hit, cleared, pass, collision, landing, won, pause, resume, reset, exit
@@ -40,7 +42,8 @@ game.exit();
 game.destroy();
 ```
 
-`dropMode: 'flyby'` keeps one drop per pass. Choose `'recharge'` for a stored reserve
+The default `'recharge'` mode starts with three charges. Explicit
+`dropMode: 'flyby'` keeps one drop per pass. Recharge uses a stored reserve
 with `ammoCapacity: 3`, `refillSeconds: 6` and `ammoSide: 'left'` (or `'right'`).
 Capacity accepts 1–5 and interval accepts positive seconds. Both modes retain one
 active dropping, ignore extra input without queuing, and show a fixed corner HUD.

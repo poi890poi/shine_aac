@@ -1,0 +1,12 @@
+{
+  "speciesId": "yellow_tit",
+  "assetKind": "pose-power-downstroke",
+  "promptFile": "prompts/flight-pose-edit.md",
+  "speciesRuleVersion": "1.0.0",
+  "styleRuleVersion": "1.0.0",
+  "rigRuleVersion": "1.0.0",
+  "featherDynamicsRuleVersion": "1.0.0",
+  "sourceIds": ["yellow_tit-direct", "great_tit-motion-analogue"],
+  "generatorMode": "built-in-image-generation",
+  "reviewStatus": "rejected-baked-checkerboard-background"
+}

@@ -14,7 +14,9 @@ try{
   const report=await page.evaluate(async baseline=>{
     const {loadSprites}=await import('/src/sprite-assets.js');
     const {loadReviewedScenery,prepareReviewedFlowers,paintReviewedClouds,paintReviewedFlower}=await import('/src/reviewed-scenery.js');
-    const assets=await loadReviewedScenery(),sprites=prepareReviewedFlowers(await loadSprites());
+    // Historical baseline remains frozen; explicitly request its original cosmetic settings.
+    // Current cosmetics are checked independently by verify-visual-tuning.mjs.
+    const assets=await loadReviewedScenery({flatClouds:false}),sprites=prepareReviewedFlowers(await loadSprites(),{headScale:1,legacyLeafComposite:true});
     const c=document.createElement('canvas');c.width=480;c.height=640;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
     paintReviewedClouds(ctx,assets,480,640,0);
     for(let i=0;i<4;i++)paintReviewedFlower(ctx,sprites,{id:i,x:(60+i*120)/480,displayHeight:333/640,reaction:0,hits:0,blocked:0},480,640,628);
