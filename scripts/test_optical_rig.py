@@ -1,6 +1,7 @@
 import importlib.util
 import inspect
 import json
+import os
 import struct
 import sys
 import tempfile
@@ -28,6 +29,66 @@ class TwoDeviceRigRoleTest(unittest.TestCase):
         {"serial": "TABLET", "model": "SM_X200", "product": "gta8wifi"},
         {"serial": "PHONE", "model": "SM_G781B", "product": "r8q"},
     ]
+
+    def test_preview_package_is_shared_by_optical_and_device_commands(self):
+        with mock.patch.dict(os.environ, {"SHINE_AAC_TEST_PACKAGE": "org.shineaac.app.preview"}):
+            configured = importlib.util.module_from_spec(SPEC)
+            SPEC.loader.exec_module(configured)
+            device = configured.load_device_test_module()
+            self.assertEqual("org.shineaac.app.preview", configured.PACKAGE)
+            self.assertEqual(configured.PACKAGE, device.PACKAGE)
+            self.assertEqual("org.shineaac.app.preview/org.shineaac.app.MainActivity", device.MAIN_ACTIVITY)
+
+    def test_default_package_still_targets_normal_app(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("SHINE_AAC_TEST_PACKAGE", None)
+            configured = importlib.util.module_from_spec(SPEC)
+            SPEC.loader.exec_module(configured)
+            self.assertEqual("org.shineaac.app", configured.PACKAGE)
+            self.assertEqual(configured.PACKAGE, configured.load_device_test_module().PACKAGE)
+
+    def test_scan_mode_navigation_keeps_expanded_settings_open(self):
+        for expanded in (False, True):
+            with self.subTest(expanded=expanded):
+                rig = object.__new__(RIG.OpticalRig)
+                rig.device = mock.Mock()
+                rig.device.find_node.return_value = object()
+                rig.device.xml_nodes.return_value = [
+                    {"text": "輸入後從第一列重新開始"},
+                    {"text": "輸入" if expanded else "掃描模式"},
+                ]
+                rig.device.node_is_visible_target.return_value = True
+                rig.device.tap_node.return_value = True
+                rig.pass_ = mock.Mock()
+                with mock.patch.object(RIG, "scan_mode_from_settings_xml", side_effect=[None, "row-column"]), mock.patch.object(RIG.time, "sleep"):
+                    self.assertEqual("row-column", rig.read_scan_mode_from_settings())
+                if expanded:
+                    rig.device.shell.assert_not_called()
+                else:
+                    rig.device.shell.assert_called_once_with("input", "keyevent", "4", check=False)
+
+    def test_input_category_does_not_toggle_restart_after_input(self):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.device = mock.Mock()
+        category = {"text": "輸入"}
+        rig.device.xml_nodes.return_value = [{"text": "輸入後從第一列重新開始"}, category]
+        rig.device.node_is_visible_target.return_value = True
+        rig.device.tap_node.return_value = True
+        rig.original_switch_input_label = None
+        with mock.patch.object(RIG, "switch_input_label_from_settings_xml", side_effect=[None, "Camera gesture"]), mock.patch.object(RIG.time, "sleep"):
+            self.assertTrue(rig.select_runtime_optical_profile())
+        rig.device.tap_node.assert_called_once_with(category)
+        rig.device.find_node.assert_not_called()
+
+    def test_camera_setup_ignores_category_description_and_hidden_duplicates(self):
+        device = mock.Mock()
+        target = {"text": "相機設定", "visible": True}
+        device.xml_nodes.return_value = [
+            {"text": "輸入來源、相機設定與輸入測試", "visible": True},
+            {"text": "相機設定", "visible": False}, target,
+        ]
+        device.node_is_visible_target.side_effect = lambda node: node["visible"]
+        self.assertIs(target, RIG.exact_visible_label(device, None, ["Camera setup", "相機設定"]))
 
     def test_adb_inventory_excludes_offline_and_unauthorized_devices(self):
         parsed = android_surface_stimulus.parse_adb_devices(

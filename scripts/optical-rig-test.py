@@ -49,7 +49,7 @@ from optical_stimulus import (
 import optical_sources
 
 ROOT = Path.cwd()
-PACKAGE = "org.shineaac.app"
+PACKAGE = os.environ.get("SHINE_AAC_TEST_PACKAGE", "org.shineaac.app")
 CAMERA_ACTIVITY_FRAGMENT = "CameraSwitchCalibrationActivity"
 SETTINGS_ACTIVITY_FRAGMENT = "SettingsActivity"
 SOURCES_PATH = ROOT / "testdata/optical-rig/sources.json"
@@ -191,6 +191,13 @@ def switch_input_label_from_settings_xml(xml_path):
         if label in labels:
             return label
     return None
+
+
+def exact_visible_label(device, xml_path, labels):
+    wanted = {label.strip().lower() for label in labels}
+    return next((node for node in device.xml_nodes(xml_path)
+        if node["text"].strip().lower() in wanted
+        and device.node_is_visible_target(node)), None)
 
 
 def is_camera_switch_input_label(label):
@@ -2685,11 +2692,7 @@ class OpticalRig:
             )
             last_xml = xml
 
-            node = self.device.find_node(
-                xml,
-                patterns,
-                visible_only=True
-            )
+            node = exact_visible_label(self.device, xml, patterns)
             if node and self.device.tap_node(node):
                 tap_attempts += 1
                 print(
@@ -2847,9 +2850,9 @@ class OpticalRig:
         """Ensure a real camera-gesture input option is selected in Settings."""
         first_xml = self.device.ui_dump("rig_switch_input_root")
         if not switch_input_label_from_settings_xml(first_xml):
-            section = self.device.find_node(
-                first_xml, ["input", "輸入"], visible_only=True
-            )
+            # Substring matching also selects "restart after input" in the
+            # neighboring Scanning pane. Use the category's exact visible label.
+            section = exact_visible_label(self.device, first_xml, ["input", "輸入"])
             if section and self.device.tap_node(section):
                 time.sleep(0.6)
         for attempt in range(7):
@@ -2926,7 +2929,12 @@ class OpticalRig:
                 time.sleep(0.6)
                 xml = self.device.ui_dump("rig_scan_mode_section")
                 self.scan_mode = scan_mode_from_settings_xml(xml)
-        if opened_native_section:
+        # Expanded Settings retains its category list beside the detail pane.
+        # Back there exits Settings entirely; compact detail still needs Back.
+        category_visible = opened_native_section and exact_visible_label(
+            self.device, xml, ["input", "輸入"]
+        )
+        if opened_native_section and not category_visible:
             self.device.shell("input", "keyevent", "4", check=False)
             time.sleep(0.5)
         if not self.scan_mode:

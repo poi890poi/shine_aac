@@ -98,3 +98,33 @@ and optical activation. Only declared public rig stimuli were used.
 No physical camera-activation PASS or completed release is claimed. Source and
 browser event-routing tests do not replace this gate. The implementation is
 committed for review, with optical acceptance still outstanding.
+
+## September 9 follow-up: phone presenter, tablet camera
+
+Swapped the roles as requested: phone RFCR91GWXLX presents at 1080 × 2400;
+tablet R9JT201YLJF runs SHINE AAC Preview. The optical harness now respects the
+same package override as its device helper. It retains expanded Settings after
+reading scan mode and selects exact Input/Camera Setup labels, avoiding adjacent
+descriptions and the restart-after-input preference. All 88 harness tests passed.
+App binaries, camera transforms and detector parameters were not changed.
+
+The final exclusive-device run, `test-results/optical-20260909-003819`, passed
+atlas discovery on the first camera (ID 1) and geometry calibration. Normal UI
+zoom changed from 1.6× to 1.8× for that test and original preferences were restored.
+Both displays were verified OFF at cleanup before releasing the devices to the
+other task. Earlier paint-acknowledgement failure coincided with another task
+running Chrome/IME tests and issuing sleep commands on the presenter phone;
+those runs cannot establish an optical result.
+
+**Visual acceptance remains outstanding:** the final public face screenshot
+`device/screenshots/rig_geometry_unscaled_face.png` shows the face rotated by
+roughly 90 degrees. The decoded atlas establishes coordinate geometry, but this
+orientation is unsuitable for claiming normal blink/cheek acceptance. Presenter
+orientation relative to the camera needs correction before calibration and
+activation sessions. The automated geometry PASS does not override this review.
+
+One earlier run also recorded a native crash on the tablet's ShineCameraSwitch
+worker in MediaPipe `Packet.release` during `detectForVideo`, before Camera Setup
+opened. Evidence is `test-results/optical-20260909-002803/tablet-camera-crash.log`.
+The clean retry reached setup, but the crash cause is not resolved by that retry
+and no camera stability PASS is claimed.

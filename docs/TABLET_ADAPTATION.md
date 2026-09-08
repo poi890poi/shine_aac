@@ -44,6 +44,18 @@ on phone and tablet, and the declared public-stimulus optical rig for camera
 and input changes. Source/unit checks alone are not physical acceptance.
 Always turn off used test displays and verify their state after each run.
 
+For a tablet-camera/phone-presenter run, set
+`SHINE_AAC_TEST_PACKAGE=org.shineaac.app.preview` and invoke
+`optical-rig-test.bat --geometry-only --no-build --no-install --presenter-mode android --dut-serial R9JT201YLJF --presenter-serial RFCR91GWXLX`.
+The optical harness and device helper must target the same package for launch,
+preference snapshots and restoration. Expanded Settings navigation must retain
+the category pane and select the exact Input category, not the similarly named
+restart-after-input preference. `TwoDeviceRigRoleTest` covers these boundaries.
+Reserve both devices for the entire optical run. Concurrent IME/UI tests can
+replace the presenter Activity or send sleep commands, invalidating its paint
+acknowledgement and the optical result. Coordinate device ownership across tasks
+before retrying; do not change app or presenter behavior to mask that interference.
+
 ## Device installation
 
 The phone uses the pinned direct-install debug certificate. The tablet's existing
