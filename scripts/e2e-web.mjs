@@ -2474,7 +2474,7 @@ async function scenarioSpeechLockConversationDisplay() {
   await selectLabel("SAY");
   await reloadAndWaitForRenderedBoard("speech-lock-restore");
   const restoredLabels = (await getSnapshot()).rows.flat().map((tile) => tile.label);
-  if (!["J", "EDIT", "SAY", "CLR"].every((label) => restoredLabels.includes(label))) {
+  if (!["EDIT", "SAY", "CLR"].every((label) => restoredLabels.includes(label))) {
     const restoredState = await evaluate(`({
       labels: [...document.querySelectorAll(".tile")].map((tile) => tile.dataset.label),
       message: document.querySelector('[data-testid="message"]')?.dataset.rawMessage,
@@ -2504,8 +2504,8 @@ async function scenarioSpeechLockConversationDisplay() {
     locked.mode !== "conversation" ||
     !locked.enhanced ||
     JSON.stringify(locked.previous) !== JSON.stringify(["I need water", "Please wait"]) ||
-    JSON.stringify(locked.rows) !== JSON.stringify([["J", "EDIT", "SAY", "CLR"]]) ||
-    JSON.stringify(locked.deferred) !== JSON.stringify(["J"]) ||
+    JSON.stringify(locked.rows) !== JSON.stringify([["EDIT", "SAY", "CLR"]]) ||
+    JSON.stringify(locked.deferred) !== JSON.stringify([]) ||
     JSON.stringify(locked.reachable) !== JSON.stringify(["EDIT", "SAY", "CLR"]) ||
     JSON.stringify(locked.reachableTexts) !== JSON.stringify(["EDIT", "SAY", "CLR"]) ||
     locked.groupHighlights !== 0 ||
@@ -2561,7 +2561,7 @@ async function scenarioSpeechLockConversationDisplay() {
   await assertAndActivateSpeechLockTile("speak");
   await assertMessage("yes ");
   const afterReplay = await getSnapshot();
-  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "J|EDIT|SAY|CLR") {
+  if (afterReplay.rows.flat().map((tile) => tile.label).join("|") !== "EDIT|SAY|CLR") {
     throw new Error(`Speak did not preserve the locked subset: ${JSON.stringify(afterReplay.rows)}`);
   }
 
@@ -2570,7 +2570,7 @@ async function scenarioSpeechLockConversationDisplay() {
   const afterNext = await getSnapshot();
   if (
     afterNext.rows.flat().some((tile) => ["EDIT"].includes(tile.label)) ||
-    await evaluate(`Boolean(document.querySelector('[data-testid="conversation-context"]'))`)
+    await evaluate(`Boolean(document.querySelector('.shell.speech-lock-enhanced'))`)
   ) {
     throw new Error("Clear did not leave the speech-lock conversation display");
   }

@@ -51,5 +51,26 @@ try {
       assert.deepEqual(result.state[field], initial[field], `resize preserves ${field}`);
     }
   }
-  console.log('PASS tablet window matrix: expanded portrait, landscape, short window, split screen and round-trip preserve board/scanner');
+  const lockedPage = await browser.newPage();
+  await lockedPage.addInitScript(() => {
+    localStorage.setItem('shine-aac-web-ui-v1', JSON.stringify({uiConfigVersion:1,speechAfterReadMode:'conversation'}));
+    localStorage.setItem('shine-aac-session-draft-v1', JSON.stringify({version:1,profileId:'zh-TW',updatedAt:1,
+      message:'我想喝水',speechLockMessage:'我想喝水'}));
+  });
+  await lockedPage.goto('http://127.0.0.1:5187/apps/web/');
+  await lockedPage.waitForSelector('.speech-lock-enhanced');
+  for (const [width,height] of [[1200,800],[850,1000],[600,900],[1000,500]]) {
+    await lockedPage.setViewportSize({width,height});
+    await delay(120);
+    const lock = await lockedPage.evaluate(() => {
+      const board=document.querySelector('.board').getBoundingClientRect();
+      const pane=document.querySelector('.top-panel').getBoundingClientRect();
+      return {rows:document.querySelectorAll('.row').length, actions:[...document.querySelectorAll('.tile')].map(el=>el.dataset.action),
+        below:board.top>=pane.bottom, fits:board.bottom<=innerHeight+1, full:Math.abs(board.width-pane.width)<2};
+    });
+    assert.equal(lock.rows,1); assert.equal(lock.actions.length,3);
+    assert.equal(new Set(lock.actions).size,3);
+    assert.ok(lock.below&&lock.fits&&lock.full, 'locked message above three full-width controls');
+  }
+  console.log('PASS tablet window matrix and locked conversation: stable board/scanner and one row of three actions');
 } finally { await browser?.close(); server.kill(); }

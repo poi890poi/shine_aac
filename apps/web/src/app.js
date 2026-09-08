@@ -169,7 +169,9 @@ function boardForDisplay(candidateSession = session) {
     { ...candidateSession, speechLockMessage: null }
   );
   const bottomRow = speechLockBottomRow(candidateSession, ordinaryRows);
-  if (uiConfig.speechAfterReadMode === "conversation") return Object.freeze([bottomRow]);
+  if (uiConfig.speechAfterReadMode === "conversation") {
+    return Object.freeze([speechLockControlCandidates(candidateSession, ordinaryRows)]);
+  }
   if (ordinaryRows.length === 0) return Object.freeze([bottomRow]);
   const bottomRowIndex = ordinaryRows.length - 1;
   return ordinaryRows.map((row, rowIndex) => rowIndex === bottomRowIndex

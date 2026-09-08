@@ -1868,3 +1868,12 @@ body.demo-active .phase::after {
   }
 
 }
+
+/* Conversation has one full-width control row even in an expanded window. */
+.shell.speech-lock-enhanced {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) clamp(96px, 18vh, 160px);
+}
+.shell.speech-lock-enhanced .top-panel { align-content: stretch; }
+.shell.speech-lock-enhanced .message { max-height: none; }
+.shell.speech-lock-enhanced .conversation-context-list { flex-direction: row; }
