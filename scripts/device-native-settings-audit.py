@@ -136,11 +136,16 @@ class NativeSettingsAudit:
         path.write_bytes(data)
         return "screenshots/" + path.name
 
-    def nodes(self, path):
+    def nodes(self, path, pane=None):
         try:
             root = ET.parse(str(path)).getroot()
         except ET.ParseError:
             return []
+        if pane:
+            suffix = ":id/settings_" + pane
+            root = next((node for node in root.iter("node") if node.get("resource-id", "").endswith(suffix)), None)
+            if root is None:
+                return []
         result = []
         for raw in root.iter("node"):
             item = dict(raw.attrib)
@@ -163,12 +168,12 @@ class NativeSettingsAudit:
                    str(width // 2), str(int(height * .28)), "400", check=False)
         time.sleep(0.5)
 
-    def tap_text(self, aliases, name, swipes=0):
+    def tap_text(self, aliases, name, swipes=0, pane=None):
         aliases = [item.casefold() for item in aliases]
         for attempt in range(swipes + 1):
             path = self.dump("%s_find_%d" % (name, attempt))
             candidates = []
-            for node in self.nodes(path):
+            for node in self.nodes(path, pane):
                 label = (node.get("text", "") + " " + node.get("content-desc", "")).strip()
                 rectangle = node.get("bounds_value")
                 if not rectangle or not any(alias in label.casefold() for alias in aliases):
@@ -332,7 +337,7 @@ class NativeSettingsAudit:
             ], evidence)
 
         self.open_section(sections["speech"][0], "speech")
-        if self.tap_text(["Speech voice", "語音"], "speech_voice", 3):
+        if self.tap_text(["Speech voice", "語音"], "speech_voice", 3, pane="container"):
             texts, _, evidence = self.collect_page("speech-voice", 1)
             self.require_labels("Speech voice", texts, [
                 ["Preview selected voice", "試聽所選語音"],
@@ -394,6 +399,17 @@ def main():
         audit.run()
     except Exception as error:
         audit.add("P0", "Native Settings audit aborted", str(error))
+    finally:
+        try:
+            audit.shell("input", "keyevent", "223", check=False)
+            time.sleep(0.9)
+            display = audit.shell("dumpsys", "display", check=False)
+            if "mScreenState=OFF" not in display:
+                audit.add("P1", "Display cleanup unverified", "Device did not report its screen off")
+            else:
+                audit.passed("Test display off", "Verified after native Settings audit")
+        except Exception as error:
+            audit.add("P1", "Display cleanup failed", str(error))
         audit.write_report()
     return 1 if any(item["priority"] in ("P0", "P1") for item in audit.findings) else 0
 
