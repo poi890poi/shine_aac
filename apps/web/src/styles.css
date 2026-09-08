@@ -588,7 +588,7 @@ body.demo-active .phase::after {
 }
 
 .conversation-context {
-  display: grid;
+  display: none;
   min-width: 0;
   gap: 5px;
 }
@@ -685,6 +685,8 @@ body.demo-active .phase::after {
   border-color: transparent;
   background: transparent;
 }
+
+.speech-lock-enhanced .conversation-context { display: grid; }
 
 .board.group-camera-hold .progress-fill {
   background: rgba(26, 74, 92, 0.46);
@@ -1799,22 +1801,30 @@ body.demo-active .phase::after {
 @media (min-width: 840px) and (min-height: 600px) {
   .shell {
     grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: minmax(260px, 30vw) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 32fr) minmax(0, 68fr);
     align-items: stretch;
   }
 
   .top-panel {
     min-height: 0;
     align-content: start;
+    overflow: auto;
   }
 
   .message {
     height: auto;
     min-height: 78px;
     max-height: 34vh;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    text-align: start;
   }
+
+  .conversation-context { display: grid; }
+  .conversation-context-list { flex-direction: column; }
+  .shell:not(.speech-lock-enhanced) .conversation-context { order: 1; }
+  .shell:not(.speech-lock-enhanced) .status-row { order: 2; }
 
   .status-row {
     grid-template-columns: 1fr;

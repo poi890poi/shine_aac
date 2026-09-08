@@ -16,6 +16,13 @@ try {
   const page = await browser.newPage();
   await page.addInitScript(() => {
     window.ShineAacAndroid = { isE2E: () => true, onRender: json => { window.renderState = JSON.parse(json); } };
+    localStorage.setItem('shine-aac-session-draft-v1', JSON.stringify({version:1,profileId:'zh-TW',updatedAt:1,
+      message:'這是一段需要換行的訊息。'.repeat(8),messageHistory:['前一段草稿']}));
+    localStorage.setItem('shine-aac-text-history-v1', JSON.stringify({version:3,entries:[
+      {id:'spoken1',at:'2026-09-08T00:00:00Z',profileId:'zh-TW',text:'我想喝水',spoken:true,closed:true},
+      {id:'private',at:'2026-09-08T00:00:01Z',profileId:'zh-TW',text:'未朗讀草稿',spoken:false,closed:true},
+      {id:'spoken2',at:'2026-09-08T00:00:02Z',profileId:'zh-TW',text:'謝謝',spoken:true,closed:true}
+    ]}));
   });
   await page.goto('http://127.0.0.1:5187/apps/web/');
   await page.waitForFunction(() => window.renderState);
@@ -28,10 +35,18 @@ try {
       const board = document.querySelector('.board').getBoundingClientRect();
       const pane = document.querySelector('.top-panel').getBoundingClientRect();
       return {state: window.renderState, sideBySide: Math.abs(board.top-pane.top)<2,
+        boardShare: board.width/(board.width+pane.width),
+        messageWhiteSpace: getComputedStyle(document.querySelector('.message')).whiteSpace,
+        history: [...document.querySelectorAll('.conversation-context-message')].map(el=>el.textContent),
         fits: board.bottom <= innerHeight+1 && board.right <= innerWidth+1};
     });
     assert.equal(result.sideBySide, expanded, `${width}x${height} layout`);
     assert.equal(result.fits, true, `${width}x${height} board fits`);
+    if (expanded) {
+      assert.ok(result.boardShare>=.65 && result.boardShare<=.70, '65–70% board width');
+      assert.equal(result.messageWhiteSpace,'pre-wrap','multiline draft');
+      assert.deepEqual(result.history,['我想喝水','謝謝'],'only spoken history in supporting pane');
+    }
     for (const field of ['message','stage','columns','rows','rowIndex','cellIndex','blockIndex']) {
       assert.deepEqual(result.state[field], initial[field], `resize preserves ${field}`);
     }

@@ -1536,7 +1536,7 @@ function renderFull(board, boardKey) {
   const scanner = session.scannerState;
   const speechLocked = isSpeechLockActive(session);
   const enhancedSpeechLock = speechLocked && uiConfig.speechAfterReadMode === "conversation";
-  const previousSpokenMessages = enhancedSpeechLock ? recentSpokenMessages() : [];
+  const previousSpokenMessages = recentSpokenMessages();
   invalidateRenderedBoard();
   app.innerHTML = "";
 
@@ -2127,6 +2127,7 @@ function fitTileLabels() {
   }
 }
 
+let measuredSuggestionContentKey = null;
 function updateDynamicSuggestionSpans() {
   const rowElements = [...(observedBoardElement?.querySelectorAll(".dynamic-suggestion-row") ?? [])];
   const rowElement = rowElements[0];
@@ -2150,6 +2151,12 @@ function updateDynamicSuggestionSpans() {
     session.messageHistory.length > 0,
     isReplaySpeechLockActive(session) ? { ...session, speechLockMessage: null } : session
   ).slice(0, rowElements.length);
+  // A resize may fit labels, but must not move an existing scan target or
+  // restart its clock. Re-measure only when communication content changes.
+  const contentKey = JSON.stringify([session.config.profileId, columns,
+    session.message, session.activeCategory, sourceRows.map(row => row.map(tile => tile.label))]);
+  if (contentKey === measuredSuggestionContentKey) return false;
+  measuredSuggestionContentKey = contentKey;
   const nextSpans = Object.create(null);
   const nextWrapLabels = Object.create(null);
 
