@@ -83,11 +83,10 @@ internal class CameraFaceOverlayView(context: Context) : View(context) {
         super.onDraw(canvas)
         if (frameWidth <= 0 || frameHeight <= 0) return
 
-        val scale = min(width / frameWidth.toFloat(), height / frameHeight.toFloat())
-        val drawnWidth = frameWidth * scale
-        val drawnHeight = frameHeight * scale
-        val leftOffset = (width - drawnWidth) / 2f
-        val topOffset = (height - drawnHeight) / 2f
+        val viewport = CameraPreviewGeometry.viewport(width, height, frameWidth, frameHeight)
+        val scale = viewport.width / frameWidth
+        val leftOffset = viewport.left
+        val topOffset = viewport.top
 
         boxPaint.color = if (hasSignal) {
             Color.rgb(52, 211, 153)

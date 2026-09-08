@@ -39,6 +39,7 @@
             android:theme="@style/Theme.SHINEAAC.Settings" />
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.SHINEAAC">

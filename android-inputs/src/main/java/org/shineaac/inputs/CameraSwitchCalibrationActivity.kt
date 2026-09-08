@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
@@ -17,6 +18,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.display.DisplayManager
 import android.hardware.usb.UsbDevice
 import android.media.Image
 import android.media.ImageReader
@@ -129,6 +131,14 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     @Volatile private var uvcFrameHeight = 0
     private var maxCameraZoomRatio = MaxSavedZoomRatio
     private var analysisRotationDegrees = 0
+    private var activeSensorOrientation = 0
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            textureView?.let { updatePreviewTransform(it.width, it.height) }
+        }
+    }
     private var activeCameraMirrored = true
     private var reader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
@@ -199,6 +209,8 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = if (resources.configuration.smallestScreenWidthDp < 600)
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         mainHandler = Handler(mainLooper)
@@ -264,6 +276,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        getSystemService(DisplayManager::class.java).registerDisplayListener(displayListener, mainHandler)
         activityResumed = true
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             restoreCameraPermissionActions()
@@ -277,6 +290,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        getSystemService(DisplayManager::class.java).unregisterDisplayListener(displayListener)
         activityResumed = false
         stopCamera()
         super.onPause()
@@ -340,7 +354,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
     }
 
     private fun createContentView(): View {
-        val wideLayout = resources.configuration.screenWidthDp >= 600
+        val wideLayout = resources.configuration.screenWidthDp >= 840 && resources.configuration.screenHeightDp >= 500
         val root = LinearLayout(this).apply {
             orientation = if (wideLayout) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(19, 24, 31))
@@ -617,6 +631,23 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                     dp(154)
                 )
             )
+        }
+        // Reflow the existing views, preserving samples, cue callbacks, selected
+        // camera and TextureView ownership throughout rotation/split-screen.
+        var lastWide = wideLayout
+        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val wide = root.width >= dp(840) && root.height >= dp(500)
+            if (wide != lastWide) {
+                lastWide = wide
+                root.orientation = if (wide) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+                previewPane.layoutParams = if (wide)
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 3f)
+                else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+                controlsArea.layoutParams = if (wide)
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2f)
+                else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(154))
+                controlsColumn.setPadding(if (wide) dp(12) else 0, 0, 0, 0)
+            }
         }
         updateGestureUi()
         updateHoldUi()
@@ -1316,6 +1347,7 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
                 characteristics.get(
                     CameraCharacteristics.SENSOR_ORIENTATION
                 ) ?: 0
+            activeSensorOrientation = sensorOrientation
             activeCameraMirrored =
                 lensFacing == CameraCharacteristics.LENS_FACING_FRONT
             analysisRotationDegrees =
@@ -2128,30 +2160,26 @@ class CameraSwitchCalibrationActivity : AppCompatActivity() {
 
     private fun updatePreviewTransform(width: Int, height: Int) {
         val texture = textureView ?: return
+        if (width <= 0 || height <= 0) return
+        val uvc = selectedCamera?.source == CameraSwitchCameraSource.Uvc
+        val displayRotation = if (uvc) 0 else currentSurfaceRotation() * 90
+        analysisRotationDegrees = if (uvc) 0 else CameraRotation.compensationDegrees(
+            currentSurfaceRotation(), activeSensorOrientation, activeCameraMirrored)
         val bufferWidth = if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
             uvcFrameWidth.takeIf { it > 0 } ?: PreviewBufferWidth
         } else PreviewBufferWidth
         val bufferHeight = if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
             uvcFrameHeight.takeIf { it > 0 } ?: PreviewBufferHeight
         } else PreviewBufferHeight
-        val scale = CameraPreviewGeometry.aspectFitScale(
-            viewWidth = width,
-            viewHeight = height,
-            bufferWidth = bufferWidth,
-            bufferHeight = bufferHeight,
-            rotationDegrees = analysisRotationDegrees
-        )
         val previewZoom = if (selectedCamera?.source == CameraSwitchCameraSource.Uvc) {
             calibratedZoomRatio.coerceAtLeast(1f)
         } else 1f
         texture.setTransform(
             Matrix().apply {
-                setScale(
-                    scale.x * previewZoom,
-                    scale.y * previewZoom,
-                    width / 2f,
-                    height / 2f
-                )
+                setPolyToPoly(
+                    floatArrayOf(0f, 0f, width.toFloat(), 0f, width.toFloat(), height.toFloat(), 0f, height.toFloat()), 0,
+                    CameraPreviewGeometry.textureCorners(width, height, bufferWidth, bufferHeight,
+                        analysisRotationDegrees, displayRotation, previewZoom), 0, 4)
             }
         )
     }
