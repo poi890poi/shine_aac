@@ -1877,3 +1877,18 @@ body.demo-active .phase::after {
 .shell.speech-lock-enhanced .top-panel { align-content: stretch; }
 .shell.speech-lock-enhanced .message { max-height: none; }
 .shell.speech-lock-enhanced .conversation-context-list { flex-direction: row; }
+
+/* Helpers remain reachable at short heights and with keyboard/assistive input. */
+.config-button, .secondary-button, .primary-button {
+  min-width: 48px;
+  min-height: 48px;
+  font-size: max(1rem, 18px);
+}
+button:focus-visible, .board:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: -3px;
+}
+.phase { white-space: normal; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  .cursor { animation: none; }
+}

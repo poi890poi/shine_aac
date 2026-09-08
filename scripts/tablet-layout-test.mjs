@@ -35,6 +35,7 @@ try {
       const board = document.querySelector('.board').getBoundingClientRect();
       const pane = document.querySelector('.top-panel').getBoundingClientRect();
       return {state: window.renderState, sideBySide: Math.abs(board.top-pane.top)<2,
+        helperHeight: document.querySelector('.config-button').getBoundingClientRect().height,
         boardShare: board.width/(board.width+pane.width),
         messageWhiteSpace: getComputedStyle(document.querySelector('.message')).whiteSpace,
         history: [...document.querySelectorAll('.conversation-context-message')].map(el=>el.textContent),
@@ -42,6 +43,7 @@ try {
     });
     assert.equal(result.sideBySide, expanded, `${width}x${height} layout`);
     assert.equal(result.fits, true, `${width}x${height} board fits`);
+    assert.ok(result.helperHeight>=48,'helper target remains at least 48px');
     if (expanded) {
       assert.ok(result.boardShare>=.65 && result.boardShare<=.70, '65–70% board width');
       assert.equal(result.messageWhiteSpace,'pre-wrap','multiline draft');
@@ -51,6 +53,14 @@ try {
       assert.deepEqual(result.state[field], initial[field], `resize preserves ${field}`);
     }
   }
+  await page.locator('.board').focus();
+  assert.equal(await page.locator('.board').evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
+  await page.keyboard.press('Enter');
+  const started = await page.evaluate(()=>window.renderState);
+  assert.notEqual(started.stage,'stopped','keyboard resumes AAC scanning');
+  await page.evaluate(()=>document.querySelector('.board').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',repeat:true,bubbles:true})));
+  const repeated = await page.evaluate(()=>window.renderState);
+  assert.equal(repeated.stage,started.stage,'held keyboard does not activate the next scan stage');
   const lockedPage = await browser.newPage();
   await lockedPage.addInitScript(() => {
     localStorage.setItem('shine-aac-web-ui-v1', JSON.stringify({uiConfigVersion:1,speechAfterReadMode:'conversation'}));

@@ -1644,6 +1644,10 @@ function renderFull(board, boardKey) {
     boardElement.style.gridTemplateRows = boardRowWeights.join(" ");
   }
   boardElement.setAttribute("data-testid", "board");
+  boardElement.tabIndex = 0;
+  boardElement.setAttribute("aria-label", uiText(
+    "Communication board. Space or Enter activates the current scan target.",
+    "溝通板。按空白鍵或 Enter 啟動目前的掃描目標。"));
   boardElement.style.setProperty("--row-count", String(board.length));
   renderedBoardElement = boardElement;
 
@@ -3986,6 +3990,7 @@ function attachDemoLongPress(element) {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== " " && event.key !== "Enter") return;
+  if (event.repeat) { event.preventDefault(); return; }
   const tagName = document.activeElement?.tagName;
   if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "BUTTON") return;
   event.preventDefault();
