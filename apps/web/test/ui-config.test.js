@@ -116,7 +116,8 @@ test("speech-lock modes share one dynamic bottom row and only its controls remai
   assert.match(appSource, /function boardForDisplay[\s\S]*?speechLockMessage:\s*null/);
   assert.match(appSource, /\[TileAction\.UnlockMessage, TileAction\.Speak, TileAction\.Clear\]/);
   assert.match(appSource, /const preservedPrefixLength = Math\.max\(0, ordinaryBottomRow\.length - controls\.length\)/);
-  assert.match(appSource, /speechAfterReadMode === "conversation"\) return Object\.freeze\(\[bottomRow\]\)/);
+  // Conversation row geometry and actions are exercised by tablet-layout-test
+  // and the speech-lock browser suite, rather than requiring a specific helper.
   assert.match(appSource, /const bottomRowIndex = ordinaryRows\.length - 1/);
   assert.match(appSource, /rendered\.candidate\.speechLockControl === true && rendered\.candidate\.action === action/);
   assert.match(appSource, /speechLocked && candidate\.speechLockControl !== true[\s\S]*?aria-disabled/);

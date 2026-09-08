@@ -5,7 +5,7 @@ import {PixelSurface,renderPixelScene,drawFlower,drawCloud,drawGrass,birdGeometr
 import {validatePixelStyle,sceneSize} from '../src/style-rules.js';
 import {createGameState,updateGame} from '../src/game-core.js';
 import {gameConfigFromAac} from '../src/aac-config.js';
-import {DefaultColumns,MinimumColumns,MaximumColumns} from '../../../packages/aac-core/src/core/engine.js';
+import {DefaultColumns,MinimumColumns,MaximumColumns} from '../../../packages/aac-core/src/index.js';
 
 const source=await loadRules();
 const rules={style:source.pixelStyle,species:source.species.species[0],cartoon:source.style,feathers:source.feathers.species.taiwan_blue_magpie,
