@@ -8,6 +8,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.text.InputType
+import android.view.View
+import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -26,6 +29,10 @@ import java.util.Locale
 class SettingsActivity : AppCompatActivity(),
     PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
 
+    private var selectedSection: String? = null
+    private var selectedTitle: CharSequence? = null
+    private var expanded = false
+
     override fun attachBaseContext(newBase: Context) {
         val profileId = SettingsStore.stringValue(newBase, "profileId", "en-US")
         val locale = Locale.forLanguageTag(profileId)
@@ -39,19 +46,25 @@ class SettingsActivity : AppCompatActivity(),
         super.onCreate(savedInstanceState)
         setResult(Activity.RESULT_OK)
         setContentView(R.layout.activity_settings)
+        selectedSection = savedInstanceState?.getString("selectedSection")
+        selectedTitle = savedInstanceState?.getCharSequence("selectedTitle")
 
         val toolbar = findViewById<Toolbar>(R.id.settings_toolbar)
         toolbar.title = getString(R.string.settings_title)
         toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
         toolbar.navigationContentDescription = getString(R.string.settings_back)
         toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        supportFragmentManager.addOnBackStackChangedListener {
-            if (supportFragmentManager.backStackEntryCount == 0) {
-                toolbar.title = getString(R.string.settings_title)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!expanded && selectedSection != null) {
+                    selectedSection = null
+                    selectedTitle = null
+                    updatePaneLayout()
+                } else finish()
             }
-        }
+        })
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.settings_container)) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.settings_panes)) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(bars.left, 0, bars.right, bars.bottom)
             insets
@@ -59,9 +72,31 @@ class SettingsActivity : AppCompatActivity(),
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
-                .replace(R.id.settings_container, MainSettingsPreferenceFragment())
-                .commit()
+                .replace(R.id.settings_categories, MainSettingsPreferenceFragment(), "categories")
+                .commitNow()
         }
+        findViewById<View>(R.id.settings_panes).addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updatePaneLayout() }
+        updatePaneLayout()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("selectedSection", selectedSection)
+        outState.putCharSequence("selectedTitle", selectedTitle)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun updatePaneLayout() {
+        val panes = findViewById<View>(R.id.settings_panes)
+        val density = resources.displayMetrics.density
+        expanded = panes.width / density >= 840 && panes.height / density >= 500
+        val categories = findViewById<View>(R.id.settings_categories)
+        val detail = findViewById<View>(R.id.settings_container)
+        categories.visibility = if (expanded || selectedSection == null) View.VISIBLE else View.GONE
+        detail.visibility = if (selectedSection != null) View.VISIBLE else View.GONE
+        val weight = if (expanded && selectedSection != null) 1f else 3f
+        val params = categories.layoutParams as LinearLayout.LayoutParams
+        if (params.weight != weight) { params.weight = weight; categories.layoutParams = params }
+        findViewById<Toolbar>(R.id.settings_toolbar).title = selectedTitle ?: getString(R.string.settings_title)
     }
 
     override fun onPreferenceStartFragment(
@@ -69,13 +104,16 @@ class SettingsActivity : AppCompatActivity(),
         preference: Preference,
     ): Boolean {
         val fragmentName = preference.fragment ?: return false
+        val section = preference.extras.getString("settings_section") ?: return false
+        if (selectedSection == section) return true
         val fragment = supportFragmentManager.fragmentFactory.instantiate(classLoader, fragmentName)
         fragment.arguments = preference.extras
-        findViewById<Toolbar>(R.id.settings_toolbar).title = preference.title
+        selectedSection = section
+        selectedTitle = preference.title
         supportFragmentManager.beginTransaction()
             .replace(R.id.settings_container, fragment)
-            .addToBackStack(preference.key)
             .commit()
+        updatePaneLayout()
         return true
     }
 
