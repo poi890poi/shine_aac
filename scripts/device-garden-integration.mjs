@@ -1,0 +1,85 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import assert from 'node:assert/strict';
+const exec=promisify(execFile),device=process.env.ANDROID_SERIAL, pkg=process.env.SHINE_AAC_TEST_PACKAGE||'org.shineaac.app';
+assert.ok(device,'Set ANDROID_SERIAL explicitly');
+const adb=process.env.ADB||'E:/Android/Sdk/platform-tools/adb.exe',apk=resolve(process.argv[2]);
+const out=resolve('.tmp/tablet-adaptation',`garden-${device}-${Date.now()}`);await mkdir(out,{recursive:true});
+const run=async(...args)=>(await exec(adb,['-s',device,...args],{encoding:'buffer',maxBuffer:20e6})).stdout;
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+let ws,ev,keepAwake;let awakeWork=Promise.resolve();
+try {
+  assert.match((await run('install','-r',apk)).toString(),/Success/);
+  const installed=(await run('shell','pm','path',pkg)).toString().trim().split('\n')[0].replace('package:','');
+  await run('pull',installed,resolve(out,'installed.apk'));
+  const apkSha=sha(await readFile(apk));assert.equal(sha(await readFile(resolve(out,'installed.apk'))),apkSha,'installed APK matches');
+  await run('shell','input','keyevent','224');await run('shell','wm','dismiss-keyguard');
+  keepAwake=setInterval(()=>{awakeWork=awakeWork.then(()=>run('shell','input','keyevent','224'));},10000);
+  await run('shell','am','force-stop',pkg);await run('shell','am','start','-n',pkg+'/org.shineaac.app.MainActivity');await wait(1800);
+  const pid=(await run('shell','pidof',pkg)).toString().trim();assert.match(pid,/^\d+$/);
+  await run('forward','tcp:9229','localabstract:webview_devtools_remote_'+pid);
+  let target;
+  for (let attempt=0;attempt<30&&!target;attempt++) {
+    try { target=(await(await fetch('http://127.0.0.1:9229/json')).json()).find(t=>t.url.includes('/apps/web/index.html')); }
+    catch { /* The process can exist before the WebView debugger accepts connections. */ }
+    if (!target) await wait(500);
+  }
+  assert.ok(target,'AAC WebView debug target');
+  ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>ws.addEventListener('open',r,{once:true}));
+  const pending=new Map(),contexts=new Map();let id=0;
+  ws.addEventListener('message',event=>{
+    const m=JSON.parse(event.data);
+    if(m.id){pending.get(m.id)?.(m);pending.delete(m.id);}
+    if(m.method==='Runtime.executionContextCreated')contexts.set(m.params.context.id,m.params.context);
+    if(m.method==='Runtime.executionContextDestroyed')contexts.delete(m.params.executionContextId);
+  });
+  const call=(method,params={})=>new Promise((res,rej)=>{const n=++id,t=setTimeout(()=>{pending.delete(n);rej(new Error(method+' timed out'));},10000);pending.set(n,m=>{clearTimeout(t);m.error?rej(new Error(JSON.stringify(m.error))):res(m.result);});ws.send(JSON.stringify({id:n,method,params}));});
+  ev=async(expression,contextId)=>{const r=await call('Runtime.evaluate',{expression,contextId,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
+  await call('Runtime.enable');
+  const until=async(expression,seconds=20)=>{for(let i=0;i<seconds*5;i++){if(await ev(expression))return;await wait(200);}throw new Error('Condition timed out: '+expression);};
+  await until('Boolean(document.querySelector(".garden-button"))');
+  // This gate requires an existing hardware-enabled input profile. Do not alter
+  // the user's saved input settings or depend on E2E-only configuration bridges.
+  await ev(`window.__gardenEvents=[];window.addEventListener('message',event=>{if(event.data?.channel==='shine-bird-garden')__gardenEvents.push(event.data);});`);
+  const before=await ev(`JSON.stringify({message:document.querySelector('.message').dataset.rawMessage,rows:[...document.querySelectorAll('.row')].map(r=>[...r.querySelectorAll('.tile')].map(t=>[t.dataset.label,t.dataset.action]))})`);
+  // Tap the actual accessible native/WebView control, not a JavaScript click.
+  let node;
+  for(let attempt=0;attempt<4&&!node;attempt++) {
+    await wait(500);
+    await run('shell','uiautomator','dump','/sdcard/shine-garden-window.xml');
+    const xml=(await run('shell','cat','/sdcard/shine-garden-window.xml')).toString();
+    node=xml.match(/<node\b[^>]*(?:text|content-desc)="(?:Bird garden|鳥兒花園)"[^>]*>/)?.[0];
+  }
+  assert.ok(node,'Garden entry is accessible after WebView accessibility-tree initialization');
+  const bounds=node.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);assert.ok(bounds);
+  await run('shell','input','tap',String(Math.round((+bounds[1]+ +bounds[3])/2)),String(Math.round((+bounds[2]+ +bounds[4])/2)));
+  await until('__gardenEvents.some(m=>m.type==="ready")',30);
+  const ready=await ev('__gardenEvents.find(m=>m.type==="ready")');
+  await run('shell','input','keyevent','KEYCODE_BUTTON_A');
+  await until('__gardenEvents.some(m=>m.event==="start")');await wait(1300);
+  await run('shell','input','keyevent','KEYCODE_BUTTON_A');await until('__gardenEvents.some(m=>m.event==="drop")');
+  const dropped=await ev('__gardenEvents.find(m=>m.event==="drop")');assert.equal(dropped.ammo,2);
+  const gameContext=[...contexts.values()].find(c=>c.origin==='https://appassets.androidplatform.net'&&c.auxData?.isDefault);assert.ok(gameContext,'Game module document loaded from packaged HTTPS assets');
+  const screen=await run('exec-out','screencap','-p');await writeFile(resolve(out,'game.png'),screen);
+  const canvas=await ev(`(()=>{const r=document.querySelector('.game-canvas').getBoundingClientRect();return {w:r.width*devicePixelRatio,h:r.height*devicePixelRatio,x:r.x*devicePixelRatio,y:r.y*devicePixelRatio};})()`,gameContext.id);
+  await writeFile(resolve(out,'viewport.json'),JSON.stringify({canvas,screen:[screen.readUInt32BE(16),screen.readUInt32BE(20)]},null,2));
+  assert.ok(Math.abs(canvas.w-screen.readUInt32BE(16))<=2&&Math.abs(canvas.h-screen.readUInt32BE(20))<=2,'game fills the physical display: '+JSON.stringify(canvas));
+  await run('shell','input','keyevent','4');await until('ShineAacNavigation.currentPage()==="board"');
+  const after=await ev(`JSON.stringify({message:document.querySelector('.message').dataset.rawMessage,rows:[...document.querySelectorAll('.row')].map(r=>[...r.querySelectorAll('.tile')].map(t=>[t.dataset.label,t.dataset.action]))})`);
+  assert.equal(after,before,'native game exit preserves communication draft and board');
+  await writeFile(resolve(out,'result.json'),JSON.stringify({result:'PASS',device,pkg,apkSha,columns:ready.columns,speciesId:dropped.speciesId,ammoAfterOneDrop:2,canvas,boardAndDraftPreserved:true,physicalHardwareActivation:true},null,2));
+  console.log('PASS physical integrated garden:',device,'columns='+ready.columns,'native hardware start/drop, fullscreen and AAC return verified');
+  console.log('Evidence:',out);
+} finally {
+  try {if(ev)await ev(`if(ShineAacNavigation.currentPage()==='bird-garden')ShineAacNavigation.back();`);} finally {
+    clearInterval(keepAwake);await awakeWork.catch(()=>{});ws?.close();
+    await run('forward','--remove','tcp:9229').catch(()=>{});
+    await run('shell','input','keyevent','223');await wait(900);
+    assert.match((await run('shell','dumpsys','display')).toString(),/mScreenState=OFF/);
+    console.log('Verified device display OFF');
+  }
+}

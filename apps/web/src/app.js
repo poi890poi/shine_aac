@@ -36,6 +36,7 @@ import {
   visibleBoard
 } from "../../../packages/aac-core/src/index.js";
 import { createDemoMode, demoTimingConfig } from "./demo-mode.js";
+import { openGarden } from './garden-host.js';
 import { clamp, escapeHtml, numberOrDefault } from "./form-utils.js";
 import { InputIntent, isCameraInput, isHardwareInput } from "./input.js";
 import {
@@ -59,6 +60,7 @@ const storageKey = "shine-aac-web-config-v1";
 const webConfigVersion = CurrentConfigVersion;
 const initialProductProfileId = "zh-TW";
 const app = document.querySelector("#app");
+let garden = null;
 const uiStorageKey = "shine-aac-web-ui-v1";
 const textHistoryStorageKey = "shine-aac-text-history-v1";
 const sessionDraftStorageKey = "shine-aac-session-draft-v1";
@@ -932,6 +934,12 @@ function handleInputEvent(inputEvent = {}) {
   }
   if (isHardwareInput(inputEvent.source) && !hardwareInputEnabled()) return false;
   if (isCameraInput(inputEvent.source) && !cameraInputEnabled()) return false;
+  if (garden) {
+    if (intent === InputIntent.CameraStatus) return updateCameraStatus(inputEvent);
+    if (intent === InputIntent.Pause) garden.exit('background');
+    else if (intent === InputIntent.Activate) garden.activate();
+    return true;
+  }
   if (intent === InputIntent.Pause) return pauseCommunication();
   if (intent === InputIntent.CameraStatus) return updateCameraStatus(inputEvent);
   if (intent === InputIntent.HoldStart) return startCameraHold(inputEvent);
@@ -1153,7 +1161,7 @@ function advanceEffectiveSession() {
 
 function scheduleScan() {
   cancelScheduledScan();
-  if (configOpen || cameraHoldActive || session.scannerState.stage === ScanStage.Stopped) return;
+  if (garden || configOpen || cameraHoldActive || session.scannerState.stage === ScanStage.Stopped) return;
   if (reviewHoldActive) {
     setProgressFills(1, 0);
     return;
@@ -1516,6 +1524,7 @@ function isZhuyinSpeechTile(tile) {
 }
 
 function render() {
+  if (garden) return;
   syncNativeCommunicationPaused();
   const board = boardForDisplay(session);
   const boardKey = `${boardSignature(board)}\u001c${isSpeechLockActive(session) ? uiConfig.speechAfterReadMode : "off"}`;
@@ -1625,6 +1634,11 @@ function renderFull(board, boardKey) {
   attachDemoLongPress(configButton);
 
   status.append(phase, statusSecondary, configButton);
+  const gardenButton = document.createElement('button');
+  gardenButton.type = 'button'; gardenButton.className = 'secondary-button garden-button';
+  gardenButton.textContent = uiText('Bird garden', '鳥兒花園');
+  gardenButton.addEventListener('click', event => { event.stopPropagation(); enterGarden(); });
+  statusSecondary.append(gardenButton);
   if (previousSpokenMessages.length > 0) topPanel.append(conversationContext);
   topPanel.append(message, status);
 
@@ -2649,6 +2663,7 @@ function showResetConfirmation(trigger, onConfirm) {
 }
 
 function navigateBackWithinApp() {
+  if (garden) { garden.exit('back'); return true; }
   if (demoMode.isActive()) {
     demoMode.stop();
     return true;
@@ -2677,12 +2692,36 @@ function navigateBackWithinApp() {
 }
 
 function currentAppPage() {
+  if (garden) return 'bird-garden';
   if (textExportDialogOpen) return "text-export-result";
   if (calibrationOpen) return "calibration";
   if (speechVoicesOpen) return "speech-voices";
   if (appInfoOpen) return "app-info";
   if (configOpen) return "config";
   return "board";
+}
+
+function enterGarden() {
+  if (garden || currentAppPage() !== 'board' || demoMode.isActive()) return;
+  saveSessionDraft(); cancelScheduledScan(); cancelHoldToAdvanceTimer();
+  cameraHoldActive = false; cameraHoldProgress = 0; resetCameraGesture();
+  app.hidden = true;
+  garden = openGarden({
+    columns: session.config.columns,
+    url: globalThis.ShineAacAndroid?.getBirdGameUrl?.() || new URL('./garden.html', location.href),
+    onExit: reason => {
+      garden = null; app.hidden = false;
+      globalThis.ShineAacAndroid?.setBirdGameActive?.(false);
+      reviewHoldActive = session.scannerState.stage !== ScanStage.Stopped;
+      render(); resetClock(); scheduleScan();
+      document.querySelector('.garden-button')?.focus({preventScroll:true});
+      if (reason === 'asset-error' || reason === 'load-timeout') {
+        renderedPhaseElement.textContent = uiText('Garden could not load. Please try again.', '花園無法載入，請再試一次。');
+      }
+    }
+  });
+  globalThis.ShineAacAndroid?.setBirdGameActive?.(true);
+  syncNativeCommunicationPaused();
 }
 
 function loadAppInfo() {

@@ -25,6 +25,11 @@ SHINE Workspace remain a separate design task.
    module, configured AAC columns and exclusive activation routing. Choose a
    random bird per round. Preserve the communication session on entry/return;
    suspend scanning during play and release game animation/audio on exit.
+   The helper opens the game outside the scan sequence. Return holds the existing
+   scan target until the next activation. Hardware and camera activation route
+   exclusively to the game while it is open; Back/background removes the game.
+   Gameplay fills the physical display, including the camera-cutout region;
+   normal AAC system-bar clearance is restored on return.
 
 Owners: web presentation owns board layout; native Settings owns preferences;
 android-inputs owns camera setup and transforms; aac-core remains the sole
@@ -55,3 +60,19 @@ TextureView supplies sensor orientation and front-camera mirroring; the app
 compensates display rotation and fits the upright image into the same rectangle
 used for normalized overlay coordinates. Direct USB frames retain their own
 upright, unmirrored convention and centered digital zoom.
+
+## Integration verification
+
+Run `node scripts/garden-integration-test.mjs` for both source and generated
+Android assets. It covers columns, random species mode, input exclusivity, ammo,
+pause/resume, forged messages, background exit, draft/undo and scanner preservation.
+Run `device-test.bat --garden path/to/apk` with explicit `ANDROID_SERIAL` and,
+for Preview, `SHINE_AAC_TEST_PACKAGE=org.shineaac.app.preview`. This physical gate
+requires an existing hardware-enabled profile and never changes saved settings.
+It verifies installed APK identity, actual hardware start/drop, physical full-screen
+dimensions and return to the same AAC draft/board. It always sleeps the device and
+verifies display OFF, including failures. These checks complement the ordinary
+device and optical gates; simulated camera events are not an optical PASS.
+
+See [September 8 verification](TABLET_GARDEN_VERIFICATION_2026-09-08.md) for
+the measured results and the outstanding optical framing blocker.

@@ -12,15 +12,21 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.KeyEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import androidx.core.view.WindowInsetsControllerCompat
+import java.io.ByteArrayInputStream
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -31,6 +37,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowCompat
 import androidx.core.content.ContextCompat
 import org.shineaac.inputs.CameraSwitchCalibrationActivity
 import org.shineaac.inputs.CameraSwitchInputAdapter
@@ -45,6 +52,8 @@ import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
+    private var birdGameActive = false
+    private var boardCutoutMode = 0
     private var webView: WebView? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -152,6 +161,25 @@ class MainActivity : ComponentActivity() {
 
         val shineWebView = WebView(this).apply {
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                    val uri = request.url
+                    if (uri.scheme != "https" || uri.host != "appassets.androidplatform.net") return null
+                    val path = uri.path.orEmpty()
+                    if (path.startsWith("/assets/www/") && path.split('/').none { it == ".." }) {
+                        val mime = when (path.substringAfterLast('.')) {
+                            "js" -> "application/javascript"
+                            "json" -> "application/json"
+                            "css" -> "text/css"
+                            "png" -> "image/png"
+                            "html" -> "text/html"
+                            else -> "text/plain"
+                        }
+                        runCatching { assets.open(path.removePrefix("/assets/")) }.getOrNull()?.let {
+                            return WebResourceResponse(mime, "UTF-8", it)
+                        }
+                    }
+                    return WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", null, ByteArrayInputStream(byteArrayOf()))
+                }
                 override fun onPageFinished(view: WebView, url: String?) {
                     super.onPageFinished(view, url)
                     webViewPageReady = true
@@ -161,6 +189,7 @@ class MainActivity : ComponentActivity() {
             webChromeClient = WebChromeClient()
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
             settings.textZoom = webTextZoomPercent(resources.configuration.fontScale)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.allowFileAccess = true
@@ -207,7 +236,8 @@ class MainActivity : ComponentActivity() {
                 val systemInsets = insets.getInsets(
                     WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
                 )
-                view.setPadding(systemInsets.left, systemInsets.top, systemInsets.right, systemInsets.bottom)
+                if (birdGameActive) view.setPadding(0, 0, 0, 0)
+                else view.setPadding(systemInsets.left, systemInsets.top, systemInsets.right, systemInsets.bottom)
                 // The native host owns system-bar and cutout clearance. Consuming the
                 // insets prevents WebView from exposing the same space to CSS safe-area
                 // variables and applying it a second time on some vendor WebViews.
@@ -462,6 +492,29 @@ class MainActivity : ComponentActivity() {
     }
 
     inner class AndroidSpeechBridge {
+        @JavascriptInterface
+        fun getBirdGameUrl(): String = "https://appassets.androidplatform.net/assets/www/apps/web/garden.html"
+
+        @JavascriptInterface
+        fun setBirdGameActive(active: Boolean) {
+            runOnUiThread {
+                if (Build.VERSION.SDK_INT >= 28) {
+                    val attributes = window.attributes
+                    if (active && !birdGameActive) boardCutoutMode = attributes.layoutInDisplayCutoutMode
+                    attributes.layoutInDisplayCutoutMode = if (active)
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES else boardCutoutMode
+                    window.attributes = attributes
+                }
+                birdGameActive = active
+                WindowCompat.setDecorFitsSystemWindows(window, !active)
+                val controller = WindowInsetsControllerCompat(window, window.decorView)
+                if (active) {
+                    controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.hide(WindowInsetsCompat.Type.systemBars())
+                } else controller.show(WindowInsetsCompat.Type.systemBars())
+                (webView?.parent as? View)?.let { ViewCompat.requestApplyInsets(it) }
+            }
+        }
         @JavascriptInterface
         fun speak(text: String) {
             val spoken = text.trim()

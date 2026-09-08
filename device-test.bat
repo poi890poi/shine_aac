@@ -1,6 +1,7 @@
 @echo off
 setlocal
 if /I "%~1"=="--bird-poc" goto bird_poc
+if /I "%~1"=="--garden" goto garden
 python "%~dp0scripts\device-acceptance-test.py" %*
 set "acceptance_exit=%ERRORLEVEL%"
 
@@ -17,4 +18,9 @@ exit /b %config_exit%
 :bird_poc
 if not defined BIRD_NODE set "BIRD_NODE=node"
 "%BIRD_NODE%" "%~dp0scripts\device-bird-poc.mjs" "%~2"
+exit /b %ERRORLEVEL%
+
+:garden
+if not defined BIRD_NODE set "BIRD_NODE=node"
+"%BIRD_NODE%" "%~dp0scripts\device-garden-integration.mjs" "%~2"
 exit /b %ERRORLEVEL%
