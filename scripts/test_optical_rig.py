@@ -121,6 +121,18 @@ class CalibratedMediaOrientationTest(unittest.TestCase):
 
 
 class TwoDeviceRigRoleTest(unittest.TestCase):
+    def test_preview_recording_targets_dut_when_two_devices_are_connected(self):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.adb = "adb"
+        rig.device = mock.Mock(serial="TABLET")
+        with tempfile.TemporaryDirectory() as directory:
+            rig.outdir = Path(directory)
+            with mock.patch.object(RIG.subprocess, "Popen") as launch, mock.patch.object(RIG.time, "sleep"):
+                launch.return_value.poll.return_value = None
+                recording = rig.start_device_screen_recording("calibration", limit=30)
+                self.assertIsNotNone(recording)
+                self.assertEqual(launch.call_args[0][0][:5], ["adb", "-s", "TABLET", "shell", "screenrecord"])
+
     DEVICES = [
         {"serial": "TABLET", "model": "SM_X200", "product": "gta8wifi"},
         {"serial": "PHONE", "model": "SM_G781B", "product": "r8q"},

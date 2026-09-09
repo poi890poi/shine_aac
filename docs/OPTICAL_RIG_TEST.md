@@ -26,6 +26,14 @@ projection, renderer paths, preserved atlas and expanded image bounds.
 
 ## Two-Android-device presenter
 
+Every recording command must select the DUT serial explicitly; a connected
+presenter makes an unscoped `adb shell screenrecord` ambiguous. Preserve both
+the presenter timeline and DUT preview video before accepting calibration.
+Visibility checks must use current UI orientation: `wm size` reports natural
+display dimensions. A full-display hierarchy may swap those dimensions; a
+partial dialog must never redefine the viewport. Regression coverage lives in
+`test_device_orientation.py` and `TwoDeviceRigRoleTest`.
+
 The preferred compact rig uses the native IRIS/aria-trace phone-target contract
 v2 on the presenter device. Its full-bleed `SurfaceView` reports its real canvas,
 holds the natural display orientation, and acknowledges the exact painted

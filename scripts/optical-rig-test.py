@@ -3267,7 +3267,7 @@ class OpticalRig:
         self.device.shell("rm", remote, check=False)
         process = subprocess.Popen(
             [
-                self.adb, "shell", "screenrecord", "--time-limit",
+                self.adb, "-s", self.device.serial, "shell", "screenrecord", "--time-limit",
                 str(int(limit)), remote,
             ],
             stdout=subprocess.DEVNULL,
@@ -4846,7 +4846,7 @@ class OpticalRig:
 
         limit=max(4,min(15,int(math.ceil(nominal))+3))
         p=subprocess.Popen(
-            [self.adb,"shell","screenrecord","--time-limit",str(limit),remote],
+            [self.adb,"-s",self.device.serial,"shell","screenrecord","--time-limit",str(limit),remote],
             stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL
         )
         self.host.wait_event(token,"ended",min(limit-1,max(3,nominal+2)))

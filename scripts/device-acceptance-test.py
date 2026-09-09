@@ -227,10 +227,26 @@ class DeepTest:
                 )
                 if pulled.returncode == 0 and local.exists():
                     self.shell("rm", "-f", remote, check=False, timeout=10)
+                    self.sync_screen_orientation(local)
                     return local
             time.sleep(0.35)
         self.shell("rm", "-f", remote, check=False, timeout=10)
         return None
+
+    def sync_screen_orientation(self, xml_path):
+        """wm size is natural orientation; UI bounds use the current rotation."""
+        try:
+            root = ET.parse(str(xml_path)).getroot().find("node")
+            bounds = parse_bounds(root.get("bounds")) if root is not None else None
+        except (OSError, ET.ParseError):
+            return
+        if not bounds or bounds[:2] != (0, 0):
+            return
+        width, height = bounds[2:]
+        # A dialog/partial window cannot redefine the physical viewport. Only
+        # accept the already-known full display dimensions, in either order.
+        if sorted((width, height)) == sorted((self.screen_w, self.screen_h)):
+            self.screen_w, self.screen_h = width, height
 
     def dump_text(self, name, *cmd):
         r = self.shell(*cmd, check=False, timeout=40)
