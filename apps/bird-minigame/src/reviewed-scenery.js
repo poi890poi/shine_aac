@@ -12,14 +12,6 @@ export const LEAF_PRESETS=[
   [[.2,.9],[.42,1.4],[.65,1.65],[.84,1.2]],
   [[.16,.75],[.35,1.25],[.55,1.55],[.73,1.1],[.86,.85]]
 ];
-function cut(im,rect){
-  const c=document.createElement('canvas');c.width=rect[2];c.height=rect[3];const ctx=c.getContext('2d');ctx.drawImage(im,...rect,0,0,c.width,c.height);
-  const f=ctx.getImageData(0,0,c.width,c.height),d=f.data,sky=d.slice(0,3),seen=new Uint8Array(c.width*c.height),queue=[];
-  if(d[3]===0)return c;
-  const add=i=>{if(i<0||i>=seen.length||seen[i])return;seen[i]=1;const j=i*4;if(Math.hypot(d[j]-sky[0],d[j+1]-sky[1],d[j+2]-sky[2])<48){d[j+3]=0;queue.push(i);}};
-  for(let x=0;x<c.width;x++){add(x);add((c.height-1)*c.width+x);}for(let y=0;y<c.height;y++){add(y*c.width);add(y*c.width+c.width-1);}
-  for(let n=0;n<queue.length;n++){const i=queue[n],x=i%c.width;if(x)add(i-1);if(x<c.width-1)add(i+1);add(i-c.width);add(i+c.width);}ctx.putImageData(f,0,0);return c;
-}
 export function flattenCloudPixels(data){
   for(let i=0;i<data.length;i+=4){
     if(!data[i+3])continue;
@@ -31,9 +23,14 @@ export function flattenCloudPixels(data){
 }
 export async function loadReviewedScenery({flatClouds=true}={}){
   const load=async name=>{const image=new Image();image.src=new URL('../assets/scenery/'+name,import.meta.url);await image.decode();return image;};
-  const [sheet,mountain,ground]=await Promise.all(['clouds-review.png','beidawu-native.png','rural-ground-native.png'].map(load));
-  const clouds=[[20,160,515,240],[580,110,380,290],[1040,10,450,390],[35,555,485,275],[590,535,475,295],[1130,655,370,180]].map(r=>cut(sheet,r));
-  if(flatClouds)for(const cloud of clouds){const ctx=cloud.getContext('2d'),frame=ctx.getImageData(0,0,cloud.width,cloud.height);flattenCloudPixels(frame.data);ctx.putImageData(frame,0,0);}
+  const [mountain,ground]=await Promise.all(['beidawu-native.png','rural-ground-native.png'].map(load));
+  const clouds=await Promise.all(Array.from({length:6},async(_,i)=>{
+    const image=new Image();image.src=new URL('../assets/native/approved-clouds/cloud-'+i+'-matte.png',import.meta.url);await image.decode();
+    const c=document.createElement('canvas');c.width=image.width;c.height=image.height;c.getContext('2d').drawImage(image,0,0);return c;
+  }));
+  // Accepted native masters already contain their reviewed three-tone RGBA art.
+  // Keep original layout dimensions so the two cloud layers retain their sizes.
+  const cloudSourceSizes=[[515,240],[380,290],[450,390],[485,275],[475,295],[370,180]];
   const land=document.createElement('canvas');land.width=480;land.height=164;
   const ctx=land.getContext('2d');ctx.drawImage(ground,0,476,480,164,0,0,480,164);
   const frame=ctx.getImageData(0,0,480,164),d=frame.data;
@@ -48,16 +45,20 @@ export async function loadReviewedScenery({flatClouds=true}={}){
     for(let i=0;i<f.data.length;i+=4){const index=from.findIndex(rgb=>rgb.every((v,j)=>v===f.data[i+j]));if(index>=0)f.data.set(to[index],i);}
     cx.putImageData(f,0,0);return c;
   }));
-  return {clouds,mountain,mountains:profileMountains[0],profileMountains,land};
+  return {clouds,cloudSourceSizes,mountain,mountains:profileMountains[0],profileMountains,land};
 }
 export function cloudPosition(placement,w,h,time,reducedMotion=false){
   const [,x,y,,layer]=placement,speed=layer==='far'?1.35:4.2;
   return {x:Math.round(x*w/480+(reducedMotion?0:time*speed)),y:Math.round(y*h/640)};
 }
+export function prepareReviewedCloud(source,width,height){
+  if(source.width===width&&source.height===height)return source;
+  return prepareNativeScenery(source,width,height,VISUAL_TUNING.cloudTones,1.25);
+}
 export function paintReviewedClouds(ctx,assets,w,h,time,reducedMotion=false,placements=CLOUD_PLACEMENTS){
-  for(const p of placements){const [i,,,scale]=p,im=assets.clouds[i],cw=Math.round(im.width*scale),ch=Math.round(im.height*scale);
+  for(const p of placements){const [i,,,scale]=p,im=assets.clouds[i],cw=Math.round((assets.cloudSourceSizes?.[i]?.[0]??im.width)*scale),ch=Math.round((assets.cloudSourceSizes?.[i]?.[1]??im.height)*scale);
     const position=cloudPosition(p,w,h,time,reducedMotion),x=((position.x+cw)%(w+cw))-cw;
-    ctx.drawImage(prepareNativeScenery(im,cw,ch,VISUAL_TUNING.cloudTones,1.25),x,position.y);
+    ctx.drawImage(prepareReviewedCloud(im,cw,ch),x,position.y);
   }
 }
 export function paintReviewedScenery(ctx,assets,w,h,ground,time,reducedMotion=false,clearing=null,clouds=CLOUD_PLACEMENTS){
@@ -100,10 +101,10 @@ export function paintLandingGrass(ctx,w,h,ground){
   for(let row=0,y=top+5;y<h+5;row++,y+=g.rowHeight){
     for(let col=0;col<Math.ceil(w/g.spacing)+1;col++){
       const seed=(col*73+row*151+col*row*19)%101;
-      const x=col*g.spacing+(row%2?13:0)+(seed%13)-6,base=y+(seed%7),size=base>ground+30?2:1;
-      ctx.fillStyle=g.shadow;ctx.fillRect(x-3*size,base,6*size,size);
-      ctx.fillRect(x-3*size,base-2*size,size,2*size);ctx.fillRect(x+2*size,base-3*size,size,3*size);
-      ctx.fillStyle=g.light;ctx.fillRect(x,base-4*size,size,4*size);ctx.fillRect(x-size,base-5*size,size,2*size);
+      const x=col*g.spacing+(row%2?13:0)+(seed%13)-6,base=y+(seed%7);
+      const rows=base>ground+30?['......L....','..L...L....','..L..LL.S..','..LL.LL.S..','...LLL.LSS.','...LLLLSS..','....LLLS...','....LSS....','...SSSS....']:
+        ['...L...','...L.S.','.L.LSS.','.LLLS..','..LLS..','...S...'];
+      rows.forEach((line,py)=>[...line].forEach((p,px)=>{if(p!=='.'){ctx.fillStyle=p==='L'?g.light:g.shadow;ctx.fillRect(x+(seed%2?line.length-1-px:px)-Math.floor(line.length/2),base-rows.length+py,1,1);}}));
     }
   }
 }

@@ -55,15 +55,15 @@ test('HUD raster is fixed to the selected corner and visibly distinguishes store
   for(const pixels of [a,empty,partial]) {
     assert.equal(pixels.has('10,10'),false,'HUD background stays transparent');
     assert.equal(pixels.has('61,40'),false,'scene remains visible between icons');
-    assert.equal(pixels.get('31,40'),'#20243a','dark charge outline remains visible');
+    assert.equal(pixels.get('31,27'),'#20243a','dark charge outline remains visible');
   }
-  assert.equal(empty.has('40,40'),false,'empty charge interior is transparent');
-  assert.equal(a.get('40,40'),'#ffffff','stored charge has a white fill');
-  assert.equal(partial.get('40,40'),'#f5df72','partial charge fills upwards');
-  assert.equal(empty.has('34,67'),false,'empty refill bar interior is transparent');
-  assert.equal(empty.get('31,67'),'#20243a','refill bar retains its dark outline');
-  assert.equal(partial.get('34,67'),'#f5df72','refill bar shows progress');
-  assert.ok([...a.keys()].every(k=>{const[x,y]=k.split(',').map(Number);return x>=10&&x<184&&y>=10&&y<82;}));
+  assert.equal(empty.has('40,27'),false,'empty charge interior is transparent');
+  assert.equal(a.get('40,27'),'#ffffff','stored charge has a white fill');
+  assert.equal(partial.get('40,27'),'#f5df72','partial charge fills upwards');
+  assert.equal(empty.has('34,44'),false,'empty refill bar interior is transparent');
+  assert.equal(empty.get('31,44'),'#20243a','refill bar retains its dark outline');
+  assert.equal(partial.get('34,44'),'#f5df72','refill bar shows progress');
+  assert.ok([...a.keys()].every(k=>{const[x,y]=k.split(',').map(Number);return x>=10&&x<184&&y>=10&&y<48;}));
   const right=raster({...full,config:{...full.config,ammoSide:'right'}});
   assert.ok([...right.keys()].every(k=>Number(k.split(',')[0])>=136));
   assert.equal(dropBudget(createGameState()).capacity,3);

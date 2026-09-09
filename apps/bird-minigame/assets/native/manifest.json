@@ -1,0 +1,1370 @@
+{
+  "version": 1,
+  "birdDisplayMultiplier": 1.3,
+  "birds": {
+    "taiwan_blue_magpie": {
+      "sourceSha256": "b6c5077932d098846c090e0941a023882a51001515f079562a80cc887969cc3b",
+      "sourceFile": "assets/candidates/shape-preserving-20260905/magpie-v1.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_blue_magpie-0.png",
+          "width": 157,
+          "height": 105,
+          "anchor": [
+            124,
+            79
+          ],
+          "sha256": "4eed7b123c1fb8e299eabbb4dcab957055672dec12a5a3694d25385890f3e76e",
+          "sourceRect": [
+            28,
+            288,
+            502,
+            335
+          ],
+          "maskSha256": "21ae1ecac35b6353efdfd02912b033f3afc14f7edd7044db5f8baa7e05f9fd3b"
+        },
+        {
+          "file": "birds/taiwan_blue_magpie-1.png",
+          "width": 143,
+          "height": 81,
+          "anchor": [
+            105,
+            29
+          ],
+          "sha256": "079e3072a4c594a36bbd724673b902a050c515e19c1a44e61c20d1e25c9aeea9",
+          "sourceRect": [
+            552,
+            448,
+            458,
+            260
+          ],
+          "maskSha256": "4defe70b4b04d85acda2041d0ae58a5e7e7ff5908a5e021e00c579e95ee54e8b"
+        },
+        {
+          "file": "birds/taiwan_blue_magpie-2.png",
+          "width": 150,
+          "height": 63,
+          "anchor": [
+            107,
+            38
+          ],
+          "sha256": "2f38006546e4b45930d0d7c38f0382a42fc3e23ee262db96fa75979932e636ce",
+          "sourceRect": [
+            1038,
+            424,
+            480,
+            203
+          ],
+          "maskSha256": "c15e35d2efff4a125e7d3c928d9cee4397c400cce930b351ecdbfab8ddcf7288"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 2,
+      "previewPose": 0
+    },
+    "yellow_tit": {
+      "sourceSha256": "91eaa7660aeba53880dacdfbf8f00cdc4653e5b8081f335f88f6f9921a3fbab4",
+      "sourceFile": "assets/candidates/second-bird-20260906/yellow-tit-v1.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/yellow_tit-0.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            101,
+            91
+          ],
+          "sha256": "12068a37523b63948aecda9fdf80166964ff294eb8dabbf8b5e5f2b1cb0a551e",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "2a63428e4d982a2c1e0da26e9fc54c9d80b0f9e3cb9f3a60981bd5b061818646"
+        },
+        {
+          "file": "birds/yellow_tit-1.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            92,
+            98
+          ],
+          "sha256": "fb7832299d35666a38df3afc846d2cf78b21f33c4be5a50a7a86587118066d16",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "f1dd02c5f916a034e1539a77f7d7d6f86c7680ebe1ddd1f82abbdee508068de7"
+        },
+        {
+          "file": "birds/yellow_tit-2.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            101,
+            68
+          ],
+          "sha256": "d2f9429215b360d92bd14bdc1eac036c6b385e737c1f9f099c2982dd4d96e1f1",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "e79dc6cc17262e934639491cdfc250407e22b111a85ff7004a9e5e168bed166d"
+        },
+        {
+          "file": "birds/yellow_tit-3.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            70,
+            73
+          ],
+          "sha256": "8819aebd4078eff071917878de09a8e8d75d5e4b4fb4c5a15336e123da615c1b",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "075c3280e5f44d6eb8fd045ed48125d5a4c51c12b6aa2779491af7e28a964b2f"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 108
+    },
+    "taiwan_barbet": {
+      "sourceSha256": "f2a5d6124b26283510b36db7e666c95de5b458a61b27fdfcc591e8b7525d4102",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_barbet.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_barbet-0.png",
+          "width": 147,
+          "height": 149,
+          "anchor": [
+            102,
+            92
+          ],
+          "sha256": "c141f651058eb81e7c9ce3659b97ceabf5fa333a5bf0a9d838b81143026db788",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            637
+          ],
+          "maskSha256": "ae776cbb03cbe256f7648d82e88f2785c9d227d0b85190c7a5e6dd27e0b12e48"
+        },
+        {
+          "file": "birds/taiwan_barbet-1.png",
+          "width": 147,
+          "height": 149,
+          "anchor": [
+            80,
+            93
+          ],
+          "sha256": "8ae74b69a4b8e7e7dde39416a14bbb8d70bc1e5b612ec6bdfb81638a546813da",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            637
+          ],
+          "maskSha256": "37faf4f3561d11b38d9532684e6852f91d3b12cdbcd05b6f176865e8580ed548"
+        },
+        {
+          "file": "birds/taiwan_barbet-2.png",
+          "width": 147,
+          "height": 144,
+          "anchor": [
+            103,
+            61
+          ],
+          "sha256": "62f2568155e3f07192aada4cebe4d3765f568313e3d5c0b7ca7239d1328b09f8",
+          "sourceRect": [
+            0,
+            637,
+            627,
+            617
+          ],
+          "maskSha256": "d37e23c15cb17ea3dfb80972231a762100111f60d60241a74a3cf4ae17a91d80"
+        },
+        {
+          "file": "birds/taiwan_barbet-3.png",
+          "width": 147,
+          "height": 144,
+          "anchor": [
+            68,
+            62
+          ],
+          "sha256": "2617942fab0e066625ef097c0d7716b209e86599846199e74d5c950b39d8e82d",
+          "sourceRect": [
+            627,
+            637,
+            627,
+            617
+          ],
+          "maskSha256": "ed13f8ebd82cfea9a02976c8ff127a603429ab619fe81e58ce202d4e8851150c"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 99
+    },
+    "taiwan_whistling_thrush": {
+      "sourceSha256": "ca509a2516f3d99805d3cf14a966c16dd64dca077e4506de01a9a4cc1294db88",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_whistling_thrush.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_whistling_thrush-0.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            115,
+            101
+          ],
+          "sha256": "b88e5f14326606653ba0389a28ca7bf431afde0459e5755330aa4ba91ac17a6d",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "21b0ea974d7aa0e9420bc2ca428fbedf1a6a035fbc661222b773efd1801a34f9"
+        },
+        {
+          "file": "birds/taiwan_whistling_thrush-1.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            106,
+            99
+          ],
+          "sha256": "2b8b970d4fc8be744b961bb52acb2be7016b404ef5981549d4234882493ce75a",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "fe85fdf52c1a4fcc2e6c4b351acb97d3a6bd52d97f92e159493654f2cd153c62"
+        },
+        {
+          "file": "birds/taiwan_whistling_thrush-2.png",
+          "width": 166,
+          "height": 163,
+          "anchor": [
+            125,
+            68
+          ],
+          "sha256": "cd4b5e7d3af0233dcbb51aad31ac496fb129270f194e7924ec1505054ff7ec62",
+          "sourceRect": [
+            0,
+            627,
+            638,
+            627
+          ],
+          "maskSha256": "6e42c3f3b8efdb0eb96908b629215bf2bd0dfc7ae3fa20b6745acf10f46f02ee"
+        },
+        {
+          "file": "birds/taiwan_whistling_thrush-3.png",
+          "width": 160,
+          "height": 163,
+          "anchor": [
+            93,
+            60
+          ],
+          "sha256": "4ab300412a7d0a3de90a64d86b7645d5204614c4a72919eeb9eadce238833684",
+          "sourceRect": [
+            638,
+            627,
+            616,
+            627
+          ],
+          "maskSha256": "30d4159eeadf3ddb3a00aa72ab49d945b8f01c01ed6ae61223cea16cb39a800a"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 116
+    },
+    "flamecrest": {
+      "sourceSha256": "5fc92d4f33ba9e614bee269fc200b9af88962c235388258418e6f6b85bbc2527",
+      "sourceFile": "assets/candidates/all-birds-20260906/flamecrest.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/flamecrest-0.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            97,
+            88
+          ],
+          "sha256": "9640dc649a8725a3905735e0a2e598f9c3745d897a6f51d951ac027cc6651aaf",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            629
+          ],
+          "maskSha256": "f645c5e6ad931d1a82a3bca092b8d4c5b83d674664767dbc4703a88b73701b6d"
+        },
+        {
+          "file": "birds/flamecrest-1.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            86,
+            88
+          ],
+          "sha256": "31b461d33c490e3a09f97a37f99c5b290eb882a7d6f76352d44a05c7753f1488",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            629
+          ],
+          "maskSha256": "3ea5e80d738d4384314f5dd29689d832d6919d0de6624cb1afbcb6adf8c2b2d6"
+        },
+        {
+          "file": "birds/flamecrest-2.png",
+          "width": 147,
+          "height": 146,
+          "anchor": [
+            101,
+            70
+          ],
+          "sha256": "fddfcdcbfa81a00aeb152b461fca8b7f3dbd86204fd747ed9dbad3e9cef4165b",
+          "sourceRect": [
+            0,
+            629,
+            627,
+            625
+          ],
+          "maskSha256": "d76ae2d619765849cb40d57dd6f93049da9ce2e3a5ac72b18c2690f164a10c84"
+        },
+        {
+          "file": "birds/flamecrest-3.png",
+          "width": 147,
+          "height": 146,
+          "anchor": [
+            72,
+            72
+          ],
+          "sha256": "0e07d4fd14aeb7227560e428bf1478ac560f92c037ef30e4f427b0e25645ebcd",
+          "sourceRect": [
+            627,
+            629,
+            627,
+            625
+          ],
+          "maskSha256": "e1e6cf21474951faf5f8b0f19cb342c6dab9353a62cc362c802f5bf587486069"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 119
+    },
+    "white_eared_sibia": {
+      "sourceSha256": "cf681c78b757561cd32f4517312655a24bd31d7e4d4b71f9ea366e6613531139",
+      "sourceFile": "assets/candidates/all-birds-20260906/white_eared_sibia.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/white_eared_sibia-0.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            118,
+            94
+          ],
+          "sha256": "dce568f14fcdbd50a4e0bc2d21e2a3baf96752a5ba1e96dab8d3bca7b40c2959",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "365adcc80663cddc647c82d31067f76872cb35485d9800ec30094f4eed19f3f3"
+        },
+        {
+          "file": "birds/white_eared_sibia-1.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            111,
+            93
+          ],
+          "sha256": "bdfb87a4fb2e23192480e19b8d2d49d439c76a6b1f1af10e8fa75188e2aa60f6",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "dde8d3eef76afc6af066e9acbacfea0c79638c5ce2f8bb60b392f636dc30f09b"
+        },
+        {
+          "file": "birds/white_eared_sibia-2.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            113,
+            73
+          ],
+          "sha256": "c8cf2523166e30e7a0a61e56e0a4e3f07af8b064c6d5faad9468aaacdc4c371d",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "a67c4a6843ed12c10330c57604f0345ea72799e596b50a203e8087eacdc01284"
+        },
+        {
+          "file": "birds/white_eared_sibia-3.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            92,
+            69
+          ],
+          "sha256": "b87c371a7d23278d9f394811110cd017af0edfe774511d4ca204bcc0a9d06b90",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "9dfeb7551e03b7788c975bf90935af6cad615f2c02a4570f7a87277d58cbb2f7"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 128
+    },
+    "taiwan_yuhina": {
+      "sourceSha256": "800ace880f6a7706c8d89cb9b3598d313fc74bc6768e6c2e6f315e9b1115077e",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_yuhina.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_yuhina-0.png",
+          "width": 148,
+          "height": 149,
+          "anchor": [
+            110,
+            97
+          ],
+          "sha256": "167025a918fc1df9f49067360c4f783fadc25b68d905fb64d17202116f888587",
+          "sourceRect": [
+            0,
+            0,
+            631,
+            636
+          ],
+          "maskSha256": "6c205bb69e501ee2163f297b504ef126928da413a7b531e0f00879ed27482278"
+        },
+        {
+          "file": "birds/taiwan_yuhina-1.png",
+          "width": 146,
+          "height": 149,
+          "anchor": [
+            89,
+            96
+          ],
+          "sha256": "89b68a9f3a78408c018aaf1b9b2b78b4ab97f22be8c238853148f53faf946a64",
+          "sourceRect": [
+            631,
+            0,
+            623,
+            636
+          ],
+          "maskSha256": "726518c0bd8e3901cc412104ff9e12ebd0e9dadd204b5906b5cd6efa726c0f9f"
+        },
+        {
+          "file": "birds/taiwan_yuhina-2.png",
+          "width": 147,
+          "height": 145,
+          "anchor": [
+            110,
+            61
+          ],
+          "sha256": "4f9fcdb941bb7b652be292994b48a42de6156ceb5672fecbf553cb71d276df0d",
+          "sourceRect": [
+            0,
+            636,
+            627,
+            618
+          ],
+          "maskSha256": "83dff53bbcc72625f93e48ad70c400e3c587bbbbc8a14474c5ff7592ece3fff2"
+        },
+        {
+          "file": "birds/taiwan_yuhina-3.png",
+          "width": 147,
+          "height": 145,
+          "anchor": [
+            81,
+            66
+          ],
+          "sha256": "6b74fbc73137cd7cd6a9522a85216fc3fccb3831b4e2ad6b16b05cd52e14660b",
+          "sourceRect": [
+            627,
+            636,
+            627,
+            618
+          ],
+          "maskSha256": "2ed4fc627ecdd44a8cbb05fe8871d699c22458520538261fde67213bddccd444"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 105
+    },
+    "taiwan_liocichla": {
+      "sourceSha256": "92cd00ab66274a28c250b2aeda1bf181fc6c3f37650599a6f8f3d3c10a326dfd",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_liocichla.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_liocichla-0.png",
+          "width": 155,
+          "height": 155,
+          "anchor": [
+            111,
+            88
+          ],
+          "sha256": "d28bb1cfa9535b56e176314fee5da9c757a0397d92a189a88a0c402cd538e6bf",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "c824cdc33539066241b596773255844dcb3ac9f6d865c931816253d6d90882bf"
+        },
+        {
+          "file": "birds/taiwan_liocichla-1.png",
+          "width": 155,
+          "height": 155,
+          "anchor": [
+            90,
+            84
+          ],
+          "sha256": "22e4e13be1e5dfb4f8fcd2d746da77dbf955d8bc3b27f6209262a4a48dd2374c",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "bd7359921be28faf65793f36c42a4eb3315a6995ae728dc4d244d7c803c3bf2a"
+        },
+        {
+          "file": "birds/taiwan_liocichla-2.png",
+          "width": 155,
+          "height": 155,
+          "anchor": [
+            112,
+            57
+          ],
+          "sha256": "f6a5e929a146608bf24f6673766b6fe88178b28fcd53e10f80e68fe3ff6da32a",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "e5732097d7c41ea43c487791309a0cdb47ba289242426cd300c61a521e9df555"
+        },
+        {
+          "file": "birds/taiwan_liocichla-3.png",
+          "width": 155,
+          "height": 155,
+          "anchor": [
+            89,
+            62
+          ],
+          "sha256": "8ffaf6f3a77d0094a6a7d7e9f5fce22ce47874bd5da35c1f6f87c6ba7ddba10c",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "c4fb794ddfdb38e5cc69d0108ae54f403cd61ae4def5c1a8063e22b1217f78ae"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 107
+    },
+    "collared_bush_robin": {
+      "sourceSha256": "972088759e174184456cda1f5d581b584de47caf26f87a53d681cb96e9dd1344",
+      "sourceFile": "assets/candidates/all-birds-20260906/collared_bush_robin.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/collared_bush_robin-0.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            100,
+            89
+          ],
+          "sha256": "86a28a95f241daafc25328ffb003a91048f09f6a4fc14eabbb600d329a475360",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "cf9d58422b3cbfa64361b05220c1f439bf5999a3ce559fd43b853220d4646e6c"
+        },
+        {
+          "file": "birds/collared_bush_robin-1.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            94,
+            89
+          ],
+          "sha256": "af991630f42436a1ec53fb4514d9eb4c3824ead2a9cdee0fd4b120cc3a7aa1cd",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "8e9e66018359f0a0e8f38af9e0b617504385852523231b1ac9ef4b6706053528"
+        },
+        {
+          "file": "birds/collared_bush_robin-2.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            103,
+            66
+          ],
+          "sha256": "8676376cc79f2490bcb11ed061d27cd126d7e2fbb8662b943eaa9381f8355a1e",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "0237314050869104556dc4939f58c7d34b33ad304961a6740c021523ca3d52dd"
+        },
+        {
+          "file": "birds/collared_bush_robin-3.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            86,
+            62
+          ],
+          "sha256": "7f3409263888075327dcc555d4a7c1d5e3f551305aa8449b0bd7d9b342183758",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "25394cd626a271c4699fe57727acb4a53f1cd528ecc4b29185dc157f3809959f"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 115
+    },
+    "taiwan_barwing": {
+      "sourceSha256": "1bff73030edecbf246e1421163c4af9a588dbde1c1ad413ce02e155cb94b7f23",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_barwing.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_barwing-0.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            119,
+            99
+          ],
+          "sha256": "2897d2ec24d59d71e277c5583777d1f9d7731ce2868077ac9f9e5c5e89092b25",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "7f3a235bf9263c806893ddd53834435f3242982cd188cee9d91248cea378ab52"
+        },
+        {
+          "file": "birds/taiwan_barwing-1.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            106,
+            84
+          ],
+          "sha256": "e51f056efd988338bacd475ad67964a288260e388e6db2ee21a211029c0a40fe",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "c70b51aec599ffa0864ffe7e22cf0aaef635682e8492c0edae92532f008c1ac1"
+        },
+        {
+          "file": "birds/taiwan_barwing-2.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            119,
+            60
+          ],
+          "sha256": "8b3f3b2dfc5d936e64bf18e084e48bcc109ade7d413be2af1ca94ea207294b4e",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "4f7a1daa9453525682befcf7b4656f88cedd4398d8c5de3adf45178694c63e61"
+        },
+        {
+          "file": "birds/taiwan_barwing-3.png",
+          "width": 163,
+          "height": 163,
+          "anchor": [
+            106,
+            63
+          ],
+          "sha256": "31b5e8028f4ac9f69586dbf91db2e5e6551fa62d0b3dde986f4f8aa6ef185b1b",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "3925b05659bf4ec95bb784d870d232db9c4e0271e069dc3adab22ba93f14f9b6"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 118
+    },
+    "taiwan_rosefinch": {
+      "sourceSha256": "15d42c0994d78a03271aeefed36fe1a0c49516b66cb94f7325b115c2b2c03002",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_rosefinch.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_rosefinch-0.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            103,
+            79
+          ],
+          "sha256": "2c38848066885254a869b0e6174ef2a794d907de80b0578bc21d7c2b174e43ab",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "f5651f38c0a227d1efef1eeb3669cf3c51298d0364ea0c1128ad7f70ecffc432"
+        },
+        {
+          "file": "birds/taiwan_rosefinch-1.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            86,
+            79
+          ],
+          "sha256": "3a8005be3f762c1bef31284a86a6f832bd08fdaf524f78363f3c1ead34f654cd",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "c7cba196f5e2a5b7c15a5a917f467063e7d1776c10319d9474ee6e55abb5527e"
+        },
+        {
+          "file": "birds/taiwan_rosefinch-2.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            106,
+            61
+          ],
+          "sha256": "0b49ebd07c31a5fc9865b968668aa94a1c53d2e3f9391e8e72e3be166a48001a",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "a1322de256e3e4b0fa2a8ca8b2646f7ec7066489cac0c98af6727c12acd77122"
+        },
+        {
+          "file": "birds/taiwan_rosefinch-3.png",
+          "width": 147,
+          "height": 147,
+          "anchor": [
+            82,
+            60
+          ],
+          "sha256": "8423c6bb9b146e6b2ff5b350ca8af903c1bf971c66b8986edf7376b083bd3f96",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "67ec33c91dc6b9aa014485fda64a52fdcec207777c056ab22a878261ba1defd0"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 109
+    },
+    "taiwan_scimitar_babbler": {
+      "sourceSha256": "0cb0ed90ea6b5e2e62691bb231e640831a1e092f5830123b00e62ec5bf33abe3",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_scimitar_babbler.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_scimitar_babbler-0.png",
+          "width": 151,
+          "height": 155,
+          "anchor": [
+            92,
+            88
+          ],
+          "sha256": "8eedff0b82534fc1497c0283325b9f669eed812f668c812a72f905def0a77f09",
+          "sourceRect": [
+            0,
+            0,
+            613,
+            627
+          ],
+          "maskSha256": "ccd4d5cf96e3b79f4ef0a108ec9b50449619859fbb45666d03720a85e61c6363"
+        },
+        {
+          "file": "birds/taiwan_scimitar_babbler-1.png",
+          "width": 158,
+          "height": 155,
+          "anchor": [
+            95,
+            92
+          ],
+          "sha256": "91650c180a1369c0b5baa72cbec50f6860c8930b03682db9509e7f44065e0c04",
+          "sourceRect": [
+            613,
+            0,
+            641,
+            627
+          ],
+          "maskSha256": "5d6a8a22a4b3601751f65706a22955c11cebd41497f986f5719ca9ffdcdc1545"
+        },
+        {
+          "file": "birds/taiwan_scimitar_babbler-2.png",
+          "width": 155,
+          "height": 155,
+          "anchor": [
+            96,
+            68
+          ],
+          "sha256": "c1b499afa706a0f9aa383cbe782e9285b1ff97d294e42792a9450bf9b7cfeb18",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "0159b2fc1f1afdd341cdedb4e35cbd2cb21f4274e3c2c54f0da034d622280cb4"
+        },
+        {
+          "file": "birds/taiwan_scimitar_babbler-3.png",
+          "width": 155,
+          "height": 155,
+          "anchor": [
+            75,
+            64
+          ],
+          "sha256": "176406654892de7844b6efdc768c060d7805cd777d0441bec69a153a6280848f",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "e0cd25b5ccd1fe56644f529c39dbee5c2117b7b66af4193172c91a36e3aa6407"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 112
+    },
+    "mikado_pheasant": {
+      "sourceSha256": "8b3e582e646d11b0650eef25b8d89cecd4e5ac7a97f344dbb4f4fc310c3f5c8c",
+      "sourceFile": "assets/candidates/all-birds-20260906/mikado_pheasant.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/mikado_pheasant-0.png",
+          "width": 220,
+          "height": 220,
+          "anchor": [
+            166,
+            133
+          ],
+          "sha256": "4e488e06a4d8ffb1efe79955de360a18e0f518cfef0c8ea4a8c038264b730df4",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "8f02862cc8163d63a9a7e3d7248c478f3a358d77a0b44a13e51619f6f758e7af"
+        },
+        {
+          "file": "birds/mikado_pheasant-1.png",
+          "width": 220,
+          "height": 220,
+          "anchor": [
+            158,
+            133
+          ],
+          "sha256": "5f143e3851f859c697abb527e8175c59ded2304dad6f278e51eda5f196c57b0a",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "4ed764f14275a8099698ccefad670fdfc62f3bfffb313a27b67fd7694281ffb2"
+        },
+        {
+          "file": "birds/mikado_pheasant-2.png",
+          "width": 220,
+          "height": 220,
+          "anchor": [
+            173,
+            90
+          ],
+          "sha256": "0b0383f60077406ceb16dd36f5d27ce9dd6ed69ca340d2423fb80fec702142b8",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "4223398c15ff145a18d16139e37d110d4b7ae577127c389cf4aced9985d69565"
+        },
+        {
+          "file": "birds/mikado_pheasant-3.png",
+          "width": 220,
+          "height": 220,
+          "anchor": [
+            159,
+            97
+          ],
+          "sha256": "0278df26ef80c4595330b91df6f9309aa68b2fc80360aed4c17a567f3c4943a5",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "f71e91fc6913f4e05eabcf7a2dcb84df8a1dddcfdeaad7be1e32349986601ea2"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 136
+    },
+    "swinhoes_pheasant": {
+      "sourceSha256": "7ff4bc8a36a329d52ce4c473d2f5d10f2bc7ac2311aadaa2e2ca2e787e233e92",
+      "sourceFile": "assets/candidates/all-birds-20260906/swinhoes_pheasant.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/swinhoes_pheasant-0.png",
+          "width": 196,
+          "height": 196,
+          "anchor": [
+            146,
+            122
+          ],
+          "sha256": "aa81e66a075533df9213c959a242b72462a1871116d4c13e1d49cad7d974855a",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "e936787254f1341d3bcba60b12594b33d46999fba50b5c39378865c69d656c0e"
+        },
+        {
+          "file": "birds/swinhoes_pheasant-1.png",
+          "width": 196,
+          "height": 196,
+          "anchor": [
+            144,
+            102
+          ],
+          "sha256": "32b418c160ef34af6ee2d32839441098d7b646453569d5b3bfc61d51573653b2",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "maskSha256": "da96445f612eb1935774bee712422d626f929bdafc1f816fc40b89c9cdcfd613"
+        },
+        {
+          "file": "birds/swinhoes_pheasant-2.png",
+          "width": 196,
+          "height": 196,
+          "anchor": [
+            145,
+            69
+          ],
+          "sha256": "f374e2a9371a2bbba3f26f176e9dd25601b16a8c6cea830fde5e744acdb36225",
+          "sourceRect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "a149869e8ecd1ad4b7482afe02e2e064dd269e6591fb21a937dc55c87fe0596c"
+        },
+        {
+          "file": "birds/swinhoes_pheasant-3.png",
+          "width": 196,
+          "height": 196,
+          "anchor": [
+            127,
+            72
+          ],
+          "sha256": "d0089306d27c69ea5eae137b5715ae14af4e10146ea05716d4f8e61e976ab457",
+          "sourceRect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "maskSha256": "5d446150cfe6d3bdced23129ccd4dcb8af7d5b9f5b336b5a865a7366fb8104f8"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 128
+    },
+    "rufous_crowned_laughingthrush": {
+      "sourceSha256": "de44a06413ad546b9790458e200633fdd41f6ad00db45024c3eafebbf5be5089",
+      "sourceFile": "assets/candidates/all-birds-20260906/rufous_crowned_laughingthrush.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/rufous_crowned_laughingthrush-0.png",
+          "width": 164,
+          "height": 163,
+          "anchor": [
+            120,
+            92
+          ],
+          "sha256": "c97fc98a24b8e25f319ba062b7f38a13af2d79e01abc39bc2db6dc07e6fe66b1",
+          "sourceRect": [
+            0,
+            0,
+            630,
+            627
+          ],
+          "maskSha256": "bc2b6c2560710245af159addad48bc9428de12ddab7c7b5916099ee5a11cb802"
+        },
+        {
+          "file": "birds/rufous_crowned_laughingthrush-1.png",
+          "width": 162,
+          "height": 163,
+          "anchor": [
+            103,
+            90
+          ],
+          "sha256": "5012cee0f3eba4bf64b1437b54c0a073710ef46055e6dff1ce98ce5c618cbba6",
+          "sourceRect": [
+            630,
+            0,
+            624,
+            627
+          ],
+          "maskSha256": "5302f85d4b1a9ec13c4c14f2f4f0c20e9f21acb198dea49051b1e2a98f017de1"
+        },
+        {
+          "file": "birds/rufous_crowned_laughingthrush-2.png",
+          "width": 167,
+          "height": 163,
+          "anchor": [
+            123,
+            54
+          ],
+          "sha256": "7498cce9ed953a67547ef6f599499efad47f974bdcf3831b3f5ae469d8626c82",
+          "sourceRect": [
+            0,
+            627,
+            642,
+            627
+          ],
+          "maskSha256": "e09e84db608c57667f51353c6ef5f62622f4c2233792d323e0c8f86049de21fa"
+        },
+        {
+          "file": "birds/rufous_crowned_laughingthrush-3.png",
+          "width": 159,
+          "height": 163,
+          "anchor": [
+            94,
+            65
+          ],
+          "sha256": "382b12555fb1dd0670e540ac2782547cfa99e6e8f785f888eb288f2285940ca8",
+          "sourceRect": [
+            642,
+            627,
+            612,
+            627
+          ],
+          "maskSha256": "95fdff55564b84087a28d32e933d70ad6793b9c206003e1011d8eb38040e89ba"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 115
+    },
+    "taiwan_thrush": {
+      "sourceSha256": "aafc4cd9a745d20d95fbba07317b8f6e2bd348fa4ebc6af1875c117cc139c554",
+      "sourceFile": "assets/candidates/all-birds-20260906/taiwan_thrush.png",
+      "scale": 1,
+      "poses": [
+        {
+          "file": "birds/taiwan_thrush-0.png",
+          "width": 163,
+          "height": 166,
+          "anchor": [
+            119,
+            101
+          ],
+          "sha256": "1c7125f2728ec2eb0d55f15039ecd9dd9443f076c76b865a6bd0476698c9b39e",
+          "sourceRect": [
+            0,
+            0,
+            627,
+            638
+          ],
+          "maskSha256": "70d0c87870c8af9a61b71fd9d4a283ef90a693b116ac0f93de4e92ff1a6fe66a"
+        },
+        {
+          "file": "birds/taiwan_thrush-1.png",
+          "width": 163,
+          "height": 166,
+          "anchor": [
+            101,
+            103
+          ],
+          "sha256": "d0c86e57a6c7e6ab0b1bbdd6c40c10d97bb7a2317927b6a7dcc93639f2fdb78f",
+          "sourceRect": [
+            627,
+            0,
+            627,
+            638
+          ],
+          "maskSha256": "57fc282513de2ba977717bf3101c2fb3d1ebf28ad80924881cd98dd325c86673"
+        },
+        {
+          "file": "birds/taiwan_thrush-2.png",
+          "width": 163,
+          "height": 160,
+          "anchor": [
+            119,
+            61
+          ],
+          "sha256": "babe6b5b590d858b7f50de04cda001c3575a1bebea7f408996fe612b73dca173",
+          "sourceRect": [
+            0,
+            638,
+            627,
+            616
+          ],
+          "maskSha256": "8353203925f371134ddaf699a8c667391f2bb998af5c89505724354e67720fa2"
+        },
+        {
+          "file": "birds/taiwan_thrush-3.png",
+          "width": 163,
+          "height": 160,
+          "anchor": [
+            90,
+            61
+          ],
+          "sha256": "fcc23cbf8b4524fd113e56b1c719a43af8cb74394f13e4b5ecc1daddbd70a70c",
+          "sourceRect": [
+            627,
+            638,
+            627,
+            616
+          ],
+          "maskSha256": "65ecfd5d584ed29aab43d6473c6bc260f420705e115eea0abde0a007c9977f6a"
+        }
+      ],
+      "cycle": [
+        0,
+        2,
+        1,
+        2
+      ],
+      "settledPose": 3,
+      "previewPose": 2,
+      "groundContactY": 107
+    }
+  },
+  "clouds": [
+    {
+      "file": "clouds/cloud-0.png",
+      "sha256": "a9dd439c4971de118fc3087ecf5299a616625a68e66d385e922a4cbb15929526",
+      "width": 515,
+      "height": 240
+    },
+    {
+      "file": "clouds/cloud-1.png",
+      "sha256": "78994486e7f670f7e649947e588ac24356691cc8dbaefc8c86d6e044334451de",
+      "width": 380,
+      "height": 290
+    },
+    {
+      "file": "clouds/cloud-2.png",
+      "sha256": "0d74621cddb6d83225caeae484bc7fb89bf2017bb07b9abbeb04dd3549a18a31",
+      "width": 450,
+      "height": 390
+    },
+    {
+      "file": "clouds/cloud-3.png",
+      "sha256": "7c9c3f5c1bc30d90d302b0bc4467a1f57a28b083bfb8e64f81a78cac7ec6545e",
+      "width": 485,
+      "height": 275
+    },
+    {
+      "file": "clouds/cloud-4.png",
+      "sha256": "a5fa68ba2a4b33d47f00ad0f749004cee6fd300c65a7d8db390577c23bdbfae4",
+      "width": 475,
+      "height": 295
+    },
+    {
+      "file": "clouds/cloud-5.png",
+      "sha256": "6ec66f4ac56637a2415c8545b2e140e824596b840c78970a303cfa09d7211b60",
+      "width": 370,
+      "height": 180
+    }
+  ]
+}

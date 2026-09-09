@@ -176,3 +176,23 @@
   source rule versions, validation result, and reviewer decision.
 - Preserve genuine alpha when transparency is requested. A checkerboard image
   is not transparency.
+
+## September 10 native artwork and rendering invariant
+
+- Birds use offline RGBA masks with explicit inspected background regions. Never
+  globally key out white plumage or fill all alpha holes. Source hashes, mask seeds,
+  component bounds and final native dimensions live in `rules/native-alpha.json`
+  and `assets/native/manifest.json`.
+- Draw prepared bird poses, flower heads and isolated leaves at their final native
+  dimensions. Readability size is baked once from source; never resize a previously
+  downsampled bird again. Keep the stem pass independent of leaf size.
+- Preserve the accepted cloud masters byte for byte; resizing variants derives from
+  those masters. Browser blur is not a portable exact artwork reference. Keep the
+  source matte exports and original source photo unchanged for audit.
+- Grass and bush contours use the same native pixel as other game art. Vary object
+  footprints without magnifying an entire coarse motif grid.
+- Landscape flight starts at native y=144 and keeps clearance above the tallest
+  wing. The clear-sky projection applies to bird, drops and feather origins and
+  fades out before flowers. Portrait, stems, flower contact and ground remain fixed.
+- Gates: native-art unit tests, the native asset gate, independent stem pixels,
+  and output-grid negative controls remain separate from aesthetic approval.

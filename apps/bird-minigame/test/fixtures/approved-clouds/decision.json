@@ -1,0 +1,20 @@
+{
+  "decision": "User: The cloud preview you provided looks perfect.",
+  "scope": "Six restored-cloud matte candidates; no approval of other artwork or renderer changes.",
+  "source": "assets/scenery/clouds-review.png",
+  "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f",
+  "matte": {
+    "boundaryConnected": true,
+    "maxBlueMinusGreen": 20,
+    "minGreenMinusRed": 24
+  },
+  "acceptedNativeExports": {
+    "cloud-0-matte.png": "bd55375fb7966cd101768815f197e287b5d03f69c8f3cdbcb13e6b2312908a12",
+    "cloud-1-matte.png": "d25cae3b1731d9a3a2c838d3c6ebacd88258ae926fd3731f096cdfeaa351d517",
+    "cloud-2-matte.png": "8580adc9671054cbb10ac6f6b715863b6ef697855948cd8d8fb3f528650ca3d6",
+    "cloud-3-matte.png": "d1572bd61ddb53d16e888e3f3207ae7d4388f5212a7688cd8e20606d5896f4c6",
+    "cloud-4-matte.png": "5b7215fc46a168f8fc246600485cb57c848a9d3759a6d04bbc62a43cf306c595",
+    "cloud-5-matte.png": "e5ad12917a8e82d452f0a79c77a01d48d3c2644b730c4bf3a5bf1fa39c712219"
+  },
+  "approvedPresentationSha256": "addefe7f0c2e7ab78b46ef612175e70b9202434026503aaf5eaa5c2d9b16ce4a"
+}

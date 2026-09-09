@@ -27,28 +27,24 @@ export function paintFeathers(ctx,burst,width,height,palette=colors) {
 }
 
 // Fixed HUD, deliberately separate from bird position and input hit targets.
+export const AMMO_OUTLINE_ROWS=Object.freeze([[10,10],[10,11],[9,11],[9,12],[8,12],[8,13],[7,13],[7,14],[6,14],[5,15],[4,16],[3,17],[2,18],[1,19],[1,19],[0,20],[0,20],[0,20],[0,20],[1,19],[1,19],[2,18],[3,17],[4,16],[6,14],[8,12]]);
 export function paintAmmo(ctx,state,width) {
   if(['landing','won','exited'].includes(state.phase))return;
-  const {capacity,available,progress}=dropBudget(state),scale=VISUAL_TUNING.ammoScale,hudWidth=(capacity*16+10)*scale;
+  const {capacity,available,progress}=dropBudget(state),hudWidth=(capacity*16+10)*3;
   const left=state.config.ammoSide==='right'?width-hudWidth-10:10,top=10;
-  const rect=(x,y,w,h)=>ctx.fillRect(left+x*scale,top+y*scale,w*scale,h*scale);
-  for(let i=0;i<capacity;i++) {
-    const x=7+i*16,y=5;
-    const rows=['...D...','..DDD..','..DDD..','.DDDDD.','DDDDDDD','DDDDDDD','DDDDDDD','.DDDDD.','..DDD..'];
-    const fill=i<available?1:i===available?progress:0;
-    rows.forEach((row,ry)=>[...row].forEach((v,rx)=>{
-      if(v!=='D')return;
-      const interior=ry>=2&&ry<8&&rx>=1&&rx<6&&row[rx-1]==='D'&&row[rx+1]==='D';
-      // Leave unfilled pixels untouched so the actual scene shows through.
-      if(interior&&ry<8-Math.floor(fill*6))return;
-      ctx.fillStyle=interior?(i<available?'#ffffff':'#f5df72'):'#20243a';
-      rect(x+rx,y+ry,1,1);
-    }));
-    if(i===available&&state.config.dropMode==='recharge') {
-      ctx.fillStyle='#20243a';
-      rect(x,18,7,1);rect(x,21,7,1);
-      rect(x,19,1,2);rect(x+6,19,1,2);
-      ctx.fillStyle='#f5df72';rect(x+1,19,Math.floor(progress*5),2);
+  for(let i=0;i<capacity;i++){
+    const x=left+21+i*48,fill=i<available?1:i===available?progress:0;
+    AMMO_OUTLINE_ROWS.forEach(([lo,hi],y)=>{
+      const up=AMMO_OUTLINE_ROWS[y-1],down=AMMO_OUTLINE_ROWS[y+1];
+      for(let px=lo;px<=hi;px++){
+        const inside=px>lo&&px<hi&&up&&down&&px>=up[0]&&px<=up[1]&&px>=down[0]&&px<=down[1];
+        if(inside&&y<26-Math.floor(fill*26))continue;
+        ctx.fillStyle=inside?(i<available?'#ffffff':'#f5df72'):'#20243a';ctx.fillRect(x+px,top+y,1,1);
+      }
+    });
+    if(i===available&&state.config.dropMode==='recharge'){
+      ctx.fillStyle='#20243a';ctx.fillRect(x,top+31,21,1);ctx.fillRect(x,top+37,21,1);ctx.fillRect(x,top+32,1,5);ctx.fillRect(x+20,top+32,1,5);
+      ctx.fillStyle='#f5df72';ctx.fillRect(x+1,top+32,Math.floor(progress*19),5);
     }
   }
 }

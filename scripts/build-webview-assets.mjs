@@ -22,7 +22,7 @@ cpSync(join(repoRoot,'apps/web/garden.html'),join(outRoot,'garden.html'));
 cpSync(join(repoRoot,'apps/web/src/garden-page.js'),join(outSrc,'garden-page.js'));
 const birdRoot = join(repoRoot,'apps/bird-minigame');
 const birdOut = join(outRoot,'../bird-minigame');
-for (const folder of ['src','rules','assets/scenery']) cpSync(join(birdRoot,folder),join(birdOut,folder),{recursive:true});
+for (const folder of ['src','rules','assets/scenery','assets/native']) cpSync(join(birdRoot,folder),join(birdOut,folder),{recursive:true});
 for (const folder of ['shape-preserving-20260905','second-bird-20260906','all-birds-20260906']) {
   const source = join(birdRoot,'assets/candidates',folder), target = join(birdOut,'assets/candidates',folder);
   mkdirSync(target,{recursive:true});

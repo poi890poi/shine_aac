@@ -22,7 +22,7 @@ try{
       const canvas=document.querySelector('#display'),display=canvas.getContext('2d'),copies=[];
       const copy=display.drawImage.bind(display);
       display.drawImage=(source,...args)=>{copies.push({source:[source.width,source.height],args});copy(source,...args);};
-      const renderer=createBirdRenderer(canvas,{columns:6,species:'yellow_tit'});await renderer.ready;renderer.setScenerySeed(9);
+      const renderer=createBirdRenderer(canvas,{columns:6,species:'yellow_tit',rendererBackend:'canvas2d'});await renderer.ready;renderer.setScenerySeed(9);
       let state=createGameState({columns:6});state.phase='running';state.mode='flying';state.time=1;state.bird.x=.5;renderer.render(state);
       const unit=Number(canvas.dataset.pixelScale),virtual=[Number(canvas.dataset.virtualWidth),Number(canvas.dataset.virtualHeight)];
       const pixels=()=>display.getImageData(0,0,canvas.width,canvas.height).data;
@@ -71,9 +71,10 @@ try{
     assert.equal(result.still,0);assert.ok(result.samples.every(s=>s.violations===0));
     assert.ok(result.fractionalUnchanged&&result.oneStepChanged&&result.covers&&result.copiesOnly);
     assert.deepEqual(result.origin,[0,0]);if(result.unit>1)assert.ok(result.corrupted>0);
-    if(result.referenceDifference!==null)assert.equal(result.referenceDifference,0,'approved portrait pixels retained');
+    // Historical screenshot is immutable; September 10 intentionally changes alpha,
+    // native sampling and foliage. Exact accepted cloud pixels have a separate asset gate.
     assert.deepEqual(errors,[]);results.push({width,height,dpr,...result});
     await page.screenshot({path:`${out}/${width}x${height}-${dpr}.png`});await page.close();
   }
-  writeFileSync(`${out}/result.json`,JSON.stringify(results,null,2));console.log('PASS virtual screen: approved pixels, all species/effects, 3–8 columns, density/aspect matrix and off-grid negative control');
+  writeFileSync(`${out}/result.json`,JSON.stringify(results,null,2));console.log('PASS virtual screen: historical difference recorded, all species/effects, 3–8 columns, density/aspect matrix and off-grid negative control');
 }finally{await browser?.close();server.kill();}

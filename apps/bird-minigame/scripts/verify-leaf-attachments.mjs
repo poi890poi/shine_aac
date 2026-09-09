@@ -4,7 +4,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 const require=createRequire('C:/Users/Lee/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/package.json');
-const {chromium}=require('playwright'),out=new URL('../tmp/leaf-fix-20260907/',import.meta.url);await mkdir(out,{recursive:true});
+const {chromium}=require('playwright'),out=new URL(process.env.BIRD_LEAF_REVIEW_DIR||'../tmp/leaf-fix-20260907/',import.meta.url);await mkdir(out,{recursive:true});
 const server=spawn(process.execPath,['scripts/serve.mjs','--dist'],{env:{...process.env,BIRD_GAME_PORT:'4193'},windowsHide:true,stdio:['ignore','pipe','pipe']});let browser;
 try{
  await new Promise((r,j)=>{server.stdout.once('data',r);server.once('error',j);});browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();

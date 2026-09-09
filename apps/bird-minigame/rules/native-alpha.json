@@ -1,0 +1,478 @@
+{
+  "version": 1,
+  "scope": "Offline alpha preparation; no runtime color key. Existing exterior matte retained, with explicit inspected interior background components. Other opaque plumage must remain unchanged.",
+  "birds": {
+    "taiwan_barbet": {
+      "sourceSha256": "f2a5d6124b26283510b36db7e666c95de5b458a61b27fdfcc591e8b7525d4102",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              282,
+              394
+            ],
+            "expectedArea": 133,
+            "bounds": [
+              276,
+              389,
+              17,
+              12
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              336,
+              415
+            ],
+            "expectedArea": 16,
+            "bounds": [
+              333,
+              413,
+              4,
+              5
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_whistling_thrush": {
+      "sourceSha256": "ca509a2516f3d99805d3cf14a966c16dd64dca077e4506de01a9a4cc1294db88",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              313,
+              396
+            ],
+            "expectedArea": 957,
+            "bounds": [
+              294,
+              376,
+              50,
+              38
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              380,
+              421
+            ],
+            "expectedArea": 6,
+            "bounds": [
+              380,
+              420,
+              3,
+              2
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "flamecrest": {
+      "sourceSha256": "5fc92d4f33ba9e614bee269fc200b9af88962c235388258418e6f6b85bbc2527",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              295,
+              455
+            ],
+            "expectedArea": 1528,
+            "bounds": [
+              245,
+              439,
+              67,
+              38
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              244,
+              474
+            ],
+            "expectedArea": 24,
+            "bounds": [
+              242,
+              472,
+              5,
+              5
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              296,
+              482
+            ],
+            "expectedArea": 6,
+            "bounds": [
+              296,
+              480,
+              3,
+              3
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "white_eared_sibia": {
+      "sourceSha256": "cf681c78b757561cd32f4517312655a24bd31d7e4d4b71f9ea366e6613531139",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              335,
+              430
+            ],
+            "expectedArea": 1375,
+            "bounds": [
+              295,
+              411,
+              55,
+              46
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_yuhina": {
+      "sourceSha256": "800ace880f6a7706c8d89cb9b3598d313fc74bc6768e6c2e6f315e9b1115077e",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              329,
+              398
+            ],
+            "expectedArea": 992,
+            "bounds": [
+              301,
+              384,
+              53,
+              31
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_liocichla": {
+      "sourceSha256": "92cd00ab66274a28c250b2aeda1bf181fc6c3f37650599a6f8f3d3c10a326dfd",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              314,
+              386
+            ],
+            "expectedArea": 355,
+            "bounds": [
+              301,
+              381,
+              35,
+              21
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              341,
+              401
+            ],
+            "expectedArea": 105,
+            "bounds": [
+              320,
+              397,
+              29,
+              7
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "collared_bush_robin": {
+      "sourceSha256": "972088759e174184456cda1f5d581b584de47caf26f87a53d681cb96e9dd1344",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              349,
+              413
+            ],
+            "expectedArea": 569,
+            "bounds": [
+              329,
+              400,
+              35,
+              32
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_barwing": {
+      "sourceSha256": "1bff73030edecbf246e1421163c4af9a588dbde1c1ad413ce02e155cb94b7f23",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              366,
+              392
+            ],
+            "expectedArea": 1050,
+            "bounds": [
+              345,
+              370,
+              45,
+              48
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              374,
+              420
+            ],
+            "expectedArea": 26,
+            "bounds": [
+              373,
+              418,
+              7,
+              4
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              382,
+              438
+            ],
+            "expectedArea": 10,
+            "bounds": [
+              381,
+              436,
+              3,
+              4
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_rosefinch": {
+      "sourceSha256": "15d42c0994d78a03271aeefed36fe1a0c49516b66cb94f7325b115c2b2c03002",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              340,
+              425
+            ],
+            "expectedArea": 812,
+            "bounds": [
+              294,
+              416,
+              52,
+              28
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_scimitar_babbler": {
+      "sourceSha256": "0cb0ed90ea6b5e2e62691bb231e640831a1e092f5830123b00e62ec5bf33abe3",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              275,
+              390
+            ],
+            "expectedArea": 1120,
+            "bounds": [
+              245,
+              370,
+              46,
+              44
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              281,
+              415
+            ],
+            "expectedArea": 13,
+            "bounds": [
+              277,
+              414,
+              5,
+              4
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              279,
+              431
+            ],
+            "expectedArea": 7,
+            "bounds": [
+              278,
+              430,
+              3,
+              3
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "mikado_pheasant": {
+      "sourceSha256": "8b3e582e646d11b0650eef25b8d89cecd4e5ac7a97f344dbb4f4fc310c3f5c8c",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              410,
+              357
+            ],
+            "expectedArea": 568,
+            "bounds": [
+              394,
+              339,
+              22,
+              37
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          },
+          {
+            "point": [
+              435,
+              382
+            ],
+            "expectedArea": 11,
+            "bounds": [
+              434,
+              381,
+              4,
+              3
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "swinhoes_pheasant": {
+      "sourceSha256": "7ff4bc8a36a329d52ce4c473d2f5d10f2bc7ac2311aadaa2e2ca2e787e233e92",
+      "backgroundSeeds": {
+        "3": []
+      }
+    },
+    "rufous_crowned_laughingthrush": {
+      "sourceSha256": "de44a06413ad546b9790458e200633fdd41f6ad00db45024c3eafebbf5be5089",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              326,
+              407
+            ],
+            "expectedArea": 733,
+            "bounds": [
+              293,
+              392,
+              46,
+              32
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_thrush": {
+      "sourceSha256": "aafc4cd9a745d20d95fbba07317b8f6e2bd348fa4ebc6af1875c117cc139c554",
+      "backgroundSeeds": {
+        "3": [
+          {
+            "point": [
+              311,
+              363
+            ],
+            "expectedArea": 930,
+            "bounds": [
+              291,
+              346,
+              46,
+              40
+            ],
+            "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
+          }
+        ]
+      }
+    },
+    "taiwan_blue_magpie": {
+      "sourceSha256": "b6c5077932d098846c090e0941a023882a51001515f079562a80cc887969cc3b",
+      "backgroundSeeds": {}
+    },
+    "yellow_tit": {
+      "sourceSha256": "91eaa7660aeba53880dacdfbf8f00cdc4653e5b8081f335f88f6f9921a3fbab4",
+      "backgroundSeeds": {}
+    }
+  },
+  "clouds": {
+    "sourceSha256": "48db177258d11dd1bc14cc56f438ccc440f0f58fc4b0d712afc9e468a739397f",
+    "rects": [
+      [
+        20,
+        160,
+        515,
+        240
+      ],
+      [
+        580,
+        110,
+        380,
+        290
+      ],
+      [
+        1040,
+        10,
+        450,
+        390
+      ],
+      [
+        35,
+        555,
+        485,
+        275
+      ],
+      [
+        590,
+        535,
+        475,
+        295
+      ],
+      [
+        1130,
+        655,
+        370,
+        180
+      ]
+    ],
+    "skyMaxBlueMinusGreen": 20,
+    "skyMinGreenMinusRed": 24,
+    "decision": "User accepted restored-shadow preview on 2026-09-10"
+  },
+  "birdDisplayMultiplier": 1.3
+}

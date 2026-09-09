@@ -9,3 +9,12 @@ export function fitGameViewport(width,height,dpr=1){
 // Landscape needs clear sky between enlarged wing tips and the fixed ammo row.
 // Every gameplay object uses this same projection; collision/drop alignment stays intact.
 export function gameplayBounds(width,height){const top=width>height?148:0;return {top,height:height-top};}
+
+// Reclaim empty landscape sky without moving flowers, stems or the ground.
+// Only the clear-sky part of the shared bird/drop/particle projection changes.
+export function projectGameplayY(y,width,height,startY=.14){
+ if(width<=height||y>=.46)return y;
+ const bounds=gameplayBounds(width,height),lift=Math.max(0,bounds.top+startY*bounds.height-144);
+ const t=Math.max(0,Math.min(1,(.46-y)/(.46-startY)));
+ return y-lift/bounds.height*t*t*(3-2*t);
+}

@@ -24,11 +24,11 @@ function cut(image,rect) {
   const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
   exteriorMatte(frame.data,canvas.width,canvas.height);ctx.putImageData(frame,0,0);return canvas;
 }
-export async function loadSprites() {
+export async function loadSprites({nativeBirds=true,nativeFlowers=true}={}) {
   const response=await fetch(new URL('../rules/sprite-layout.json',import.meta.url));
   if(!response.ok)throw new Error('Cannot load sprite layout');const layout=await response.json();
   validateFlowerVariants(layout.flower);
-  const [bird,flower]=await Promise.all([load(layout.bird.file),load(layout.flower.file)]);
+  const [bird,flower]=await Promise.all([nativeBirds?null:load(layout.bird.file),load(layout.flower.file)]);
   const flowerFrames=layout.flower.expressions.map(rect=>cut(flower,rect));
   const flowerVariants=(layout.flower.variants??[{petalRamp:null}]).map(variant=>flowerFrames.map(source=>{
     if(!variant.petalRamp&&!variant.stemRamp)return source;
@@ -40,15 +40,18 @@ export async function loadSprites() {
   }));
   const secondResponse=await fetch(new URL('../rules/yellow-tit-sprite.json',import.meta.url));
   if(!secondResponse.ok)throw new Error('Cannot load yellow-tit layout');const secondLayout=await secondResponse.json();
-  const secondImage=new Image();secondImage.src=new URL(secondLayout.file,import.meta.url).href;await secondImage.decode();
-  const secondBird=secondLayout.poses.map(p=>({image:cut(secondImage,p.rect),anchor:p.anchor}));
-  const magpie=layout.bird.poses.map(p=>({image:cut(bird,p.rect),anchor:p.anchor}));
+  let secondBird=[],magpie=[];
+  if(!nativeBirds){
+    const secondImage=new Image();secondImage.src=new URL(secondLayout.file,import.meta.url).href;await secondImage.decode();
+    secondBird=secondLayout.poses.map(p=>({image:cut(secondImage,p.rect),anchor:p.anchor}));
+    magpie=layout.bird.poses.map(p=>({image:cut(bird,p.rect),anchor:p.anchor}));
+  }
   const catalogueResponse=await fetch(new URL('../rules/all-bird-sprites.json',import.meta.url));
   if(!catalogueResponse.ok)throw new Error('Cannot load complete bird catalogue');
   const catalogue=await catalogueResponse.json(),birds={taiwan_blue_magpie:{layout:layout.bird,frames:magpie},yellow_tit:{layout:secondLayout,frames:secondBird}};
   // Prepare the new species once at native size; do not retain 56 large source cells.
   // Existing magpie/yellow-tit sampling remains unchanged for exact comparisons.
-  for(const sourceLayout of catalogue.species){
+  for(const sourceLayout of nativeBirds?[]:catalogue.species){
     if(birds[sourceLayout.speciesId]||!BIRD_SPECIES.some(b=>b.id===sourceLayout.speciesId)||sourceLayout.poses.length!==4)throw new Error('Invalid bird catalogue entry');
     const sheet=new Image();sheet.src=new URL(sourceLayout.file,import.meta.url).href;await sheet.decode();
     const frames=sourceLayout.poses.map(p=>{
@@ -59,6 +62,19 @@ export async function loadSprites() {
     });
     birds[sourceLayout.speciesId]={frames,layout:{...sourceLayout,sourceScale:sourceLayout.scale,scale:1,groundContactY:Math.round(sourceLayout.groundContactY*sourceLayout.scale)}};
   }
+  if(nativeBirds){
+    const response=await fetch(new URL('../assets/native/manifest.json',import.meta.url));
+    if(!response.ok)throw new Error('Missing native artwork manifest');
+    const manifest=await response.json();
+    await Promise.all(Object.entries(manifest.birds).map(async([id,record])=>{
+      const frames=await Promise.all(record.poses.map(async pose=>{
+        const image=new Image();image.src=new URL('../assets/native/'+pose.file,import.meta.url);await image.decode();
+        if(image.width!==pose.width||image.height!==pose.height)throw new Error('Native bird dimensions changed');
+        return {image,anchor:pose.anchor};
+      }));
+      birds[id]={frames,layout:{...record,native:true}};
+    }));
+  }
   if(BIRD_SPECIES.some(b=>!birds[b.id]))throw new Error('Incomplete bird catalogue');
   const leaf=layout.flower.isolatedLeaf;
   const isolatedLeaves=leaf?flowerVariants.map(frames=>{
@@ -66,12 +82,22 @@ export async function loadSprites() {
     cx.beginPath();leaf.mask.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.closePath();cx.clip();
     cx.drawImage(frames[0],...leaf.rect,0,0,c.width,c.height);return c;
   }):null;
-  return {layout,bird:magpie,birds,
+  let nativeFlowerArt=null;
+  if(nativeFlowers){
+    const response=await fetch(new URL('../assets/native/flowers.json',import.meta.url));
+    if(!response.ok)throw new Error('Missing native flower manifest');
+    const manifest=await response.json();
+    const loadNative=async record=>{const image=new Image();image.src=new URL('../assets/native/'+record.file,import.meta.url);await image.decode();return {...record,image};};
+    nativeFlowerArt={headDisplayScale:manifest.headDisplayScale,
+      heads:await Promise.all(manifest.heads.map(row=>Promise.all(row.map(loadNative)))),
+      leaves:Object.fromEntries(await Promise.all(Object.entries(manifest.leaves).map(async([key,record])=>[key,await loadNative(record)])))};
+  }
+  return {layout:nativeBirds?{...layout,bird:birds.taiwan_blue_magpie.layout}:layout,bird:nativeBirds?birds.taiwan_blue_magpie.frames:magpie,birds,nativeFlowerArt,
     flower:flowerFrames,flowerVariants,isolatedLeaves};
 }
 
 export function paintBird(ctx,sprites,state,w,h,frame) {
-  const sprite=sprites.bird[state.phase==='won'?sprites.layout.bird.settledPose:frame],scale=sprites.layout.bird.scale*VISUAL_TUNING.birdScale;
+  const sprite=sprites.bird[state.phase==='won'?sprites.layout.bird.settledPose:frame],scale=sprites.layout.bird.scale*(sprites.layout.bird.native?1:VISUAL_TUNING.birdScale);
   const settle=state.phase==='won'?1:state.landing?.stage==='approach'?Math.min(1,state.landing.elapsed/state.config.landingSeconds)**3:0;
   const resting=sprites.bird[sprites.layout.bird.settledPose];
   const groundOffset=sprites.layout.bird.groundContactY===undefined?-6:
@@ -83,6 +109,12 @@ export function paintBird(ctx,sprites,state,w,h,frame) {
 }
 
 export function paintLeafPair(ctx,sprites,index,x,y,scale){
+  if(sprites.nativeFlowerArt){
+    const leaf=sprites.nativeFlowerArt.leaves[index+':'+scale.toFixed(6)];
+    if(!leaf)throw new Error('Rebuild native leaf size '+scale);
+    for(const direction of [-1,1]){ctx.save();ctx.translate(x,y);ctx.scale(direction,1);ctx.drawImage(leaf.image,-leaf.anchor[0],-leaf.anchor[1]);ctx.restore();}
+    return;
+  }
   const leaf=sprites.isolatedLeaves[index],anchor=sprites.layout.flower.isolatedLeaf.anchor;
   for(const direction of [-1,1]){
     ctx.save();ctx.translate(x,y);ctx.scale(direction,1);
@@ -110,5 +142,8 @@ export function paintFlower(ctx,sprites,flower,w,h,ground) {
   // Enlarge the crown about its lower attachment; stem/leaf geometry above stays exact.
   const displayScale=layout.headDisplayScale??1,displayW=Math.round(headW*displayScale),displayH=Math.round(headH*displayScale);
   const bottom=top-Math.round(headH*.55)+headH;
-  ctx.drawImage(image,0,0,image.width,headHeight,x-Math.round(displayW/2)+wobble,bottom-displayH,displayW,displayH);
+  if(sprites.nativeFlowerArt&&displayScale===sprites.nativeFlowerArt.headDisplayScale){
+    const head=sprites.nativeFlowerArt.heads[variant.index][index];
+    ctx.drawImage(head.image,x-Math.round(displayW/2)+wobble,bottom-displayH);
+  }else ctx.drawImage(image,0,0,image.width,headHeight,x-Math.round(displayW/2)+wobble,bottom-displayH,displayW,displayH);
 }

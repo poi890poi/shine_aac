@@ -1,0 +1,672 @@
+{
+  "version": 1,
+  "headDisplayScale": 1.4,
+  "heads": [
+    [
+      {
+        "file": "flowers/0-0.png",
+        "width": 62,
+        "height": 57,
+        "sha256": "7616c1f40a9e0df1d0526db1430e8ca7a0c805ce9b547093fa609e030d47cdd5"
+      },
+      {
+        "file": "flowers/0-1.png",
+        "width": 63,
+        "height": 57,
+        "sha256": "8d510ed9ee07b6c6168321dddaa5869f113e8e9816f9070492dcf0c8abba04b1"
+      },
+      {
+        "file": "flowers/0-2.png",
+        "width": 63,
+        "height": 57,
+        "sha256": "4843ab484dde71ffe1854edb9ec614e64a9cadcabe5498bb3b5dafa6b7cdabd6"
+      },
+      {
+        "file": "flowers/0-3.png",
+        "width": 64,
+        "height": 57,
+        "sha256": "c222ecaf4ec1471fcb40f63018fed29337da59d988687468902bb9f31134ad1c"
+      }
+    ],
+    [
+      {
+        "file": "flowers/1-0.png",
+        "width": 59,
+        "height": 53,
+        "sha256": "50446d77986a7d1845952dc7a7bf5bf7912530d51d1655abb3c1e42e36b69256"
+      },
+      {
+        "file": "flowers/1-1.png",
+        "width": 60,
+        "height": 53,
+        "sha256": "625dabd979fc473d12655bcabd5bbdf9f86c0e6a3ca29c2c1a368a9fde711206"
+      },
+      {
+        "file": "flowers/1-2.png",
+        "width": 59,
+        "height": 53,
+        "sha256": "38938967e6374783f21153effe16a6e1e68df8377fa7e9ad253d21a705170fa4"
+      },
+      {
+        "file": "flowers/1-3.png",
+        "width": 60,
+        "height": 53,
+        "sha256": "6d77b65ec32e686f9c680292e23dab4aaf8d9519249578080c9913687e958830"
+      }
+    ],
+    [
+      {
+        "file": "flowers/2-0.png",
+        "width": 69,
+        "height": 63,
+        "sha256": "c2d0b7179d4c983436efc16e9cfa599dd1eb63719abefa64360f9eed19c68fd2"
+      },
+      {
+        "file": "flowers/2-1.png",
+        "width": 70,
+        "height": 63,
+        "sha256": "5aafdbb6865744edbf0fc39db9446f60510bdb3320cf446bce6366ddfde8066b"
+      },
+      {
+        "file": "flowers/2-2.png",
+        "width": 69,
+        "height": 63,
+        "sha256": "81ee2ed7ed41781b6476f51045ecacdcc86b6de129de6ff1a3d3d8514ae31158"
+      },
+      {
+        "file": "flowers/2-3.png",
+        "width": 71,
+        "height": 63,
+        "sha256": "1492c43dc352098930b03a55d16cb6707767fede63b520e1062191c4304f816e"
+      }
+    ],
+    [
+      {
+        "file": "flowers/3-0.png",
+        "width": 64,
+        "height": 59,
+        "sha256": "d823aff38e4b2e4bdfc8fcf2af6cbece05a0991175f3202c898abb5dba94a176"
+      },
+      {
+        "file": "flowers/3-1.png",
+        "width": 66,
+        "height": 59,
+        "sha256": "134f08e4c39dc7d806655ec8b679789aab0eb06bac9d562958bc58029cb58505"
+      },
+      {
+        "file": "flowers/3-2.png",
+        "width": 66,
+        "height": 59,
+        "sha256": "a703ed13dceffbb98aa17b501165561a92bb1b04deaae90b17eed23c42acc540"
+      },
+      {
+        "file": "flowers/3-3.png",
+        "width": 67,
+        "height": 59,
+        "sha256": "7eb0cba7e09d222808a46619adda73d7f33c40d57bf5ac2cf56361d68aa70e56"
+      }
+    ]
+  ],
+  "leaves": {
+    "0:0.093750": {
+      "file": "leaves/0-0.75.png",
+      "width": 7,
+      "height": 7,
+      "anchor": [
+        7,
+        6
+      ],
+      "sha256": "ad3101fe56f840e45e3fc262c00215a6b3a0d8c0dd68f0142b828cb6eb9dba8c"
+    },
+    "0:0.100000": {
+      "file": "leaves/0-0.8.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        7,
+        7
+      ],
+      "sha256": "8baec5e6eb1d67c78e9a46d44c9fa036d9698498b459350ad6787055d730013b"
+    },
+    "0:0.106250": {
+      "file": "leaves/0-0.85.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "8baec5e6eb1d67c78e9a46d44c9fa036d9698498b459350ad6787055d730013b"
+    },
+    "0:0.112500": {
+      "file": "leaves/0-0.9.png",
+      "width": 9,
+      "height": 9,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "90b38fea8483df5ee2eefb861cd1a86d7d6d794a6de76c9bfd5a487e83df86f9"
+    },
+    "0:0.125000": {
+      "file": "leaves/0-1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        9,
+        8
+      ],
+      "sha256": "13221f520152c8c4879806421ca05117d45b0fcbd781755f610c3d93fdb09d3c"
+    },
+    "0:0.137500": {
+      "file": "leaves/0-1.1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        10,
+        9
+      ],
+      "sha256": "13221f520152c8c4879806421ca05117d45b0fcbd781755f610c3d93fdb09d3c"
+    },
+    "0:0.143750": {
+      "file": "leaves/0-1.15.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        9
+      ],
+      "sha256": "0d4658ff17e43978f632e109512d449dcebf75e758077570818f5952259b24e9"
+    },
+    "0:0.150000": {
+      "file": "leaves/0-1.2.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        10
+      ],
+      "sha256": "0d4658ff17e43978f632e109512d449dcebf75e758077570818f5952259b24e9"
+    },
+    "0:0.156250": {
+      "file": "leaves/0-1.25.png",
+      "width": 12,
+      "height": 12,
+      "anchor": [
+        12,
+        10
+      ],
+      "sha256": "a2f03af96a8b46e5da874b5169d988b287ae9d16440510608edbff9860b6ec1d"
+    },
+    "0:0.175000": {
+      "file": "leaves/0-1.4.png",
+      "width": 13,
+      "height": 13,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "cf4ef13e565edc8a87c09e0228730e750133989c1b625a22605648d6a74f1346"
+    },
+    "0:0.181250": {
+      "file": "leaves/0-1.45.png",
+      "width": 14,
+      "height": 14,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "56bfd099ac55e35eb33fd6681bfc22eb373a0f355d9268a85f92b192d29c1970"
+    },
+    "0:0.193750": {
+      "file": "leaves/0-1.55.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        14,
+        13
+      ],
+      "sha256": "567d74ef0a106031929953c055e7b9068a62cbc5ed83291d1e26a26a85789db2"
+    },
+    "0:0.200000": {
+      "file": "leaves/0-1.6.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        15,
+        13
+      ],
+      "sha256": "567d74ef0a106031929953c055e7b9068a62cbc5ed83291d1e26a26a85789db2"
+    },
+    "0:0.206250": {
+      "file": "leaves/0-1.65.png",
+      "width": 16,
+      "height": 16,
+      "anchor": [
+        15,
+        14
+      ],
+      "sha256": "70d305e361166d9d1b92b4e65ccf20af692cc1821cfd1a72fcecea323bfc248c"
+    },
+    "1:0.093750": {
+      "file": "leaves/1-0.75.png",
+      "width": 7,
+      "height": 7,
+      "anchor": [
+        7,
+        6
+      ],
+      "sha256": "d7a4cd21b9ad565b68b381556af4ba7422701e420acec03d51f5be9f46e8e56d"
+    },
+    "1:0.100000": {
+      "file": "leaves/1-0.8.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        7,
+        7
+      ],
+      "sha256": "dea2102c9b19e283a8ca54dc0c45b06f7345f5e6bedf917a49559b25d6722f14"
+    },
+    "1:0.106250": {
+      "file": "leaves/1-0.85.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "dea2102c9b19e283a8ca54dc0c45b06f7345f5e6bedf917a49559b25d6722f14"
+    },
+    "1:0.112500": {
+      "file": "leaves/1-0.9.png",
+      "width": 9,
+      "height": 9,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "7d9a89ce3a88212c2250c4b96842bd37bd0d3c3f44a35bd31581109eaa59fc3e"
+    },
+    "1:0.125000": {
+      "file": "leaves/1-1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        9,
+        8
+      ],
+      "sha256": "17b1e381a0285793dab90a66783cfba7752d3fab66feb95176627d1570863cc5"
+    },
+    "1:0.137500": {
+      "file": "leaves/1-1.1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        10,
+        9
+      ],
+      "sha256": "17b1e381a0285793dab90a66783cfba7752d3fab66feb95176627d1570863cc5"
+    },
+    "1:0.143750": {
+      "file": "leaves/1-1.15.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        9
+      ],
+      "sha256": "b1e0db27e0e44b889bb7d345e425e3169abd632d11f498814ad884885940d4b4"
+    },
+    "1:0.150000": {
+      "file": "leaves/1-1.2.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        10
+      ],
+      "sha256": "b1e0db27e0e44b889bb7d345e425e3169abd632d11f498814ad884885940d4b4"
+    },
+    "1:0.156250": {
+      "file": "leaves/1-1.25.png",
+      "width": 12,
+      "height": 12,
+      "anchor": [
+        12,
+        10
+      ],
+      "sha256": "e05ffb498d0cfe822312aed36850a9833cb4c50a19ac5e2b42de3a3acd2d42c6"
+    },
+    "1:0.175000": {
+      "file": "leaves/1-1.4.png",
+      "width": 13,
+      "height": 13,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "95a902fb50628dc2ab4b15753c9a14b7582f373b69aff4c7e2a6165a87c36d57"
+    },
+    "1:0.181250": {
+      "file": "leaves/1-1.45.png",
+      "width": 14,
+      "height": 14,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "19f1b2837097914702ba7036bf5b0885ed72ded6c8b8aec991230232b927743d"
+    },
+    "1:0.193750": {
+      "file": "leaves/1-1.55.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        14,
+        13
+      ],
+      "sha256": "a21c8b840a88f39b22b41bafce27b321b485fac50077a74b1ba0b87cfc7ad877"
+    },
+    "1:0.200000": {
+      "file": "leaves/1-1.6.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        15,
+        13
+      ],
+      "sha256": "a21c8b840a88f39b22b41bafce27b321b485fac50077a74b1ba0b87cfc7ad877"
+    },
+    "1:0.206250": {
+      "file": "leaves/1-1.65.png",
+      "width": 16,
+      "height": 16,
+      "anchor": [
+        15,
+        14
+      ],
+      "sha256": "1913033b583601602ad2e340239603360af1f41c4e75167e845534676d246596"
+    },
+    "2:0.093750": {
+      "file": "leaves/2-0.75.png",
+      "width": 7,
+      "height": 7,
+      "anchor": [
+        7,
+        6
+      ],
+      "sha256": "b59d7274e3cad9a3101a68d46b733c01c59ea22d55e4dc4e237d12ba480af6b4"
+    },
+    "2:0.100000": {
+      "file": "leaves/2-0.8.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        7,
+        7
+      ],
+      "sha256": "68ebb05a735ca2633ab79f772b1e9f4ba685b2bc95367dc8b3692934b81f757d"
+    },
+    "2:0.106250": {
+      "file": "leaves/2-0.85.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "68ebb05a735ca2633ab79f772b1e9f4ba685b2bc95367dc8b3692934b81f757d"
+    },
+    "2:0.112500": {
+      "file": "leaves/2-0.9.png",
+      "width": 9,
+      "height": 9,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "33ffcae3eddfb7267ad7cfd7b8179607aed8e2e5487e20db0f64a04a6388f422"
+    },
+    "2:0.125000": {
+      "file": "leaves/2-1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        9,
+        8
+      ],
+      "sha256": "930ec18d0fb02382808b2c9e8b98829e4107b245802ec406159001be8f8cccb2"
+    },
+    "2:0.137500": {
+      "file": "leaves/2-1.1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        10,
+        9
+      ],
+      "sha256": "930ec18d0fb02382808b2c9e8b98829e4107b245802ec406159001be8f8cccb2"
+    },
+    "2:0.143750": {
+      "file": "leaves/2-1.15.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        9
+      ],
+      "sha256": "b806b13342bdf0d93231db0bb08aee3ed0f8da3bbdbd9998562f48f189710d0c"
+    },
+    "2:0.150000": {
+      "file": "leaves/2-1.2.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        10
+      ],
+      "sha256": "b806b13342bdf0d93231db0bb08aee3ed0f8da3bbdbd9998562f48f189710d0c"
+    },
+    "2:0.156250": {
+      "file": "leaves/2-1.25.png",
+      "width": 12,
+      "height": 12,
+      "anchor": [
+        12,
+        10
+      ],
+      "sha256": "4e2e7772b638ed00c91a335463ccfc70b092d69d0f0510cae610eae80f0795a0"
+    },
+    "2:0.175000": {
+      "file": "leaves/2-1.4.png",
+      "width": 13,
+      "height": 13,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "361bcd6d1c3ead79b3ad8ab0fb934149f12e6ee8816963a63724d80ad37fb8f8"
+    },
+    "2:0.181250": {
+      "file": "leaves/2-1.45.png",
+      "width": 14,
+      "height": 14,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "1e6df7720dad85daf90aa87836b3e8d9556ec17e801c67be5124a43c81ca81e5"
+    },
+    "2:0.193750": {
+      "file": "leaves/2-1.55.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        14,
+        13
+      ],
+      "sha256": "d568a268aa5ce6af02836e9e7ba385b3c635027b24f9afab4006baa0c455624a"
+    },
+    "2:0.200000": {
+      "file": "leaves/2-1.6.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        15,
+        13
+      ],
+      "sha256": "d568a268aa5ce6af02836e9e7ba385b3c635027b24f9afab4006baa0c455624a"
+    },
+    "2:0.206250": {
+      "file": "leaves/2-1.65.png",
+      "width": 16,
+      "height": 16,
+      "anchor": [
+        15,
+        14
+      ],
+      "sha256": "459a08470f79d82378c0642d8feb606fa288451c164894c71074240fd96c5b16"
+    },
+    "3:0.093750": {
+      "file": "leaves/3-0.75.png",
+      "width": 7,
+      "height": 7,
+      "anchor": [
+        7,
+        6
+      ],
+      "sha256": "6363fceded83d4f54743f039c3466c1dd1613ec18895fa312039d42bc70b0751"
+    },
+    "3:0.100000": {
+      "file": "leaves/3-0.8.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        7,
+        7
+      ],
+      "sha256": "a884fb1e7ee32485860cf5116dc774918d8cb35f28a9caf2cd8ac2d974fdb412"
+    },
+    "3:0.106250": {
+      "file": "leaves/3-0.85.png",
+      "width": 8,
+      "height": 8,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "a884fb1e7ee32485860cf5116dc774918d8cb35f28a9caf2cd8ac2d974fdb412"
+    },
+    "3:0.112500": {
+      "file": "leaves/3-0.9.png",
+      "width": 9,
+      "height": 9,
+      "anchor": [
+        8,
+        7
+      ],
+      "sha256": "5e56ff2787ddb40b50eb16975a240b7b51504dc3707480588959d343bf47d532"
+    },
+    "3:0.125000": {
+      "file": "leaves/3-1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        9,
+        8
+      ],
+      "sha256": "b0f89012f9d766d2dd01e87300614a89ce9db81b5e9f2c71d8506fa1ec461e50"
+    },
+    "3:0.137500": {
+      "file": "leaves/3-1.1.png",
+      "width": 10,
+      "height": 10,
+      "anchor": [
+        10,
+        9
+      ],
+      "sha256": "b0f89012f9d766d2dd01e87300614a89ce9db81b5e9f2c71d8506fa1ec461e50"
+    },
+    "3:0.143750": {
+      "file": "leaves/3-1.15.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        9
+      ],
+      "sha256": "51e89ec10f8dda4b0d80e0c9a5e520c0a21a4d6df18a92318025cf2fb8f55c83"
+    },
+    "3:0.150000": {
+      "file": "leaves/3-1.2.png",
+      "width": 11,
+      "height": 11,
+      "anchor": [
+        11,
+        10
+      ],
+      "sha256": "51e89ec10f8dda4b0d80e0c9a5e520c0a21a4d6df18a92318025cf2fb8f55c83"
+    },
+    "3:0.156250": {
+      "file": "leaves/3-1.25.png",
+      "width": 12,
+      "height": 12,
+      "anchor": [
+        12,
+        10
+      ],
+      "sha256": "d911643194a60ba038bd9999edfdbbf425e1909f188a3496396cfd9bcea7308d"
+    },
+    "3:0.175000": {
+      "file": "leaves/3-1.4.png",
+      "width": 13,
+      "height": 13,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "ca3bcdde95d64d9e87349cb8a9653cfc367dfb7ca3fb15a615ade048abed8536"
+    },
+    "3:0.181250": {
+      "file": "leaves/3-1.45.png",
+      "width": 14,
+      "height": 14,
+      "anchor": [
+        13,
+        12
+      ],
+      "sha256": "154f6fd920f2bc797e0fbd084bd3bbd20905c53ad70e4d72be90cacff089eb12"
+    },
+    "3:0.193750": {
+      "file": "leaves/3-1.55.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        14,
+        13
+      ],
+      "sha256": "f10e22b9604890a13d0828efa330d7c814b73cbc041a742939a7c21bc14dd34b"
+    },
+    "3:0.200000": {
+      "file": "leaves/3-1.6.png",
+      "width": 15,
+      "height": 15,
+      "anchor": [
+        15,
+        13
+      ],
+      "sha256": "f10e22b9604890a13d0828efa330d7c814b73cbc041a742939a7c21bc14dd34b"
+    },
+    "3:0.206250": {
+      "file": "leaves/3-1.65.png",
+      "width": 16,
+      "height": 16,
+      "anchor": [
+        15,
+        14
+      ],
+      "sha256": "dea986a4766a478a5bfdef586fa98d92339f8d5c930e7f30202adfda75aad970"
+    }
+  }
+}

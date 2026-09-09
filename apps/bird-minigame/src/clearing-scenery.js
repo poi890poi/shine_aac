@@ -36,15 +36,19 @@ export function paintClearing(ctx,scene,w,ground){
  const palette=CLEARING_PALETTES[scene.palette],top=ground-108;
  ctx.fillStyle=palette.meadow;ctx.fillRect(0,top,w,126);
  // Uneven meadow horizon joins the foothills without rice rows or field borders.
- for(let x=0;x<w;x+=3){const rise=3+Math.round(2*Math.sin(x/23));ctx.fillRect(x,top-rise,3,rise);}
+ for(let x=0;x<w;x++){const rise=3+Math.round(2*Math.sin(x/23));ctx.fillRect(x,top-rise,1,rise);}
+ // Each lobe is rasterized at the final object footprint, one native column
+ // at a time. Object size varies; it never changes the drawing pixel unit.
+ const crowns=[[[.2,.27,.55],[.48,.33,1],[.78,.27,.66]],[[.18,.24,.65],[.4,.3,.95],[.7,.32,.7],[.88,.15,.42]],[[.18,.23,.47],[.43,.29,.8],[.7,.3,1]],[[.17,.22,.7],[.46,.34,1],[.8,.25,.6]],[[.16,.23,.5],[.36,.25,.9],[.61,.27,.72],[.82,.24,.5]],[[.17,.21,.45],[.43,.3,.68],[.73,.3,1]]];
  for(const b of scene.bushes){
-  const profile=BUSH_PROFILES[b.shape],u=b.unit,x0=Math.round(b.x*w-profile.length*u/2),base=Math.round(top+10+b.depth*62);
-  for(let col=0;col<profile.length;col++){
-   const n=profile[b.flip?profile.length-1-col:col],x=x0+col*u,y=base-n*u;
-   ctx.fillStyle=palette.bush[0];ctx.fillRect(x,y,u,n*u);
-   ctx.fillStyle=palette.bush[1];ctx.fillRect(x,y,u,Math.max(u,(n-2)*u));
-   // Few broad connected crown highlights, never stochastic speckle.
-   if(col>1&&col<profile.length-3&&n>=5){ctx.fillStyle=palette.bush[2];ctx.fillRect(x,y,u,2*u);}
+  const profile=BUSH_PROFILES[b.shape],width=profile.length*b.unit,height=Math.max(...profile)*b.unit,x0=Math.round(b.x*w-width/2),base=Math.round(top+10+b.depth*62);
+  for(let col=0;col<width;col++){
+   const t=(b.flip?width-1-col:col)/Math.max(1,width-1);let rise=0;
+   for(const [center,radius,tall] of crowns[b.shape]){const d=(t-center)/radius;if(Math.abs(d)<=1)rise=Math.max(rise,Math.sqrt(1-d*d)*height*tall);}
+   const n=Math.round(rise),x=x0+col,y=base-n;if(!n)continue;
+   ctx.fillStyle=palette.bush[0];ctx.fillRect(x,y,1,n);
+   ctx.fillStyle=palette.bush[1];ctx.fillRect(x,y,1,Math.max(1,n-Math.round(height*.2)));
+   if(t>.12&&t<.82&&n>height*.48){ctx.fillStyle=palette.bush[2];ctx.fillRect(x,y,1,Math.max(1,Math.round(height*.14)));}
   }
  }
  // Sparse grass accents, with no rows or dense texture.
