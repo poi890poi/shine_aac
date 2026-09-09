@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+import {benchmarkGardenRenderers} from './garden-renderer-benchmark.mjs';
 import { readGardenInputProfile } from './device-garden-profile.mjs';
 const exec=promisify(execFile),device=process.env.ANDROID_SERIAL, pkg=process.env.SHINE_AAC_TEST_PACKAGE||'org.shineaac.app';
 assert.ok(device,'Set ANDROID_SERIAL explicitly');
@@ -13,8 +14,14 @@ const run=async(...args)=>(await exec(adb,['-s',device,...args],{encoding:'buffe
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const readInputProfile=()=>readGardenInputProfile(()=>run('shell','run-as',pkg,'cat','shared_prefs/shine_aac_config.xml'));
-let ws,ev,keepAwake;let awakeWork=Promise.resolve();
+let ws,ev,keepAwake,priorRotation;let awakeWork=Promise.resolve();
 try {
+  if(process.env.SHINE_GARDEN_ROTATION){
+    const desired=process.env.SHINE_GARDEN_ROTATION;assert.match(desired,/^[0-3]$/);
+    priorRotation={};for(const key of ['accelerometer_rotation','user_rotation'])priorRotation[key]=(await run('shell','settings','get','system',key)).toString().trim();
+    await run('shell','settings','put','system','accelerometer_rotation','0');
+    await run('shell','settings','put','system','user_rotation',desired);
+  }
   assert.match((await run('install','-r',apk)).toString(),/Success/);
   const installed=(await run('shell','pm','path',pkg)).toString().trim().split('\n')[0].replace('package:','');
   await run('pull',installed,resolve(out,'installed.apk'));
@@ -39,8 +46,8 @@ try {
     if(m.method==='Runtime.executionContextCreated')contexts.set(m.params.context.id,m.params.context);
     if(m.method==='Runtime.executionContextDestroyed')contexts.delete(m.params.executionContextId);
   });
-  const call=(method,params={})=>new Promise((res,rej)=>{const n=++id,t=setTimeout(()=>{pending.delete(n);rej(new Error(method+' timed out'));},10000);pending.set(n,m=>{clearTimeout(t);m.error?rej(new Error(JSON.stringify(m.error))):res(m.result);});ws.send(JSON.stringify({id:n,method,params}));});
-  ev=async(expression,contextId)=>{const r=await call('Runtime.evaluate',{expression,contextId,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
+  const call=(method,params={},timeout=10000)=>new Promise((res,rej)=>{const n=++id,t=setTimeout(()=>{pending.delete(n);rej(new Error(method+' timed out'));},timeout);pending.set(n,m=>{clearTimeout(t);m.error?rej(new Error(JSON.stringify(m.error))):res(m.result);});ws.send(JSON.stringify({id:n,method,params}));});
+  ev=async(expression,contextId,timeout)=>{const r=await call('Runtime.evaluate',{expression,contextId,returnByValue:true,awaitPromise:true},timeout);if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
   await call('Runtime.enable');
   const until=async(expression,seconds=20)=>{for(let i=0;i<seconds*5;i++){if(await ev(expression))return;await wait(200);}throw new Error('Condition timed out: '+expression);};
   await until('Boolean(document.querySelector(".config-button"))');
@@ -80,10 +87,10 @@ try {
     const grid=await ev(`(()=>{
       const c=document.querySelector('.game-canvas'),u=Number(c.dataset.pixelScale),w=Number(c.dataset.virtualWidth),h=Number(c.dataset.virtualHeight);
       if(!Number.isInteger(u)||u<1)return {valid:false};
-      const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let violations=0;
+      const d=c.readGamePixels();let violations=0;
       for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,b=(Math.floor(y/u)*u*c.width+Math.floor(x/u)*u)*4;
         if(d[i]!==d[b]||d[i+1]!==d[b+1]||d[i+2]!==d[b+2])violations++;}
-      const r=c.getBoundingClientRect();return {valid:true,virtual:[w,h],physical:[c.width,c.height],scale:u,origin:[r.x*devicePixelRatio,r.y*devicePixelRatio],violations};
+      const r=c.getBoundingClientRect();return {renderer:c.gameRendererInfo(),valid:true,virtual:[w,h],physical:[c.width,c.height],scale:u,origin:[r.x*devicePixelRatio,r.y*devicePixelRatio],violations};
     })()`,gameContext.id);
     assert.ok(grid.valid,'packaged virtual screen metadata');assert.equal(grid.violations,0,'all physical art pixels share one grid');
     assert.deepEqual(grid.origin,[0,0],'single physical grid origin');
@@ -91,6 +98,11 @@ try {
     return grid;
   };
   const readyGrid=await checkPixelGrid();
+    if(process.env.SHINE_GARDEN_ROTATION==='1')assert.ok(readyGrid.physical[0]>readyGrid.physical[1],'explicit landscape coverage');
+    if(process.env.SHINE_RENDERER_BENCHMARK==='1'){
+      const benchmark=await ev('('+benchmarkGardenRenderers.toString()+')(new URL("../bird-minigame/src/",location.href).href)',gameContext.id,60000);
+      await writeFile(resolve(out,'renderer-benchmark.json'),JSON.stringify(benchmark,null,2));
+    }
   const activate=async()=>{
     if(hardwareEnabled)await run('shell','input','keyevent','KEYCODE_BUTTON_A');
     else {
@@ -123,6 +135,7 @@ try {
   try {if(ev)await ev(`if(ShineAacNavigation.currentPage()==='bird-garden')ShineAacNavigation.back();`);} finally {
     clearInterval(keepAwake);await awakeWork.catch(()=>{});ws?.close();
     await run('forward','--remove','tcp:9229').catch(()=>{});
+    if(priorRotation)for(const [key,value] of Object.entries(priorRotation)){await run('shell','settings',value==='null'?'delete':'put','system',key,...(value==='null'?[]:[value]));assert.equal((await run('shell','settings','get','system',key)).toString().trim(),value,'rotation preference restored');}
     await run('shell','input','keyevent','223');
     let displayOff=false;
     for(let attempt=0;attempt<10&&!displayOff;attempt++) {

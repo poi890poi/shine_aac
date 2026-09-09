@@ -194,5 +194,13 @@
 - Landscape flight starts at native y=144 and keeps clearance above the tallest
   wing. The clear-sky projection applies to bird, drops and feather origins and
   fades out before flowers. Portrait, stems, flower contact and ground remain fixed.
-- Gates: native-art unit tests, the native asset gate, independent stem pixels,
-  and output-grid negative controls remain separate from aesthetic approval.
+- WebGL draws into one low-resolution RGBA framebuffer and enlarges it once using
+  NEAREST at an integer scale and origin. Use high precision texture coordinates,
+  premultiplied alpha, and no dither. Canvas2D remains the unavailable-WebGL fallback.
+  Android decides SurfaceFlinger/HWC composition; do not claim app-controlled HWC
+  nearest-neighbor scaling. Normal frames must not read the framebuffer back.
+- Gates: `test/native-art.test.mjs`, root `scripts/native-art-assets-test.mjs`,
+  `scripts/native-renderer-test.mjs`, `scripts/virtual-screen-test.mjs`, and the
+  leaf continuity check. Exact bird masks, accepted cloud pixels, renderer parity,
+  context restoration, off-grid negative control, and physical-device checks are
+  separate evidence; none alone establishes aesthetic acceptance.

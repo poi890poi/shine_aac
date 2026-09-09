@@ -9,8 +9,8 @@ import {gameplayBounds,projectGameplayY} from './viewport.js';
 import {createVirtualScreen} from './virtual-screen.js';
 import {createCloudPlacements} from './cloud-layout.js';
 
-export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,columns=4,featherDynamics,species='taiwan_blue_magpie'}={}) {
-  const screen=createVirtualScreen(canvas),ctx=screen.context;
+export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,columns=4,featherDynamics,species='taiwan_blue_magpie',rendererBackend='webgl'}={}) {
+  const screen=createVirtualScreen(canvas,{backend:rendererBackend}),ctx=screen.context;
   let selectedSpecies=birdSpecies(species);
   let clearing=createClearing(0);
   let clouds=createCloudPlacements(29);
@@ -50,6 +50,8 @@ export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,column
     }
     ctx.restore();paintAmmo(ctx,state,w);screen.present();
   }
+  const restore=()=>{if(lastState)render(lastState);};
+  canvas.addEventListener('game-renderer-restored',restore);
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(resize):null;observer?.observe(canvas.parentElement);
   return {ready,render,resize,
     setScenerySeed(seed){clearing=createClearing(seed);clouds=createCloudPlacements((seed+20)>>>0);if(lastState)render(lastState);},
@@ -68,6 +70,6 @@ export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,column
       cx.drawImage(sprite.image,left,top,sw,sh,Math.round((96-sw*scale)/2),Math.round((48-sh*scale)/2),Math.round(sw*scale),Math.round(sh*scale));
     },
     setStyle(style){if(!rules)throw new Error('Await renderer.ready before setting style');rules={...rules,style:validatePixelStyle(style)};resize();},
-    getRules:()=>rules,destroy(){observer?.disconnect();lastState=null;}
+    getRules:()=>rules,destroy(){observer?.disconnect();canvas.removeEventListener('game-renderer-restored',restore);screen.destroy();lastState=null;}
   };
 }
