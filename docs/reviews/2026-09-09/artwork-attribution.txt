@@ -1,0 +1,61 @@
+SHINE AAC visual review — mountain artwork attribution
+
+The game randomly selects one of these licensed mountain adaptations.
+
+Adaptations: crop, background removal, pixel reduction, reduced blue-green palette and atmospheric tint. Adapted mountain images retain their source licenses. UI screenshots are synthetic review fixtures.
+
+日出前的北大武山
+Greenigor
+https://commons.wikimedia.org/wiki/File:日出前的北大武山.jpg
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+Crop; source-specific sky matte; uniform BOX reduction; four-tone daylight blue-green mapping. No generated or perturbed mountain geometry.
+
+花蓮車站遠眺
+Mfpan9389115
+https://commons.wikimedia.org/wiki/File:花蓮車站遠眺.jpg
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+Crop above all station buildings; source-specific sky matte; uniform BOX reduction; median interior tones and shared four-tone blue-green palette. Source ridge shape retained, no generated peaks.
+
+Distant view of Yushan Main Peak, which taken on the Chenyoulan River Bridge during dawn on 17 July 2021.jpg
+Kai3952
+https://commons.wikimedia.org/wiki/File:Distant_view_of_Yushan_Main_Peak,_which_taken_on_the_Chenyoulan_River_Bridge_during_dawn_on_17_July_2021.jpg
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0
+Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.
+
+都蘭山.jpg
+Fcuk1203
+https://commons.wikimedia.org/wiki/File:%E9%83%BD%E8%98%AD%E5%B1%B1.jpg
+CC BY-SA 3.0
+https://creativecommons.org/licenses/by-sa/3.0
+Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.
+
+View south toward Mount Guanyin from Tamsui.jpg
+pang yu liu
+https://commons.wikimedia.org/wiki/File:View_south_toward_Mount_Guanyin_from_Tamsui.jpg
+CC BY-SA 2.0
+https://creativecommons.org/licenses/by-sa/2.0
+Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.
+
+Chihsingshan, Tatun volcanoes.jpg
+Peellden
+https://commons.wikimedia.org/wiki/File:Chihsingshan,_Tatun_volcanoes.jpg
+CC BY-SA 3.0
+http://creativecommons.org/licenses/by-sa/3.0/
+Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.
+
+Huoyan Mountain weisheng lu 3.jpg
+Luws
+https://commons.wikimedia.org/wiki/File:Huoyan_Mountain_weisheng_lu_3.jpg
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0
+Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.
+
+Kenting, Taiwan (51885078713).jpg
+Jirka Matousek
+https://commons.wikimedia.org/wiki/File:Kenting,_Taiwan_(51885078713).jpg
+CC BY 2.0
+https://creativecommons.org/licenses/by/2.0
+Fixed crop, source-specific sky matte, uniform BOX reduction, median interior tones, shared four-tone mountain palette. No generated or warped peaks.
