@@ -1,6 +1,7 @@
 import importlib.util
 import inspect
 import json
+import math
 import os
 import struct
 import sys
@@ -22,6 +23,101 @@ SPEC = importlib.util.spec_from_file_location(
 )
 RIG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RIG)
+
+
+class CalibratedMediaOrientationTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cv2, cls.np = optical_stimulus.load_opencv(SCRIPT_DIR.parent)
+
+    def geometry(self, angle, mirrored):
+        np = self.np
+        radians = math.radians(angle)
+        rotation = np.array([[math.cos(radians), -math.sin(radians)],
+                             [math.sin(radians), math.cos(radians)]])
+        linear = rotation @ np.diag([-0.8 if mirrored else 0.8, 1.1])
+        physical = np.eye(3)
+        physical[:2, :2] = linear
+        physical[:2, 2] = np.array([600, 960]) - linear @ np.array([800, 450])
+        normalized = np.diag([1/1600, 1/900, 1]) @ np.linalg.inv(physical) @ np.diag([1200, 1920, 1])
+        decoded = {"screenshot_width": 1200, "screenshot_height": 1920,
+                   "spatial_fit": {"coefficients": normalized.flatten()[:8].tolist()}}
+        return decoded, physical
+
+    def test_camera_up_survives_rotation_mirror_and_unequal_aspect_ratios(self):
+        for angle in (0, 90, 180, 270, 33, -17):
+            for mirrored in (False, True):
+                with self.subTest(angle=angle, mirrored=mirrored):
+                    decoded, physical = self.geometry(angle, mirrored)
+                    result = RIG.media_orientation_from_atlas(decoded, (0,0,1200,1920), (0,0,1600,900))
+                    radians = math.radians(result["rotation_degrees_ccw"])
+                    # Independent physical projection of the rotated source's up vector.
+                    up = physical[:2, :2] @ self.np.array([-math.sin(radians), -math.cos(radians)])
+                    self.assertAlmostEqual(0, float(up[0]), places=8)
+                    self.assertLess(float(up[1]), 0)
+
+    def test_rendered_still_video_and_sequence_appear_upright_through_camera(self):
+        np, cv2 = self.np, self.cv2
+        decoded, physical = self.geometry(90, True)
+        orientation = RIG.media_orientation_from_atlas(decoded, (0,0,1200,1920), (0,0,1600,900))
+        for host_class in (optical_stimulus.OpenCvStimulus, android_surface_stimulus.AndroidSurfaceStimulus):
+            presenter = object.__new__(host_class)
+            presenter.cv2, presenter.numpy = cv2, np
+            presenter.desktop_rect = (0,0,1600,900)
+            presenter.set_media_rotation(orientation["rotation_degrees_ccw"])
+            glyph = np.zeros((100,60,3), dtype=np.uint8)
+            glyph[10:25,20:40] = (0,0,255)  # head
+            glyph[75:90,20:40] = (0,255,0)  # mouth
+            for mode in ("video_still", "video", "sequence"):
+                state = {"mode": mode, "center": [800,450], "frames": []}
+                prepared = {"frame": glyph, "ended": True, "index": 0, "next": float('inf')}
+                rendered, _ = presenter._render_state(state, prepared)
+                camera = cv2.warpPerspective(rendered, physical, (1200,1920))
+                head = np.argwhere(camera[:,:,2] > 220).mean(axis=0)
+                mouth = np.argwhere(camera[:,:,1] > 220).mean(axis=0)
+                self.assertLess(head[0], mouth[0], (host_class, mode))
+                self.assertAlmostEqual(head[1], mouth[1], delta=1)
+
+    def test_rotation_does_not_crop_frame_or_rotate_calibration_atlas(self):
+        np = self.np
+        presenter = object.__new__(optical_stimulus.OpenCvStimulus)
+        presenter.cv2, presenter.numpy = self.cv2, np
+        presenter.desktop_rect = (0,0,320,240)
+        presenter.set_media_rotation(87.3)
+        glyph = np.full((100,160,3), 255, dtype=np.uint8)
+        canvas = presenter._background({})
+        result = presenter._composite_intrinsic(canvas, glyph, [160,120])
+        self.assertGreater(np.count_nonzero(result[:,:,0]), 15900)
+        atlas = optical_stimulus.render_atlas(np, 320, 240)
+        actual, _ = presenter._render_state({"mode": "atlas"}, {"frame": atlas})
+        self.assertTrue(np.array_equal(atlas, actual))
+        with self.assertRaises(ValueError): presenter.set_media_rotation(float('nan'))
+
+    def test_reused_calibration_restores_rotation_and_rejects_legacy_before_install(self):
+        for rotation in (None, 87.3, float('nan')):
+            with self.subTest(rotation=rotation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fixture = {"purpose": "rig-session-only", "desktop_rect": [0,0,1600,900],
+                           "presenter": {"serial": "phone"}, "selected_camera_id": "1",
+                           "desktop_stimulus_center": [800,450]}
+                if rotation is not None:
+                    fixture["stimulus_orientation"] = {"rotation_degrees_ccw": rotation}
+                (root / 'blink-fixture.json').write_text(json.dumps(fixture), encoding='utf-8')
+                (root / 'blink-preferences.xml').write_text('<map/>', encoding='utf-8')
+                rig = object.__new__(RIG.OpticalRig)
+                rig.host = mock.Mock()
+                rig.host.desktop_rect = (0,0,1600,900)
+                rig.host.fixture_identity.return_value = {"serial": "phone"}
+                rig._install_camera_preferences = mock.Mock(return_value={"zoomRatio": 1.8})
+                rig.add, rig.pass_ = mock.Mock(), mock.Mock()
+                with mock.patch.object(RIG, 'SESSION_ROOT', root):
+                    result = rig.apply_session_calibration()
+                if rotation == 87.3:
+                    self.assertIsNotNone(result)
+                    rig.host.set_media_rotation.assert_called_once_with(87.3)
+                else:
+                    self.assertIsNone(result)
+                    rig._install_camera_preferences.assert_not_called()
 
 
 class TwoDeviceRigRoleTest(unittest.TestCase):

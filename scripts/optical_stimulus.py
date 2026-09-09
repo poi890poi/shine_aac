@@ -453,6 +453,7 @@ class OpenCvStimulus:
         self.operator_abort = False
         self._token_counter = 0
         self._window_request_counter = 0
+        self.media_rotation_degrees = 0.0
         self._window_requests = []
 
     @property
@@ -606,11 +607,29 @@ class OpenCvStimulus:
         image[:] = (blue, green, red)
         return image
 
+    def set_media_rotation(self, degrees):
+        """Counter-clockwise content rotation; atlas/canvas coordinates stay fixed."""
+        degrees = float(degrees)
+        if not math.isfinite(degrees):
+            raise ValueError("media rotation must be finite")
+        self.media_rotation_degrees = (degrees + 180.0) % 360.0 - 180.0
+
     def _composite_intrinsic(self, canvas, frame, center, mirror=False, scale=1.0):
         if frame is None:
             return canvas
         if mirror:
             frame = self.cv2.flip(frame, 1)
+        rotation = getattr(self, "media_rotation_degrees", 0.0)
+        if abs(rotation) > 0.001:
+            height, width = frame.shape[:2]
+            matrix = self.cv2.getRotationMatrix2D(((width - 1) / 2.0, (height - 1) / 2.0), rotation, 1.0)
+            cosine, sine = abs(matrix[0, 0]), abs(matrix[0, 1])
+            rotated_width = int(math.ceil(width * cosine + height * sine - 1e-9))
+            rotated_height = int(math.ceil(height * cosine + width * sine - 1e-9))
+            matrix[0, 2] += (rotated_width - width) / 2.0
+            matrix[1, 2] += (rotated_height - height) / 2.0
+            frame = self.cv2.warpAffine(frame, matrix, (rotated_width, rotated_height),
+                flags=self.cv2.INTER_LINEAR, borderMode=self.cv2.BORDER_CONSTANT)
         scale = max(0.1, min(2.0, float(scale)))
         if abs(scale - 1.0) > 0.001:
             height, width = frame.shape[:2]

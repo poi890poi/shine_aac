@@ -128,3 +128,29 @@ worker in MediaPipe `Packet.release` during `detectForVideo`, before Camera Setu
 opened. Evidence is `test-results/optical-20260909-002803/tablet-camera-crash.log`.
 The clean retry reached setup, but the crash cause is not resolved by that retry
 and no camera stability PASS is claimed.
+
+### Calibrated presenter rotation fixed
+
+The sideways face was caused by dropping orientation information from the decoded
+homography when placing media. Presenter content now rotates according to the
+camera-up vector projected into presenter pixel coordinates. This works for
+mirrored previews and unequal display aspect ratios, and rotates all still/video/
+sequence paths around their center without rotating the coordinate atlas.
+Blink and cheek session fixtures persist the correction; legacy fixtures without
+it must be recalibrated before preferences are installed.
+
+`test-results/optical-20260909-083247` passed physical geometry calibration with
+an automatically derived **87.286° counter-clockwise** correction. Visual review
+of `device/screenshots/rig_geometry_unscaled_face.png` confirms an upright whole
+face with surrounding margin and the normal green face-detected indication.
+The visible detector rectangle is approximately 530px high within a 906px preview
+(59%); the whole head occupies roughly three quarters of the preview height.
+The previous sideways-orientation blocker is resolved. The 92 optical-harness
+tests pass, including synthetic camera projections at six angles with/without
+mirroring, both presenter backends, all three media paths, uncropped rotation,
+unchanged atlas rendering, and cached/legacy session handling.
+
+Both device displays were verified OFF, and original camera preferences were
+restored after the run. No APK or detector settings changed. This focused run
+does not establish long-blink/cheek functional acceptance or resolve the separately
+recorded native camera-worker crash.

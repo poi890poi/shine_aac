@@ -12,6 +12,18 @@ in a comfortable position, aim the selected DUT camera at the presenter, and use
 SHINE's normal Camera Setup zoom. The atlas measures the actual geometry; no
 device-specific zoom is assumed or written as an app default.
 
+The calibrated camera-up vector is mapped through the atlas homography into
+presenter pixels to calculate content rotation. This compensates quarter-turns
+and arbitrary camera/display angles, including mirrored front-camera previews,
+without an additional horizontal flip. Apply the same rotation before placement
+to video, still images and frame sequences, expanding the image bounds to avoid
+cropping. The coordinate atlas itself and the physical presenter canvas retain
+their original orientation. Persist the rotation in blink/cheek session fixtures;
+older fixtures without orientation must be recalibrated. Physical acceptance
+requires an upright whole face with margin in the DUT camera evidence, not just
+a successfully decoded atlas. `CalibratedMediaOrientationTest` verifies the
+projection, renderer paths, preserved atlas and expanded image bounds.
+
 ## Two-Android-device presenter
 
 The preferred compact rig uses the native IRIS/aria-trace phone-target contract

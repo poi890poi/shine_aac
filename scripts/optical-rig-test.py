@@ -1357,6 +1357,27 @@ def desktop_aim_from_atlas(decoded, preview_rect, desktop_rect):
     return (vx + atlas_x * width, vy + atlas_y * height)
 
 
+def media_orientation_from_atlas(decoded, preview_rect, desktop_rect):
+    """Map camera-up through the measured homography into presenter pixels.
+
+    Working in pixels (not normalized coordinates) preserves angle on unequal
+    aspect ratios. Mapping the up vector also handles mirrored front previews
+    without introducing a second horizontal flip into the stimulus.
+    """
+    left, top, right, bottom = preview_rect
+    px, py = (left + right) * 0.5, (top + bottom) * 0.5
+    size = (decoded["screenshot_width"], decoded["screenshot_height"])
+    coefficients = decoded["spatial_fit"]["coefficients"]
+    center = phone_point_to_atlas(coefficients, px, py, size)
+    above = phone_point_to_atlas(coefficients, px, py - 1.0, size)
+    dx = (above[0] - center[0]) * desktop_rect[2]
+    dy = (above[1] - center[1]) * desktop_rect[3]
+    if not all(math.isfinite(v) for v in (dx, dy)) or math.hypot(dx, dy) < 1e-9:
+        raise ValueError("atlas cannot establish a finite upright direction")
+    degrees = (math.degrees(math.atan2(-dx, -dy)) + 180.0) % 360.0 - 180.0
+    return {"method": "camera-up-through-atlas-homography", "rotation_degrees_ccw": degrees}
+
+
 def monitor_polygon_from_atlas(decoded):
     coefficients = decoded["spatial_fit"]["coefficients"]
     size = (decoded["screenshot_width"], decoded["screenshot_height"])
@@ -2105,6 +2126,7 @@ class OpticalRig:
             "selected_camera_id": str(calibration["selected_camera_id"]),
             "desktop_stimulus_center": calibration["desktop_stimulus_center"],
             "estimated_visible_size": calibration["estimated_visible_size"],
+            "stimulus_orientation": calibration["stimulus_orientation"],
             "desktop_rect": list(self.host.desktop_rect),
             "presenter": self.host.fixture_identity() if hasattr(
                 self.host, "fixture_identity"
@@ -2142,6 +2164,7 @@ class OpticalRig:
             "selected_camera_id": str(calibration["selected_camera_id"]),
             "desktop_stimulus_center": calibration["desktop_stimulus_center"],
             "estimated_visible_size": calibration["estimated_visible_size"],
+            "stimulus_orientation": calibration["stimulus_orientation"],
             "desktop_rect": list(self.host.desktop_rect),
             "presenter": self.host.fixture_identity() if hasattr(
                 self.host, "fixture_identity"
@@ -2188,6 +2211,12 @@ class OpticalRig:
                     "presenter identity changed from %s to %s"
                     % (fixture.get("presenter"), expected_presenter)
                 )
+            orientation = fixture.get("stimulus_orientation")
+            if not orientation:
+                raise ValueError("session predates upright stimulus calibration; recalibrate")
+            rotation = float(orientation["rotation_degrees_ccw"])
+            if not math.isfinite(rotation):
+                raise ValueError("session media rotation is not finite")
             values = self._install_camera_preferences(
                 preference_path.read_text(encoding="utf-8"),
                 "%s-session-preferences.applied.xml" % prefix,
@@ -2207,6 +2236,7 @@ class OpticalRig:
                 int(round(float(center[1]) - vy)),
             ]
             self.selected_setup_camera_id = str(fixture["selected_camera_id"])
+            self.host.set_media_rotation(rotation)
         except (KeyError, TypeError, ValueError, ET.ParseError, OSError, RuntimeError) as error:
             self.add("P0", "Reusable rig calibration is invalid", str(error))
             return None
@@ -2292,6 +2322,9 @@ class OpticalRig:
                 initial_state = runtime_bootstrap_face_state(
                     fixture, source_by_id["commons_blinking"],
                     self.host.desktop_rect,
+                )
+                self.host.set_media_rotation(
+                    fixture["stimulus_orientation"]["rotation_degrees_ccw"]
                 )
             except (KeyError, OSError, TypeError, ValueError):
                 initial_state = {
@@ -3667,6 +3700,13 @@ class OpticalRig:
             )
             return None
         self.stimulus_center = [int(round(cx - vx)), int(round(cy - vy))]
+        orientation = media_orientation_from_atlas(
+            found["decoded"], final_geometry["preview_rect"], self.host.desktop_rect
+        )
+        self.host.set_media_rotation(orientation["rotation_degrees_ccw"])
+        self.pass_("calibrated upright media",
+            "presenter content rotates %.2f degrees counter-clockwise from the measured camera-up direction"
+            % orientation["rotation_degrees_ccw"])
         result = {
             "discovery": "one-shot-full-desktop-coordinate-atlas",
             "desktop_stimulus_center": [cx, cy],
@@ -3677,6 +3717,7 @@ class OpticalRig:
             "selected_camera_id":
                 found["decoded"].get("selected_camera_id"),
             "camera_zoom": zoom_result,
+            "stimulus_orientation": orientation,
         }
         (self.outdir / "calibration.json").write_text(
             json.dumps(result, indent=2),
