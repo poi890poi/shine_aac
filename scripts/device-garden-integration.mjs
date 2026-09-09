@@ -11,6 +11,10 @@ const out=resolve('.tmp/tablet-adaptation',`garden-${device}-${Date.now()}`);awa
 const run=async(...args)=>(await exec(adb,['-s',device,...args],{encoding:'buffer',maxBuffer:20e6})).stdout;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+const readInputProfile=async()=>{
+  const prefs=(await run('shell','run-as',pkg,'cat','shared_prefs/shine_aac_config.xml')).toString();
+  return prefs.match(/<string name="switchInputProfile">([^<]*)<\/string>/)?.[1]||'hardware-buttons';
+};
 let ws,ev,keepAwake;let awakeWork=Promise.resolve();
 try {
   assert.match((await run('install','-r',apk)).toString(),/Success/);
@@ -41,29 +45,50 @@ try {
   ev=async(expression,contextId)=>{const r=await call('Runtime.evaluate',{expression,contextId,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
   await call('Runtime.enable');
   const until=async(expression,seconds=20)=>{for(let i=0;i<seconds*5;i++){if(await ev(expression))return;await wait(200);}throw new Error('Condition timed out: '+expression);};
-  await until('Boolean(document.querySelector(".garden-button"))');
-  // This gate requires an existing hardware-enabled input profile. Do not alter
-  // the user's saved input settings or depend on E2E-only configuration bridges.
+  await until('Boolean(document.querySelector(".config-button"))');
+  assert.equal(await ev('document.querySelector(".garden-button")===null'),true,'no game entry on main board');
+  // Keep the user's input profile. Exercise hardware when enabled, otherwise
+  // use the game's physical touch surface and report that narrower coverage.
+  const inputProfile=await readInputProfile();
+  const hardwareEnabled=['hardware-buttons','volume-buttons','hardware-and-camera'].includes(inputProfile);
   await ev(`window.__gardenEvents=[];window.addEventListener('message',event=>{if(event.data?.channel==='shine-bird-garden')__gardenEvents.push(event.data);});`);
   const before=await ev(`JSON.stringify({message:document.querySelector('.message').dataset.rawMessage,rows:[...document.querySelectorAll('.row')].map(r=>[...r.querySelectorAll('.tile')].map(t=>[t.dataset.label,t.dataset.action]))})`);
   // Tap the actual accessible native/WebView control, not a JavaScript click.
-  let node;
-  for(let attempt=0;attempt<4&&!node;attempt++) {
-    await wait(500);
-    await run('shell','uiautomator','dump','/sdcard/shine-garden-window.xml');
-    const xml=(await run('shell','cat','/sdcard/shine-garden-window.xml')).toString();
-    node=xml.match(/<node\b[^>]*(?:text|content-desc)="(?:Bird garden|鳥兒花園)"[^>]*>/)?.[0];
+  async function tapLabel(labels,{scroll=false}={}) {
+    for(let attempt=0;attempt<5;attempt++) {
+      await run('shell','uiautomator','dump','/sdcard/shine-garden-window.xml');
+      const xml=(await run('shell','cat','/sdcard/shine-garden-window.xml')).toString();
+      await writeFile(resolve(out,`entry-${labels[0].replace(/\W/g,'')}-${attempt}.xml`),xml);
+      const node=[...xml.matchAll(/<node\b[^>]*>/g)].map(m=>m[0]).find(n=>labels.includes(n.match(/\btext="([^"]*)"/)?.[1]));
+      const bounds=node?.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+      if(bounds&&+bounds[3]>+bounds[1]&&+bounds[4]>+bounds[2]) {
+        await run('shell','input','tap',String(Math.round((+bounds[1]+ +bounds[3])/2)),String(Math.round((+bounds[2]+ +bounds[4])/2)));return;
+      }
+      if(scroll){const png=await run('exec-out','screencap','-p');const w=png.readUInt32BE(16),h=png.readUInt32BE(20);await run('shell','input','swipe',String(Math.round(w*.75)),String(Math.round(h*.8)),String(Math.round(w*.75)),String(Math.round(h*.3)),'300');}
+      await wait(300);
+    }
+    throw new Error('Native entry label unavailable: '+labels.join('/'));
   }
-  assert.ok(node,'Garden entry is accessible after WebView accessibility-tree initialization');
-  const bounds=node.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);assert.ok(bounds);
-  await run('shell','input','tap',String(Math.round((+bounds[1]+ +bounds[3])/2)),String(Math.round((+bounds[2]+ +bounds[4])/2)));
+  await tapLabel(['⚙ Settings','⚙ 設定']);
+  await tapLabel(['Data and support','資料與支援'],{scroll:true});
+  await tapLabel(['App information','App info','關於本程式','關於'],{scroll:true});
+  for(let i=0;i<6;i++)await tapLabel(['Version','版本']);
+  assert.equal(await ev('Boolean(document.querySelector(".garden-frame"))'),false,'six native version taps do not launch');
+  await tapLabel(['Version','版本']);
   await until('__gardenEvents.some(m=>m.type==="ready")',30);
   const ready=await ev('__gardenEvents.find(m=>m.type==="ready")');
-  await run('shell','input','keyevent','KEYCODE_BUTTON_A');
-  await until('__gardenEvents.some(m=>m.event==="start")');await wait(1300);
-  await run('shell','input','keyevent','KEYCODE_BUTTON_A');await until('__gardenEvents.some(m=>m.event==="drop")');
-  const dropped=await ev('__gardenEvents.find(m=>m.event==="drop")');assert.equal(dropped.ammo,2);
   const gameContext=[...contexts.values()].find(c=>c.origin==='https://appassets.androidplatform.net'&&c.auxData?.isDefault);assert.ok(gameContext,'Game module document loaded from packaged HTTPS assets');
+  const activate=async()=>{
+    if(hardwareEnabled)await run('shell','input','keyevent','KEYCODE_BUTTON_A');
+    else {
+      const point=await ev(`(()=>{const r=document.querySelector('.game-canvas').getBoundingClientRect();return {x:Math.round((r.x+r.width/2)*devicePixelRatio),y:Math.round((r.y+r.height/2)*devicePixelRatio)};})()`,gameContext.id);
+      await run('shell','input','tap',String(point.x),String(point.y));
+    }
+  };
+  await activate();
+  await until('__gardenEvents.some(m=>m.event==="start")');await wait(1300);
+  await activate();await until('__gardenEvents.some(m=>m.event==="drop")');
+  const dropped=await ev('__gardenEvents.find(m=>m.event==="drop")');assert.equal(dropped.ammo,2);
   const screen=await run('exec-out','screencap','-p');await writeFile(resolve(out,'game.png'),screen);
   const canvas=await ev(`(()=>{const r=document.querySelector('.game-canvas').getBoundingClientRect();return {w:r.width*devicePixelRatio,h:r.height*devicePixelRatio,x:r.x*devicePixelRatio,y:r.y*devicePixelRatio};})()`,gameContext.id);
   await writeFile(resolve(out,'viewport.json'),JSON.stringify({canvas,screen:[screen.readUInt32BE(16),screen.readUInt32BE(20)]},null,2));
@@ -71,15 +96,26 @@ try {
   await run('shell','input','keyevent','4');await until('ShineAacNavigation.currentPage()==="board"');
   const after=await ev(`JSON.stringify({message:document.querySelector('.message').dataset.rawMessage,rows:[...document.querySelectorAll('.row')].map(r=>[...r.querySelectorAll('.tile')].map(t=>[t.dataset.label,t.dataset.action]))})`);
   assert.equal(after,before,'native game exit preserves communication draft and board');
-  await writeFile(resolve(out,'result.json'),JSON.stringify({result:'PASS',device,pkg,apkSha,columns:ready.columns,speciesId:dropped.speciesId,ammoAfterOneDrop:2,canvas,boardAndDraftPreserved:true,physicalHardwareActivation:true},null,2));
-  console.log('PASS physical integrated garden:',device,'columns='+ready.columns,'native hardware start/drop, fullscreen and AAC return verified');
+  assert.equal(await readInputProfile(),inputProfile,'input preference preserved');
+  await writeFile(resolve(out,'result.json'),JSON.stringify({result:'PASS',device,pkg,apkSha,columns:ready.columns,speciesId:dropped.speciesId,ammoAfterOneDrop:2,canvas,boardAndDraftPreserved:true,inputProfile,physicalHardwareActivation:hardwareEnabled,physicalTouchActivation:!hardwareEnabled},null,2));
+  console.log('PASS physical integrated garden:',device,'columns='+ready.columns,hardwareEnabled?'hardware':'touch','start/drop, fullscreen and AAC return verified');
   console.log('Evidence:',out);
+} catch(error) {
+  await writeFile(resolve(out,'failure.txt'),error.stack||String(error));
+  console.error('Garden gate failure:',error.stack||error);
+  throw error;
 } finally {
   try {if(ev)await ev(`if(ShineAacNavigation.currentPage()==='bird-garden')ShineAacNavigation.back();`);} finally {
     clearInterval(keepAwake);await awakeWork.catch(()=>{});ws?.close();
     await run('forward','--remove','tcp:9229').catch(()=>{});
-    await run('shell','input','keyevent','223');await wait(900);
-    assert.match((await run('shell','dumpsys','display')).toString(),/mScreenState=OFF/);
+    await run('shell','input','keyevent','223');
+    let displayOff=false;
+    for(let attempt=0;attempt<10&&!displayOff;attempt++) {
+      await wait(500);
+      displayOff=/mScreenState=OFF/.test((await run('shell','dumpsys','display')).toString());
+      if(attempt===4&&!displayOff)await run('shell','input','keyevent','223');
+    }
+    assert.ok(displayOff,'test display must finish OFF');
     console.log('Verified device display OFF');
   }
 }

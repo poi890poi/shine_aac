@@ -1634,11 +1634,6 @@ function renderFull(board, boardKey) {
   attachDemoLongPress(configButton);
 
   status.append(phase, statusSecondary, configButton);
-  const gardenButton = document.createElement('button');
-  gardenButton.type = 'button'; gardenButton.className = 'secondary-button garden-button';
-  gardenButton.textContent = uiText('Bird garden', '鳥兒花園');
-  gardenButton.addEventListener('click', event => { event.stopPropagation(); enterGarden(); });
-  statusSecondary.append(gardenButton);
   if (previousSpokenMessages.length > 0) topPanel.append(conversationContext);
   topPanel.append(message, status);
 
@@ -2550,6 +2545,7 @@ function applyNativeSettings(configJson, uiConfigJson, action = "") {
 
   if (action === "input-test") openCalibration();
   if (action === "export-text") exportTextHistory();
+  if (action === "bird-garden") enterGarden();
   return true;
 }
 
@@ -2714,7 +2710,7 @@ function enterGarden() {
       globalThis.ShineAacAndroid?.setBirdGameActive?.(false);
       reviewHoldActive = session.scannerState.stage !== ScanStage.Stopped;
       render(); resetClock(); scheduleScan();
-      document.querySelector('.garden-button')?.focus({preventScroll:true});
+      document.querySelector('.config-button')?.focus({preventScroll:true});
       if (reason === 'asset-error' || reason === 'load-timeout') {
         renderedPhaseElement.textContent = uiText('Garden could not load. Please try again.', '花園無法載入，請再試一次。');
       }
@@ -2762,7 +2758,7 @@ function renderAppInfo() {
   panel.innerHTML = `
     <header class="info-header">
       <h1>${uiText("SayToMe AAC", "我想說")}</h1>
-      <strong>${uiText("Version", "版本")} ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</strong>
+      <button type="button" class="app-version-trigger" data-action="app-version">${uiText("Version", "版本")} ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</button>
       <p>${uiText("An augmentative and alternative communication app for composing and speaking messages with touch, switch, or camera input.", "使用觸控、開關或相機輸入來組合並朗讀訊息的輔助溝通程式。")}</p>
     </header>
     <section class="info-section" aria-labelledby="info-data-heading">
@@ -2788,10 +2784,18 @@ function renderAppInfo() {
       <button class="primary-button" type="button" data-action="back">${uiText("Back", "返回")}</button>
     </div>
   `;
+  let versionActivations = 0;
+  panel.querySelector('.app-version-trigger').addEventListener('keydown', event => {
+    if (event.repeat) event.preventDefault();
+  });
   panel.addEventListener("click", (event) => {
     const url = event.target?.dataset?.url;
     if (url) openExternalUrl(url);
     if (event.target?.dataset?.action === "back") closeAppInfo();
+    if (event.target?.dataset?.action === "app-version" && ++versionActivations === 7) {
+      closeConfig({holdFirstRow:false});
+      enterGarden();
+    }
   });
   backdrop.append(panel);
   app.append(backdrop);

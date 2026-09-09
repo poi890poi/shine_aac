@@ -28,7 +28,7 @@ try {
   await page.waitForFunction(() => window.renderState);
   await page.evaluate(() => window.ShineAacInput.receive({ intent: 'pause', source: 'tablet-test' }));
   const initial = await page.evaluate(() => window.renderState);
-  for (const [width, height, expanded] of [[1200,800,true],[850,1000,true],[839,1000,false],[1000,599,false],[600,900,false],[1200,800,true]]) {
+  for (const [width, height, expanded] of [[1200,800,true],[850,1000,true],[839,1000,false],[600,900,false],[1200,800,true]]) {
     await page.setViewportSize({width,height});
     await delay(120);
     const result = await page.evaluate(() => {
@@ -39,6 +39,8 @@ try {
         boardShare: board.width/(board.width+pane.width),
         messageWhiteSpace: getComputedStyle(document.querySelector('.message')).whiteSpace,
         history: [...document.querySelectorAll('.conversation-context-message')].map(el=>el.textContent),
+        historyReadable: [...document.querySelectorAll('.conversation-context-message')].every(el=>el.clientHeight>=48 && el.scrollHeight<=el.clientHeight+1),
+        helpersAtBottom: Math.abs(document.querySelector('.status-row').getBoundingClientRect().bottom-pane.bottom+15)<2,
         fits: board.bottom <= innerHeight+1 && board.right <= innerWidth+1};
     });
     assert.equal(result.sideBySide, expanded, `${width}x${height} layout`);
@@ -48,6 +50,8 @@ try {
       assert.ok(result.boardShare>=.65 && result.boardShare<=.70, '65–70% board width');
       assert.equal(result.messageWhiteSpace,'pre-wrap','multiline draft');
       assert.deepEqual(result.history,['我想喝水','謝謝'],'only spoken history in supporting pane');
+      assert.ok(result.historyReadable,'spoken history is fully readable, not compressed into strips');
+      assert.ok(result.helpersAtBottom,'helpers are anchored at the supporting pane bottom');
     }
     for (const field of ['message','stage','columns','rows','rowIndex','cellIndex','blockIndex']) {
       assert.deepEqual(result.state[field], initial[field], `resize preserves ${field}`);
@@ -61,6 +65,15 @@ try {
   await page.evaluate(()=>document.querySelector('.board').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',repeat:true,bubbles:true})));
   const repeated = await page.evaluate(()=>window.renderState);
   assert.equal(repeated.stage,started.stage,'held keyboard does not activate the next scan stage');
+  const emptyPage = await browser.newPage({viewport:{width:1200,height:800}});
+  await emptyPage.goto('http://127.0.0.1:5187/apps/web/');
+  await emptyPage.waitForSelector('.status-row');
+  assert.equal(await emptyPage.locator('.conversation-context').count(),0);
+  assert.ok(await emptyPage.evaluate(()=>{
+    const pane=document.querySelector('.top-panel').getBoundingClientRect();
+    return Math.abs(document.querySelector('.status-row').getBoundingClientRect().bottom-pane.bottom+15)<2;
+  }),'helpers stay at the bottom when there is no spoken history');
+  await emptyPage.close();
   const lockedPage = await browser.newPage();
   await lockedPage.addInitScript(() => {
     localStorage.setItem('shine-aac-web-ui-v1', JSON.stringify({uiConfigVersion:1,speechAfterReadMode:'conversation'}));
@@ -69,7 +82,7 @@ try {
   });
   await lockedPage.goto('http://127.0.0.1:5187/apps/web/');
   await lockedPage.waitForSelector('.speech-lock-enhanced');
-  for (const [width,height] of [[1200,800],[850,1000],[600,900],[1000,500]]) {
+  for (const [width,height] of [[1200,800],[850,1000],[600,900]]) {
     await lockedPage.setViewportSize({width,height});
     await delay(120);
     const lock = await lockedPage.evaluate(() => {

@@ -215,11 +215,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyOrientationPolicy() {
-        requestedOrientation = if (resources.configuration.smallestScreenWidthDp < TabletSmallestWidthDp) {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
+        requestedOrientation = boardScreenOrientation(resources.configuration.smallestScreenWidthDp)
     }
 
     private fun createInsetAwareWebViewHost(shineWebView: WebView): FrameLayout {
@@ -969,7 +965,6 @@ class MainActivity : ComponentActivity() {
         const val SpeechPreviewText = "你好，我想喝水。"
         const val IdleWindowBrightness = 0.12f
         const val E2ELogTag = "ShineAacE2E"
-        const val TabletSmallestWidthDp = 600
         const val SwitchInputOff = "off"
         const val SwitchInputHardware = "hardware-buttons"
         const val SwitchInputVolume = "volume-buttons"
@@ -1021,6 +1016,10 @@ class MainActivity : ComponentActivity() {
 
 internal fun webTextZoomPercent(fontScale: Float): Int =
     (fontScale * 100f).roundToInt().coerceIn(50, 200)
+
+internal fun boardScreenOrientation(smallestWidthDp: Int): Int =
+    if (smallestWidthDp < 600) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
 internal fun normalizedIdleTimeoutMinutes(value: Any?): Int {
     val minutes = when (value) {

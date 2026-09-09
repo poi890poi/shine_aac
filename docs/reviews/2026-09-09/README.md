@@ -1,5 +1,8 @@
 # Visual review before implementation — 9 September 2026
 
+This records the initial review. The subsequent approval and implementation are
+tracked in [approved UI decisions](../../UI_REVIEW_DECISIONS_2026-09-09.md).
+
 The user requested images before visual changes. No app UI, renderer, sprite,
 flower/stem, cloud, mountain, detector or gameplay changes were made in this
 review. The proposal is isolated browser CSS in test tooling. Approval is pending.

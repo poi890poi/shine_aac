@@ -12,6 +12,9 @@ text overflow, readable contrast, target size and keyboard focus. Intentional
 scrolling and ellipsis are reported separately rather than silently treated as
 visible text. Cover phone/tablet, portrait/landscape, split-window, themes,
 language, large text, active scanning, locked conversation and game overlays.
+Compact landscape (below 600 dp smallest width) is unsupported by product
+decision. Such forced browser captures are diagnostic only; do not make them a
+release blocker. Native compact screens retain their portrait orientation policy.
 Physical target visibility must use the current display rotation, not natural
 `wm size` orientation. Every optical recording must explicitly select the DUT
 serial, including when a second Android device is the presenter.

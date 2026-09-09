@@ -153,6 +153,7 @@ class SettingsActivity : AppCompatActivity(),
         const val ActionInputTest = "input-test"
         const val ActionExportText = "export-text"
         const val ActionReset = "reset"
+        const val ActionBirdGarden = "bird-garden"
     }
 }
 
@@ -540,6 +541,8 @@ internal fun isSupportedSpeechVoiceLocale(locale: Locale): Boolean =
     locale.language == Locale.CHINESE.language || locale.language == Locale.ENGLISH.language
 
 class AppInfoPreferenceFragment : PreferenceFragmentCompat() {
+    private var versionActivations = 0
+
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.app_info_preferences, rootKey)
         @Suppress("DEPRECATION")
@@ -548,6 +551,14 @@ class AppInfoPreferenceFragment : PreferenceFragmentCompat() {
         val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
         findPreference<Preference>("appVersion")?.summary =
             getString(R.string.settings_about_message, versionName, versionCode)
+        versionActivations = 0
+        findPreference<Preference>("appVersion")?.setOnPreferenceClickListener {
+            versionActivations += 1
+            if (versionActivations == 7) {
+                (requireActivity() as SettingsActivity).finishWithAction(SettingsActivity.ActionBirdGarden)
+            }
+            true
+        }
         bindUrl("sourceCode", SourceCodeUrl)
         bindUrl("privacyPolicy", PrivacyPolicyUrl)
         bindUrl("support", SupportUrl)

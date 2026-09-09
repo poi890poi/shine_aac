@@ -4,7 +4,7 @@
     <Preference
         app:key="appVersion"
         app:persistent="false"
-        app:selectable="false"
+        app:selectable="true"
         app:title="@string/settings_version" />
     <Preference
         app:key="sourceCode"

@@ -687,7 +687,17 @@ body.demo-active .phase::after {
 }
 .app[hidden] { display: none; }
 .garden-frame { position: fixed; inset: 0; z-index: 100; width: 100%; height: 100%; border: 0; background: #20243a; }
-.garden-button { white-space: normal; }
+.app-version-trigger {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: start;
+  min-height: 48px;
+  cursor: pointer;
+}
 .status-secondary { flex-wrap: wrap; }
 
 .speech-lock-enhanced .conversation-context { display: grid; }
@@ -1827,8 +1837,19 @@ body.demo-active .phase::after {
 
   .conversation-context { display: grid; }
   .conversation-context-list { flex-direction: column; }
+  .shell:not(.speech-lock-enhanced) .top-panel {
+    grid-template-rows: minmax(180px, auto) 1fr;
+  }
+  .shell.has-conversation-context:not(.speech-lock-enhanced) .top-panel {
+    grid-template-rows: minmax(180px, auto) auto 1fr;
+  }
+  .shell:not(.speech-lock-enhanced) .conversation-context-list { gap: 10px; }
+  .shell:not(.speech-lock-enhanced) .conversation-context-message {
+    flex: 0 0 auto;
+    min-height: 48px;
+  }
   .shell:not(.speech-lock-enhanced) .conversation-context { order: 1; }
-  .shell:not(.speech-lock-enhanced) .status-row { order: 2; }
+  .shell:not(.speech-lock-enhanced) .status-row { order: 2; align-self: end; }
 
   .status-row {
     grid-template-columns: 1fr;

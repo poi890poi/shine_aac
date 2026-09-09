@@ -4,6 +4,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
 import {CurrentConfigVersion} from '../packages/aac-core/src/index.js';
 import {inspectVisualLayout} from './visual-audit.mjs';
+import {openGardenEasterEgg} from './garden-test-entry.mjs';
 
 // Synthetic messages only: these images may be shared for design review.
 const require=createRequire(process.env.SHINE_PLAYWRIGHT_ROOT||import.meta.url);
@@ -20,7 +21,7 @@ try {
     {name:'tablet-landscape',width:1280,height:800},
     {name:'tablet-portrait',width:800,height:1280},
     {name:'phone-portrait',width:360,height:800},
-    {name:'phone-landscape',width:800,height:360},
+    {name:'phone-landscape',width:800,height:360,support:'unsupported compact-landscape diagnostic'},
     {name:'tablet-conversation',width:1280,height:800,locked:true},
     {name:'tablet-garden',width:1280,height:800,garden:true},
     {name:'phone-garden',width:360,height:800,garden:true},
@@ -42,7 +43,7 @@ try {
     await delay(250);
     results.push({scenario,...await page.evaluate(inspectVisualLayout,{minimumTarget:48})});
     if(scenario.garden) {
-      await page.locator('.garden-button').click();
+      await openGardenEasterEgg(page);
       const frame=await (await page.waitForSelector('.garden-frame')).contentFrame();
       await frame.waitForSelector('.game-canvas');
       await delay(2000);
