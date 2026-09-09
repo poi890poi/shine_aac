@@ -1,5 +1,17 @@
 # Artwork standard — version 1.0.0
 
+September 9 global-pixel clarification: the complete game is rendered into one
+low-resolution virtual framebuffer. Every pixelated layer, sprite, particle and
+ammo indicator shares its origin and integer pixel coordinates. Upscale only the
+completed framebuffer, once, with the same integer factor on both axes and no
+smoothing. Do not move individually enlarged sprites on a higher-resolution
+display surface. Fractional physics positions are permitted; drawing snaps to
+virtual pixels. Display density must not silently redefine the artwork grid.
+The larger cloud sizes are approved; their integration with the shared grid still
+requires image review. Pixel alignment alone does not approve shape loss. The
+coarse-grid trials that damaged faces and stems are rejected. The current 360×800
+virtual-screen review is a candidate, not an approved replacement APK.
+
 September 8 batch integration: the user requested tablet APK installation after
 the eight-profile review. Promote the exact reviewed photographic masks/palettes
 for Beidawu, Qilai-direction, Yushan/Chenyoulan, Dulan, Guanyin, Qixing, Huoyan and

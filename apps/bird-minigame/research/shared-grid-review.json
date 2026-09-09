@@ -1,0 +1,90 @@
+{
+  "displayScale": 2,
+  "purpose": "Review-only low-resolution framebuffer experiment",
+  "virtualHeight": 800,
+  "cloudRecipe": {
+    "name": "clouds-29",
+    "label": "Proposal · arrangement B",
+    "placements": [
+      [
+        4,
+        -16,
+        29,
+        0.319,
+        "far"
+      ],
+      [
+        1,
+        284,
+        58,
+        0.337,
+        "far"
+      ],
+      [
+        3,
+        -16,
+        98,
+        0.349,
+        "far"
+      ],
+      [
+        0,
+        299,
+        146,
+        0.314,
+        "far"
+      ],
+      [
+        2,
+        -23,
+        194,
+        0.251,
+        "far"
+      ],
+      [
+        1,
+        274,
+        238,
+        0.336,
+        "far"
+      ],
+      [
+        5,
+        -5,
+        76,
+        0.533,
+        "near"
+      ],
+      [
+        3,
+        299,
+        109,
+        0.537,
+        "near"
+      ],
+      [
+        2,
+        -13,
+        163,
+        0.563,
+        "near"
+      ],
+      [
+        4,
+        267,
+        176,
+        0.466,
+        "near"
+      ],
+      [
+        5,
+        -2,
+        229,
+        0.625,
+        "near"
+      ]
+    ]
+  },
+  "virtualWidth": 360,
+  "schemaVersion": 1
+}
