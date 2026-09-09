@@ -1,8 +1,6 @@
-SHINE AAC visual review — mountain artwork attribution
+﻿山景圖片來源 / Mountain artwork credits
 
-The game randomly selects one of these licensed mountain adaptations.
-
-Adaptations: crop, background removal, pixel reduction, reduced blue-green palette and atmospheric tint. Adapted mountain images retain their source licenses. UI screenshots are synthetic review fixtures.
+Adapted mountain images retain their source licenses. Adaptations include cropping, sky removal, pixel sampling, indexed blue-green colors, and native-grid edge preparation.
 
 日出前的北大武山
 Greenigor
