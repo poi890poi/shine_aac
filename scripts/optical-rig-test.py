@@ -773,6 +773,18 @@ def board_uses_flat_cell_scan(state):
     return len(rows) == 1
 
 
+def semantic_speech_lock_action(labels):
+    """Translate supported visible command aliases, never their board positions."""
+    aliases = {
+        "unlock-message": ("修改", "編輯", "Edit", "EDIT"),
+        "speak": ("朗讀", "說出", "Speak", "Read aloud", "SAY"),
+        "clear": ("清除", "清空", "Clear", "CLR"),
+    }
+    folded = {label.casefold() for label in labels}
+    return next((action for action, names in aliases.items()
+                 if folded.intersection(name.casefold() for name in names)), None)
+
+
 PHYSICAL_NORMAL_USE_SCENARIOS = {
     "blink": {
         "role": "AAC user who operates the board with long blinks",
@@ -3765,7 +3777,7 @@ class OpticalRig:
 
     def wait_demo_state(
         self, timeout=35.0, stage=None, row_index=None, cell_index=None,
-        message=None, not_before_epoch_s=None,
+        message=None, not_before_epoch_s=None, speech_lock_action=None,
     ):
         deadline = time.time() + timeout
         last_state = None
@@ -3777,6 +3789,12 @@ class OpticalRig:
                     (row_index is None or last_state.get("rowIndex") == row_index) and
                     (cell_index is None or last_state.get("cellIndex") == cell_index) and
                     (message is None or last_state.get("message") == message) and
+                    (speech_lock_action is None or (
+                        last_state.get("phase") == "SpeechLock" and
+                        last_state.get("speechLockSurface") == "board" and
+                        last_state.get("speechLockAction") == speech_lock_action and
+                        speech_lock_action in last_state.get("speechLockReachableActions", [])
+                    )) and
                     (
                         not_before_epoch_s is None or
                         float(last_state.get("_logEpochS", 0)) >= not_before_epoch_s
@@ -3906,6 +3924,7 @@ class OpticalRig:
     def demo_activate_with_retries(
         self, case, source_by_id, step_label, target_wait=None, attempts=3
     ):
+        presented_attempts = 0
         for attempt in range(1, attempts + 1):
             activation_count_before = None
             if target_wait:
@@ -3930,6 +3949,7 @@ class OpticalRig:
                     encoding="utf-8",
                 )
                 continue
+            presented_attempts += 1
             activation_result = self.demo_activate(
                 case, source_by_id,
                 "%s ATTEMPT %d" % (step_label, attempt),
@@ -3949,8 +3969,10 @@ class OpticalRig:
                 return True
         gesture = case.get("gesture", "blink")
         self.add(
-            "P1", "Physical demo activation missed after retries",
-            "%s failed after %d attempts." % (step_label, attempts),
+            "P1", ("Physical demo activation missed after retries" if presented_attempts
+                   else "Physical demo scan target unavailable"),
+            "%s failed after %d attempts; %d gestures presented."
+            % (step_label, attempts, presented_attempts),
             ["demo-steps.json", "demo-e2e-%s.log" % gesture],
         )
         return False
@@ -4028,6 +4050,24 @@ class OpticalRig:
             )
             return None
         matched_label, row_index, cell_index = target
+        if state.get("phase") == "SpeechLock":
+            action = semantic_speech_lock_action(labels)
+            if (not action or state.get("speechLockSurface") != "board" or
+                    action not in state.get("speechLockReachableActions", [])):
+                self.add("P1", "Demo locked action unavailable", matched_label)
+                return None
+            if not self.demo_show_rest(case, source_by_id, "WAIT ACTION " + matched_label):
+                return None
+            def wait_action():
+                return bool(self.wait_demo_state(
+                    speech_lock_action=action, timeout=35.0,
+                    not_before_epoch_s=time.time(),
+                ))
+            if self.demo_activate_with_retries(
+                case, source_by_id, "ACTION " + matched_label, target_wait=wait_action
+            ):
+                return matched_label
+            return None
         if not board_uses_flat_cell_scan(state):
             if not self.demo_show_rest(case, source_by_id, "WAIT ROW " + matched_label):
                 return None
@@ -4082,6 +4122,17 @@ class OpticalRig:
             time.sleep(0.25)
         return None
 
+    def demo_prepare_scanner(self, case, source_by_id):
+        initial_scan = self.wait_demo_state()
+        if not initial_scan:
+            self.add("P0", "Demo scanner did not start", case.get("gesture", "blink"))
+            return False
+        if not self.demo_show_rest(case, source_by_id, "INITIAL"):
+            return False
+        if initial_scan.get("phase") == "Review":
+            return self.demo_activate_with_retries(case, source_by_id, "RELEASE REVIEW")
+        return True
+
     def run_physical_demo(self, gesture, manifest, source_by_id):
         started_at = time.time()
         scenario = PHYSICAL_NORMAL_USE_SCENARIOS[gesture]
@@ -4106,14 +4157,7 @@ class OpticalRig:
         if not case:
             self.add("P0", "No physical demo gesture", gesture)
             return False
-        if not self.wait_demo_state(stage="Rows"):
-            self.add("P0", "Demo scanner did not start", gesture)
-            return False
-        if not self.demo_show_rest(case, source_by_id, "INITIAL"):
-            return False
-        if not self.demo_activate_with_retries(
-            case, source_by_id, "RELEASE REVIEW"
-        ):
+        if not self.demo_prepare_scanner(case, source_by_id):
             return False
         initial_state = latest_e2e_state(self.e2e_recent_log()) or {}
         message = initial_state.get("message", "")

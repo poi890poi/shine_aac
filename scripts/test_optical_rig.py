@@ -463,6 +463,67 @@ class OpticalOracleTest(unittest.TestCase):
             "rows": [["幫忙", "喝水"], ["朗讀", "清除"]],
         }))
 
+    def test_replay_selects_action_without_waiting_for_rendered_row(self):
+        rig = object.__new__(RIG.OpticalRig)
+        state = {"phase": "SpeechLock", "stage": "Cells", "rowIndex": 0,
+                 "rows": [["幫忙", "喝水"]] * 12 + [["修改", "朗讀", "清除"]],
+                 "speechLockSurface": "board",
+                 "speechLockReachableActions": ["unlock-message", "speak", "clear"]}
+        rig.e2e_recent_log = mock.Mock(return_value="SHINE_AAC_E2E_STATE " + json.dumps(state))
+        rig.demo_show_rest = mock.Mock(return_value=True)
+        rig.wait_demo_state = mock.Mock(return_value=state)
+        rig.add = mock.Mock()
+        rig.demo_activate_with_retries = mock.Mock(side_effect=lambda *a, **kw: kw["target_wait"]())
+        self.assertEqual("清除", rig.demo_select_label(["清除", "Clear"], {}, {}))
+        wait = rig.wait_demo_state.call_args[1]
+        self.assertEqual("clear", wait["speech_lock_action"])
+        self.assertNotIn("row_index", wait)
+        self.assertIn("not_before_epoch_s", wait)
+        self.assertEqual(1, rig.demo_activate_with_retries.call_count)
+        state["speechLockReachableActions"] = ["speak"]
+        rig.e2e_recent_log.return_value = "SHINE_AAC_E2E_STATE " + json.dumps(state)
+        rig.demo_activate_with_retries.reset_mock()
+        self.assertIsNone(rig.demo_select_label(["清除"], {}, {}))
+        rig.demo_activate_with_retries.assert_not_called()
+
+    def test_replay_wait_rejects_stale_wrong_surface_and_ordinary_states(self):
+        valid = {"phase": "SpeechLock", "speechLockSurface": "board",
+                 "speechLockAction": "clear", "speechLockReachableActions": ["clear"],
+                 "_logEpochS": 100}
+        for changes in ({"_logEpochS": 99}, {"phase": "Rows"},
+                        {"speechLockSurface": None}, {"speechLockAction": "speak"},
+                        {"speechLockReachableActions": []}, {}):
+            rig = object.__new__(RIG.OpticalRig)
+            rig.e2e_recent_log = mock.Mock(return_value="unused")
+            with mock.patch.object(RIG, "latest_e2e_state", return_value=dict(valid, **changes)), \
+                 mock.patch.object(RIG.time, "time", side_effect=[0, 0, 2]), \
+                 mock.patch.object(RIG.time, "sleep"):
+                result = rig.wait_demo_state(timeout=1, speech_lock_action="clear", not_before_epoch_s=100)
+            self.assertEqual(not changes, result is not None)
+
+    def test_target_timeouts_never_present_or_report_missed_gestures(self):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.e2e_log = mock.Mock(return_value="")
+        rig.demo_steps = []
+        rig.demo_activate = mock.Mock()
+        rig.add = mock.Mock()
+        with tempfile.TemporaryDirectory() as directory:
+            rig.outdir = Path(directory)
+            self.assertFalse(rig.demo_activate_with_retries({}, {}, "CLEAR", target_wait=lambda: False))
+        rig.demo_activate.assert_not_called()
+        self.assertTrue(all(step["result"] == "TARGET_TIMEOUT" for step in rig.demo_steps))
+        self.assertEqual("Physical demo scan target unavailable", rig.add.call_args[0][1])
+
+    def test_demo_start_accepts_restored_lock_and_releases_only_review_hold(self):
+        for phase in ("SpeechLock", "Rows", "Review"):
+            rig = object.__new__(RIG.OpticalRig)
+            rig.wait_demo_state = mock.Mock(return_value={"phase": phase})
+            rig.demo_show_rest = mock.Mock(return_value=True)
+            rig.demo_activate_with_retries = mock.Mock(return_value=True)
+            self.assertTrue(rig.demo_prepare_scanner({}, {}))
+            rig.wait_demo_state.assert_called_once_with()
+            self.assertEqual(int(phase == "Review"), rig.demo_activate_with_retries.call_count)
+
     def test_physical_normal_use_scenarios_are_distinct_and_goal_based(self):
         scenarios = RIG.PHYSICAL_NORMAL_USE_SCENARIOS
         self.assertTrue(RIG.validate_physical_normal_use_scenarios(scenarios))
