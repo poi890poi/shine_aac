@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+import { readGardenInputProfile } from './device-garden-profile.mjs';
 const exec=promisify(execFile),device=process.env.ANDROID_SERIAL, pkg=process.env.SHINE_AAC_TEST_PACKAGE||'org.shineaac.app';
 assert.ok(device,'Set ANDROID_SERIAL explicitly');
 const adb=process.env.ADB||'E:/Android/Sdk/platform-tools/adb.exe',apk=resolve(process.argv[2]);
@@ -11,10 +12,7 @@ const out=resolve('.tmp/tablet-adaptation',`garden-${device}-${Date.now()}`);awa
 const run=async(...args)=>(await exec(adb,['-s',device,...args],{encoding:'buffer',maxBuffer:20e6})).stdout;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
-const readInputProfile=async()=>{
-  const prefs=(await run('shell','run-as',pkg,'cat','shared_prefs/shine_aac_config.xml')).toString();
-  return prefs.match(/<string name="switchInputProfile">([^<]*)<\/string>/)?.[1]||'hardware-buttons';
-};
+const readInputProfile=()=>readGardenInputProfile(()=>run('shell','run-as',pkg,'cat','shared_prefs/shine_aac_config.xml'));
 let ws,ev,keepAwake;let awakeWork=Promise.resolve();
 try {
   assert.match((await run('install','-r',apk)).toString(),/Success/);

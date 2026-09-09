@@ -74,3 +74,31 @@ were downloaded through the authorized HTTPS tunnel and compared byte-for-byte
 with their local artifacts. The text/HTML response charsets and decoded Chinese
 titles were verified. The ZIP includes the Preview APK, SHA-256, installation
 notes and both credit formats. This is a Preview build, not a tagged release.
+
+## Installation on both devices
+
+The approved Preview APK was installed and its SHA-256 verified on the tablet
+and phone on 2026-09-09. Both passed `device-test.bat --garden`: hidden entry,
+start/drop, full-screen coverage, aligned pixels, and return preserving the AAC
+board/draft and input profile. Tablet used touch; phone used hardware activation.
+Both displays were verified OFF after testing.
+
+- Tablet evidence: `.tmp/tablet-adaptation/garden-R9JT201YLJF-1788968012338`;
+  640 × 400 virtual pixels, 1920 × 1200 physical pixels, integer scale 3.
+- Phone evidence: `.tmp/tablet-adaptation/garden-RFCR91GWXLX-1788968313360`;
+  360 × 800 virtual pixels, 1080 × 2400 physical pixels, integer scale 3.
+- APK SHA-256: `2219c0442f31e965f7888a5f457f0c400418f68265ffb592544bf983d3b0823f`.
+
+The first phone gate exposed a test-only assumption: a fresh installation has no
+preferences XML until settings are written. Android uses its hardware-buttons
+default in that state, but the gate treated the missing file as a failure.
+The gate now accepts only that exact missing-file error as the default; permission
+and device errors still fail. Existing saved profiles are read unchanged. No app
+code, APK, or settings were modified for this correction. The executable regression
+is `node --test scripts/device-garden-profile.test.mjs` (3 tests pass).
+
+Verification invariant: installation checks must support fresh and existing app
+data without creating settings solely to satisfy the test. The failed phone run
+is preserved in `.tmp/virtual-screen-phone-install.log`; the successful retry is
+`.tmp/virtual-screen-phone-retry.log`. These game checks do not certify camera or
+optical behavior.
