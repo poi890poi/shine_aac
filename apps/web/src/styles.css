@@ -1913,7 +1913,12 @@ button:focus-visible, .board:focus-visible {
   outline: 3px solid var(--color-text);
   outline-offset: -3px;
 }
-.phase { white-space: normal; overflow-wrap: anywhere; }
+.phase {
+  /* Always reserve two readable status lines, including pauses with no detail. */
+  min-height: 2lh;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
 @media (prefers-reduced-motion: reduce) {
   .cursor { animation: none; }
 }

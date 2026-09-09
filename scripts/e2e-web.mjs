@@ -2373,6 +2373,16 @@ async function scenarioSpeechLockReplayControls() {
     throw new Error(`Replay lock did not preserve geometry while sharing the dynamic bottom controls: ${JSON.stringify({ ordinaryLayout, expectedLockedRows, locked })}`);
   }
   await assertNoViewportOverflow("speech-lock-replay-controls");
+  const statusLines = await evaluate(`(() => {
+    const phase = document.querySelector('.phase');
+    const style = getComputedStyle(phase);
+    return { text: phase.textContent, height: phase.getBoundingClientRect().height,
+      font: parseFloat(style.fontSize), whiteSpace: style.whiteSpace };
+  })()`);
+  if (!statusLines.text.includes('\n') || statusLines.whiteSpace !== 'pre-line' ||
+      statusLines.height < statusLines.font * 2) {
+    throw new Error('Replay status must retain two separate readable lines: ' + JSON.stringify(statusLines));
+  }
 
   await assertAndActivateSpeechLockTile("speak");
   if (!await evaluate(`Boolean(document.querySelector(".shell.speech-lock"))`)) {

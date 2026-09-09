@@ -1601,7 +1601,7 @@ function renderFull(board, boardKey) {
   phase.className = "phase";
   phase.setAttribute("role", "status");
   phase.setAttribute("aria-live", "polite");
-  phase.textContent = statusPhaseLabel(scanner);
+  phase.textContent = statusPhaseLabel(scanner).replace(" · ", "\n");
   phase.dataset.scanPhase = statusPhaseCode(scanner);
   renderedPhaseElement = phase;
 
@@ -1749,7 +1749,7 @@ function updateScanPresentation(board) {
   document.body.classList.toggle("scan-stopped", scanner.stage === ScanStage.Stopped);
   const nextProgressTargetKey = progressTargetKeyForScanner(scanner, reviewHoldActive);
   if (renderedPhaseElement) {
-    renderedPhaseElement.textContent = statusPhaseLabel(scanner);
+    renderedPhaseElement.textContent = statusPhaseLabel(scanner).replace(" · ", "\n");
     renderedPhaseElement.dataset.scanPhase = statusPhaseCode(scanner);
   }
   if (renderedVoiceElement) {

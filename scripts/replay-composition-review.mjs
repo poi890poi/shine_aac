@@ -1,5 +1,5 @@
 import {createRequire} from 'node:module';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
 import {CurrentConfigVersion} from '../packages/aac-core/src/index.js';
@@ -11,11 +11,17 @@ const server=spawn(process.execPath,['apps/web/server.mjs','--port','5193'],{win
 const origin='http://127.0.0.1:5193';
 let browser;
 const measurements=[];
+// Pin the pre-approval baseline so this historical comparison remains reproducible
+// after its proposed status sizing ships in the application.
+const baselineFile=path=>execFileSync('git',['show',`57eeaf9:${path}`],{encoding:'utf8',windowsHide:true});
+const baselineApp=baselineFile('apps/web/src/app.js'),baselineCss=baselineFile('apps/web/src/styles.css');
 try {
   for(let i=0;i<50;i++){try{if((await fetch(origin+'/apps/web/')).ok)break;}catch{}await delay(100);}
   browser=await chromium.launch({channel:'msedge',headless:true});
   for(const proposed of [false,true]){
     const page=await browser.newPage({viewport:{width:393,height:851}});
+    await page.route('**/apps/web/src/app.js',route=>route.fulfill({contentType:'text/javascript',body:baselineApp}));
+    await page.route('**/apps/web/src/styles.css',route=>route.fulfill({contentType:'text/css',body:baselineCss}));
     await page.addInitScript(({version})=>{
       window.ShineAacAndroid={isE2E:()=>true,onRender:j=>window.renderState=JSON.parse(j)};
       localStorage.setItem('shine-aac-web-config-v1',JSON.stringify({configVersion:version,profileId:'en-US',columns:4,scanIntervalMs:1000,scanPassLimit:0}));
