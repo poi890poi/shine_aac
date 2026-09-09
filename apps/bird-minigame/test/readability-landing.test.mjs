@@ -25,6 +25,13 @@ test('whole-pixel canvas covers both tablet orientations without stretching',()=
     }
   }
 });
+test('approved virtual portrait stays 360 by 800 at integer display densities',()=>{
+  for(const dpr of [1,2,3,4]){
+    const v=fitGameViewport(360,800,dpr);
+    assert.deepEqual([v.width,v.height,v.scale],[360,800,dpr]);
+    assert.deepEqual([v.physicalWidth,v.physicalHeight],[360*dpr,800*dpr]);
+  }
+});
 test('every species flaps throughout airborne approach and stands only after touchdown',async()=>{
   const read=async name=>JSON.parse(await readFile(new URL('../rules/'+name,import.meta.url)));
   const layouts=[(await read('sprite-layout.json')).bird,await read('yellow-tit-sprite.json'),...(await read('all-bird-sprites.json')).species];

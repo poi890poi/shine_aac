@@ -3,7 +3,9 @@ import {paintFlower,paintLeafPair} from './sprite-assets.js';
 import {flowerVariant} from './flower-variants.js';
 import {VISUAL_TUNING} from './visual-tuning.js';
 import {MOUNTAIN_MOODS,MOUNTAIN_PROFILES,paintClearing} from './clearing-scenery.js';
-export const CLOUD_PLACEMENTS=[[1,20,85,.14,'far'],[3,205,50,.14,'far'],[5,360,130,.14,'far'],[0,40,190,.24,'near'],[2,330,235,.24,'near'],[4,180,300,.22,'near']];
+import {createCloudPlacements} from './cloud-layout.js';
+import {prepareNativeScenery} from './native-scenery.js';
+export const CLOUD_PLACEMENTS=createCloudPlacements(29);
 export const LEAF_PRESETS=[
   [[.18,.8],[.39,1.2],[.63,1.6],[.83,1.15]],
   [[.16,.85],[.34,1.1],[.52,1.45],[.7,1.2],[.86,.9]],
@@ -52,20 +54,21 @@ export function cloudPosition(placement,w,h,time,reducedMotion=false){
   const [,x,y,,layer]=placement,speed=layer==='far'?1.35:4.2;
   return {x:Math.round(x*w/480+(reducedMotion?0:time*speed)),y:Math.round(y*h/640)};
 }
-export function paintReviewedClouds(ctx,assets,w,h,time,reducedMotion=false){
-  for(const p of CLOUD_PLACEMENTS){const [i,,,scale]=p,im=assets.clouds[i],cw=Math.round(im.width*scale),ch=Math.round(im.height*scale);
+export function paintReviewedClouds(ctx,assets,w,h,time,reducedMotion=false,placements=CLOUD_PLACEMENTS){
+  for(const p of placements){const [i,,,scale]=p,im=assets.clouds[i],cw=Math.round(im.width*scale),ch=Math.round(im.height*scale);
     const position=cloudPosition(p,w,h,time,reducedMotion),x=((position.x+cw)%(w+cw))-cw;
-    ctx.drawImage(im,x,position.y,cw,ch);
+    ctx.drawImage(prepareNativeScenery(im,cw,ch,VISUAL_TUNING.cloudTones,1.25),x,position.y);
   }
 }
-export function paintReviewedScenery(ctx,assets,w,h,ground,time,reducedMotion=false,clearing=null){
+export function paintReviewedScenery(ctx,assets,w,h,ground,time,reducedMotion=false,clearing=null,clouds=CLOUD_PLACEMENTS){
   ctx.fillStyle='#91d5db';ctx.fillRect(0,0,w,h);
+  paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds);
   const offset=ground-628,left=Math.round((w-480)/2);
   if(clearing){
     const mood=MOUNTAIN_MOODS[clearing.mountain],im=(assets.profileMountains?.[clearing.mountainProfile??0]??assets.mountains)[clearing.mountain];
     const scale=Math.max(w/480,1)*mood.scale,mw=Math.round(im.width*scale),mh=Math.round(im.height*scale);
     const mx=Math.max(w-mw,Math.min(0,Math.round((w-mw)/2+mood.shift*w)));
-    ctx.drawImage(im,mx,ground-108-mh,mw,mh);
+    ctx.drawImage(prepareNativeScenery(im,mw,mh,mood.colors.map(hex=>hex.match(/[0-9a-f]{2}/g).map(n=>parseInt(n,16))),.6),mx,ground-108-mh);
     paintClearing(ctx,clearing,w,ground);
   }else{
     ctx.drawImage(assets.mountain,left,377+offset);
@@ -73,7 +76,6 @@ export function paintReviewedScenery(ctx,assets,w,h,ground,time,reducedMotion=fa
   }
   ctx.fillStyle='#69a64b';ctx.fillRect(0,640+offset,w,Math.max(0,h-640-offset));
   paintLandingGrass(ctx,w,h,ground);
-  paintReviewedClouds(ctx,assets,w,h,time,reducedMotion);
 }
 export function paintLandingGrass(ctx,w,h,ground){
   const g=VISUAL_TUNING.grass,top=ground-18;

@@ -48,9 +48,10 @@ try {
   // Deterministic, renderer-native composition previews. No app asset edits.
   for(const proposed of [false,true]){
     const page=await browser.newPage({viewport:{width:360,height:800}});
-    if(proposed) await page.route('**/src/reviewed-scenery.js',async route=>{
-      const response=await route.fetch();let body=await response.text();
-      body=body.replace('Math.max(w/480,1)*mood.scale','Math.max(w/480,1)*mood.scale*1.45');
+    await page.route('**/src/bird-renderer.js',route=>route.fulfill({contentType:'text/javascript',body:baselineFile('apps/bird-minigame/src/bird-renderer.js')}));
+    await page.route('**/src/reviewed-scenery.js',async route=>{
+      const response=await route.fetch();let body=baselineFile('apps/bird-minigame/src/reviewed-scenery.js');
+      if(proposed)body=body.replace('Math.max(w/480,1)*mood.scale','Math.max(w/480,1)*mood.scale*1.45');
       await route.fulfill({response,body});
     });
     await page.goto(origin+'/apps/bird-minigame/');

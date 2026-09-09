@@ -1,6 +1,6 @@
 // Renderer-native design experiment. These parameters never enter app assets.
 import {createRequire} from 'node:module';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
 const require=createRequire(process.env.SHINE_PLAYWRIGHT_ROOT||import.meta.url);
@@ -8,6 +8,8 @@ const {chromium}=require('playwright');
 const out=process.argv[2]||'.tmp/cloud-composition-review';
 mkdirSync(out,{recursive:true});
 const tuning={farCount:6,nearCount:5,farScale:.30,nearScale:.56,scaleVariation:.18,xJitter:65,yJitter:22};
+const oldSource=path=>execFileSync('git',['show',`463c26e:${path}`],{encoding:'utf8',windowsHide:true});
+const oldScenery=oldSource('apps/bird-minigame/src/reviewed-scenery.js'),oldRenderer=oldSource('apps/bird-minigame/src/bird-renderer.js');
 function placements(seed){
   let value=seed>>>0;
   const random=()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296};
@@ -31,10 +33,11 @@ try{
   browser=await chromium.launch({channel:'msedge',headless:true});
   for(const variant of variants){
     const page=await browser.newPage({viewport:{width:360,height:800}});
-    if(variant.placements)await page.route('**/src/reviewed-scenery.js',async route=>{
-      const response=await route.fetch(),body=await response.text();
-      const modified=body.replace(/export const CLOUD_PLACEMENTS=.*?;/,`export const CLOUD_PLACEMENTS=${JSON.stringify(variant.placements)};`);
-      if(modified===body)throw new Error('Cloud review override did not match');
+    await page.route('**/src/bird-renderer.js',route=>route.fulfill({contentType:'text/javascript',body:oldRenderer}));
+    await page.route('**/src/reviewed-scenery.js',async route=>{
+      const response=await route.fetch(),body=oldScenery;
+      const modified=variant.placements?body.replace(/export const CLOUD_PLACEMENTS=.*?;/,`export const CLOUD_PLACEMENTS=${JSON.stringify(variant.placements)};`):body;
+      if(variant.placements&&modified===body)throw new Error('Cloud review override did not match');
       await route.fulfill({response,body:modified});
     });
     await page.goto('http://127.0.0.1:5194/apps/bird-minigame/');

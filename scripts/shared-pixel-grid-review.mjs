@@ -1,5 +1,5 @@
 import {createRequire} from 'node:module';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
 import assert from 'node:assert/strict';
@@ -30,6 +30,9 @@ function nativeScenery(source,w,h,tones,blur){
 }
 `;
 const metrics=[];let browser;
+const historicalSource=path=>execFileSync('git',['show',`2d6b8d6:${path}`],{encoding:'utf8',windowsHide:true});
+const originalScenery=historicalSource('apps/bird-minigame/src/reviewed-scenery.js');
+const originalRenderer=historicalSource('apps/bird-minigame/src/bird-renderer.js');
 function nativeGridRenderer(source,unit){
   const replace=(from,to)=>{assert.ok(source.includes(from),`Missing renderer seam: ${from}`);source=source.replace(from,to);};
   replace("const ctx=canvas.getContext('2d',{alpha:false});",`
@@ -59,7 +62,7 @@ try{
   for(const variant of variants){
     const page=await browser.newPage({viewport:{width:360,height:800},deviceScaleFactor:1});
     await page.route('**/src/reviewed-scenery.js',async route=>{
-      const response=await route.fetch();let body=(await response.text()).replace(/export const CLOUD_PLACEMENTS=.*?;/,`export const CLOUD_PLACEMENTS=${JSON.stringify(cloudRecipe.placements)};`);
+      const response=await route.fetch();let body=originalScenery.replace(/export const CLOUD_PLACEMENTS=.*?;/,`export const CLOUD_PLACEMENTS=${JSON.stringify(cloudRecipe.placements)};`);
       if(variant.fine){
         body+=sceneryPreparation;
         body=body.replace('ctx.drawImage(im,x,position.y,cw,ch);','ctx.drawImage(nativeScenery(im,cw,ch,VISUAL_TUNING.cloudTones,1.25),x,position.y);');
@@ -67,7 +70,7 @@ try{
       }
       await route.fulfill({response,body});
     });
-    if(variant.unit>1)await page.route('**/src/bird-renderer.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:nativeGridRenderer(await response.text(),variant.unit)});});
+    await page.route('**/src/bird-renderer.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:variant.unit>1?nativeGridRenderer(originalRenderer,variant.unit):originalRenderer});});
     await page.goto('http://127.0.0.1:5195/apps/bird-minigame/');
     await page.evaluate(async()=>{
       document.body.innerHTML='<div style="position:fixed;inset:0"><canvas id="review"></canvas></div>';

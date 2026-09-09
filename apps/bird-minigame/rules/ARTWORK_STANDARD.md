@@ -1,5 +1,18 @@
 # Artwork standard — version 1.0.0
 
+September 9 integration approval: the user accepted the virtual-screen preview
+and requested implementation. The active renderer draws all game artwork into a
+separate virtual canvas, then copies that whole frame once at an integer scale.
+Portrait reference is 360×800; integer fitting adapts the virtual extent to the
+display aspect ratio (the tested tablet uses 640×400 at 3×). The grid origin is
+always (0,0), with only right/bottom edge clipping for indivisible display sizes.
+Promote the approved larger-cloud recipe and native scenery preparation; retain
+bird/flower source art, curved stems, leaf anchors, gameplay and helper controls.
+Do not add pixel-art overlays to the physical display after the frame copy.
+Regression evidence must include the exact approved portrait, fractional movement,
+off-grid negative controls and physical output pixels. Historical trials below
+remain a record of their original review status.
+
 September 9 global-pixel clarification: the complete game is rendered into one
 low-resolution virtual framebuffer. Every pixelated layer, sprite, particle and
 ammo indicator shares its origin and integer pixel coordinates. Upscale only the

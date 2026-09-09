@@ -78,6 +78,21 @@ try {
   await until('__gardenEvents.some(m=>m.type==="ready")',30);
   const ready=await ev('__gardenEvents.find(m=>m.type==="ready")');
   const gameContext=[...contexts.values()].find(c=>c.origin==='https://appassets.androidplatform.net'&&c.auxData?.isDefault);assert.ok(gameContext,'Game module document loaded from packaged HTTPS assets');
+  const checkPixelGrid=async()=>{
+    const grid=await ev(`(()=>{
+      const c=document.querySelector('.game-canvas'),u=Number(c.dataset.pixelScale),w=Number(c.dataset.virtualWidth),h=Number(c.dataset.virtualHeight);
+      if(!Number.isInteger(u)||u<1)return {valid:false};
+      const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let violations=0;
+      for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,b=(Math.floor(y/u)*u*c.width+Math.floor(x/u)*u)*4;
+        if(d[i]!==d[b]||d[i+1]!==d[b+1]||d[i+2]!==d[b+2])violations++;}
+      const r=c.getBoundingClientRect();return {valid:true,virtual:[w,h],physical:[c.width,c.height],scale:u,origin:[r.x*devicePixelRatio,r.y*devicePixelRatio],violations};
+    })()`,gameContext.id);
+    assert.ok(grid.valid,'packaged virtual screen metadata');assert.equal(grid.violations,0,'all physical art pixels share one grid');
+    assert.deepEqual(grid.origin,[0,0],'single physical grid origin');
+    for(let axis=0;axis<2;axis++)assert.ok(grid.virtual[axis]*grid.scale>=grid.physical[axis]&&grid.virtual[axis]*grid.scale-grid.physical[axis]<grid.scale);
+    return grid;
+  };
+  const readyGrid=await checkPixelGrid();
   const activate=async()=>{
     if(hardwareEnabled)await run('shell','input','keyevent','KEYCODE_BUTTON_A');
     else {
@@ -89,6 +104,8 @@ try {
   await until('__gardenEvents.some(m=>m.event==="start")');await wait(1300);
   await activate();await until('__gardenEvents.some(m=>m.event==="drop")');
   const dropped=await ev('__gardenEvents.find(m=>m.event==="drop")');assert.equal(dropped.ammo,2);
+  const runningGrid=await checkPixelGrid();
+  await writeFile(resolve(out,'pixel-grid.json'),JSON.stringify({ready:readyGrid,running:runningGrid},null,2));
   const screen=await run('exec-out','screencap','-p');await writeFile(resolve(out,'game.png'),screen);
   const canvas=await ev(`(()=>{const r=document.querySelector('.game-canvas').getBoundingClientRect();return {w:r.width*devicePixelRatio,h:r.height*devicePixelRatio,x:r.x*devicePixelRatio,y:r.y*devicePixelRatio};})()`,gameContext.id);
   await writeFile(resolve(out,'viewport.json'),JSON.stringify({canvas,screen:[screen.readUInt32BE(16),screen.readUInt32BE(20)]},null,2));

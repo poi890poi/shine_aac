@@ -12,7 +12,7 @@ button:focus-visible,canvas:focus-visible { outline:3px solid #f5e397; outline-o
 .game-hud { position:absolute; z-index:3; top:max(4px,env(safe-area-inset-top)); right:max(4px,env(safe-area-inset-right)); display:flex; gap:8px; padding:0; }
 [data-game-settings] { margin-right:auto; }
 .game-stage { flex:1; min-height:0; position:relative; display:grid; place-items:center; width:100%; overflow:hidden; }
-.game-canvas { display:block; image-rendering:pixelated; touch-action:manipulation; }
+.game-canvas { display:block; justify-self:start; align-self:start; image-rendering:pixelated; touch-action:manipulation; }
 .game-overlay { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; }
 .game-overlay[hidden],.helper-controls[hidden] { display:none; }
 .game-overlay button { pointer-events:auto; width:96px; height:96px; padding:22px; color:#20243a; background:#f5df72; border:4px solid #fff5ce; box-shadow:0 5px 0 #253b5c; border-radius:50%; }

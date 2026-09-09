@@ -6,21 +6,22 @@ import {paintAmmo,paintFeathers} from './game-feedback.js';
 import {loadReviewedScenery,paintReviewedScenery,prepareReviewedFlowers,paintReviewedFlower} from './reviewed-scenery.js';
 import {birdSpecies} from './bird-species.js';
 import {createClearing} from './clearing-scenery.js';
-import {fitGameViewport,gameplayBounds} from './viewport.js';
+import {gameplayBounds} from './viewport.js';
+import {createVirtualScreen} from './virtual-screen.js';
+import {createCloudPlacements} from './cloud-layout.js';
 
 export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,columns=4,featherDynamics,species='taiwan_blue_magpie'}={}) {
-  const ctx=canvas.getContext('2d',{alpha:false});
+  const screen=createVirtualScreen(canvas),ctx=screen.context;
   let selectedSpecies=birdSpecies(species);
   let clearing=createClearing(0);
+  let clouds=createCloudPlacements(29);
   let rules=null,sprites=null,scenery=null,surface=null,frame=null,currentColumns=columns,lastState=null;
   function resize() {
     if(!rules)return;
     const box=canvas.parentElement.getBoundingClientRect();
     const dpr=window.devicePixelRatio||1;
-    const dimensions=fitGameViewport(box.width,box.height,dpr),scale=dimensions.scale;
-    canvas.style.width=`${dimensions.width*scale/dpr}px`;canvas.style.height=`${dimensions.height*scale/dpr}px`;
-    canvas.width=dimensions.width;canvas.height=dimensions.height;ctx.imageSmoothingEnabled=false;
-    surface=new PixelSurface(canvas.width,canvas.height,rules.style);frame=ctx.createImageData(canvas.width,canvas.height);
+    const dimensions=screen.resize(box.width,box.height,dpr);
+    surface=new PixelSurface(dimensions.width,dimensions.height,rules.style);frame=ctx.createImageData(dimensions.width,dimensions.height);
     if(lastState)render(lastState);
   }
   const ready=Promise.all([loadArtRules(pixelStyle),loadSprites(),loadReviewedScenery()]).then(([loaded,assets,background])=>{
@@ -29,9 +30,9 @@ export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,column
   function render(state) {
     lastState=state;if(!surface)return;
     if(currentColumns!==state.flowers.length){currentColumns=state.flowers.length;resize();return;}
-    const w=canvas.width,bounds=gameplayBounds(w,canvas.height),h=bounds.height,ground=Math.round(state.config.groundY*h);
+    const w=screen.frame.width,bounds=gameplayBounds(w,screen.frame.height),h=bounds.height,ground=Math.round(state.config.groundY*h);
     const t=reducedMotion?0:state.time;
-    paintReviewedScenery(ctx,scenery,w,canvas.height,ground+bounds.top,t,reducedMotion,clearing);
+    paintReviewedScenery(ctx,scenery,w,screen.frame.height,ground+bounds.top,t,reducedMotion,clearing,clouds);
     ctx.save();ctx.translate(0,bounds.top);
     for(const flower of state.flowers)if(flower.displayHeight>.001)paintReviewedFlower(ctx,sprites,reducedMotion?{...flower,blocked:0}:flower,w,h,ground);
     if(state.drop){const x=Math.round(state.drop.x*w),y=Math.round(state.drop.y*h);
@@ -46,11 +47,11 @@ export function createBirdRenderer(canvas,{pixelStyle,reducedMotion=false,column
         ctx.fillStyle='#20243a';ctx.fillRect(px-2,py-1,5,3);ctx.fillRect(px-1,py-2,3,5);
         ctx.fillStyle='#f5df72';ctx.fillRect(px-1,py,3,1);ctx.fillRect(px,py-1,1,3);}
     }
-    ctx.restore();paintAmmo(ctx,state,w);
+    ctx.restore();paintAmmo(ctx,state,w);screen.present();
   }
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(resize):null;observer?.observe(canvas.parentElement);
   return {ready,render,resize,
-    setScenerySeed(seed){clearing=createClearing(seed);if(lastState)render(lastState);},
+    setScenerySeed(seed){clearing=createClearing(seed);clouds=createCloudPlacements((seed+20)>>>0);if(lastState)render(lastState);},
     getScenery:()=>clearing,
     setSpecies(id){selectedSpecies=birdSpecies(id);if(lastState)render(lastState);},
     paintChoice(target,id){
