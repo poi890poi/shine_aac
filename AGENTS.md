@@ -46,3 +46,8 @@
 
 * A release is not complete until its annotated `vX.Y.Z` tag is pushed and the remote
   peeled tag target is verified to equal the intended release commit.
+
+- Optical activation evidence must survive Android log rotation: retain uniquely
+  identified observed events across reads; never infer a missed gesture by
+  subtracting totals from independently rotating log buffers. Cover rollover,
+  overlapping reads, missing identity, zero inputs, and duplicate inputs in tests.

@@ -25,6 +25,38 @@ RIG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RIG)
 
 
+class RotatingActivationLogTest(unittest.TestCase):
+    def event(self, timestamp, source="android-camera-long-blink"):
+        return '%s 12 13 I ShineAacE2E: SHINE_AAC_E2E_INPUT {"intent":"activate","source":"%s"}' % (timestamp, source)
+
+    def test_rotation_overlap_and_empty_reads_preserve_activation_identity(self):
+        a, b, c, d, e = [self.event('1789050000.%03d' % i) for i in range(5)]
+        snapshots = ['\n'.join([a, b]), c, c, '', '\n'.join([c, d, e])]
+        rig = object.__new__(RIG.OpticalRig)
+        rig.e2e_log = mock.Mock(side_effect=snapshots)
+        source = "android-camera-long-blink"
+        # Old aggregate subtraction labels this observed event a MISS.
+        self.assertEqual('MISS', RIG.demo_activation_result(
+            RIG.e2e_input_count(snapshots[0], 'activate', source),
+            RIG.e2e_input_count(snapshots[1], 'activate', source)))
+        counts = [rig.observed_activation_count(source) for _ in snapshots]
+        self.assertEqual([2, 3, 3, 3, 5], counts)
+        self.assertEqual('PASS', RIG.demo_activation_result(counts[0], counts[1]))
+        self.assertEqual('MISS', RIG.demo_activation_result(counts[1], counts[2]))
+        self.assertEqual('DUPLICATE', RIG.demo_activation_result(counts[3], counts[4]))
+
+    def test_sources_are_separate_and_unidentified_events_fail_closed(self):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.e2e_log = mock.Mock(return_value='\n'.join([
+            self.event('1789050000.001'),
+            self.event('1789050000.002', 'android-camera-cheek-twitch')]))
+        self.assertEqual(1, rig.observed_activation_count('android-camera-long-blink'))
+        self.assertEqual(1, rig.observed_activation_count('android-camera-cheek-twitch'))
+        rig.e2e_log.return_value = self.event('MISSING_EPOCH')
+        with self.assertRaisesRegex(RuntimeError, 'epoch event identity'):
+            rig.observed_activation_count('android-camera-long-blink')
+
+
 class CalibratedMediaOrientationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1251,7 +1283,7 @@ class OpenCvFramebufferTest(unittest.TestCase):
         source_name = "android-camera-long-blink"
         rig.e2e_log = mock.Mock(side_effect=[
             "",
-            'I ShineAacE2E: SHINE_AAC_E2E_INPUT '
+            '1789050000.001 12 13 I ShineAacE2E: SHINE_AAC_E2E_INPUT '
             '{"intent":"activate","source":"%s"}' % source_name,
         ])
         case = {

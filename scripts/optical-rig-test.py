@@ -3183,9 +3183,7 @@ class OpticalRig:
                 "android-camera-cheek-twitch"
                 if gesture == "cheek" else "android-camera-long-blink"
             )
-            activation_count_before = e2e_input_count(
-                self.e2e_log(), "activate", activation_source
-            ) if item.get("hold_until_activation") else None
+            activation_count_before = self.observed_activation_count(activation_source) if item.get("hold_until_activation") else None
             token = self.show_video_still(
                 source,
                 item["start"],
@@ -3233,9 +3231,7 @@ class OpticalRig:
                 )
                 deadline = time.time() + timeout_s
                 while time.time() < deadline:
-                    current_count = e2e_input_count(
-                        self.e2e_log(), "activate", activation_source
-                    )
+                    current_count = self.observed_activation_count(activation_source)
                     if current_count > activation_count_before:
                         activation_observed = True
                         # Retain the pose briefly so activation feedback is not
@@ -3760,6 +3756,30 @@ class OpticalRig:
         )
         return result.stdout or ""
 
+    def observed_activation_count(self, source):
+        """Retain event identities so Android log rotation cannot subtract inputs."""
+        observed = getattr(self, "_observed_activation_lines", set())
+        previous_size = len(observed)
+        for line in self.e2e_log().splitlines():
+            match = re.search(r"SHINE_AAC_E2E_INPUT\s+(\{[^\r\n]+\})", line)
+            if not match:
+                continue
+            try:
+                event = json.loads(match.group(1))
+            except json.JSONDecodeError:
+                continue
+            if event.get("intent") != "activate":
+                continue
+            if not re.match(r"\s*\d+\.\d+\s", line):
+                raise RuntimeError("Activation evidence lacks an epoch event identity")
+            observed.add(line.strip())
+        self._observed_activation_lines = observed
+        if len(observed) != previous_size and hasattr(self, "outdir"):
+            (self.outdir / "observed-activation-events.log").write_text(
+                "\n".join(sorted(observed)) + "\n", encoding="utf-8"
+            )
+        return e2e_input_count("\n".join(observed), "activate", source)
+
     def e2e_recent_log(self, lookback_seconds=15.0):
         """Read fresh E2E state without retransferring the whole growing camera log.
 
@@ -3818,7 +3838,7 @@ class OpticalRig:
         before = (
             activation_count_before
             if activation_count_before is not None
-            else e2e_input_count(self.e2e_log(), "activate", source_name)
+            else self.observed_activation_count(source_name)
         )
         started_at = time.time()
         if "frames" in case:
@@ -3856,7 +3876,7 @@ class OpticalRig:
             return False
         deadline = time.time() + 4.0
         while time.time() < deadline:
-            after = e2e_input_count(self.e2e_log(), "activate", source_name)
+            after = self.observed_activation_count(source_name)
             result = demo_activation_result(before, after)
             if result == "DUPLICATE":
                 self.demo_steps.append({
@@ -3904,9 +3924,7 @@ class OpticalRig:
             "started_epoch_s": started_at,
             "completed_epoch_s": time.time(),
             "activation_count_before": before,
-            "activation_count_after": e2e_input_count(
-                self.e2e_log(), "activate", source_name
-            ),
+            "activation_count_after": self.observed_activation_count(source_name),
             "result": "MISS",
         })
         (self.outdir / "demo-steps.json").write_text(
@@ -3933,9 +3951,7 @@ class OpticalRig:
                     if case.get("gesture", "blink") == "cheek"
                     else "android-camera-long-blink"
                 )
-                activation_count_before = e2e_input_count(
-                    self.e2e_log(), "activate", source_name
-                )
+                activation_count_before = self.observed_activation_count(source_name)
             if target_wait and not target_wait():
                 self.demo_steps.append({
                     "step": "%s ATTEMPT %d" % (step_label, attempt),
@@ -4136,6 +4152,9 @@ class OpticalRig:
     def run_physical_demo(self, gesture, manifest, source_by_id):
         started_at = time.time()
         scenario = PHYSICAL_NORMAL_USE_SCENARIOS[gesture]
+        source_name = ("android-camera-cheek-twitch" if gesture == "cheek"
+                       else "android-camera-long-blink")
+        activation_baseline = self.observed_activation_count(source_name)
         if gesture == "cheek":
             cases = [
                 dict(case, gesture="cheek") for case in manifest.get("cheek_cases", [])
@@ -4327,11 +4346,7 @@ class OpticalRig:
             "selections": selections,
             "selection_count": len(selections),
             "elapsed_s": round(time.time() - started_at, 3),
-            "physical_activations": e2e_input_count(
-                log, "activate",
-                "android-camera-cheek-twitch"
-                if gesture == "cheek" else "android-camera-long-blink",
-            ),
+            "physical_activations": self.observed_activation_count(source_name) - activation_baseline,
         }
         (self.outdir / ("physical-demo-%s.json" % gesture)).write_text(
             json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -4429,10 +4444,10 @@ class OpticalRig:
             self.show_video_still(source, 0.75, "HOLD RELEASE")
             return False
         selected_message = str(selected.get("message", ""))
-        first_count = e2e_input_count(self.e2e_log(), "activate", source_name)
+        first_count = self.observed_activation_count(source_name)
         time.sleep(1.5)
         latched = latest_e2e_state(self.e2e_recent_log()) or {}
-        latched_count = e2e_input_count(self.e2e_log(), "activate", source_name)
+        latched_count = self.observed_activation_count(source_name)
         self.device.screenshot("hold_advance_latched_while_closed")
         self.show_video_still(source, 0.75, "HOLD RELEASE")
         time.sleep(1.0)
