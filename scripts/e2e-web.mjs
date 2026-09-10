@@ -2836,7 +2836,7 @@ async function scenarioDeferredZhuyinFirstPass() {
     })()
   `);
   if (
-    !returnedPresentation.phase.startsWith("返回選列 · 第 1 / 2 次") ||
+    !returnedPresentation.phase.startsWith("返回選列\n第 1 / 2 次") ||
     returned.message !== "ㄈ" ||
     !returnedPresentation.deferredClass ||
     returnedPresentation.deferredActive ||
@@ -3382,7 +3382,7 @@ async function scenarioVisibleEscapeLadder() {
   })`);
   if (
     stopped.message !== "" ||
-    stoppedUi.label !== "Stopped · Press switch" ||
+    stoppedUi.label !== "Stopped\nPress switch" ||
     stoppedUi.highlighted !== 0 ||
     !stoppedUi.stoppedClass
   ) {
@@ -3411,7 +3411,7 @@ async function scenarioVisibleEscapeLadder() {
     5000
   );
   const returnedLabel = await evaluate(`document.querySelector(".phase")?.textContent ?? ""`);
-  if (!returnedLabel.startsWith("Back to rows · Pass 1 / 2") || returned.message !== "") {
+  if (!returnedLabel.startsWith("Back to rows\nPass 1 / 2") || returned.message !== "") {
     throw new Error(`Cell escape did not return visibly and safely: ${JSON.stringify({ returned, returnedLabel })}`);
   }
   await evaluate(`
