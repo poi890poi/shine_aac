@@ -72,7 +72,7 @@ export function paintReviewedScenery(ctx,assets,w,h,ground,time,reducedMotion=fa
     const mx=Math.max(w-mw,Math.min(0,Math.round((w-mw)/2+mood.shift*w)));
     ctx.drawImage(prepareNativeScenery(im,mw,mh,mood.colors.map(hex=>hex.match(/[0-9a-f]{2}/g).map(n=>parseInt(n,16))),.6),mx,ground-108-mh);
     paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds.filter(p=>p[4]==='near'),{top:ground-108-mh,height:mh});
-    paintClearing(ctx,clearing,w,ground);
+    paintClearing(ctx,clearing,w,ground,time,reducedMotion);
   }else{
     ctx.drawImage(assets.mountain,left,377+offset);
     paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds.filter(p=>p[4]==='near'),{top:377+offset,height:assets.mountain.height});

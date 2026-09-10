@@ -223,3 +223,15 @@
   drift and seeded identity; all mountain, flower, stem and bird art stays fixed.
   Protect altitude with test/cloud-depth.test.mjs and raster occlusion with
   scripts/review-cloud-depth.mjs; inspect its portrait and landscape previews.
+
+## September 10 unseen-cloud shadows
+
+- Subtle cloud shadows belong only on the middle meadow, from overhead clouds
+  outside the view. Use an independent seeded field, not replicas of visible
+  clouds. Preserve bushes, foreground grass, mountains, sky and gameplay artwork.
+- Keep broad flattened rounded footprints, two low-contrast palette-derived tones,
+  no outline, and slow native-grid motion. Game time freezes them on pause;
+  reduced motion freezes drift. Parameters live in src/meadow-cloud-shadows.js.
+- Protect bounded placement, seed stability, pause/reduced motion and low contrast
+  with test/meadow-cloud-shadows.test.mjs. The review harness must compare
+  protected pixels and show both orientations before APK installation.

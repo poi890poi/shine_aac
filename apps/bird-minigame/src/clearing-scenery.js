@@ -1,3 +1,4 @@
+import {paintMeadowCloudShadows} from './meadow-cloud-shadows.js';
 // Curated broad lobe profiles, sampled on the scene's existing pixel grid.
 // Randomness arranges these shapes; it never invents noisy leaf contours per frame.
 export const BUSH_PROFILES=Object.freeze([
@@ -32,11 +33,12 @@ export function createClearing(seed){
  const mountainProfile=Math.floor(random()*MOUNTAIN_PROFILES.length);
  return Object.freeze({seed,palette,mountain,mountainProfile,bushes:Object.freeze(bushes)});
 }
-export function paintClearing(ctx,scene,w,ground){
+export function paintClearing(ctx,scene,w,ground,time=0,reducedMotion=false){
  const palette=CLEARING_PALETTES[scene.palette],top=ground-108;
  ctx.fillStyle=palette.meadow;ctx.fillRect(0,top,w,126);
  // Uneven meadow horizon joins the foothills without rice rows or field borders.
  for(let x=0;x<w;x++){const rise=3+Math.round(2*Math.sin(x/23));ctx.fillRect(x,top-rise,1,rise);}
+ paintMeadowCloudShadows(ctx,scene.seed,palette.meadow,w,ground,time,reducedMotion);
  // Each lobe is rasterized at the final object footprint, one native column
  // at a time. Object size varies; it never changes the drawing pixel unit.
  const crowns=[[[.2,.27,.55],[.48,.33,1],[.78,.27,.66]],[[.18,.24,.65],[.4,.3,.95],[.7,.32,.7],[.88,.15,.42]],[[.18,.23,.47],[.43,.29,.8],[.7,.3,1]],[[.17,.22,.7],[.46,.34,1],[.8,.25,.6]],[[.16,.23,.5],[.36,.25,.9],[.61,.27,.72],[.82,.24,.5]],[[.17,.21,.45],[.43,.3,.68],[.73,.3,1]]];
