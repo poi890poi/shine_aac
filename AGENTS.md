@@ -1,5 +1,14 @@
 # Workspace handoff rules
 
+- Coordinate shared Android devices across active tasks: request a window, receive
+  acknowledgement, perform testing and cleanup, then explicitly release ownership.
+  An idle thread is not a release. Before any ADB operation, use
+  `Invoke-AndroidDeviceLease` from `scripts/with-android-device-lease.ps1` for every
+  serial in the session; hold it through settings restoration and display-OFF
+  verification. The shared Windows mutex is `Local\Codex.Android.<serial>`.
+  Contention must stop before device commands. These are advisory locks, so all
+  cooperating tasks must use the same contract; they do not prevent manual ADB.
+
 - After physical-device testing or media capture, turn off displays that the agent
   woke or used for testing, including on failure or interruption. Verify the device
   display state before handoff. Do not leave test displays awake between runs or
