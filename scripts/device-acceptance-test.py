@@ -331,12 +331,14 @@ class DeepTest:
             return False
         return True
 
-    def find_node(self, xml_path, patterns, clickable_preferred=True, visible_only=False):
+    def find_node(self, xml_path, patterns, clickable_preferred=True, visible_only=False, exact=False):
         pats = [p.lower() for p in patterns]
         candidates = []
         for n in self.xml_nodes(xml_path):
             hay = (n["text"] + " " + n["desc"]).lower()
-            if any(p in hay for p in pats) and n["bounds"]:
+            matches = (any(p == n["text"].strip().lower() or p == n["desc"].strip().lower() for p in pats)
+                       if exact else any(p in hay for p in pats))
+            if matches and n["bounds"]:
                 if visible_only and not self.node_is_visible_target(n):
                     continue
                 candidates.append(n)
@@ -400,13 +402,13 @@ class DeepTest:
         self.shell("input","swipe",str(x),str(start_y),str(x),str(end_y),"450",check=False)
         time.sleep(0.55)
 
-    def find_tap(self, patterns, checkpoint_prefix, swipes=0):
+    def find_tap(self, patterns, checkpoint_prefix, swipes=0, exact=False):
         last_xml = None
         for i in range(swipes + 1):
             xml = self.ui_dump("%s_find_%d" % (checkpoint_prefix, i))
             self.screenshot("%s_find_%d" % (checkpoint_prefix, i))
             last_xml = xml
-            node = self.find_node(xml, patterns, visible_only=True)
+            node = self.find_node(xml, patterns, visible_only=True, exact=exact)
             if node and self.tap_node(node):
                 time.sleep(0.9)
                 return True
@@ -586,7 +588,7 @@ class DeepTest:
         ):
             return False
         return bool(self.find_tap(
-            ["camera setup", "相機設定"], label, swipes=camera_swipes
+            ["camera setup", "相機設定"], label, swipes=camera_swipes, exact=True
         ))
 
     def analyze_layout(self, name, xml):

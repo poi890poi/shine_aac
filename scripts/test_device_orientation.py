@@ -25,6 +25,21 @@ class DeviceOrientationTest(unittest.TestCase):
             harness.sync_screen_orientation(path)
             self.assertEqual((harness.screen_w, harness.screen_h), (1200, 1920))
 
+    def test_exact_camera_control_does_not_tap_larger_sidebar_summary(self):
+        harness = object.__new__(device.DeepTest)
+        harness.screen_w, harness.screen_h = 1920, 1200
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "screen.xml"
+            path.write_text('<hierarchy><node bounds="[0,0][1920,1200]">'
+                            '<node text="Input source, Camera setup and input test" enabled="true" '
+                            'bounds="[120,500][610,560]"/>'
+                            '<node text="Camera setup" enabled="true" bounds="[760,398][920,437]"/>'
+                            '</node></hierarchy>')
+            wrong = harness.find_node(path, ["camera setup"], visible_only=True)
+            self.assertTrue(wrong["text"].startswith("Input source"))
+            right = harness.find_node(path, ["camera setup"], visible_only=True, exact=True)
+            self.assertEqual("Camera setup", right["text"])
+
     def test_partial_dialog_and_malformed_dump_do_not_change_viewport(self):
         harness = object.__new__(device.DeepTest)
         harness.screen_w, harness.screen_h = 1920, 1200
