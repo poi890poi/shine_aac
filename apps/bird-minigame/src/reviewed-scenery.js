@@ -3,7 +3,7 @@ import {paintFlower,paintLeafPair} from './sprite-assets.js';
 import {flowerVariant} from './flower-variants.js';
 import {VISUAL_TUNING} from './visual-tuning.js';
 import {MOUNTAIN_MOODS,MOUNTAIN_PROFILES,paintClearing} from './clearing-scenery.js';
-import {createCloudPlacements} from './cloud-layout.js';
+import {createCloudPlacements,nearCloudY} from './cloud-layout.js';
 import {prepareNativeScenery} from './native-scenery.js';
 export const CLOUD_PLACEMENTS=createCloudPlacements(29);
 export const LEAF_PRESETS=[
@@ -55,24 +55,27 @@ export function prepareReviewedCloud(source,width,height){
   if(source.width===width&&source.height===height)return source;
   return prepareNativeScenery(source,width,height,VISUAL_TUNING.cloudTones,1.25);
 }
-export function paintReviewedClouds(ctx,assets,w,h,time,reducedMotion=false,placements=CLOUD_PLACEMENTS){
+export function paintReviewedClouds(ctx,assets,w,h,time,reducedMotion=false,placements=CLOUD_PLACEMENTS,mountain=null){
   for(const p of placements){const [i,,,scale]=p,im=assets.clouds[i],cw=Math.round((assets.cloudSourceSizes?.[i]?.[0]??im.width)*scale),ch=Math.round((assets.cloudSourceSizes?.[i]?.[1]??im.height)*scale);
     const position=cloudPosition(p,w,h,time,reducedMotion),x=((position.x+cw)%(w+cw))-cw;
-    ctx.drawImage(prepareReviewedCloud(im,cw,ch),x,position.y);
+    const y=p[4]==='near'?nearCloudY(p[2],h,ch,mountain):position.y;
+    ctx.drawImage(prepareReviewedCloud(im,cw,ch),x,y);
   }
 }
 export function paintReviewedScenery(ctx,assets,w,h,ground,time,reducedMotion=false,clearing=null,clouds=CLOUD_PLACEMENTS){
   ctx.fillStyle='#91d5db';ctx.fillRect(0,0,w,h);
-  paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds);
+  paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds.filter(p=>p[4]==='far'));
   const offset=ground-628,left=Math.round((w-480)/2);
   if(clearing){
     const mood=MOUNTAIN_MOODS[clearing.mountain],im=(assets.profileMountains?.[clearing.mountainProfile??0]??assets.mountains)[clearing.mountain];
     const scale=Math.max(w/480,1)*mood.scale,mw=Math.round(im.width*scale),mh=Math.round(im.height*scale);
     const mx=Math.max(w-mw,Math.min(0,Math.round((w-mw)/2+mood.shift*w)));
     ctx.drawImage(prepareNativeScenery(im,mw,mh,mood.colors.map(hex=>hex.match(/[0-9a-f]{2}/g).map(n=>parseInt(n,16))),.6),mx,ground-108-mh);
+    paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds.filter(p=>p[4]==='near'),{top:ground-108-mh,height:mh});
     paintClearing(ctx,clearing,w,ground);
   }else{
     ctx.drawImage(assets.mountain,left,377+offset);
+    paintReviewedClouds(ctx,assets,w,h,time,reducedMotion,clouds.filter(p=>p[4]==='near'),{top:377+offset,height:assets.mountain.height});
     ctx.drawImage(assets.land,left,476+offset);
   }
   ctx.fillStyle='#69a64b';ctx.fillRect(0,640+offset,w,Math.max(0,h-640-offset));

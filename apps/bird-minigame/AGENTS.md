@@ -211,3 +211,15 @@
   feathers independently of background masks. Run scripts/test_bird_alpha.py with
   broken-mask negative controls and genuine-background landmarks; equality to an
   earlier alpha mask alone does not establish correct feather preservation.
+
+## September 10 cloud depth composition
+
+- Draw sky, far clouds, mountains, near clouds, clearing/grass, then gameplay.
+  Front clouds may overlap the upper 35% of a mountain image but must clear its
+  lower slopes. Account for the entire cloud height in landscape, retaining a
+  stagger between cloud bottoms. Already high portrait clouds stay in place.
+- This user-requested altitude/order change supersedes the earlier placement
+  freeze only for this purpose. Preserve cloud master bytes, sizes, colors, counts,
+  drift and seeded identity; all mountain, flower, stem and bird art stays fixed.
+  Protect altitude with test/cloud-depth.test.mjs and raster occlusion with
+  scripts/review-cloud-depth.mjs; inspect its portrait and landscape previews.
