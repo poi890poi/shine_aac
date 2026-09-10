@@ -1039,14 +1039,14 @@
             173,
             90
           ],
-          "sha256": "267ae95a3d873318f91ed601902b5ccf12e071fea0e392d436c5776a223825ca",
+          "sha256": "0b0383f60077406ceb16dd36f5d27ce9dd6ed69ca340d2423fb80fec702142b8",
           "sourceRect": [
             0,
             627,
             627,
             627
           ],
-          "maskSha256": "3a0f6a5bbde49b9e469239f303027711815f42db02345a80babd8a5eb883ae09"
+          "maskSha256": "4223398c15ff145a18d16139e37d110d4b7ae577127c389cf4aced9985d69565"
         },
         {
           "file": "birds/mikado_pheasant-3.png",
@@ -1089,14 +1089,14 @@
             146,
             122
           ],
-          "sha256": "f2e1204a672122c46b8555b4ec665653a9e40c1b65c5f051da334b60046d7b47",
+          "sha256": "aa81e66a075533df9213c959a242b72462a1871116d4c13e1d49cad7d974855a",
           "sourceRect": [
             0,
             0,
             627,
             627
           ],
-          "maskSha256": "cf8e6b3fa389750e4cd0c10066a53cc3ebd32e73a5bf6878cea44cfeca7654ec"
+          "maskSha256": "e936787254f1341d3bcba60b12594b33d46999fba50b5c39378865c69d656c0e"
         },
         {
           "file": "birds/swinhoes_pheasant-1.png",

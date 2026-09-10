@@ -43,7 +43,18 @@ for entry in entries:
  frames=[];scale=entry['scale']*RULE['birdDisplayMultiplier']
  for i,pose in enumerate(entry['poses']):
   x,y,w,h=pose['rect'];raw=source[y:y+h,x:x+w];seeds=record.get('backgroundSeeds',{}).get(str(i),[])
-  rgba=extract(raw,seeds);maskpath=DEST/'masks'/('{}-{}.png'.format(species,i));maskpath.parent.mkdir(parents=True,exist_ok=True);cv2.imwrite(str(maskpath),rgba[:,:,3])
+  rgba=extract(raw,seeds)
+  protected=record.get('foregroundMasks',{}).get(str(i))
+  if protected:
+   protection_path=ROOT/'rules'/protected['file'];assert digest(protection_path)==protected['sha256']
+   mask=cv2.imread(str(protection_path),cv2.IMREAD_GRAYSCALE)
+   assert mask.shape==rgba.shape[:2] and np.isin(mask,[0,255]).all()
+   assert int((mask>0).sum())==protected['opaquePixels']
+   assert list(cv2.boundingRect(mask))==protected['bounds']
+   # Source-reviewed foreground is authoritative even when white feathers touch
+   # the generic background component. Preserve original RGB and all other alpha.
+   rgba[mask>0,3]=255
+  maskpath=DEST/'masks'/('{}-{}.png'.format(species,i));maskpath.parent.mkdir(parents=True,exist_ok=True);cv2.imwrite(str(maskpath),rgba[:,:,3])
   width,height=jsround(w*scale),jsround(h*scale);native=native_resize(rgba,width,height)
   filename='birds/{}-{}.png'.format(species,i);sha=export(DEST/filename,native)
   frames.append({'file':filename,'width':width,'height':height,'anchor':[jsround(a*scale) for a in pose['anchor']],'sha256':sha,'sourceRect':pose['rect'],'maskSha256':digest(maskpath)})

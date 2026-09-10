@@ -204,3 +204,10 @@
   leaf continuity check. Exact bird masks, accepted cloud pixels, renderer parity,
   context restoration, off-grid negative control, and physical-device checks are
   separate evidence; none alone establishes aesthetic acceptance.
+
+- September 10 feather-alpha follow-up: compare original artwork with exported
+  alpha across all 63 poses. A stricter-key scan only flags suspects; never fill
+  them automatically. Source-reviewed foreground stencils protect confirmed white
+  feathers independently of background masks. Run scripts/test_bird_alpha.py with
+  broken-mask negative controls and genuine-background landmarks; equality to an
+  earlier alpha mask alone does not establish correct feather preservation.

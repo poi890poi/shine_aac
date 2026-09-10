@@ -371,12 +371,40 @@
             "reason": "Visually inspected enclosed background between legs or toes; source foot contact sheet 2026-09-10"
           }
         ]
+      },
+      "foregroundMasks": {
+        "2": {
+          "file": "alpha-foreground/mikado_pheasant-2.png",
+          "sha256": "0676bcb9a7070396ec6fafb1202269e7fed9da8e2f4968db3aab1e47a1756e7c",
+          "opaquePixels": 472,
+          "bounds": [
+            58,
+            322,
+            32,
+            40
+          ],
+          "reason": "Confirmed source feathers lost to exterior matte; visual source/alpha review 2026-09-10"
+        }
       }
     },
     "swinhoes_pheasant": {
       "sourceSha256": "7ff4bc8a36a329d52ce4c473d2f5d10f2bc7ac2311aadaa2e2ca2e787e233e92",
       "backgroundSeeds": {
         "3": []
+      },
+      "foregroundMasks": {
+        "0": {
+          "file": "alpha-foreground/swinhoes_pheasant-0.png",
+          "sha256": "20eccc5bc435f95466ba89bf4eff2952a0190491568b0dadfcc4c0662a5eb7de",
+          "opaquePixels": 14366,
+          "bounds": [
+            237,
+            106,
+            198,
+            293
+          ],
+          "reason": "Confirmed source feathers lost to exterior matte; visual source/alpha review 2026-09-10"
+        }
       }
     },
     "rufous_crowned_laughingthrush": {
