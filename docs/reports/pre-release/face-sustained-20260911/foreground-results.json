@@ -1,0 +1,3303 @@
+{
+  "phone": {
+    "runs": [
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.346239942,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 8352,
+        "cpuCoreEquivalent": 0.5442375481919857,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1096.992394,
+          "p50": 1095.8395810000002,
+          "p95": 1098.145207,
+          "p99": 1098.145207,
+          "max": 1098.145207
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 39.18099957510729,
+            "p50": 38.85827699999936,
+            "p95": 45.637706000000435,
+            "p99": 49.02223900000001,
+            "max": 57.4251519999998
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 32.32015041201714,
+            "p50": 31.751146000000517,
+            "p95": 38.733280999999806,
+            "p99": 41.33708299999995,
+            "max": 51.794895999999426
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.069772643776885,
+            "p50": 4.095416999999998,
+            "p95": 4.225051999999778,
+            "p99": 4.366562000001068,
+            "max": 5.223437000000558
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.95612021551725,
+            "p50": 65.6435419999998,
+            "p95": 71.40828200000033,
+            "p99": 73.75494799999979,
+            "max": 88.93171799999982
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 39.18099957510729,
+            "p50": 38.85827699999936,
+            "p95": 45.637706000000435,
+            "p99": 49.02223900000001,
+            "max": 57.4251519999998
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 32.32015041201714,
+            "p50": 31.751146000000517,
+            "p95": 38.733280999999806,
+            "p99": 41.33708299999995,
+            "max": 51.794895999999426
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.069772643776885,
+            "p50": 4.095416999999998,
+            "p95": 4.225051999999778,
+            "p99": 4.366562000001068,
+            "max": 5.223437000000558
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.95612021551725,
+            "p50": 65.6435419999998,
+            "p95": 71.40828200000033,
+            "p99": 73.75494799999979,
+            "max": 88.93171799999982
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 39.18099957510729,
+            "p50": 38.85827699999936,
+            "p95": 45.637706000000435,
+            "p99": 49.02223900000001,
+            "max": 57.4251519999998
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 32.32015041201714,
+            "p50": 31.751146000000517,
+            "p95": 38.733280999999806,
+            "p99": 41.33708299999995,
+            "max": 51.794895999999426
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.069772643776885,
+            "p50": 4.095416999999998,
+            "p95": 4.225051999999778,
+            "p99": 4.366562000001068,
+            "max": 5.223437000000558
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.95612021551725,
+            "p50": 65.6435419999998,
+            "p95": 71.40828200000033,
+            "p99": 73.75494799999979,
+            "max": 88.93171799999982
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 39.18099957510729,
+              "p50": 38.85827699999936,
+              "p95": 45.637706000000435,
+              "p99": 49.02223900000001,
+              "max": 57.4251519999998
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 32.32015041201714,
+              "p50": 31.751146000000517,
+              "p95": 38.733280999999806,
+              "p99": 41.33708299999995,
+              "max": 51.794895999999426
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.069772643776885,
+              "p50": 4.095416999999998,
+              "p95": 4.225051999999778,
+              "p99": 4.366562000001068,
+              "max": 5.223437000000558
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 65.95612021551725,
+              "p50": 65.6435419999998,
+              "p95": 71.40828200000033,
+              "p99": 73.75494799999979,
+              "max": 88.93171799999982
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": {
+          "n": 2,
+          "mean": 0.775,
+          "p50": 0.7466667,
+          "p95": 0.8033333,
+          "p99": 0.8033333,
+          "max": 0.8033333
+        },
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.8,
+          "p50": 32.8,
+          "p95": 32.8,
+          "p99": 32.8,
+          "max": 32.8
+        },
+        "batteryTemperatureFirstLastC": [
+          32.8,
+          32.8
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": true,
+        "processCgroup": "7:freezer:/\n6:schedtune:/top-app\n5:memory:/\n4:cpuset:/top-app\n3:cpuacct:/top-app\n2:cpu:/\n1:blkio:/\n0::/uid_10331/pid_9314\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "phone-foreground-0-true",
+        "manifest": {
+          "serial": "RFCR91GWXLX",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": true,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.358475151,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 230,
+        "dropped": 3,
+        "peakOwnedImages": 1,
+        "processCpuMs": 17105,
+        "cpuCoreEquivalent": 1.113717334034055,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1140.1856500000001,
+          "p50": 1133.937864,
+          "p95": 1146.4334360000003,
+          "p99": 1146.4334360000003,
+          "max": 1146.4334360000003
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 230,
+          "freshFps": 14.956431265444142,
+          "present": 230,
+          "ageMs": {
+            "n": 230,
+            "mean": 72.43431383478261,
+            "p50": 60.571350000000166,
+            "p95": 123.98682199999985,
+            "p99": 132.761667,
+            "max": 133.19489499999963
+          },
+          "nativeMs": {
+            "n": 230,
+            "mean": 48.36499973043471,
+            "p50": 47.23921900000096,
+            "p95": 60.71015599999919,
+            "p99": 65.28947900000003,
+            "max": 69.21828099999948
+          },
+          "prepareMs": {
+            "n": 230,
+            "mean": 8.242425926086971,
+            "p50": 8.822500000000218,
+            "p95": 10.189738999999463,
+            "p99": 10.364478999999847,
+            "max": 10.741042000001471
+          },
+          "freshGapMs": {
+            "n": 229,
+            "mean": 66.76022241048035,
+            "p50": 66.7049479999996,
+            "p95": 78.15828200000033,
+            "p99": 83.6820829999997,
+            "max": 85.72973999999999
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 230,
+          "freshFps": 14.956431265444142,
+          "present": 230,
+          "ageMs": {
+            "n": 230,
+            "mean": 72.43431383478261,
+            "p50": 60.571350000000166,
+            "p95": 123.98682199999985,
+            "p99": 132.761667,
+            "max": 133.19489499999963
+          },
+          "nativeMs": {
+            "n": 230,
+            "mean": 48.36499973043471,
+            "p50": 47.23921900000096,
+            "p95": 60.71015599999919,
+            "p99": 65.28947900000003,
+            "max": 69.21828099999948
+          },
+          "prepareMs": {
+            "n": 230,
+            "mean": 8.242425926086971,
+            "p50": 8.822500000000218,
+            "p95": 10.189738999999463,
+            "p99": 10.364478999999847,
+            "max": 10.741042000001471
+          },
+          "freshGapMs": {
+            "n": 229,
+            "mean": 66.76022241048035,
+            "p50": 66.7049479999996,
+            "p95": 78.15828200000033,
+            "p99": 83.6820829999997,
+            "max": 85.72973999999999
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 230,
+          "freshFps": 14.956431265444142,
+          "present": 230,
+          "ageMs": {
+            "n": 230,
+            "mean": 72.43431383478261,
+            "p50": 60.571350000000166,
+            "p95": 123.98682199999985,
+            "p99": 132.761667,
+            "max": 133.19489499999963
+          },
+          "nativeMs": {
+            "n": 230,
+            "mean": 48.36499973043471,
+            "p50": 47.23921900000096,
+            "p95": 60.71015599999919,
+            "p99": 65.28947900000003,
+            "max": 69.21828099999948
+          },
+          "prepareMs": {
+            "n": 230,
+            "mean": 8.242425926086971,
+            "p50": 8.822500000000218,
+            "p95": 10.189738999999463,
+            "p99": 10.364478999999847,
+            "max": 10.741042000001471
+          },
+          "freshGapMs": {
+            "n": 229,
+            "mean": 66.76022241048035,
+            "p50": 66.7049479999996,
+            "p95": 78.15828200000033,
+            "p99": 83.6820829999997,
+            "max": 85.72973999999999
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 230,
+            "freshFps": 14.956431265444142,
+            "present": 230,
+            "ageMs": {
+              "n": 230,
+              "mean": 72.43431383478261,
+              "p50": 60.571350000000166,
+              "p95": 123.98682199999985,
+              "p99": 132.761667,
+              "max": 133.19489499999963
+            },
+            "nativeMs": {
+              "n": 230,
+              "mean": 48.36499973043471,
+              "p50": 47.23921900000096,
+              "p95": 60.71015599999919,
+              "p99": 65.28947900000003,
+              "max": 69.21828099999948
+            },
+            "prepareMs": {
+              "n": 230,
+              "mean": 8.242425926086971,
+              "p50": 8.822500000000218,
+              "p95": 10.189738999999463,
+              "p99": 10.364478999999847,
+              "max": 10.741042000001471
+            },
+            "freshGapMs": {
+              "n": 229,
+              "mean": 66.76022241048035,
+              "p50": 66.7049479999996,
+              "p95": 78.15828200000033,
+              "p99": 83.6820829999997,
+              "max": 85.72973999999999
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": {
+          "n": 2,
+          "mean": 0.8016667,
+          "p50": 0.79,
+          "p95": 0.8133334,
+          "p99": 0.8133334,
+          "max": 0.8133334
+        },
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.8,
+          "p50": 32.8,
+          "p95": 32.8,
+          "p99": 32.8,
+          "max": 32.8
+        },
+        "batteryTemperatureFirstLastC": [
+          32.8,
+          32.8
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": false,
+        "processCgroup": "7:freezer:/\n6:schedtune:/foreground\n5:memory:/\n4:cpuset:/foreground\n3:cpuacct:/\n2:cpu:/\n1:blkio:/\n0::/uid_10331/pid_9734\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "phone-foreground-1-false",
+        "manifest": {
+          "serial": "RFCR91GWXLX",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": null,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.361094161,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 229,
+        "dropped": 4,
+        "peakOwnedImages": 1,
+        "processCpuMs": 17131,
+        "cpuCoreEquivalent": 1.1152200370917313,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 735.0269769999998,
+          "p50": 334.3922379999999,
+          "p95": 1135.6617159999996,
+          "p99": 1135.6617159999996,
+          "max": 1135.6617159999996
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 229,
+          "freshFps": 14.891403303420471,
+          "present": 229,
+          "ageMs": {
+            "n": 229,
+            "mean": 68.10758935371176,
+            "p50": 60.058382000000165,
+            "p95": 116.35781099999986,
+            "p99": 135.1962480000002,
+            "max": 136.3922379999999
+          },
+          "nativeMs": {
+            "n": 229,
+            "mean": 48.38481028820963,
+            "p50": 47.00598900000011,
+            "p95": 62.90723900000012,
+            "p99": 65.72573,
+            "max": 67.48203099999955
+          },
+          "prepareMs": {
+            "n": 229,
+            "mean": 8.289228781659402,
+            "p50": 8.769113999998808,
+            "p95": 10.233334000000468,
+            "p99": 10.462811999999758,
+            "max": 10.887447999999495
+          },
+          "freshGapMs": {
+            "n": 228,
+            "mean": 67.07275079824562,
+            "p50": 67.17906300000004,
+            "p95": 79.86911499999997,
+            "p99": 81.85161499999958,
+            "max": 85.97249999999985
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 229,
+          "freshFps": 14.891403303420471,
+          "present": 229,
+          "ageMs": {
+            "n": 229,
+            "mean": 68.10758935371176,
+            "p50": 60.058382000000165,
+            "p95": 116.35781099999986,
+            "p99": 135.1962480000002,
+            "max": 136.3922379999999
+          },
+          "nativeMs": {
+            "n": 229,
+            "mean": 48.38481028820963,
+            "p50": 47.00598900000011,
+            "p95": 62.90723900000012,
+            "p99": 65.72573,
+            "max": 67.48203099999955
+          },
+          "prepareMs": {
+            "n": 229,
+            "mean": 8.289228781659402,
+            "p50": 8.769113999998808,
+            "p95": 10.233334000000468,
+            "p99": 10.462811999999758,
+            "max": 10.887447999999495
+          },
+          "freshGapMs": {
+            "n": 228,
+            "mean": 67.07275079824562,
+            "p50": 67.17906300000004,
+            "p95": 79.86911499999997,
+            "p99": 81.85161499999958,
+            "max": 85.97249999999985
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 229,
+          "freshFps": 14.891403303420471,
+          "present": 229,
+          "ageMs": {
+            "n": 229,
+            "mean": 68.10758935371176,
+            "p50": 60.058382000000165,
+            "p95": 116.35781099999986,
+            "p99": 135.1962480000002,
+            "max": 136.3922379999999
+          },
+          "nativeMs": {
+            "n": 229,
+            "mean": 48.38481028820963,
+            "p50": 47.00598900000011,
+            "p95": 62.90723900000012,
+            "p99": 65.72573,
+            "max": 67.48203099999955
+          },
+          "prepareMs": {
+            "n": 229,
+            "mean": 8.289228781659402,
+            "p50": 8.769113999998808,
+            "p95": 10.233334000000468,
+            "p99": 10.462811999999758,
+            "max": 10.887447999999495
+          },
+          "freshGapMs": {
+            "n": 228,
+            "mean": 67.07275079824562,
+            "p50": 67.17906300000004,
+            "p95": 79.86911499999997,
+            "p99": 81.85161499999958,
+            "max": 85.97249999999985
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 229,
+            "freshFps": 14.891403303420471,
+            "present": 229,
+            "ageMs": {
+              "n": 229,
+              "mean": 68.10758935371176,
+              "p50": 60.058382000000165,
+              "p95": 116.35781099999986,
+              "p99": 135.1962480000002,
+              "max": 136.3922379999999
+            },
+            "nativeMs": {
+              "n": 229,
+              "mean": 48.38481028820963,
+              "p50": 47.00598900000011,
+              "p95": 62.90723900000012,
+              "p99": 65.72573,
+              "max": 67.48203099999955
+            },
+            "prepareMs": {
+              "n": 229,
+              "mean": 8.289228781659402,
+              "p50": 8.769113999998808,
+              "p95": 10.233334000000468,
+              "p99": 10.462811999999758,
+              "max": 10.887447999999495
+            },
+            "freshGapMs": {
+              "n": 228,
+              "mean": 67.07275079824562,
+              "p50": 67.17906300000004,
+              "p95": 79.86911499999997,
+              "p99": 81.85161499999958,
+              "max": 85.97249999999985
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": {
+          "n": 2,
+          "mean": 0.8100000700000001,
+          "p50": 0.79666674,
+          "p95": 0.8233334,
+          "p99": 0.8233334,
+          "max": 0.8233334
+        },
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.8,
+          "p50": 32.8,
+          "p95": 32.8,
+          "p99": 32.8,
+          "max": 32.8
+        },
+        "batteryTemperatureFirstLastC": [
+          32.8,
+          32.8
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": false,
+        "processCgroup": "7:freezer:/\n6:schedtune:/foreground\n5:memory:/\n4:cpuset:/foreground\n3:cpuacct:/\n2:cpu:/\n1:blkio:/\n0::/uid_10331/pid_10097\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "phone-foreground-2-false",
+        "manifest": {
+          "serial": "RFCR91GWXLX",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": null,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.354613171999999,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 8079,
+        "cpuCoreEquivalent": 0.5261610897975932,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1091.0669775000001,
+          "p50": 1087.053124,
+          "p95": 1095.0808310000002,
+          "p99": 1095.0808310000002,
+          "max": 1095.0808310000002
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 38.59853051502149,
+            "p50": 38.55744500000037,
+            "p95": 44.03682299999991,
+            "p99": 45.40072800000007,
+            "max": 46.439580999999635
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 31.819060939914156,
+            "p50": 31.543125000000146,
+            "p95": 37.89447900000005,
+            "p99": 38.966042000000016,
+            "max": 39.82177100000001
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.063896609442,
+            "p50": 4.095416000000114,
+            "p95": 4.23744699999952,
+            "p99": 4.304166999999325,
+            "max": 4.334063000000015
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.01847631465517,
+            "p50": 65.85442799999998,
+            "p95": 71.3911449999996,
+            "p99": 73.64317700000004,
+            "max": 75.25494799999979
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 38.59853051502149,
+            "p50": 38.55744500000037,
+            "p95": 44.03682299999991,
+            "p99": 45.40072800000007,
+            "max": 46.439580999999635
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 31.819060939914156,
+            "p50": 31.543125000000146,
+            "p95": 37.89447900000005,
+            "p99": 38.966042000000016,
+            "max": 39.82177100000001
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.063896609442,
+            "p50": 4.095416000000114,
+            "p95": 4.23744699999952,
+            "p99": 4.304166999999325,
+            "max": 4.334063000000015
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.01847631465517,
+            "p50": 65.85442799999998,
+            "p95": 71.3911449999996,
+            "p99": 73.64317700000004,
+            "max": 75.25494799999979
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 38.59853051502149,
+            "p50": 38.55744500000037,
+            "p95": 44.03682299999991,
+            "p99": 45.40072800000007,
+            "max": 46.439580999999635
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 31.819060939914156,
+            "p50": 31.543125000000146,
+            "p95": 37.89447900000005,
+            "p99": 38.966042000000016,
+            "max": 39.82177100000001
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.063896609442,
+            "p50": 4.095416000000114,
+            "p95": 4.23744699999952,
+            "p99": 4.304166999999325,
+            "max": 4.334063000000015
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.01847631465517,
+            "p50": 65.85442799999998,
+            "p95": 71.3911449999996,
+            "p99": 73.64317700000004,
+            "max": 75.25494799999979
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 38.59853051502149,
+              "p50": 38.55744500000037,
+              "p95": 44.03682299999991,
+              "p99": 45.40072800000007,
+              "max": 46.439580999999635
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 31.819060939914156,
+              "p50": 31.543125000000146,
+              "p95": 37.89447900000005,
+              "p99": 38.966042000000016,
+              "max": 39.82177100000001
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.063896609442,
+              "p50": 4.095416000000114,
+              "p95": 4.23744699999952,
+              "p99": 4.304166999999325,
+              "max": 4.334063000000015
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.01847631465517,
+              "p50": 65.85442799999998,
+              "p95": 71.3911449999996,
+              "p99": 73.64317700000004,
+              "max": 75.25494799999979
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": {
+          "n": 2,
+          "mean": 0.81666667,
+          "p50": 0.8033333,
+          "p95": 0.83000004,
+          "p99": 0.83000004,
+          "max": 0.83000004
+        },
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.8,
+          "p50": 32.8,
+          "p95": 32.8,
+          "p99": 32.8,
+          "max": 32.8
+        },
+        "batteryTemperatureFirstLastC": [
+          32.8,
+          32.8
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": true,
+        "processCgroup": "7:freezer:/\n6:schedtune:/top-app\n5:memory:/\n4:cpuset:/top-app\n3:cpuacct:/top-app\n2:cpu:/\n1:blkio:/\n0::/uid_10331/pid_10454\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "phone-foreground-3-true",
+        "manifest": {
+          "serial": "RFCR91GWXLX",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": true,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      }
+    ],
+    "pairedComparisonUsable": true,
+    "limitations": [],
+    "foregroundP95Ms": [
+      45.637706000000435,
+      44.03682299999991
+    ],
+    "backgroundP95Ms": [
+      123.98682199999985,
+      116.35781099999986
+    ],
+    "backgroundForegroundMeanP95Ratio": 2.6801884066767583
+  },
+  "tablet": {
+    "runs": [
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.378762643,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 17560,
+        "cpuCoreEquivalent": 1.1418343860058755,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1115.4764005,
+          "p50": 1112.2585359999998,
+          "p95": 1118.694265,
+          "p99": 1118.694265,
+          "max": 1118.694265
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 62.968288158798266,
+            "p50": 62.535916000000725,
+            "p95": 72.02714600000036,
+            "p99": 74.47188400000005,
+            "max": 77.09884299999976
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 52.72968381545068,
+            "p50": 52.39253800000006,
+            "p95": 60.24115400000005,
+            "p99": 63.38092300000062,
+            "max": 66.69565299999977
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.212521583690975,
+            "p50": 4.288961999998719,
+            "p95": 4.461730000000898,
+            "p99": 4.568577000000005,
+            "max": 4.682999999999993
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.0127114913793,
+            "p50": 65.97065400000065,
+            "p95": 74.78138399999989,
+            "p99": 79.43822999999975,
+            "max": 80.61999999999898
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 62.968288158798266,
+            "p50": 62.535916000000725,
+            "p95": 72.02714600000036,
+            "p99": 74.47188400000005,
+            "max": 77.09884299999976
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 52.72968381545068,
+            "p50": 52.39253800000006,
+            "p95": 60.24115400000005,
+            "p99": 63.38092300000062,
+            "max": 66.69565299999977
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.212521583690975,
+            "p50": 4.288961999998719,
+            "p95": 4.461730000000898,
+            "p99": 4.568577000000005,
+            "max": 4.682999999999993
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.0127114913793,
+            "p50": 65.97065400000065,
+            "p95": 74.78138399999989,
+            "p99": 79.43822999999975,
+            "max": 80.61999999999898
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 62.968288158798266,
+            "p50": 62.535916000000725,
+            "p95": 72.02714600000036,
+            "p99": 74.47188400000005,
+            "max": 77.09884299999976
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 52.72968381545068,
+            "p50": 52.39253800000006,
+            "p95": 60.24115400000005,
+            "p99": 63.38092300000062,
+            "max": 66.69565299999977
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.212521583690975,
+            "p50": 4.288961999998719,
+            "p95": 4.461730000000898,
+            "p99": 4.568577000000005,
+            "max": 4.682999999999993
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.0127114913793,
+            "p50": 65.97065400000065,
+            "p95": 74.78138399999989,
+            "p99": 79.43822999999975,
+            "max": 80.61999999999898
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 62.968288158798266,
+              "p50": 62.535916000000725,
+              "p95": 72.02714600000036,
+              "p99": 74.47188400000005,
+              "max": 77.09884299999976
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 52.72968381545068,
+              "p50": 52.39253800000006,
+              "p95": 60.24115400000005,
+              "p99": 63.38092300000062,
+              "max": 66.69565299999977
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.212521583690975,
+              "p50": 4.288961999998719,
+              "p95": 4.461730000000898,
+              "p99": 4.568577000000005,
+              "max": 4.682999999999993
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.0127114913793,
+              "p50": 65.97065400000065,
+              "p95": 74.78138399999989,
+              "p99": 79.43822999999975,
+              "max": 80.61999999999898
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 34.4,
+          "p50": 34.4,
+          "p95": 34.4,
+          "p99": 34.4,
+          "max": 34.4
+        },
+        "batteryTemperatureFirstLastC": [
+          34.4,
+          34.4
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": true,
+        "processCgroup": "5:schedtune:/top-app\n4:memory:/\n3:cpuset:/top-app\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_22020\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "tablet-foreground-0-true",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": true,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.428843489,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 18938,
+        "cpuCoreEquivalent": 1.2274413188196416,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1134.5455550000001,
+          "p50": 1132.3453060000002,
+          "p95": 1136.7458040000001,
+          "p99": 1136.7458040000001,
+          "max": 1136.7458040000001
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 69.91515117167384,
+            "p50": 67.75864700000056,
+            "p95": 89.01498999999967,
+            "p99": 101.08445100000063,
+            "max": 116.04918200000066
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.80634397854078,
+            "p50": 54.62888399999974,
+            "p95": 60.94642299999987,
+            "p99": 64.43734600000016,
+            "max": 79.91673099999934
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.415211283261828,
+            "p50": 4.298885000000155,
+            "p95": 6.227653999999347,
+            "p99": 7.114039000000048,
+            "max": 7.176769000001514
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.20543297844827,
+            "p50": 65.79050000000007,
+            "p95": 72.95853799999895,
+            "p99": 76.21742300000005,
+            "max": 89.37023100000079
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 69.91515117167384,
+            "p50": 67.75864700000056,
+            "p95": 89.01498999999967,
+            "p99": 101.08445100000063,
+            "max": 116.04918200000066
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.80634397854078,
+            "p50": 54.62888399999974,
+            "p95": 60.94642299999987,
+            "p99": 64.43734600000016,
+            "max": 79.91673099999934
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.415211283261828,
+            "p50": 4.298885000000155,
+            "p95": 6.227653999999347,
+            "p99": 7.114039000000048,
+            "max": 7.176769000001514
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.20543297844827,
+            "p50": 65.79050000000007,
+            "p95": 72.95853799999895,
+            "p99": 76.21742300000005,
+            "max": 89.37023100000079
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 69.91515117167384,
+            "p50": 67.75864700000056,
+            "p95": 89.01498999999967,
+            "p99": 101.08445100000063,
+            "max": 116.04918200000066
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.80634397854078,
+            "p50": 54.62888399999974,
+            "p95": 60.94642299999987,
+            "p99": 64.43734600000016,
+            "max": 79.91673099999934
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.415211283261828,
+            "p50": 4.298885000000155,
+            "p95": 6.227653999999347,
+            "p99": 7.114039000000048,
+            "max": 7.176769000001514
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.20543297844827,
+            "p50": 65.79050000000007,
+            "p95": 72.95853799999895,
+            "p99": 76.21742300000005,
+            "max": 89.37023100000079
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 69.91515117167384,
+              "p50": 67.75864700000056,
+              "p95": 89.01498999999967,
+              "p99": 101.08445100000063,
+              "max": 116.04918200000066
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 54.80634397854078,
+              "p50": 54.62888399999974,
+              "p95": 60.94642299999987,
+              "p99": 64.43734600000016,
+              "max": 79.91673099999934
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.415211283261828,
+              "p50": 4.298885000000155,
+              "p95": 6.227653999999347,
+              "p99": 7.114039000000048,
+              "max": 7.176769000001514
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.20543297844827,
+              "p50": 65.79050000000007,
+              "p95": 72.95853799999895,
+              "p99": 76.21742300000005,
+              "max": 89.37023100000079
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 34.4,
+          "p50": 34.4,
+          "p95": 34.4,
+          "p99": 34.4,
+          "max": 34.4
+        },
+        "batteryTemperatureFirstLastC": [
+          34.4,
+          34.4
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": false,
+        "processCgroup": "5:schedtune:/foreground\n4:memory:/\n3:cpuset:/foreground\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_22440\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": false,
+        "comparisonLimitations": [
+          "Continuous awake-screen evidence missing or false"
+        ],
+        "directory": "tablet-foreground-1-false",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": null,
+        "endingInteractive": false,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.380183373,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 18891,
+        "cpuCoreEquivalent": 1.2282688406149473,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1128.4771114999999,
+          "p50": 1124.1857259999997,
+          "p95": 1132.768497,
+          "p99": 1132.768497,
+          "max": 1132.768497
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 70.66440577682403,
+            "p50": 68.97876499999984,
+            "p95": 83.38118500000019,
+            "p99": 89.66053099999954,
+            "max": 94.67225800000051
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.929348583691,
+            "p50": 54.80188400000043,
+            "p95": 59.9462309999999,
+            "p99": 63.45957599999929,
+            "max": 66.04061499999989
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.402927038626631,
+            "p50": 4.272692999998981,
+            "p95": 6.234193000000232,
+            "p99": 7.119115999999849,
+            "max": 7.217346000001271
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.03306145689655,
+            "p50": 65.77415400000064,
+            "p95": 73.33934599999975,
+            "p99": 76.05069200000003,
+            "max": 83.34884599999987
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 70.66440577682403,
+            "p50": 68.97876499999984,
+            "p95": 83.38118500000019,
+            "p99": 89.66053099999954,
+            "max": 94.67225800000051
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.929348583691,
+            "p50": 54.80188400000043,
+            "p95": 59.9462309999999,
+            "p99": 63.45957599999929,
+            "max": 66.04061499999989
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.402927038626631,
+            "p50": 4.272692999998981,
+            "p95": 6.234193000000232,
+            "p99": 7.119115999999849,
+            "max": 7.217346000001271
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.03306145689655,
+            "p50": 65.77415400000064,
+            "p95": 73.33934599999975,
+            "p99": 76.05069200000003,
+            "max": 83.34884599999987
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 70.66440577682403,
+            "p50": 68.97876499999984,
+            "p95": 83.38118500000019,
+            "p99": 89.66053099999954,
+            "max": 94.67225800000051
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.929348583691,
+            "p50": 54.80188400000043,
+            "p95": 59.9462309999999,
+            "p99": 63.45957599999929,
+            "max": 66.04061499999989
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.402927038626631,
+            "p50": 4.272692999998981,
+            "p95": 6.234193000000232,
+            "p99": 7.119115999999849,
+            "max": 7.217346000001271
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.03306145689655,
+            "p50": 65.77415400000064,
+            "p95": 73.33934599999975,
+            "p99": 76.05069200000003,
+            "max": 83.34884599999987
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 70.66440577682403,
+              "p50": 68.97876499999984,
+              "p95": 83.38118500000019,
+              "p99": 89.66053099999954,
+              "max": 94.67225800000051
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 54.929348583691,
+              "p50": 54.80188400000043,
+              "p95": 59.9462309999999,
+              "p99": 63.45957599999929,
+              "max": 66.04061499999989
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.402927038626631,
+              "p50": 4.272692999998981,
+              "p95": 6.234193000000232,
+              "p99": 7.119115999999849,
+              "max": 7.217346000001271
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.03306145689655,
+              "p50": 65.77415400000064,
+              "p95": 73.33934599999975,
+              "p99": 76.05069200000003,
+              "max": 83.34884599999987
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 34.4,
+          "p50": 34.4,
+          "p95": 34.4,
+          "p99": 34.4,
+          "max": 34.4
+        },
+        "batteryTemperatureFirstLastC": [
+          34.4,
+          34.4
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": false,
+        "processCgroup": "5:schedtune:/foreground\n4:memory:/\n3:cpuset:/foreground\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_22815\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": false,
+        "comparisonLimitations": [
+          "Continuous awake-screen evidence missing or false"
+        ],
+        "directory": "tablet-foreground-2-false",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": null,
+        "endingInteractive": false,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.373994527999999,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 17528,
+        "cpuCoreEquivalent": 1.1401070793980708,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1118.6834585000001,
+          "p50": 1114.1480730000003,
+          "p95": 1123.218844,
+          "p99": 1123.218844,
+          "max": 1123.218844
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 63.46688593562233,
+            "p50": 62.82122300000083,
+            "p95": 72.5793020000001,
+            "p99": 76.49449300000015,
+            "max": 78.58499799999981
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 52.79211074678112,
+            "p50": 52.413730999998734,
+            "p95": 59.74923099999978,
+            "p99": 65.18488500000012,
+            "max": 67.04592300000013
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.25067826180254,
+            "p50": 4.302191999999195,
+            "p95": 4.476654000000053,
+            "p99": 4.54700000000048,
+            "max": 4.676306999999952
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.99252813793103,
+            "p50": 65.3023460000004,
+            "p95": 75.9385000000002,
+            "p99": 78.98534600000016,
+            "max": 80.81611499999963
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 63.46688593562233,
+            "p50": 62.82122300000083,
+            "p95": 72.5793020000001,
+            "p99": 76.49449300000015,
+            "max": 78.58499799999981
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 52.79211074678112,
+            "p50": 52.413730999998734,
+            "p95": 59.74923099999978,
+            "p99": 65.18488500000012,
+            "max": 67.04592300000013
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.25067826180254,
+            "p50": 4.302191999999195,
+            "p95": 4.476654000000053,
+            "p99": 4.54700000000048,
+            "max": 4.676306999999952
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.99252813793103,
+            "p50": 65.3023460000004,
+            "p95": 75.9385000000002,
+            "p99": 78.98534600000016,
+            "max": 80.81611499999963
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 63.46688593562233,
+            "p50": 62.82122300000083,
+            "p95": 72.5793020000001,
+            "p99": 76.49449300000015,
+            "max": 78.58499799999981
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 52.79211074678112,
+            "p50": 52.413730999998734,
+            "p95": 59.74923099999978,
+            "p99": 65.18488500000012,
+            "max": 67.04592300000013
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.25067826180254,
+            "p50": 4.302191999999195,
+            "p95": 4.476654000000053,
+            "p99": 4.54700000000048,
+            "max": 4.676306999999952
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.99252813793103,
+            "p50": 65.3023460000004,
+            "p95": 75.9385000000002,
+            "p99": 78.98534600000016,
+            "max": 80.81611499999963
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 63.46688593562233,
+              "p50": 62.82122300000083,
+              "p95": 72.5793020000001,
+              "p99": 76.49449300000015,
+              "max": 78.58499799999981
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 52.79211074678112,
+              "p50": 52.413730999998734,
+              "p95": 59.74923099999978,
+              "p99": 65.18488500000012,
+              "max": 67.04592300000013
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.25067826180254,
+              "p50": 4.302191999999195,
+              "p95": 4.476654000000053,
+              "p99": 4.54700000000048,
+              "max": 4.676306999999952
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 65.99252813793103,
+              "p50": 65.3023460000004,
+              "p95": 75.9385000000002,
+              "p99": 78.98534600000016,
+              "max": 80.81611499999963
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 34.4,
+          "p50": 34.4,
+          "p95": 34.4,
+          "p99": 34.4,
+          "max": 34.4
+        },
+        "batteryTemperatureFirstLastC": [
+          34.4,
+          34.4
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": true,
+        "processCgroup": "5:schedtune:/top-app\n4:memory:/\n3:cpuset:/top-app\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_23156\n",
+        "controlKeepAwake": false,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "tablet-foreground-3-true",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "e65bc16adce7101714bb870e14b21a4b7fc90a84a7c3b2d4e2b048bdf9168556",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": true,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": null,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      }
+    ],
+    "pairedComparisonUsable": false,
+    "limitations": [
+      "One or more control runs failed their context/gesture gate"
+    ],
+    "foregroundP95Ms": [
+      72.02714600000036,
+      72.5793020000001
+    ],
+    "backgroundP95Ms": [
+      89.01498999999967,
+      83.38118500000019
+    ],
+    "backgroundForegroundMeanP95Ratio": null
+  },
+  "tablet-awake": {
+    "runs": [
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.377882258,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 17650,
+        "cpuCoreEquivalent": 1.1477523175089979,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1120.0213425000002,
+          "p50": 1116.766036,
+          "p95": 1123.2766490000004,
+          "p99": 1123.2766490000004,
+          "max": 1123.2766490000004
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 63.8438155622318,
+            "p50": 63.48945400000048,
+            "p95": 72.884961,
+            "p99": 77.94761500000004,
+            "max": 80.31046100000003
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 53.02670065665232,
+            "p50": 52.59626900000001,
+            "p95": 60.491461999999956,
+            "p99": 65.17103799999995,
+            "max": 68.18965399999979
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.243750072961367,
+            "p50": 4.316307000000052,
+            "p95": 4.472884999999906,
+            "p99": 4.611423000000286,
+            "max": 6.433385000000271
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.00691954741379,
+            "p50": 65.53111600000011,
+            "p95": 75.7509229999996,
+            "p99": 80.17484599999989,
+            "max": 87.98973099999967
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 63.8438155622318,
+            "p50": 63.48945400000048,
+            "p95": 72.884961,
+            "p99": 77.94761500000004,
+            "max": 80.31046100000003
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 53.02670065665232,
+            "p50": 52.59626900000001,
+            "p95": 60.491461999999956,
+            "p99": 65.17103799999995,
+            "max": 68.18965399999979
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.243750072961367,
+            "p50": 4.316307000000052,
+            "p95": 4.472884999999906,
+            "p99": 4.611423000000286,
+            "max": 6.433385000000271
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.00691954741379,
+            "p50": 65.53111600000011,
+            "p95": 75.7509229999996,
+            "p99": 80.17484599999989,
+            "max": 87.98973099999967
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 63.8438155622318,
+            "p50": 63.48945400000048,
+            "p95": 72.884961,
+            "p99": 77.94761500000004,
+            "max": 80.31046100000003
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 53.02670065665232,
+            "p50": 52.59626900000001,
+            "p95": 60.491461999999956,
+            "p99": 65.17103799999995,
+            "max": 68.18965399999979
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.243750072961367,
+            "p50": 4.316307000000052,
+            "p95": 4.472884999999906,
+            "p99": 4.611423000000286,
+            "max": 6.433385000000271
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.00691954741379,
+            "p50": 65.53111600000011,
+            "p95": 75.7509229999996,
+            "p99": 80.17484599999989,
+            "max": 87.98973099999967
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 63.8438155622318,
+              "p50": 63.48945400000048,
+              "p95": 72.884961,
+              "p99": 77.94761500000004,
+              "max": 80.31046100000003
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 53.02670065665232,
+              "p50": 52.59626900000001,
+              "p95": 60.491461999999956,
+              "p99": 65.17103799999995,
+              "max": 68.18965399999979
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.243750072961367,
+              "p50": 4.316307000000052,
+              "p95": 4.472884999999906,
+              "p99": 4.611423000000286,
+              "max": 6.433385000000271
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.00691954741379,
+              "p50": 65.53111600000011,
+              "p95": 75.7509229999996,
+              "p99": 80.17484599999989,
+              "max": 87.98973099999967
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.9,
+          "p50": 32.9,
+          "p95": 32.9,
+          "p99": 32.9,
+          "max": 32.9
+        },
+        "batteryTemperatureFirstLastC": [
+          32.9,
+          32.9
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": true,
+        "processCgroup": "5:schedtune:/top-app\n4:memory:/\n3:cpuset:/top-app\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_23721\n",
+        "controlKeepAwake": true,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "tablet-foreground-awake-0-true",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "bcf10a544bfe228b5f513d07be896d8e43676e2732f7bdd10eba3e5f4e49f4f9",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": true,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": true,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.406704258,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 18726,
+        "cpuCoreEquivalent": 1.2154448924581933,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1120.273073,
+          "p50": 1119.342149,
+          "p95": 1121.203997,
+          "p99": 1121.203997,
+          "max": 1121.203997
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 67.2751686051502,
+            "p50": 66.41480100000081,
+            "p95": 77.69661199999973,
+            "p99": 84.21911399999999,
+            "max": 93.66718100000071
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.555042193133026,
+            "p50": 54.146615999999995,
+            "p95": 59.84473100000014,
+            "p99": 64.48484599999983,
+            "max": 70.87842300000011
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.2612925236051495,
+            "p50": 4.176345999999285,
+            "p95": 5.545423000000028,
+            "p99": 7.185116000000562,
+            "max": 7.202500000001237
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.12805714655173,
+            "p50": 65.545615,
+            "p95": 74.42673099999956,
+            "p99": 78.26342300000033,
+            "max": 84.1018839999997
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 67.2751686051502,
+            "p50": 66.41480100000081,
+            "p95": 77.69661199999973,
+            "p99": 84.21911399999999,
+            "max": 93.66718100000071
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.555042193133026,
+            "p50": 54.146615999999995,
+            "p95": 59.84473100000014,
+            "p99": 64.48484599999983,
+            "max": 70.87842300000011
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.2612925236051495,
+            "p50": 4.176345999999285,
+            "p95": 5.545423000000028,
+            "p99": 7.185116000000562,
+            "max": 7.202500000001237
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.12805714655173,
+            "p50": 65.545615,
+            "p95": 74.42673099999956,
+            "p99": 78.26342300000033,
+            "max": 84.1018839999997
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 67.2751686051502,
+            "p50": 66.41480100000081,
+            "p95": 77.69661199999973,
+            "p99": 84.21911399999999,
+            "max": 93.66718100000071
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.555042193133026,
+            "p50": 54.146615999999995,
+            "p95": 59.84473100000014,
+            "p99": 64.48484599999983,
+            "max": 70.87842300000011
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.2612925236051495,
+            "p50": 4.176345999999285,
+            "p95": 5.545423000000028,
+            "p99": 7.185116000000562,
+            "max": 7.202500000001237
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.12805714655173,
+            "p50": 65.545615,
+            "p95": 74.42673099999956,
+            "p99": 78.26342300000033,
+            "max": 84.1018839999997
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 67.2751686051502,
+              "p50": 66.41480100000081,
+              "p95": 77.69661199999973,
+              "p99": 84.21911399999999,
+              "max": 93.66718100000071
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 54.555042193133026,
+              "p50": 54.146615999999995,
+              "p95": 59.84473100000014,
+              "p99": 64.48484599999983,
+              "max": 70.87842300000011
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.2612925236051495,
+              "p50": 4.176345999999285,
+              "p95": 5.545423000000028,
+              "p99": 7.185116000000562,
+              "max": 7.202500000001237
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.12805714655173,
+              "p50": 65.545615,
+              "p95": 74.42673099999956,
+              "p99": 78.26342300000033,
+              "max": 84.1018839999997
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.9,
+          "p50": 32.9,
+          "p95": 32.9,
+          "p99": 32.9,
+          "max": 32.9
+        },
+        "batteryTemperatureFirstLastC": [
+          32.9,
+          32.9
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": false,
+        "processCgroup": "5:schedtune:/foreground\n4:memory:/\n3:cpuset:/foreground\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_24184\n",
+        "controlKeepAwake": true,
+        "comparisonUsable": false,
+        "comparisonLimitations": [
+          "Continuous awake-screen evidence missing or false"
+        ],
+        "directory": "tablet-foreground-awake-1-false",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "bcf10a544bfe228b5f513d07be896d8e43676e2732f7bdd10eba3e5f4e49f4f9",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": null,
+        "endingInteractive": false,
+        "endingControlWakeLockHeld": true,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.407992335000001,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 18799,
+        "cpuCoreEquivalent": 1.2200810846262664,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1126.749727,
+          "p50": 1125.1520719999999,
+          "p95": 1128.347382,
+          "p99": 1128.347382,
+          "max": 1128.347382
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 67.10249888412017,
+            "p50": 66.88141600000017,
+            "p95": 75.65418899999986,
+            "p99": 82.07318300000043,
+            "max": 94.89452700000038
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.591026892703844,
+            "p50": 54.35107699999935,
+            "p95": 59.896576999999525,
+            "p99": 62.4415769999996,
+            "max": 66.02784599999904
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.3678991244635,
+            "p50": 4.21642299999985,
+            "p95": 6.321346000000631,
+            "p99": 7.202883999998448,
+            "max": 7.533539000000019
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.13568181465517,
+            "p50": 65.46734600000127,
+            "p95": 73.73184700000002,
+            "p99": 77.16615400000046,
+            "max": 78.28561600000103
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 67.10249888412017,
+            "p50": 66.88141600000017,
+            "p95": 75.65418899999986,
+            "p99": 82.07318300000043,
+            "max": 94.89452700000038
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.591026892703844,
+            "p50": 54.35107699999935,
+            "p95": 59.896576999999525,
+            "p99": 62.4415769999996,
+            "max": 66.02784599999904
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.3678991244635,
+            "p50": 4.21642299999985,
+            "p95": 6.321346000000631,
+            "p99": 7.202883999998448,
+            "max": 7.533539000000019
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.13568181465517,
+            "p50": 65.46734600000127,
+            "p95": 73.73184700000002,
+            "p99": 77.16615400000046,
+            "max": 78.28561600000103
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 67.10249888412017,
+            "p50": 66.88141600000017,
+            "p95": 75.65418899999986,
+            "p99": 82.07318300000043,
+            "max": 94.89452700000038
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 54.591026892703844,
+            "p50": 54.35107699999935,
+            "p95": 59.896576999999525,
+            "p99": 62.4415769999996,
+            "max": 66.02784599999904
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.3678991244635,
+            "p50": 4.21642299999985,
+            "p95": 6.321346000000631,
+            "p99": 7.202883999998448,
+            "max": 7.533539000000019
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 66.13568181465517,
+            "p50": 65.46734600000127,
+            "p95": 73.73184700000002,
+            "p99": 77.16615400000046,
+            "max": 78.28561600000103
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 67.10249888412017,
+              "p50": 66.88141600000017,
+              "p95": 75.65418899999986,
+              "p99": 82.07318300000043,
+              "max": 94.89452700000038
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 54.591026892703844,
+              "p50": 54.35107699999935,
+              "p95": 59.896576999999525,
+              "p99": 62.4415769999996,
+              "max": 66.02784599999904
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.3678991244635,
+              "p50": 4.21642299999985,
+              "p95": 6.321346000000631,
+              "p99": 7.202883999998448,
+              "max": 7.533539000000019
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 66.13568181465517,
+              "p50": 65.46734600000127,
+              "p95": 73.73184700000002,
+              "p99": 77.16615400000046,
+              "max": 78.28561600000103
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.95,
+          "p50": 32.9,
+          "p95": 33.0,
+          "p99": 33.0,
+          "max": 33.0
+        },
+        "batteryTemperatureFirstLastC": [
+          32.9,
+          33.0
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": false,
+        "processCgroup": "5:schedtune:/foreground\n4:memory:/\n3:cpuset:/foreground\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_24524\n",
+        "controlKeepAwake": true,
+        "comparisonUsable": false,
+        "comparisonLimitations": [
+          "Continuous awake-screen evidence missing or false"
+        ],
+        "directory": "tablet-foreground-awake-2-false",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "bcf10a544bfe228b5f513d07be896d8e43676e2732f7bdd10eba3e5f4e49f4f9",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": null,
+        "endingInteractive": false,
+        "endingControlWakeLockHeld": true,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      },
+      {
+        "run": "prepared-66-serial-1",
+        "primaryDelegate": "GPU",
+        "mode": "serial",
+        "durationSeconds": 15.376268412,
+        "cycles": 1,
+        "inputFrames": 233,
+        "accepted": 233,
+        "dropped": 0,
+        "peakOwnedImages": 1,
+        "processCpuMs": 17609,
+        "cpuCoreEquivalent": 1.1452063353848274,
+        "retainedPreparationNativeCallOverlapMs": 0.0,
+        "preparationOverlapCoverage": "complete",
+        "caseCount": 10,
+        "expectedActivations": 2,
+        "observedActivations": 2,
+        "failedCases": [],
+        "activationDeliveryFromOnsetMs": {
+          "n": 2,
+          "mean": 1117.191189,
+          "p50": 1115.8718439999998,
+          "p95": 1118.510534,
+          "p99": 1118.510534,
+          "max": 1118.510534
+        },
+        "overall": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 64.131256832618,
+            "p50": 63.701993000000584,
+            "p95": 73.7094219999999,
+            "p99": 77.14138300000013,
+            "max": 77.19845499999974
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 53.289224781115855,
+            "p50": 53.11750000000029,
+            "p95": 60.12846200000001,
+            "p99": 63.07961499999965,
+            "max": 67.94388499999877
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.243747429184541,
+            "p50": 4.300462000000152,
+            "p95": 4.453577000000223,
+            "p99": 4.601423000000068,
+            "max": 4.6926149999999325
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.98609726724138,
+            "p50": 65.56061599999975,
+            "p95": 74.52053899999919,
+            "p99": 79.32257700000082,
+            "max": 84.04038500000024
+          }
+        },
+        "early": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 64.131256832618,
+            "p50": 63.701993000000584,
+            "p95": 73.7094219999999,
+            "p99": 77.14138300000013,
+            "max": 77.19845499999974
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 53.289224781115855,
+            "p50": 53.11750000000029,
+            "p95": 60.12846200000001,
+            "p99": 63.07961499999965,
+            "max": 67.94388499999877
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.243747429184541,
+            "p50": 4.300462000000152,
+            "p95": 4.453577000000223,
+            "p99": 4.601423000000068,
+            "max": 4.6926149999999325
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.98609726724138,
+            "p50": 65.56061599999975,
+            "p95": 74.52053899999919,
+            "p99": 79.32257700000082,
+            "max": 84.04038500000024
+          }
+        },
+        "late": {
+          "startMs": 0,
+          "endMs": 15378,
+          "accepted": 233,
+          "freshFps": 15.151515151515152,
+          "present": 233,
+          "ageMs": {
+            "n": 233,
+            "mean": 64.131256832618,
+            "p50": 63.701993000000584,
+            "p95": 73.7094219999999,
+            "p99": 77.14138300000013,
+            "max": 77.19845499999974
+          },
+          "nativeMs": {
+            "n": 233,
+            "mean": 53.289224781115855,
+            "p50": 53.11750000000029,
+            "p95": 60.12846200000001,
+            "p99": 63.07961499999965,
+            "max": 67.94388499999877
+          },
+          "prepareMs": {
+            "n": 233,
+            "mean": 4.243747429184541,
+            "p50": 4.300462000000152,
+            "p95": 4.453577000000223,
+            "p99": 4.601423000000068,
+            "max": 4.6926149999999325
+          },
+          "freshGapMs": {
+            "n": 232,
+            "mean": 65.98609726724138,
+            "p50": 65.56061599999975,
+            "p95": 74.52053899999919,
+            "p99": 79.32257700000082,
+            "max": 84.04038500000024
+          }
+        },
+        "lateEarlyP95Ratio": 1.0,
+        "degradationFlag": false,
+        "minuteWindows": [
+          {
+            "startMs": 0,
+            "endMs": 15378,
+            "accepted": 233,
+            "freshFps": 15.151515151515152,
+            "present": 233,
+            "ageMs": {
+              "n": 233,
+              "mean": 64.131256832618,
+              "p50": 63.701993000000584,
+              "p95": 73.7094219999999,
+              "p99": 77.14138300000013,
+              "max": 77.19845499999974
+            },
+            "nativeMs": {
+              "n": 233,
+              "mean": 53.289224781115855,
+              "p50": 53.11750000000029,
+              "p95": 60.12846200000001,
+              "p99": 63.07961499999965,
+              "max": 67.94388499999877
+            },
+            "prepareMs": {
+              "n": 233,
+              "mean": 4.243747429184541,
+              "p50": 4.300462000000152,
+              "p95": 4.453577000000223,
+              "p99": 4.601423000000068,
+              "max": 4.6926149999999325
+            },
+            "freshGapMs": {
+              "n": 232,
+              "mean": 65.98609726724138,
+              "p50": 65.56061599999975,
+              "p95": 74.52053899999919,
+              "p99": 79.32257700000082,
+              "max": 84.04038500000024
+            }
+          }
+        ],
+        "telemetrySamples": 2,
+        "thermalStatusCounts": {
+          "0": 2
+        },
+        "headroom": null,
+        "batteryTemperatureC": {
+          "n": 2,
+          "mean": 32.9,
+          "p50": 32.9,
+          "p95": 32.9,
+          "p99": 32.9,
+          "max": 32.9
+        },
+        "batteryTemperatureFirstLastC": [
+          32.9,
+          32.9
+        ],
+        "chargingStates": [
+          2
+        ],
+        "energyWh": null,
+        "energyLimitation": "USB powered; battery counters do not measure device input power",
+        "sustainedDurationCovered": false,
+        "semanticCasesPassed": true,
+        "foregroundActivity": true,
+        "processCgroup": "5:schedtune:/top-app\n4:memory:/\n3:cpuset:/top-app\n2:cpu:/\n1:blkio:/\n0::/uid_10240/pid_24856\n",
+        "controlKeepAwake": true,
+        "comparisonUsable": true,
+        "comparisonLimitations": [],
+        "directory": "tablet-foreground-awake-3-true",
+        "manifest": {
+          "serial": "R9JT201YLJF",
+          "appApkSha256": "ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6",
+          "frameManifestSha256": "1144269fb9c7f07d75424f016ea201143fc1b83d62aec452fd2de76c6a0a93fd",
+          "runs": [
+            {
+              "run": "prepared-66-serial-1",
+              "mode": "serial",
+              "testApkSha256": "bcf10a544bfe228b5f513d07be896d8e43676e2732f7bdd10eba3e5f4e49f4f9",
+              "sleepState": {
+                "display": [
+                  "OFF"
+                ],
+                "wakefulness": [
+                  "Dozing"
+                ]
+              }
+            }
+          ],
+          "finalSleepState": {
+            "display": [
+              "OFF"
+            ],
+            "wakefulness": [
+              "Dozing"
+            ]
+          }
+        },
+        "cleanup": {
+          "display": [
+            "OFF"
+          ],
+          "wakefulness": [
+            "Dozing"
+          ]
+        },
+        "foregroundWindowFocusAfterWarmup": true,
+        "endingInteractive": true,
+        "endingControlWakeLockHeld": true,
+        "screenStates": [
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          },
+          {
+            "interactive": true,
+            "keyguardLocked": false,
+            "deviceLocked": false
+          }
+        ]
+      }
+    ],
+    "pairedComparisonUsable": false,
+    "limitations": [
+      "One or more control runs failed their context/gesture gate"
+    ],
+    "foregroundP95Ms": [
+      72.884961,
+      73.7094219999999
+    ],
+    "backgroundP95Ms": [
+      77.69661199999973,
+      75.65418899999986
+    ],
+    "backgroundForegroundMeanP95Ratio": null
+  }
+}

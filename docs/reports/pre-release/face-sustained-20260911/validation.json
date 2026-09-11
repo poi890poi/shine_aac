@@ -1,0 +1,15 @@
+{
+  "sustainedConditions": 6,
+  "sustainedMinutes": 181.45849484183333,
+  "sustainedCases": 7080,
+  "sustainedExpectedActivations": 1416,
+  "sustainedObservedActivations": 1416,
+  "sustainedDegradationFlags": [],
+  "foregroundControls": 12,
+  "usableForegroundControls": 4,
+  "rejectedForegroundBatchControls": 8,
+  "foregroundCases": 120,
+  "nativeEvidenceValidated": true,
+  "fullAppReleasePass": false,
+  "energyMeasured": false
+}

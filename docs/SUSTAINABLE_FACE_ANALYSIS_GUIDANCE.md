@@ -1,12 +1,14 @@
 # Sustainable face analysis: platform guidance and SHINE decisions
 
-Reviewed 11 September 2026 against official Android, Arm, Qualcomm, MediaTek, MediaPipe and ML Kit documentation. Repository baseline: `2b4275b`. This is a research and benchmark-design document; it changes no application behavior and claims no new thermal or power test PASS.
+Reviewed 11 September 2026 against official Android, Arm, Qualcomm, MediaTek, MediaPipe and ML Kit documentation. Original literature-review baseline: `2b4275b`; subsequent native replay measurements are linked below. This document changes no application behavior and claims no full-app thermal or power test PASS.
 
 ## Decision
 
 Optimize for **reliable communication throughout a session at the lowest practical energy cost**. Peak FPS is diagnostic. A candidate must preserve calibrated gestures, timely fresh observations and a responsive AAC interface after the device has warmed up.
 
-Our existing evidence favors testing one GPU analyzer with overlapped preparation on the phone. It does not establish an energy saving. Two complete CPU/GPU analyzers nearly doubled saturated throughput but changed expression scores; their usefulness at normal cadence depends on the device and stimulus. Keep both experiments out of production defaults until sustained, calibrated app tests pass. See the [existing overlap report](reports/pre-release/face-overlap-20260911/report.md).
+The earlier short benchmark favored testing one GPU analyzer with overlapped preparation on the phone. The subsequent [sustained screen and visibility control](reports/pre-release/face-sustained-20260911/report.md) changes that priority: visible-app phone p95 was 39.4 ms CPU, 41.0 ms GPU and 41.2 ms with preparation overlap, with no measured preparation/native-call overlap at 66 ms cadence. GPU's lower observed maximum age needs replication. The Activity-present/absent/absent/present control reproduced approximately 44–46 ms versus 116–124 ms GPU p95 with awake/unlocked evidence and different scheduling groups. Treat app visibility as a controlled benchmark condition, not an incidental detail.
+
+The tablet's first sustained GPU observation was faster than CPU (61.7 versus 84.3 ms p95); prioritize a counterbalanced repeat and real-camera integration before changing defaults. These native replay tests do not establish energy savings, cheek-gesture equivalence or calibrated full-app behavior. Two complete CPU/GPU analyzers nearly doubled earlier saturated throughput but changed expression scores; their usefulness at normal cadence depends on the device, stimulus and scheduling context. Keep all candidates out of production defaults until sustained, calibrated app tests pass. The [earlier overlap report](reports/pre-release/face-overlap-20260911/report.md) remains historical evidence with its original conditions.
 
 ## What the platform guidance actually says
 
@@ -110,11 +112,11 @@ Use hysteresis and a cooldown dwell for recovery so settings do not oscillate. P
 
 | Priority | Experiment | Why this comes next |
 |---|---|---|
-| 1 | Add sustained telemetry and capability reporting to the app benchmark harness | Current short-run status snapshots cannot answer the thermal/energy question |
-| 2 | Run CPU versus GPU, then the phone's preparation-overlap comparison, with unchanged semantics | Strongest existing evidence and smallest implementation scope |
+| 1 | Counterbalance tablet CPU/GPU and repeat phone tail latency in matched visible-app context; then include real camera and calibrated gestures | The first 30-minute replay screen and visibility controls narrow the candidates but do not validate deployed behavior |
+| 2 | Carry sustained telemetry into full-app sessions and add supported whole-device power measurement | Native replay telemetry now exists; USB-powered battery counters cannot answer the energy question |
 | 3 | Reduce verified camera/preprocessing copies and unnecessary allocation; measure runtime thread count where configurable | Can remove work rather than keep more hardware busy |
 | 4 | Evaluate supported Android efficiency hints and sustained mode individually | Potential scheduling benefit without replacing the model |
 | 5 | Profile/port a supported model subgraph to Qualcomm or MediaTek NPU on a named compatible device | Potentially larger efficiency opportunity, with substantial integration and validation cost |
 | 6 | Study minimal ML Kit blink detection or a smaller purpose-built model | Separate detector/calibration change; cheek support remains unresolved |
 
-No device was woken for this study. No new SDK was installed, private data uploaded, runtime altered or thermal benchmark claimed. Vendor documents describe possibilities; only measured performance, energy and gesture correctness on our target devices can choose the production path.
+The original literature review woke no devices and installed no SDK. The separately linked benchmark campaign used the shared rigs under acknowledged leases, with display-off cleanup and unchanged production app/settings. It measured native timing and thermal traces, not whole-device energy or full-app thermal acceptance. Vendor documents describe possibilities; measured performance, energy and gesture correctness on our target devices must choose the production path.

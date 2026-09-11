@@ -2,6 +2,8 @@
 
 **Decision: retain both mechanisms as test-only experiments.** Overlapping CPU image preparation with one GPU analyzer is the smaller, promising candidate for the phone's 66 ms path. Concurrent complete CPU/GPU analyzers roughly double saturated fresh throughput, but add little throughput at normal sampling intervals and mix separate tracking histories. Neither has enough evidence for a production default change.
 
+**Subsequent evidence:** the [30-minute screen and foreground scheduling control](../face-sustained-20260911/report.md) supersedes the phone preparation-overlap priority above. This earlier benchmark did not launch a foreground Activity. The later ABBA visibility control reproduced much slower phone GPU timings without an Activity, while the visible-app sustained phone run recorded no preparation/native-call overlap and no p95 advantage from the worker. Preserve these earlier measurements as results of their original scheduling context, not as visible-app performance estimates. Production defaults remain unchanged.
+
 ## Contract and impact
 
 Type: benchmark tooling and performance investigation. Parent revision `ba0536673abce9ebc0f75557526d9367c10909e9`. The installed app remains the prior CPU-default APK (SHA-256 `ae791b04bd47747c3241ebab46db6ad3fe491cbb4fcc32ff9e94afe7b02b30e6`). Only the instrumentation APK was installed. There are no changes to runtime camera code, model, calibration, thresholds, sampling defaults, user settings, artwork, or AAC behavior. This is not a release or a claim of faster deployed app behavior.

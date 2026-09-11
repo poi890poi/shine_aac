@@ -1,0 +1,36 @@
+{
+  "verifiedUtc": "2026-09-11T06:19:32.499421+00:00",
+  "baseUrl": "https://recreational-instruments-paid-moses.trycloudflare.com/",
+  "files": {
+    "face-sustained-review-20260911.html": {
+      "status": 200,
+      "bytes": 14436,
+      "sha256": "572d28355c7514cecd724caa90f77c4bcde6a1bab1e25000385b3c6eed1674bb"
+    },
+    "face-sustained-report-20260911.md": {
+      "status": 200,
+      "bytes": 12372,
+      "sha256": "45bfcd40880bb5a834e0205747050b7ad848bc2873031e6e472de9d9bf89b51a"
+    },
+    "face-sustained-results-20260911.json": {
+      "status": 200,
+      "bytes": 255247,
+      "sha256": "6af5c839ff7189fc65c90b8919e6cc60f705ac4e177fb0d0f7e54bb052968f70"
+    },
+    "face-sustained-trends-20260911.png": {
+      "status": 200,
+      "bytes": 328087,
+      "sha256": "f3043e584b05bf8b19a68d8eccd76b9e44f98d06b6dbc7c5e4c91bf07b99e4e5"
+    },
+    "face-sustained-foreground-20260911.json": {
+      "status": 200,
+      "bytes": 102179,
+      "sha256": "a028782ab61b6ddb8881a5917267396b25beba41049644d3e16ba02c334bff59"
+    },
+    "face-sustained-evidence-20260911.zip": {
+      "status": 200,
+      "bytes": 14760380,
+      "sha256": "0280b345297fc8aae86a985b328089cf8d9f4e9bd499eda44bf8fff05f12f7ff"
+    }
+  }
+}
