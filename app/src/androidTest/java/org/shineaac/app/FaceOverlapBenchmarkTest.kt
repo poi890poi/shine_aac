@@ -13,6 +13,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.view.WindowManager
+import android.app.KeyguardManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -123,6 +124,7 @@ class FaceOverlapBenchmarkTest {
         require(durationSeconds in 0..3600 && (durationSeconds == 0L || periodMs > 0))
         val primaryDelegate = Delegate.valueOf(args.getString("primaryDelegate") ?: "GPU")
         require(primaryDelegate == Delegate.GPU || (mode == "serial" && !paired))
+        val foregroundActivity = args.getString("foregroundActivity") != "false"
         val runId = requireNotNull(args.getString("benchmarkRun"))
         require(runId.matches(Regex("[a-z0-9-]+")))
         val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "public-face-benchmark")
@@ -165,7 +167,7 @@ class FaceOverlapBenchmarkTest {
             ((durationSeconds * 1000 + inputs.size * periodMs - 1) / (inputs.size * periodMs)).toInt()
         val inputCount = inputs.size * cycles
         val workers = mutableListOf<Worker>()
-        val screen = if (durationSeconds > 0) ActivityScenario.launch(SettingsActivity::class.java).also {
+        val screen = if (durationSeconds > 0 && foregroundActivity) ActivityScenario.launch(SettingsActivity::class.java).also {
             it.onActivity { activity -> activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
         } else null
         val telemetryStop = AtomicBoolean(false)
@@ -173,10 +175,13 @@ class FaceOverlapBenchmarkTest {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             File(directory, "$runId-telemetry.jsonl").bufferedWriter().use { writer ->
                 while (!telemetryStop.get()) {
                     val row = JSONObject().put("elapsedRealtimeMs", android.os.SystemClock.elapsedRealtime())
                         .put("processCpuMs", Process.getElapsedCpuTime()).put("pssKb", Debug.getPss())
+                        .put("interactive", power.isInteractive)
+                        .put("keyguardLocked", keyguard.isKeyguardLocked).put("deviceLocked", keyguard.isDeviceLocked)
                     try {
                         row.put("thermalStatus", if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus else JSONObject.NULL)
                         val headroom = if (Build.VERSION.SDK_INT >= 30) power.getThermalHeadroom(0) else Float.NaN
@@ -195,6 +200,7 @@ class FaceOverlapBenchmarkTest {
             }
         }, "Overlap-telemetry").also { it.start() } else null
         try {
+            val schedulingGroup = try { File("/proc/self/cgroup").readText() } catch (error: Exception) { error.toString() }
             workers += Worker(primaryDelegate)
             if (paired) workers += Worker(Delegate.CPU)
             workers.forEach { worker ->
@@ -204,6 +210,8 @@ class FaceOverlapBenchmarkTest {
                     result.error?.let { throw it }
                 }
             }
+            var foregroundWindowFocus: Boolean? = null
+            screen?.onActivity { foregroundWindowFocus = it.hasWindowFocus() }
             preparations.set(0); peakOwned.set(0)
             val lock = Object()
             var raw: Captured? = null
@@ -349,6 +357,10 @@ class FaceOverlapBenchmarkTest {
                 .put("periodMs", periodMs).put("inputFrames", inputCount).put("preparations", preparations.get())
                 .put("cycles", cycles).put("cycleFrames", inputs.size).put("primaryDelegate", primaryDelegate.name)
                 .put("requestedDurationSeconds", durationSeconds).put("landmarksRetained", durationSeconds == 0L)
+                .put("foregroundActivity", foregroundActivity && durationSeconds > 0).put("processCgroup", schedulingGroup)
+                .put("foregroundWindowFocusAfterWarmup", foregroundWindowFocus ?: JSONObject.NULL)
+                .put("endingInteractive", (InstrumentationRegistry.getInstrumentation().targetContext
+                    .getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive)
                 .put("droppedRaw", droppedRaw).put("droppedPrepared", droppedReady).put("peakOwnedImages", peakOwned.get())
                 .put("elapsedMs", (endNs-startNs)/1e6).put("processCpuMs", cpuEndMs-cpuStartMs)
                 .put("warmupPerWorker", 30).put("nativeTimestampPolicy", "capture-time when paced; source-time when saturated")

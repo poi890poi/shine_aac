@@ -137,6 +137,7 @@ def run(args):
                          'org.shineaac.app.FaceOverlapBenchmarkTest', '-e', 'overlapMode', mode,
                          '-e', 'periodMs', str(args.period_ms), '-e', 'frameWidth', str(args.frame_width), '-e', 'pairedModels', str(candidate == 'dual').lower(),
                          '-e', 'durationSeconds', str(args.duration_seconds), '-e', 'primaryDelegate', args.primary_delegate,
+                         '-e', 'foregroundActivity', args.foreground_activity,
                          '-e', 'benchmarkRun', run_id, PACKAGE + '.test/androidx.test.runner.AndroidJUnitRunner')
             finally:
                 monitor_stop.set()
@@ -182,6 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('--single-mode', choices=('serial', 'prepared'))
     parser.add_argument('--duration-seconds', type=int, default=0)
     parser.add_argument('--primary-delegate', choices=('CPU', 'GPU'), default='GPU')
+    parser.add_argument('--foreground-activity', choices=('true', 'false'), default='true')
     parser.add_argument('--frame-width', type=int, choices=(320, 480), default=320)
     parser.add_argument('--period-ms', type=int, choices=(0, 33, 66, 100), required=True)
     for name in ('frames', 'app-apk', 'test-apk', 'output'): parser.add_argument('--' + name, type=pathlib.Path, required=True)

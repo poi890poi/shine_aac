@@ -19,6 +19,11 @@ def fixture():
 
 
 class SustainedReportTest(unittest.TestCase):
+    def test_preparation_native_overlap_requires_simultaneous_intervals(self):
+        self.assertEqual(0, REPORT.interval_overlap([(0, 2), (10, 12)], [(2, 8), (12, 18)]))
+        self.assertEqual(3, REPORT.interval_overlap([(0, 2), (10, 14)], [(1, 5), (12, 18)]))
+        self.assertEqual(0, REPORT.interval_overlap([], [(1, 5)]))
+
     def test_sensor_summary_uses_current_hal_not_stale_cached_reading(self):
         out = REPORT.host_summary([{'display': ['ON'], 'thermal':
             'Cached temperatures:\nTemperature{mValue=90.0, mType=-1, mName=soc, mStatus=0}\n'
@@ -64,6 +69,23 @@ class SustainedReportTest(unittest.TestCase):
         out = REPORT.summarize(fixture(), [{'thermalHeadroom': None, 'thermalStatus': 0, 'plugged': 2}])
         self.assertIsNone(out['headroom'])
         self.assertEqual({'0': 1}, out['thermalStatusCounts'])
+
+    def test_foreground_control_requires_awake_evidence_including_end(self):
+        data = fixture()
+        data.update(periodMs=66, frameWidth=320, cycles=1, cycleFrames=4,
+                    foregroundActivity=False, endingInteractive=True)
+        awake = {'interactive': True, 'keyguardLocked': False, 'deviceLocked': False}
+        good = REPORT.foreground_control(data, [awake])
+        self.assertTrue(good['comparisonUsable'])
+        self.assertFalse(REPORT.foreground_control(data, [])['comparisonUsable'])
+        self.assertFalse(REPORT.foreground_control(data, [dict(awake, interactive=False)])['comparisonUsable'])
+        self.assertFalse(REPORT.foreground_control(data, [dict(awake, keyguardLocked=True)])['comparisonUsable'])
+        data['foregroundActivity'] = True
+        self.assertFalse(REPORT.foreground_control(data, [awake])['comparisonUsable'])
+        data['foregroundWindowFocusAfterWarmup'] = True
+        self.assertTrue(REPORT.foreground_control(data, [awake])['comparisonUsable'])
+        data['endingInteractive'] = False
+        self.assertFalse(REPORT.foreground_control(data, [awake])['comparisonUsable'])
 
 
 if __name__ == '__main__': unittest.main()

@@ -15,6 +15,19 @@ def distribution(values):
     return dict(n=len(values), mean=statistics.mean(values), p50=q(.5), p95=q(.95), p99=q(.99), max=values[-1])
 
 
+def interval_overlap(first, second):
+    """Intersection duration of two disjoint interval streams, in linear scan time."""
+    first, second = sorted(first), sorted(second)
+    i = j = 0
+    overlap = 0.0
+    while i < len(first) and j < len(second):
+        a, b = first[i], second[j]
+        overlap += max(0, min(a[1], b[1]) - max(a[0], b[0]))
+        if a[1] <= b[1]: i += 1
+        else: j += 1
+    return overlap
+
+
 def window(rows, start, end):
     selected = [r for r in rows if start <= r['captureMs'] < end and r['accepted']]
     return {'startMs': start, 'endMs': end, 'accepted': len(selected),
@@ -42,6 +55,24 @@ def host_summary(records):
             'aborted': [r['aborted'] for r in records if r.get('aborted')],
             'sensorsC': {name: {'first': values[0], 'last': values[-1], 'min': min(values), 'max': max(values)}
                          for name, values in sensors.items()}}
+
+
+def foreground_control(raw, telemetry):
+    result = summarize(raw, telemetry)
+    reasons = []
+    if raw.get('endingInteractive') is not True or not telemetry or any(r.get('interactive') is not True for r in telemetry):
+        reasons.append('Continuous awake-screen evidence missing or false')
+    if not telemetry or any(r.get('keyguardLocked') is not False or r.get('deviceLocked') is not False for r in telemetry):
+        reasons.append('Unlocked-screen evidence missing or false')
+    if raw.get('foregroundActivity') is True and raw.get('foregroundWindowFocusAfterWarmup') is not True:
+        reasons.append('Foreground window focus unverified')
+    if (raw.get('primaryDelegate'), raw.get('mode'), raw.get('periodMs'), raw.get('frameWidth'), raw.get('cycles')) != ('GPU', 'serial', 66, 320, 1):
+        reasons.append('Control configuration differs from contract')
+    if not isinstance(raw.get('foregroundActivity'), bool): reasons.append('Foreground state unidentified')
+    if not result['semanticCasesPassed']: reasons.append('Gesture cases failed')
+    result.update(foregroundActivity=raw.get('foregroundActivity'), processCgroup=raw.get('processCgroup'),
+                  comparisonUsable=not reasons, comparisonLimitations=reasons)
+    return result
 
 
 def summarize(raw, telemetry):
@@ -83,6 +114,10 @@ def summarize(raw, telemetry):
             'inputFrames': raw['inputFrames'], 'accepted': sum(r['accepted'] for r in rows),
             'dropped': raw['droppedRaw'] + raw['droppedPrepared'], 'peakOwnedImages': raw['peakOwnedImages'],
             'processCpuMs': raw['processCpuMs'], 'cpuCoreEquivalent': raw['processCpuMs'] / raw['elapsedMs'],
+            'retainedPreparationNativeCallOverlapMs': interval_overlap(
+                [(r['prepareBeginMs'], r['prepareEndMs']) for r in rows],
+                [(r['inferenceBeginMs'], r['inferenceEndMs']) for r in rows]),
+            'preparationOverlapCoverage': 'complete' if raw['droppedPrepared'] == 0 else 'processed frames only; dropped preparation intervals unavailable',
             'caseCount': len(cases), 'expectedActivations': sum(c['expectedActivations'] for c in cases),
             'observedActivations': all_activations,
             'failedCases': [c for c in cases if c['observed'] != c['expectedActivations']],
