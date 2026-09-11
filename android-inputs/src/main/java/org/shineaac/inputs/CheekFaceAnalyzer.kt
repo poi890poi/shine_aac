@@ -1,6 +1,9 @@
 package org.shineaac.inputs
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.util.Log
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.Image
@@ -18,24 +21,40 @@ import kotlin.math.atan2
 /**
  * One-thread-at-a-time MediaPipe Face Landmarker wrapper shared by blink and cheek input.
  *
- * Each instance is confined to one camera analysis thread by its owner:
- * CameraSwitchCalibrationActivity's camera HandlerThread or
- * CameraSwitchInputAdapter's single-thread analysisExecutor. It is intentionally
- * not synchronized; callers must preserve that confinement.
+ * Callers serialize frame preprocessing. A dedicated worker owns all native
+ * task creation, inference and close, including when camera teardown interrupts
+ * a caller. This also satisfies the GPU delegate's thread/context contract.
  */
 class CheekFaceAnalyzer(context: Context) : AutoCloseable {
     // Keep the direct buffer alive for the lifetime of the native task.
     private val managedModelBuffer = CheekModelResource.loadManagedBuffer(context)
-    private val landmarker = FaceLandmarker.createFromOptions(
+    private val metadata = context.packageManager.getApplicationInfo(
+        context.packageName, PackageManager.GET_META_DATA
+    ).metaData
+    private val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    private val requestedDelegate = if (debuggable && metadata?.getString("org.shineaac.face.delegate") == "gpu") Delegate.GPU else Delegate.CPU
+    internal val profilingEnabled = debuggable && metadata?.getBoolean("org.shineaac.face.profiling", false) == true
+    private var actualDelegate = requestedDelegate
+    internal val backendName: String get() = actualDelegate.name
+    private val landmarker = ThreadOwnedResource("ShineFaceInference") {
+        try {
+            createLandmarker(context, requestedDelegate)
+        } catch (error: RuntimeException) {
+            if (requestedDelegate != Delegate.GPU) throw error
+            Log.w("ShineFaceAnalysis", "FACE_BACKEND requested=GPU fallback=CPU initialization_failed", error)
+            actualDelegate = Delegate.CPU
+            createLandmarker(context, Delegate.CPU)
+        }.also {
+            Log.i("ShineFaceAnalysis", "FACE_BACKEND requested=$requestedDelegate actual=$actualDelegate owner=${Thread.currentThread().name}")
+        }
+    }
+
+    private fun createLandmarker(context: Context, delegate: Delegate) = FaceLandmarker.createFromOptions(
         context.applicationContext,
         FaceLandmarker.FaceLandmarkerOptions.builder()
             .setBaseOptions(
                 BaseOptions.builder()
-                    // Deliberate compatibility baseline. MediaPipe's Android
-                    // sample notes that GPU delegates must be created/used on
-                    // the same thread. Benchmark GPU separately on the physical
-                    // device matrix before changing the accessibility default.
-                    .setDelegate(Delegate.CPU)
+                    .setDelegate(delegate)
                     .apply {
                         if (managedModelBuffer != null) {
                             setModelAssetBuffer(managedModelBuffer)
@@ -108,31 +127,38 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         timestampMs: Long,
         mirrorCameraOutput: Boolean = true
     ): CheekFaceObservation? {
-        val decoded = Bitmap.createBitmap(
-            image.width,
-            image.height,
-            Bitmap.Config.ARGB_8888
-        )
-        decoded.copyPixelsFromBuffer(image.planes[0].buffer.duplicate().apply { rewind() })
-        val oriented = orientCamera(
-            decoded, rotationDegrees, mirrorCameraOutput
-        )
-        return try {
-            val mpImage = BitmapImageBuilder(oriented).build()
-            try {
-                analyzeMpImage(
-                    mpImage = mpImage,
-                    rotationDegrees = 0,
-                    timestampMs = timestampMs,
-                    mirrorFrontCameraOutput = false
-                )
+        val profile = if (profilingEnabled) FaceFrameProfile(actualDelegate.name, image.width, image.height, timestampMs) else null
+        var usable: Boolean? = null
+        try {
+            val decoded = Bitmap.createBitmap(
+                image.width,
+                image.height,
+                Bitmap.Config.ARGB_8888
+            )
+            decoded.copyPixelsFromBuffer(image.planes[0].buffer.duplicate().apply { rewind() })
+            profile?.mark("copy")
+            val oriented = orientCamera(
+                decoded, rotationDegrees, mirrorCameraOutput
+            )
+            profile?.mark("orient")
+            return try {
+                val mpImage = BitmapImageBuilder(oriented).build()
+                try {
+                    analyzeMpImage(
+                        mpImage = mpImage,
+                        rotationDegrees = 0,
+                        timestampMs = timestampMs,
+                        mirrorFrontCameraOutput = false,
+                        profile = profile
+                    ).also { usable = it?.usable == true }
+                } finally {
+                    mpImage.close()
+                }
             } finally {
-                mpImage.close()
+                if (oriented !== decoded) oriented.recycle()
+                decoded.recycle()
             }
-        } finally {
-            if (oriented !== decoded) oriented.recycle()
-            decoded.recycle()
-        }
+        } finally { profile?.finish(usable) }
     }
 
     /** Direct-USB path after the UVC NV21 callback has been decoded. */
@@ -182,14 +208,17 @@ class CheekFaceAnalyzer(context: Context) : AutoCloseable {
         mpImage: MPImage,
         rotationDegrees: Int,
         timestampMs: Long,
-        mirrorFrontCameraOutput: Boolean
+        mirrorFrontCameraOutput: Boolean,
+        profile: FaceFrameProfile? = null
     ): CheekFaceObservation? {
         val safeTimestamp = timestampMs.coerceAtLeast(lastTimestampMs + 1L)
         lastTimestampMs = safeTimestamp
         val options = ImageProcessingOptions.builder()
             .setRotationDegrees(rotationDegrees)
             .build()
-        val result = landmarker.detectForVideo(mpImage, options, safeTimestamp)
+        profile?.mark("wrap")
+        val result = landmarker.use { it.detectForVideo(mpImage, options, safeTimestamp) }
+        profile?.mark("inference")
         val points = result.faceLandmarks().firstOrNull() ?: return null
 
         val rawBlendshapes = result.faceBlendshapes()

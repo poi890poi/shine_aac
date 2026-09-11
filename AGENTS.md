@@ -51,3 +51,9 @@
   identified observed events across reads; never infer a missed gesture by
   subtracting totals from independently rotating log buffers. Cover rollover,
   overlapping reads, missing identity, zero inputs, and duplicate inputs in tests.
+
+- Face-analysis acceleration must preserve calibrated gesture semantics. Native
+  GPU resources must be created, used and closed on their owner thread; input
+  buffers remain valid until accepted inference finishes, including interruption.
+  Report the actual backend and retain CPU fallback. Benchmark backend, image
+  preprocessing and sampling-cadence changes independently before changing defaults.

@@ -42,6 +42,8 @@ android {
         versionCode = shineVersionCode
         versionName = shineVersionName
         manifestPlaceholders["shineAppLabel"] = "@string/app_name"
+        manifestPlaceholders["shineFaceDelegate"] = "cpu"
+        manifestPlaceholders["shineFaceProfiling"] = "false"
         if (providers.gradleProperty("shineAacTabletPreview").orNull == "true") {
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
@@ -66,6 +68,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            val faceDelegate = providers.gradleProperty("shineFaceDelegate").orElse("cpu").get()
+            require(faceDelegate in listOf("cpu", "gpu")) { "shineFaceDelegate must be cpu or gpu" }
+            manifestPlaceholders["shineFaceDelegate"] = faceDelegate
+            manifestPlaceholders["shineFaceProfiling"] =
+                providers.gradleProperty("shineFaceProfiling").orElse("false").get()
+        }
         release {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
@@ -125,6 +134,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("com.google.mediapipe:tasks-vision:1.0.0")
 }
 
 tasks.named("preBuild") {

@@ -722,6 +722,12 @@ class CameraSwitchInputAdapter(
                 }
             }
         } finally {
+            if (analyzer.profilingEnabled) {
+                val completedNs = SystemClock.elapsedRealtimeNanos()
+                Log.i(Tag, "FACE_BLOCK backend=${analyzer.backendName} frameMs=$frameTimestampMs " +
+                    "durationUs=${(completedNs - analysisStartedNs) / 1000L} " +
+                    "frameAgeMs=${completedNs / 1_000_000L - frameTimestampMs}")
+            }
             recordFacePerformance(
                 SystemClock.elapsedRealtimeNanos() - analysisStartedNs
             )
