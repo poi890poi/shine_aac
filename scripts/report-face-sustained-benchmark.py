@@ -66,11 +66,14 @@ def foreground_control(raw, telemetry):
         reasons.append('Unlocked-screen evidence missing or false')
     if raw.get('foregroundActivity') is True and raw.get('foregroundWindowFocusAfterWarmup') is not True:
         reasons.append('Foreground window focus unverified')
+    if raw.get('controlKeepAwake') is True and raw.get('endingControlWakeLockHeld') is not True:
+        reasons.append('Requested control wake lock was not retained through measurement')
     if (raw.get('primaryDelegate'), raw.get('mode'), raw.get('periodMs'), raw.get('frameWidth'), raw.get('cycles')) != ('GPU', 'serial', 66, 320, 1):
         reasons.append('Control configuration differs from contract')
     if not isinstance(raw.get('foregroundActivity'), bool): reasons.append('Foreground state unidentified')
     if not result['semanticCasesPassed']: reasons.append('Gesture cases failed')
     result.update(foregroundActivity=raw.get('foregroundActivity'), processCgroup=raw.get('processCgroup'),
+                  controlKeepAwake=raw.get('controlKeepAwake', False),
                   comparisonUsable=not reasons, comparisonLimitations=reasons)
     return result
 

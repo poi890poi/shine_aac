@@ -84,6 +84,10 @@ class SustainedReportTest(unittest.TestCase):
         self.assertFalse(REPORT.foreground_control(data, [awake])['comparisonUsable'])
         data['foregroundWindowFocusAfterWarmup'] = True
         self.assertTrue(REPORT.foreground_control(data, [awake])['comparisonUsable'])
+        data['controlKeepAwake'] = True
+        self.assertFalse(REPORT.foreground_control(data, [awake])['comparisonUsable'])
+        data['endingControlWakeLockHeld'] = True
+        self.assertTrue(REPORT.foreground_control(data, [awake])['comparisonUsable'])
         data['endingInteractive'] = False
         self.assertFalse(REPORT.foreground_control(data, [awake])['comparisonUsable'])
 
