@@ -3744,7 +3744,7 @@ class OpticalRig:
     def runtime_log(self):
         r = self.device.adb_cmd(
             "logcat", "-d", "-v", "epoch",
-            "ShineCameraSwitch:I", "ShineAacE2E:I", "*:S",
+            "ShineCameraSwitch:I", "ShineFaceAnalysis:I", "ShineAacE2E:I", "*:S",
             check=False,timeout=30
         )
         return r.stdout or ""
