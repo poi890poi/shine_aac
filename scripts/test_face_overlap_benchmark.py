@@ -23,6 +23,12 @@ def raw(samples):
 
 
 class OverlapReportTest(unittest.TestCase):
+    def test_compact_sustained_presence_is_not_landmark_geometry(self):
+        data = raw([sample(0, 30)])
+        data['landmarksRetained'] = False
+        with self.assertRaisesRegex(ValueError, 'Landmark agreement unavailable'):
+            REPORT.agreement(data, data)
+
     def test_native_call_overlap_is_measured_separately_from_fps(self):
         first, second = sample(0, 30), sample(1, 40)
         second['backend'] = 'CPU'

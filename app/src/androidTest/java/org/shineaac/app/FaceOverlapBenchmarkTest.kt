@@ -5,6 +5,15 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.os.Process
 import android.os.Trace
+import android.os.Build
+import android.os.PowerManager
+import android.os.BatteryManager
+import android.os.Debug
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.view.WindowManager
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -110,6 +119,10 @@ class FaceOverlapBenchmarkTest {
         require(frameWidth in listOf(320, 480))
         val paired = args.getString("pairedModels") == "true"
         require(mode != "dual" || paired)
+        val durationSeconds = (args.getString("durationSeconds") ?: "0").toLong()
+        require(durationSeconds in 0..3600 && (durationSeconds == 0L || periodMs > 0))
+        val primaryDelegate = Delegate.valueOf(args.getString("primaryDelegate") ?: "GPU")
+        require(primaryDelegate == Delegate.GPU || (mode == "serial" && !paired))
         val runId = requireNotNull(args.getString("benchmarkRun"))
         require(runId.matches(Regex("[a-z0-9-]+")))
         val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "public-face-benchmark")
@@ -148,9 +161,41 @@ class FaceOverlapBenchmarkTest {
             finally { check.close(); raw.recycle(); fixture.recycle() }
             input
         }
+        val cycles = if (durationSeconds == 0L) 1 else
+            ((durationSeconds * 1000 + inputs.size * periodMs - 1) / (inputs.size * periodMs)).toInt()
+        val inputCount = inputs.size * cycles
         val workers = mutableListOf<Worker>()
+        val screen = if (durationSeconds > 0) ActivityScenario.launch(SettingsActivity::class.java).also {
+            it.onActivity { activity -> activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        } else null
+        val telemetryStop = AtomicBoolean(false)
+        val telemetry = if (durationSeconds > 0) Thread({
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            File(directory, "$runId-telemetry.jsonl").bufferedWriter().use { writer ->
+                while (!telemetryStop.get()) {
+                    val row = JSONObject().put("elapsedRealtimeMs", android.os.SystemClock.elapsedRealtime())
+                        .put("processCpuMs", Process.getElapsedCpuTime()).put("pssKb", Debug.getPss())
+                    try {
+                        row.put("thermalStatus", if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus else JSONObject.NULL)
+                        val headroom = if (Build.VERSION.SDK_INT >= 30) power.getThermalHeadroom(0) else Float.NaN
+                        row.put("thermalHeadroom", if (headroom.isFinite()) headroom else JSONObject.NULL)
+                        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                        row.put("batteryTemperatureTenthsC", intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1))
+                            .put("voltageMv", intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1))
+                            .put("plugged", intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1))
+                            .put("energyCounterNwhRaw", battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER))
+                            .put("chargeCounterUahRaw", battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER))
+                            .put("currentNowUaRaw", battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW))
+                    } catch (error: Exception) { row.put("error", error.toString()) }
+                    writer.write(row.toString()); writer.newLine(); writer.flush()
+                    try { Thread.sleep(10_000) } catch (_: InterruptedException) { break }
+                }
+            }
+        }, "Overlap-telemetry").also { it.start() } else null
         try {
-            workers += Worker(Delegate.GPU)
+            workers += Worker(primaryDelegate)
             if (paired) workers += Worker(Delegate.CPU)
             workers.forEach { worker ->
                 repeat(30) { i ->
@@ -179,7 +224,8 @@ class FaceOverlapBenchmarkTest {
             fun fail(error: Throwable) = synchronized(lock) { if (!stopped) failure = error; lock.notifyAll() }
             val producer = Thread({
                 try {
-                    inputs.forEach { input ->
+                    repeat(inputCount) { index ->
+                        val input = inputs[index % inputs.size].copy(index = index)
                         val due = startNs + input.index * periodMs * 1_000_000L
                         if (periodMs > 0) {
                             while (System.nanoTime() < due) {
@@ -256,7 +302,10 @@ class FaceOverlapBenchmarkTest {
                                 }
                                 acceptedIndex = result.prepared.capture.input.index
                             }
-                            results += result
+                            // Long runs retain timing, presence and blink scores, not every landmark.
+                            results += if (durationSeconds == 0L) result else result.copy(
+                                points = if (result.points.isEmpty()) floatArrayOf() else floatArrayOf(1f),
+                                scores = result.scores.filterKeys { it == "eyeBlinkLeft" || it == "eyeBlinkRight" })
                         }
                         val eligible = if (mode == "dual") workers else workers.take(1)
                         selected = eligible.firstOrNull { free[it] == true }
@@ -292,12 +341,14 @@ class FaceOverlapBenchmarkTest {
             }
             assertEquals("Owned image leak", 0, owned.get())
             assertTrue("Unbounded prepared images", peakOwned.get() <= 3)
-            assertEquals(inputs.size, results.size + droppedRaw + droppedReady)
+            assertEquals(inputCount, results.size + droppedRaw + droppedReady)
             assertTrue(results.isNotEmpty())
             if (periodMs == 0L) { assertEquals(inputs.size, results.size); assertEquals(0, droppedRaw + droppedReady) }
             val output = JSONObject().put("run", runId).put("mode", mode).put("pairedModels", paired)
                 .put("frameWidth", frameWidth).put("frameHeight", frameWidth * 3 / 4)
-                .put("periodMs", periodMs).put("inputFrames", inputs.size).put("preparations", preparations.get())
+                .put("periodMs", periodMs).put("inputFrames", inputCount).put("preparations", preparations.get())
+                .put("cycles", cycles).put("cycleFrames", inputs.size).put("primaryDelegate", primaryDelegate.name)
+                .put("requestedDurationSeconds", durationSeconds).put("landmarksRetained", durationSeconds == 0L)
                 .put("droppedRaw", droppedRaw).put("droppedPrepared", droppedReady).put("peakOwnedImages", peakOwned.get())
                 .put("elapsedMs", (endNs-startNs)/1e6).put("processCpuMs", cpuEndMs-cpuStartMs)
                 .put("warmupPerWorker", 30).put("nativeTimestampPolicy", "capture-time when paced; source-time when saturated")
@@ -312,12 +363,25 @@ class FaceOverlapBenchmarkTest {
                         .put("accepted", row.accepted).put("present", row.points.isNotEmpty()).put("events", JSONArray(row.emitted))
                         .put("scores", JSONObject(row.scores)).put("landmarks", JSONArray(row.points.toList())))
                 } })
-            if (manifest.has("expectedActivations")) output.put("stimulusCases", manifest.getJSONArray("cases"))
+            val expandedCases = JSONArray()
+            if (manifest.has("expectedActivations")) {
+                val cases = manifest.getJSONArray("cases")
+                repeat(cycles) { cycle ->
+                    for (index in 0 until cases.length()) {
+                        val case = JSONObject(cases.getJSONObject(index).toString())
+                        case.put("id", "cycle-$cycle-" + case.getString("id"))
+                        case.put("startMs", case.getDouble("startMs") + cycle * inputs.size * periodMs)
+                        case.put("endMs", case.getDouble("endMs") + cycle * inputs.size * periodMs)
+                        expandedCases.put(case)
+                    }
+                }
+                output.put("stimulusCases", expandedCases)
+            }
             File(directory, "$runId.json").writeText(output.toString())
             if (manifest.has("expectedActivations")) {
-                assertEquals("Unexpected classifier activation count", manifest.getInt("expectedActivations"),
+                assertEquals("Unexpected classifier activation count", manifest.getInt("expectedActivations") * cycles,
                     results.sumOf { row -> row.emitted.count { it == "Activated" } })
-                val cases = manifest.getJSONArray("cases")
+                val cases = expandedCases
                 for (index in 0 until cases.length()) {
                     val case = cases.getJSONObject(index)
                     val observed = results.count { row ->
@@ -327,6 +391,12 @@ class FaceOverlapBenchmarkTest {
                     assertEquals(case.getString("id"), case.getInt("expectedActivations"), observed)
                 }
             }
-        } finally { workers.asReversed().forEach { it.close() } }
+        } finally {
+            try { workers.asReversed().forEach { it.close() } }
+            finally {
+                telemetryStop.set(true); telemetry?.interrupt(); telemetry?.join()
+                screen?.close()
+            }
+        }
     }
 }

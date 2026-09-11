@@ -10,6 +10,7 @@ import pathlib
 import re
 import subprocess
 import time
+import threading
 import xml.etree.ElementTree as ET
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -21,10 +22,16 @@ def normalized(text):
 
 
 def run(args):
+    if not 0 <= args.duration_seconds <= 3600:
+        raise ValueError('Duration outside supported range')
+    if args.duration_seconds and (not args.single_mode or args.period_ms <= 0 or args.candidate == 'dual'):
+        raise ValueError('Sustained runs require one paced single-model condition')
+    if args.primary_delegate == 'CPU' and (args.single_mode != 'serial' or args.candidate == 'dual'):
+        raise ValueError('CPU primary requires serial single-model mode')
     args.output.mkdir(parents=True, exist_ok=False)
     def adb(*commands):
         r = subprocess.run([args.adb, '-s', args.serial] + list(commands), stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT, timeout=180)
+                           stderr=subprocess.STDOUT, timeout=max(180, args.duration_seconds + 180) if 'instrument' in commands else 180)
         if r.returncode: raise RuntimeError(r.stdout.decode('utf-8', errors='replace'))
         return r.stdout
     def prefs():
@@ -60,7 +67,7 @@ def run(args):
         data = adb('shell', 'dumpsys', 'thermalservice')
         (args.output / (run_id + '-thermal-' + suffix + '.txt')).write_bytes(data)
         status = re.search(rb'Thermal Status:\s*(\d+)', data)
-        if status is None or int(status.group(1)) >= 2:
+        if suffix == 'before' and (status is None or int(status.group(1)) >= 2):
             raise RuntimeError('Thermal status missing or elevated; comparison stopped')
     def installed_hash(package):
         path = adb('shell', 'pm', 'path', package).decode('utf-8').strip().splitlines()[0]
@@ -89,7 +96,14 @@ def run(args):
         adb('shell', 'run-as', PACKAGE, 'mkdir', '-p', 'cache/public-face-benchmark')
         adb('shell', 'run-as', PACKAGE, 'cp', '-R', '/data/local/tmp/' + args.frames.name + '/.', 'cache/public-face-benchmark/')
         candidate = args.candidate
-        modes = ('serial', candidate, candidate, 'serial')
+        modes = (args.single_mode,) if args.single_mode else ('serial', candidate, candidate, 'serial')
+        environment = {}
+        for key, command in {'soc': ('getprop', 'ro.soc.model'), 'fingerprint': ('getprop', 'ro.build.fingerprint'),
+                             'brightness': ('settings', 'get', 'system', 'screen_brightness'),
+                             'brightnessMode': ('settings', 'get', 'system', 'screen_brightness_mode'),
+                             'battery': ('dumpsys', 'battery'), 'display': ('dumpsys', 'display')}.items():
+            environment[key] = adb('shell', *command).decode('utf-8', errors='replace')
+        (args.output / 'environment.json').write_text(json.dumps(environment, indent=2), encoding='utf-8')
         for index, mode in enumerate(modes):
             run_id = '%s-%d-%s-%d' % (candidate, args.period_ms, mode, index + 1)
             # Failure evidence must belong to this attempt, never a previous fixture pack.
@@ -98,10 +112,38 @@ def run(args):
             thermal(run_id, 'before')
             adb('logcat', '-c')
             adb('shell', 'input', 'keyevent', '224')
-            result = adb('shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
+            monitor_stop = threading.Event()
+            def monitor():
+                with (args.output / (run_id + '-host-telemetry.jsonl')).open('w', encoding='utf-8') as log:
+                    while not monitor_stop.is_set():
+                        row = {'hostTime': time.time()}
+                        try:
+                            row['thermal'] = adb('shell', 'dumpsys', 'thermalservice').decode('utf-8', errors='replace')
+                            status = re.search(r'Thermal Status:\s*(\d+)', row['thermal'])
+                            if status and int(status.group(1)) >= 3:
+                                row['aborted'] = 'severe thermal status'
+                                adb('shell', 'am', 'force-stop', PACKAGE)
+                                monitor_stop.set()
+                            row['battery'] = adb('shell', 'dumpsys', 'battery').decode('utf-8', errors='replace')
+                            row['display'] = re.findall(r'mScreenState=(\w+)', adb('shell', 'dumpsys', 'display').decode('utf-8'))
+                            row['deviceTelemetry'] = adb('exec-out', 'run-as', PACKAGE, 'cat', 'cache/public-face-benchmark/' + run_id + '-telemetry.jsonl').decode('utf-8', errors='replace').splitlines()[-1:]
+                        except Exception as error: row['error'] = str(error)
+                        log.write(json.dumps(row) + '\n'); log.flush()
+                        monitor_stop.wait(30)
+            monitor_thread = threading.Thread(target=monitor) if args.duration_seconds else None
+            if monitor_thread: monitor_thread.start()
+            try:
+                result = adb('shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                          'org.shineaac.app.FaceOverlapBenchmarkTest', '-e', 'overlapMode', mode,
                          '-e', 'periodMs', str(args.period_ms), '-e', 'frameWidth', str(args.frame_width), '-e', 'pairedModels', str(candidate == 'dual').lower(),
+                         '-e', 'durationSeconds', str(args.duration_seconds), '-e', 'primaryDelegate', args.primary_delegate,
                          '-e', 'benchmarkRun', run_id, PACKAGE + '.test/androidx.test.runner.AndroidJUnitRunner')
+            finally:
+                monitor_stop.set()
+                if monitor_thread: monitor_thread.join()
+                if args.duration_seconds:
+                    saved_telemetry = subprocess.run([args.adb, '-s', args.serial, 'exec-out', 'run-as', PACKAGE, 'cat', 'cache/public-face-benchmark/' + run_id + '-telemetry.jsonl'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+                    (args.output / (run_id + '-telemetry.jsonl')).write_bytes(saved_telemetry.stdout)
             (args.output / (run_id + '-instrumentation.txt')).write_bytes(result)
             (args.output / (run_id + '-native.log')).write_bytes(adb('logcat', '-d', '-v', 'epoch', 'native:I', 'tflite:I', 'libEGL:I', '*:S'))
             pixel_check = adb('exec-out', 'run-as', PACKAGE, 'cat', 'cache/public-face-benchmark/pixel-verification.json')
@@ -137,6 +179,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--serial', required=True)
     parser.add_argument('--candidate', choices=('prepared', 'dual'), required=True)
+    parser.add_argument('--single-mode', choices=('serial', 'prepared'))
+    parser.add_argument('--duration-seconds', type=int, default=0)
+    parser.add_argument('--primary-delegate', choices=('CPU', 'GPU'), default='GPU')
     parser.add_argument('--frame-width', type=int, choices=(320, 480), default=320)
     parser.add_argument('--period-ms', type=int, choices=(0, 33, 66, 100), required=True)
     for name in ('frames', 'app-apk', 'test-apk', 'output'): parser.add_argument('--' + name, type=pathlib.Path, required=True)

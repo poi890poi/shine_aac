@@ -70,6 +70,8 @@ def summarize(raw):
 
 
 def agreement(base, candidate):
+    if not base.get('landmarksRetained', True) or not candidate.get('landmarksRetained', True):
+        raise ValueError('Landmark agreement unavailable for compact sustained records')
     left = {x['frame']: x for x in base['samples']}
     right = {x['frame']: x for x in candidate['samples']}
     common = sorted(left.keys() & right.keys())
