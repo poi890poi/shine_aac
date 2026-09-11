@@ -5151,6 +5151,7 @@ class OpticalRig:
                     "selected_camera_id": fixture["selected_camera_id"],
                     "estimated_visible_size": fixture.get("estimated_visible_size", [0, 0]),
                     "desktop_stimulus_center": fixture["desktop_stimulus_center"],
+                    "stimulus_orientation": fixture["stimulus_orientation"],
                     "quality_label": fixture.get("quality_label", "unknown"),
                 }
                 if self.args.calibrate_cheek_session:

@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from types import SimpleNamespace
 import zlib
 from pathlib import Path
 from unittest import mock
@@ -23,6 +24,37 @@ SPEC = importlib.util.spec_from_file_location(
 )
 RIG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RIG)
+
+
+class FocusedCheekOrientationTest(unittest.TestCase):
+    def test_focused_calibration_saves_verified_orientation_for_runtime_reuse(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            rig = object.__new__(RIG.OpticalRig)
+            rig.outdir = directory
+            rig.args = SimpleNamespace(runtime_only=True, session_gesture='blink', calibrate_cheek_session=True, leave_awake=False)
+            rig.findings = []
+            rig.host = mock.Mock(desktop_rect=(0, 0, 1080, 2400))
+            rig.host.fixture_identity.return_value = {'kind': 'android_native_surface', 'serial': 'presenter'}
+            rig.device = mock.Mock()
+            fixture = dict(selected_camera_id='1', estimated_visible_size=[900, 1500],
+                           desktop_stimulus_center=[650, 1040], zoom_ratio=3.2,
+                           stimulus_orientation={'rotation_degrees_ccw': -.49})
+            rig.ensure_stimuli = mock.Mock(return_value={'sources': []})
+            for name in ('start_host', 'prepare_test_apk', 'preserve_camera_preferences', 'open_camera_setup', 'calibrate_cheek', 'restore_switch_input_profile'):
+                setattr(rig, name, mock.Mock(return_value=True))
+            for name in ('guard', 'record_setup_evidence', 'write_report', 'restore_demo_profile', 'restore_camera_preferences'):
+                setattr(rig, name, mock.Mock())
+            rig.apply_session_calibration = mock.Mock(return_value=fixture)
+            rig.downloaded_cheek_calibration_cases = mock.Mock(return_value=[{'expect': 'activate'}])
+            (directory / 'cheek-calibration-preferences.xml').write_text(
+                '<map><long name="cheekCalibratedAtMs" value="123"/>'
+                '<string name="cheekModel">test-model</string>'
+                '<float name="zoomRatio" value="3.2"/></map>', encoding='utf-8')
+            with mock.patch.object(RIG, 'SESSION_ROOT', directory / 'session'):
+                self.assertEqual(0, rig.run())
+            saved = json.loads((directory / 'session/cheek-fixture.json').read_text(encoding='utf-8'))
+            self.assertEqual(fixture['stimulus_orientation'], saved['stimulus_orientation'])
 
 
 class RotatingActivationLogTest(unittest.TestCase):
