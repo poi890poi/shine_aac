@@ -34,6 +34,7 @@ class FocusedCheekOrientationTest(unittest.TestCase):
             rig.outdir = directory
             rig.args = SimpleNamespace(runtime_only=True, session_gesture='blink', calibrate_cheek_session=True, leave_awake=False)
             rig.findings = []
+            rig.measured_source_scales = {'commons_smiling': 1.19}
             rig.host = mock.Mock(desktop_rect=(0, 0, 1080, 2400))
             rig.host.fixture_identity.return_value = {'kind': 'android_native_surface', 'serial': 'presenter'}
             rig.device = mock.Mock()
@@ -55,6 +56,65 @@ class FocusedCheekOrientationTest(unittest.TestCase):
                 self.assertEqual(0, rig.run())
             saved = json.loads((directory / 'session/cheek-fixture.json').read_text(encoding='utf-8'))
             self.assertEqual(fixture['stimulus_orientation'], saved['stimulus_orientation'])
+            self.assertEqual({'commons_smiling': 1.19}, saved['measured_source_scales'])
+
+
+class MeasuredCheekSourceFramingTest(unittest.TestCase):
+    def rig(self, directory, measurements):
+        rig = object.__new__(RIG.OpticalRig)
+        rig.outdir = Path(directory)
+        rig.active_zoom_ratio = 3.2
+        rig.measured_source_scales = {}
+        rig.measured_scale_zoom_ratio = None
+        rig.device = mock.Mock()
+        rig.device.screenshot.return_value = Path(directory) / 'neutral.png'
+        rig.show_video_still = mock.Mock(return_value=True)
+        rig.measure_cheek_framing = mock.Mock(side_effect=measurements)
+        rig.pass_ = mock.Mock()
+        rig.add = mock.Mock()
+        return rig
+
+    def measurement(self, height, bounds=(350, 450, 745, 900)):
+        return dict(height_fraction=height, bounds=list(bounds), preview_rect=[18, 186, 1148, 1092])
+
+    def case(self):
+        return dict(source='public', rest_at=0, target_face_height=.7, face_height_at_zoom_1x=.26, expect='activate')
+
+    def test_measured_neutral_geometry_replaces_nonportable_ratio_and_freezes_runtime_scale(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(RIG.time, 'sleep'):
+            rig = self.rig(directory, [self.measurement(448/906), self.measurement(.70)])
+            case = self.case()
+            self.assertTrue(rig.normalize_cheek_source_framing([case, dict(case)], {'public': {'id': 'public'}}))
+            corrected = (.7 / (.26 * 3.2)) * .7 / (448/906)
+            self.assertAlmostEqual(corrected, rig.case_display_scale({'source': 'public', 'gesture': 'cheek'}))
+            self.assertEqual(2, rig.measure_cheek_framing.call_count)
+            self.assertAlmostEqual(.7 / (.26 * 3.2), rig.show_video_still.call_args_list[0][1]['scale'])
+            self.assertAlmostEqual(corrected, rig.show_video_still.call_args_list[1][1]['scale'])
+            self.assertEqual(1, rig.case_display_scale({'source': 'public', 'gesture': 'blink'}))
+            rig.active_zoom_ratio = 2.0
+            with self.assertRaisesRegex(ValueError, 'zoom changed'):
+                rig.case_display_scale({'source': 'public', 'gesture': 'cheek'})
+
+    def test_cropped_face_stops_before_any_native_calibration_start(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(RIG.time, 'sleep'):
+            rig = self.rig(directory, [self.measurement(.70, bounds=(18, 450, 745, 900))])
+            case = self.case()
+            self.assertFalse(rig.calibrate_cheek([dict(case, expect='no_activate'), case], {'public': {'id': 'public'}}))
+            rig.device.find_tap.assert_not_called()
+            rig.device.shell.assert_not_called()
+
+    def test_unconfirmed_geometry_stops_instead_of_changing_gesture_thresholds(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(RIG.time, 'sleep'):
+            rig = self.rig(directory, [self.measurement(.49), self.measurement(.49)])
+            self.assertFalse(rig.normalize_cheek_source_framing([self.case()], {'public': {'id': 'public'}}))
+            self.assertEqual(2, rig.show_video_still.call_count)
+            rig.device.find_tap.assert_not_called()
+
+    def test_missing_overlay_cannot_admit_geometry(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(RIG.time, 'sleep'):
+            rig = self.rig(directory, [ValueError('face overlay was not found')])
+            self.assertFalse(rig.normalize_cheek_source_framing([self.case()], {'public': {'id': 'public'}}))
+            self.assertEqual({}, rig.measured_source_scales)
 
 
 class RotatingActivationLogTest(unittest.TestCase):
@@ -855,6 +915,23 @@ class OpticalOracleTest(unittest.TestCase):
         measured = RIG.face_overlay_coverage_from_points(face + progress, preview)
         self.assertAlmostEqual(920 / 1318, measured["height_fraction"], places=3)
         self.assertEqual([300, 600, 690, 1520], measured["bounds"])
+
+    def test_face_outline_in_lower_preview_is_measured_without_progress_bar(self):
+        preview = (0, 0, 1000, 1000)
+        face = [(x, y) for x in (300, 700) for y in range(300, 941)]
+        face += [(x, y) for x in range(300, 701) for y in (300, 940)]
+        progress = [(x, y) for x in range(100, 901) for y in range(965, 981)]
+        measured = RIG.face_overlay_coverage_from_points(face + progress, preview)
+        self.assertEqual([300, 300, 700, 940], measured['bounds'])
+        self.assertAlmostEqual(.64, measured['height_fraction'])
+
+    def test_landmark_dots_over_the_outline_do_not_truncate_face_height(self):
+        preview = (0, 0, 1000, 1000)
+        face = [(x, y) for x in (300, 700) for y in range(300, 941) if not 650 <= y <= 655]
+        face += [(x, y) for x in range(300, 701) for y in (300, 940)]
+        progress = [(x, y) for x in range(100, 901) for y in range(965, 981)]
+        measured = RIG.face_overlay_coverage_from_points(face + progress, preview)
+        self.assertEqual([300, 300, 700, 940], measured['bounds'])
 
 
 class CoordinateAtlasDecoderTest(unittest.TestCase):

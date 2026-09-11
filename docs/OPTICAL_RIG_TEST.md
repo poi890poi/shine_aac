@@ -196,3 +196,19 @@ stable for 30 seconds. Every exit path attempts to turn the phone display off.
 
 This rig makes physical regressions reproducible. It does not replace evaluation
 with the intended AAC user, access site, posture, lighting, fatigue, and comfort.
+
+### Portable cheek-source framing
+
+A video's empirical face height at 1x is only an initial estimate; it cannot
+establish face size across different cameras, presenter surfaces, or preview
+layouts. Before native cheek calibration, a declared source with a target face
+height is shown at its relaxed pose, measured in the current camera preview,
+scaled once toward its declared target, and measured again. Missing overlays,
+cropped bounds, unsupported scale, or an unconfirmed target stop admission before
+gesture learning. Framing thresholds are unchanged.
+
+The measured source scale is saved in the ignored cheek session fixture with its
+camera, presenter geometry, upright orientation, and zoom. Focused CPU/GPU runs
+reuse that frozen scale; changed zoom or a legacy cheek fixture without measured
+framing requires calibration again. Blink cases retain their existing scaling.
+No gesture score or activation outcome determines the source scale.

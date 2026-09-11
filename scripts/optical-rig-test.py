@@ -66,24 +66,57 @@ MAX_RIG_FACE_HEIGHT = 0.82
 
 
 def face_overlay_coverage_from_points(points, preview_rect):
-    """Measure the face overlay while excluding the preview's bottom progress meter."""
+    """Measure long vertical outline runs, keeping the face's full height.
+
+    The short, filled progress meter is a separate vertical run even when it
+    shares the outline's x coordinates. Do not crop an entire preview band.
+    """
     left, top, right, bottom = preview_rect
     preview_height = max(1, bottom - top)
-    usable_bottom = bottom - int(round(preview_height * 0.12))
-    inside = [
+    inside = {
         (x, y) for x, y in points
-        if left <= x <= right and top <= y <= usable_bottom
-    ]
+        if left <= x <= right and top <= y <= bottom
+    }
     if len(inside) < 20:
         return None
-    xs = [point[0] for point in inside]
-    ys = [point[1] for point in inside]
-    bounds = [min(xs), min(ys), max(xs), max(ys)]
+    columns = {}
+    for x, y in inside:
+        columns.setdefault(x, []).append(y)
+    maximum_count = max(len(values) for values in columns.values())
+    runs = []
+    for x, values in columns.items():
+        if len(values) < max(3, maximum_count * .5):
+            continue
+        ordered = sorted(values)
+        differences = sorted(b - a for a, b in zip(ordered, ordered[1:]))
+        # CameraFaceOverlayView draws 2.2-px landmark dots after the box.
+        # Their antialiased pixels can hide short portions of its stroke.
+        allowed_gap = max(8, differences[len(differences) // 2] * 1.5)
+        start = previous = ordered[0]
+        candidates = []
+        for y in ordered[1:]:
+            if y - previous > allowed_gap:
+                candidates.append((start, previous))
+                start = y
+            previous = y
+        candidates.append((start, previous))
+        first, last = max(candidates, key=lambda item: item[1] - item[0])
+        if last - first >= preview_height * .12:
+            runs.append((x, first, last))
+    if not runs:
+        return None
+    longest = max(last - first for _, first, last in runs)
+    runs = [item for item in runs if item[2] - item[1] >= longest * .5]
+    bounds = [min(item[0] for item in runs), min(item[1] for item in runs),
+              max(item[0] for item in runs), max(item[2] for item in runs)]
+    if bounds[2] - bounds[0] < (right - left) * .10:
+        return None
     return {
         "bounds": bounds,
         "height_fraction": (bounds[3] - bounds[1]) / float(preview_height),
         "width_fraction": (bounds[2] - bounds[0]) / float(max(1, right - left)),
         "point_count": len(inside),
+        "method": "vertical-outline-runs",
     }
 
 
@@ -1824,6 +1857,8 @@ class OpticalRig:
         self.selected_setup_camera_id = None
         self.camera_setup_ui_path = None
         self.active_zoom_ratio = 1.0
+        self.measured_source_scales = {}
+        self.measured_scale_zoom_ratio = None
         self.findings = []
         self.results = []
         self.camera_pref_original = None
@@ -2185,6 +2220,7 @@ class OpticalRig:
             "quality_label": values.get("cheekQualityLabel", "unknown"),
             "quality_detail": values.get("cheekQualityDetail", ""),
             "source": source,
+            "measured_source_scales": dict(getattr(self, "measured_source_scales", {})),
         }
         (SESSION_ROOT / "cheek-fixture.json").write_text(
             json.dumps(fixture, indent=2), encoding="utf-8"
@@ -2229,6 +2265,16 @@ class OpticalRig:
             rotation = float(orientation["rotation_degrees_ccw"])
             if not math.isfinite(rotation):
                 raise ValueError("session media rotation is not finite")
+            scales = fixture.get("measured_source_scales", {}) if gesture == "cheek" else {}
+            if gesture == "cheek" and not scales:
+                raise ValueError("cheek session lacks measured source framing; recalibrate")
+            if not isinstance(scales, dict) or any(
+                not isinstance(key, str) or not math.isfinite(float(value)) or
+                not 0.1 <= float(value) <= 2.0 for key, value in scales.items()
+            ):
+                raise ValueError("measured source scale is invalid")
+            self.measured_source_scales = {key: float(value) for key, value in scales.items()}
+            self.measured_scale_zoom_ratio = float(fixture["zoom_ratio"]) if scales else None
             values = self._install_camera_preferences(
                 preference_path.read_text(encoding="utf-8"),
                 "%s-session-preferences.applied.xml" % prefix,
@@ -2834,6 +2880,11 @@ class OpticalRig:
         return True
 
     def case_display_scale(self, case):
+        measured = getattr(self, "measured_source_scales", {})
+        if case.get("gesture") != "blink" and case.get("source") in measured:
+            if not math.isclose(self.active_zoom_ratio, self.measured_scale_zoom_ratio, abs_tol=0.05):
+                raise ValueError("camera zoom changed after source framing; recalibrate")
+            return measured[case["source"]]
         base_face_height = case.get("face_height_at_zoom_1x")
         target_face_height = case.get("target_face_height")
         if base_face_height is None or target_face_height is None:
@@ -2841,26 +2892,77 @@ class OpticalRig:
         denominator = max(0.01, float(base_face_height) * self.active_zoom_ratio)
         return max(0.1, min(2.0, float(target_face_height) / denominator))
 
-    def verify_cheek_framing(self, screenshot_path, trial):
+    def measure_cheek_framing(self, screenshot_path):
         if not self.camera_setup_ui_path:
-            self.add("P1", "Cheek framing could not be measured", "Camera Setup geometry is missing.")
-            return False
+            raise ValueError("Camera Setup geometry is missing")
+        preview = camera_setup_geometry(self.camera_setup_ui_path)["preview_rect"]
+        image = self.host.cv2.imread(str(screenshot_path), self.host.cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError("screenshot could not be decoded")
+        blue, green, red = self.host.cv2.split(image)
+        mask = (green > 150) & (red < 110) & (blue < 200) & (green > red * 1.45)
+        ys, xs = self.host.numpy.where(mask)
+        measured = face_overlay_coverage_from_points(list(zip(xs.tolist(), ys.tolist())), preview)
+        if measured is None:
+            raise ValueError("face overlay was not found")
+        measured["preview_rect"] = list(preview)
+        return measured
+
+    def normalize_cheek_source_framing(self, cases, source_by_id):
+        """Measure neutral geometry before learning any gesture model."""
+        observations = []
+        seen = set()
+        for case in cases:
+            source_id = case.get("source")
+            if source_id in seen or case.get("target_face_height") is None:
+                continue
+            seen.add(source_id)
+            if source_by_id is None or source_id not in source_by_id:
+                self.add("P1", "Cheek source framing unavailable", "A declared public source is required.")
+                return False
+            source = source_by_id[source_id]
+            target = float(case["target_face_height"])
+            if not MIN_RIG_FACE_HEIGHT <= target <= MAX_RIG_FACE_HEIGHT:
+                self.add("P1", "Cheek source framing target invalid", str(target))
+                return False
+            for attempt in range(2):
+                scale = self.case_display_scale(case)
+                label = "cheek_source_%s_%d" % (source_id, attempt)
+                if not self.show_video_still(source, float(case.get("rest_at", source.get("rest_at_s", 0))), label, scale=scale):
+                    return False
+                time.sleep(1.5)
+                screenshot = self.device.screenshot(label)
+                try:
+                    measured = self.measure_cheek_framing(screenshot)
+                    left, top, right, bottom = measured["preview_rect"]
+                    x1, y1, x2, y2 = measured["bounds"]
+                    margin_x, margin_y = (right - left) * .02, (bottom - top) * .02
+                    if not (left + margin_x < x1 < x2 < right - margin_x and top + margin_y < y1 < y2 < bottom - margin_y):
+                        raise ValueError("face overlay touches preview margin; crop is not admissible")
+                    height = measured["height_fraction"]
+                    adjusted = scale * target / height
+                    if not math.isfinite(adjusted) or not 0.1 <= adjusted <= 2.0:
+                        raise ValueError("required presenter scale is outside the supported range")
+                except (ET.ParseError, OSError, ValueError, ZeroDivisionError) as error:
+                    self.add("P1", "Cheek source framing could not be established", str(error))
+                    return False
+                observations.append(dict(source=source_id, attempt=attempt, scale=scale, target=target, measurement=measured))
+                (self.outdir / "cheek-source-framing.json").write_text(json.dumps(observations, indent=2), encoding="utf-8")
+                if abs(height - target) <= .04:
+                    self.measured_source_scales[source_id] = scale
+                    self.measured_scale_zoom_ratio = self.active_zoom_ratio
+                    self.pass_("measured cheek source framing", "%s %.1f%% at scale %.3f" % (source_id, height * 100, scale))
+                    break
+                if attempt == 1:
+                    self.add("P1", "Cheek source framing did not converge", "Neutral geometry remains outside the target; no gesture calibration was started.")
+                    return False
+                self.measured_source_scales[source_id] = adjusted
+                self.measured_scale_zoom_ratio = self.active_zoom_ratio
+        return True
+
+    def verify_cheek_framing(self, screenshot_path, trial):
         try:
-            preview = camera_setup_geometry(self.camera_setup_ui_path)["preview_rect"]
-            image = self.host.cv2.imread(str(screenshot_path), self.host.cv2.IMREAD_COLOR)
-            if image is None:
-                raise ValueError("screenshot could not be decoded")
-            blue, green, red = self.host.cv2.split(image)
-            mask = (
-                (green > 150) & (red < 110) & (blue < 200) &
-                (green > red * 1.45)
-            )
-            ys, xs = self.host.numpy.where(mask)
-            measured = face_overlay_coverage_from_points(
-                list(zip(xs.tolist(), ys.tolist())), preview
-            )
-            if measured is None:
-                raise ValueError("face overlay was not found")
+            measured = self.measure_cheek_framing(screenshot_path)
         except (ET.ParseError, OSError, ValueError) as error:
             self.add(
                 "P1", "Cheek framing could not be measured", str(error),
@@ -2869,7 +2971,6 @@ class OpticalRig:
             return False
         measured.update({
             "trial": trial,
-            "preview_rect": list(preview),
             "camera_zoom_ratio": self.active_zoom_ratio,
             "accepted_height_range": [MIN_RIG_FACE_HEIGHT, MAX_RIG_FACE_HEIGHT],
         })
@@ -3482,6 +3583,8 @@ class OpticalRig:
                 "P2", "Cheek calibration pack is incomplete",
                 "Calibration needs one neutral sequence and at least one twitch sequence."
             )
+            return False
+        if not self.normalize_cheek_source_framing(cases, source_by_id):
             return False
         before_preferences = self.device.shell(
             "run-as", PACKAGE, "cat", CAMERA_PREFS, check=False
