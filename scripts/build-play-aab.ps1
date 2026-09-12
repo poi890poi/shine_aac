@@ -68,6 +68,8 @@ if ($SdkDir) {
 $resolvedKeystoreProperties = Resolve-Path -LiteralPath $KeystoreProperties
 
 & (Join-Path $PSScriptRoot "verify-android-data-policy.ps1")
+& python (Join-Path $PSScriptRoot "play-release-notes.py") --check
+if ($LASTEXITCODE -ne 0) { throw "Google Play release notes validation failed." }
 
 if (-not $SkipBuild) {
     Write-Step "Building signed Google Play AAB"
@@ -95,6 +97,8 @@ $releaseRoot = if ([System.IO.Path]::IsPathRooted($ArtifactRoot)) {
 }
 $releaseDir = Join-Path $releaseRoot "v$versionName"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+& python (Join-Path $PSScriptRoot "play-release-notes.py") --output-dir $releaseDir
+if ($LASTEXITCODE -ne 0) { throw "Google Play release notes export failed." }
 
 $artifactName = "shine-aac-v$versionName-code$versionCode-release.aab"
 $artifactPath = Join-Path $releaseDir $artifactName

@@ -103,6 +103,8 @@ if (-not $versionName -or -not $versionCode) {
 }
 
 & (Join-Path $PSScriptRoot "verify-android-data-policy.ps1")
+& python (Join-Path $PSScriptRoot "play-release-notes.py") --check
+if ($LASTEXITCODE -ne 0) { throw "Google Play release notes validation failed." }
 
 if (-not $SkipBuild) {
     $buildArgs = @()
@@ -179,7 +181,9 @@ Android version code: $versionCode
 
 $zipName = "shine-aac-v$versionName-code$versionCode-debug.zip"
 $zipPath = Join-Path $releaseDir $zipName
-$zipInputs = @($artifactPaths) + @((Join-Path $releaseDir "SHA256SUMS.txt"), $notesPath)
+& python (Join-Path $PSScriptRoot "play-release-notes.py") --output-dir $releaseDir
+if ($LASTEXITCODE -ne 0) { throw "Google Play release notes export failed." }
+$zipInputs = @($artifactPaths) + @((Join-Path $releaseDir "SHA256SUMS.txt"), $notesPath, (Join-Path $releaseDir "PLAY_RELEASE_NOTES.txt"))
 Compress-Archive -LiteralPath $zipInputs `
     -DestinationPath $zipPath -CompressionLevel Optimal -Force
 

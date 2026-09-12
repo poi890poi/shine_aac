@@ -1,0 +1,8 @@
+{
+  "versionName": "0.5.0",
+  "versionCode": 63,
+  "notes": {
+    "zh-TW": "改善平板直向與橫向版面、訊息重播及設定操作。\n放大文字時，狀態文字更清楚；長英文建議詞會在暫停確認時調整寬度，保留掃描節奏。\n新增台灣鳥類像素花園彩蛋，支援相機動作與開關操作。\n花園加入三段漸進速度、補充次數提示、碰撞羽毛與平順降落動畫。\n改善注音掃描與語音選項。",
+    "en-IN": "Improved tablet layouts, message replay and Settings.\nClearer status at large text sizes. Long English suggestions resize during review pauses while preserving scan timing.\nAdded a Taiwan bird pixel-garden Easter egg with camera and switch input.\nIncludes three training speeds, refill indicators, feather collisions and smooth landings.\nImproved Zhuyin scanning and voice options."
+  }
+}
