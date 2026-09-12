@@ -52,7 +52,7 @@ try{
    return {samples,images,resizeParity,contextRestored,info:gpu.gameRendererInfo()};
   },process.argv.includes('--quick'));
   for(const [name,data] of Object.entries(result.images))writeFileSync(`${out}/${width}-${name}.png`,Buffer.from(data,'base64'));delete result.images;
-  if(width===1280)result.benchmark=await page.evaluate(benchmarkGardenRenderers);
+  if(width===1280&&!process.argv.includes('--functional-only'))result.benchmark=await page.evaluate(benchmarkGardenRenderers);
   results.push({width,height,dpr,errors,...result});console.log(JSON.stringify({width,errors,info:result.info,failures:result.samples.filter(s=>s.differences||s.grid).slice(0,4)}));
   await page.close();
  }

@@ -1331,6 +1331,7 @@ function numericDetail(inputEvent = {}, key = "") {
 
 function setCameraStatus(state, label, monitorStale) {
   cameraStatus = { state, label, updatedAt: performance.now(), monitorStale };
+  garden?.setCameraStatus(gardenCameraStatus());
   updateCameraStatusPresentation();
   if (monitorStale) scheduleCameraStatusStaleCheck();
 }
@@ -2705,6 +2706,8 @@ function enterGarden() {
   garden = openGarden({
     columns: session.config.columns,
     url: globalThis.ShineAacAndroid?.getBirdGameUrl?.() || new URL('./garden.html', location.href),
+    scanIntervalMs:session.config.scanIntervalMs, firstCellPauseMs:session.config.firstCellPauseMs,
+    cameraStatus:gardenCameraStatus(),
     onExit: reason => {
       garden = null; app.hidden = false;
       globalThis.ShineAacAndroid?.setBirdGameActive?.(false);
@@ -2718,6 +2721,10 @@ function enterGarden() {
   });
   globalThis.ShineAacAndroid?.setBirdGameActive?.(true);
   syncNativeCommunicationPaused();
+}
+
+function gardenCameraStatus() {
+  return {enabled:cameraInputEnabled(),state:cameraStatus.state,score:opticalScore,threshold:opticalThreshold};
 }
 
 function loadAppInfo() {
@@ -2759,6 +2766,7 @@ function renderAppInfo() {
     <header class="info-header">
       <h1>${uiText("SayToMe AAC", "我想說")}</h1>
       <button type="button" class="app-version-trigger" data-action="app-version">${uiText("Version", "版本")} ${escapeHtml(String(info.versionName))} (${escapeHtml(String(info.versionCode))})</button>
+      <p class="garden-entry-feedback" role="status" aria-live="polite" hidden></p>
       <p>${uiText("An augmentative and alternative communication app for composing and speaking messages with touch, switch, or camera input.", "使用觸控、開關或相機輸入來組合並朗讀訊息的輔助溝通程式。")}</p>
     </header>
     <section class="info-section" aria-labelledby="info-data-heading">
@@ -2792,9 +2800,14 @@ function renderAppInfo() {
     const url = event.target?.dataset?.url;
     if (url) openExternalUrl(url);
     if (event.target?.dataset?.action === "back") closeAppInfo();
-    if (event.target?.dataset?.action === "app-version" && ++versionActivations === 7) {
-      closeConfig({holdFirstRow:false});
-      enterGarden();
+    if (event.target?.dataset?.action === "app-version") {
+      const remaining=7-++versionActivations;
+      if(remaining>0) {
+        const feedback=panel.querySelector('.garden-entry-feedback');feedback.hidden=false;
+        feedback.textContent=uiText(`${remaining} more taps to open Bird Garden.`,`再點 ${remaining} 次即可開啟鳥兒花園。`);
+      } else {
+        closeConfig({holdFirstRow:false});enterGarden();
+      }
     }
   });
   backdrop.append(panel);

@@ -73,7 +73,7 @@ test('AAC host count agrees with real AAC defaults/range; malformed values fail 
   for(let columns=MinimumColumns;columns<=MaximumColumns;columns++) {
     const state=createGameState(gameConfigFromAac({columns},{columns:4}));
     assert.equal(state.flowers.length,columns);
-    state.flowers.forEach((f,i)=>assert.ok(Math.abs(f.x-(i+0.5)/columns)<1e-12));
+    state.flowers.forEach((f,i)=>assert.ok(Math.abs(f.x-(state.config.approachInset+(1-state.config.approachInset)*(i+0.5)/columns))<1e-12));
     assert.ok(state.config.hitWidth*2<1/columns);
     assert.equal(updateGame(state,{type:'RESET'}).state.flowers.length,columns);
   }

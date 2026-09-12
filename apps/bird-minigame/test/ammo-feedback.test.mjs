@@ -5,7 +5,8 @@ import {featherParticles,paintAmmo,paintFeathers} from '../src/game-feedback.js'
 import {beginLanding} from '../src/landing.js';
 const act=(s,type)=>updateGame(s,{type}).state;
 const tick=(s,seconds,hz=120)=>{for(let i=0;i<Math.round(seconds*hz);i++)s=updateGame(s,{type:'TICK',seconds:1/hz}).state;return s;};
-const flying=(config={})=>tick(act(createGameState({dropMode:'recharge',...config}),'START'),1.3);
+// Keep these ammo-boundary fixtures at the original, fastest supported cadence.
+const flying=(config={})=>tick(act(createGameState({dropMode:'recharge',speedLevel:2,...config}),'START'),1.3);
 
 test('recharge spends only accepted drops, permits a retry on the same flyby, never queues',()=>{
   let s=flying();s=act(s,'DROP');assert.equal(s.ammo,2);

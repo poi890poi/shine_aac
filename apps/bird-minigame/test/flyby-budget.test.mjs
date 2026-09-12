@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGameState,updateGame} from '../src/game-core.js';
 const tick=(s,seconds)=>{for(let i=0;i<Math.round(seconds*120);i++)s=updateGame(s,{type:'TICK',seconds:1/120}).state;return s;};
-const flying=()=>tick(updateGame(createGameState({dropMode:'flyby'}),{type:'START'}).state,1.3);
+const flying=()=>tick(updateGame(createGameState({dropMode:'flyby',speedLevel:2}),{type:'START'}).state,1.3);
 
 test('a miss consumes this flyby; repeated taps never queue the next drop',()=>{
   let s=flying();s=updateGame(s,{type:'DROP'}).state;

@@ -1,11 +1,13 @@
 import {beginLanding,advanceLanding} from './landing.js';
 export const COLLISION_FEATHER_SECONDS=2.4;
+export const TRAINING_SPEEDS = Object.freeze([0.6, 0.8, 1]);
+export const nextTrainingLevel = level => Math.min(TRAINING_SPEEDS.length - 1, level + 1);
 
 export const DEFAULT_GAME_CONFIG = Object.freeze({
   columns: 4,
   passSeconds: 6, entrySeconds: 0.7, descent: 0.075, startY: 0.14, groundY: 0.9,
   flowerHeights: Object.freeze([0.22, 0.36, 0.27, 0.42]),
-  flowerLeft: 0.17, flowerRight: 0.83, hitWidth: 0.068, hitReduction: 0.12,
+  approachInset: 0.08, hitWidth: 0.068, hitReduction: 0.12, speedLevel: 0,
   dropSpeed: 1.05, birdRadiusX: 0.026, birdRadiusY: 0.018,
   dropMode: 'recharge', ammoCapacity: 3, refillSeconds: 6, ammoSide: 'left',
   rescueSeconds: 1, recoveryPasses: 3, inactivitySeconds: 90, landingSeconds: 4.5, landingSide: 'auto'
@@ -18,8 +20,11 @@ export function createGameState(overrides = {}) {
   if(overrides.flowerHeights&&overrides.flowerHeights.length!==config.columns)throw new RangeError('flowerHeights must match AAC columns.');
   config.flowerHeights=overrides.flowerHeights??Array.from({length:config.columns},(_,i)=>DEFAULT_GAME_CONFIG.flowerHeights[i%4]);
   // One fixed center per AAC column. Hit zones remain separate at dense settings.
-  config.flowerLeft=0.5/config.columns;config.flowerRight=1-config.flowerLeft;
-  config.hitWidth=Math.min(config.hitWidth,0.4/config.columns);
+  if(!Number.isFinite(config.approachInset)||config.approachInset<0||config.approachInset>0.2)throw new RangeError('approachInset must be 0 to 0.2');
+  if(!Number.isInteger(config.speedLevel)||config.speedLevel<0||config.speedLevel>=TRAINING_SPEEDS.length)throw new RangeError('speedLevel must be 0 to 2');
+  const pitch=(1-config.approachInset)/config.columns;
+  config.flowerLeft=config.approachInset+pitch/2;config.flowerRight=1-pitch/2;
+  config.hitWidth=Math.min(config.hitWidth,0.4*pitch);
   if (!Array.isArray(config.flowerHeights) || config.flowerHeights.length < 2 ||
       config.flowerHeights.some(h => !(h > 0 && h < config.groundY - config.startY - 0.08))) {
     throw new RangeError("flowerHeights must contain at least two safe positive heights.");
@@ -38,7 +43,8 @@ export function createGameState(overrides = {}) {
     config, phase: "ready", mode: "entry", time: 0, idleSeconds: 0,
     pass: 1, waitSeconds: config.entrySeconds, score: 0,
     bird: { x: -0.1, y: config.startY, rotation: 0 },
-    safeY: config.startY, drop: null, dropUsed: false, passHadHit: false, guideId: null, speedScale: 1,
+    safeY: config.startY, drop: null, dropUsed: false, passHadHit: false, guideId: null,
+    speedLevel: config.speedLevel, speedScale: TRAINING_SPEEDS[config.speedLevel], lastSlowdownPass: null,
     ammo: config.ammoCapacity, refillElapsed: 0, featherBurst: null,
     flowers: config.flowerHeights.map((height, id, list) => ({
       id, x: config.flowerLeft + (config.flowerRight - config.flowerLeft) * id / (list.length - 1),
@@ -140,6 +146,11 @@ function step(state, dt) {
     Math.abs(s.bird.x - f.x) < c.birdRadiusX + 0.018 &&
     s.bird.y + c.birdRadiusY >= c.groundY - f.height);
   if (blocker) {
+    // At most one step down per flyby; recovery already provides the transition.
+    if(s.lastSlowdownPass!==s.pass) {
+      s.speedLevel=Math.max(0,s.speedLevel-1);s.speedScale=TRAINING_SPEEDS[s.speedLevel];
+      s.lastSlowdownPass=s.pass;
+    }
     blocker.collisions++; blocker.blocked = c.rescueSeconds;
     s.mode = "rescue"; s.bird.rotation = 0;
     s.featherBurst={x:s.bird.x,y:s.bird.y,age:0};

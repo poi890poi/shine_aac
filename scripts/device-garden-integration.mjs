@@ -111,10 +111,35 @@ try {
     }
   };
   await activate();
-  await until('__gardenEvents.some(m=>m.event==="start")');await wait(1300);
+  await until('__gardenEvents.some(m=>m.event==="start")');
+  // Training entry follows the saved scan timing. Observe an actionable flyby
+  // instead of assuming the former fixed-speed entry takes 1.3 seconds.
+  let dropReady=false;
+  for(let i=0;i<300&&!dropReady;i++){
+    dropReady=await ev(`document.querySelector('.game-canvas').dataset.dropReady==='true'`,gameContext.id);
+    if(!dropReady)await wait(200);
+  }
+  assert.ok(dropReady,'bird reaches an actionable flyby within 60 seconds');
   await activate();await until('__gardenEvents.some(m=>m.event==="drop")');
   const dropped=await ev('__gardenEvents.find(m=>m.event==="drop")');assert.equal(dropped.ammo,2);
   const runningGrid=await checkPixelGrid();
+  const tapControl=async selector=>{
+    const point=await ev(`(()=>{const b=document.querySelector(${JSON.stringify(selector)}),r=b.getBoundingClientRect();return {x:(r.x+r.width/2)*devicePixelRatio,y:(r.y+r.height/2)*devicePixelRatio,w:r.width,h:r.height};})()`,gameContext.id);
+    assert.ok(point.w>=48&&point.h>=48,'physical control target is at least 48 CSS pixels');
+    await run('shell','input','tap',String(Math.round(point.x)),String(Math.round(point.y)));
+    await wait(200);
+  };
+  await tapControl('[data-game-pause]');
+  assert.equal(await ev(`document.querySelector('.bird-game').dataset.phase`,gameContext.id),'paused');
+  await tapControl('[data-game-settings]');
+  assert.equal(await ev(`document.querySelector('[data-game-settings]').getAttribute('aria-expanded')`,gameContext.id),'true');
+  const muted=await ev(`document.querySelector('[data-game-sound]').getAttribute('aria-pressed')`,gameContext.id);
+  await tapControl('[data-game-sound]');
+  assert.notEqual(await ev(`document.querySelector('[data-game-sound]').getAttribute('aria-pressed')`,gameContext.id),muted);
+  await tapControl('[data-game-sound]');
+  await tapControl('[data-game-settings]');
+  await tapControl('[data-game-pause]');
+  assert.equal(await ev(`document.querySelector('.bird-game').dataset.phase`,gameContext.id),'running');
   await writeFile(resolve(out,'pixel-grid.json'),JSON.stringify({ready:readyGrid,running:runningGrid},null,2));
   const screen=await run('exec-out','screencap','-p');await writeFile(resolve(out,'game.png'),screen);
   const canvas=await ev(`(()=>{const r=document.querySelector('.game-canvas').getBoundingClientRect();return {w:r.width*devicePixelRatio,h:r.height*devicePixelRatio,x:r.x*devicePixelRatio,y:r.y*devicePixelRatio};})()`,gameContext.id);
@@ -124,7 +149,7 @@ try {
   const after=await ev(`JSON.stringify({message:document.querySelector('.message').dataset.rawMessage,rows:[...document.querySelectorAll('.row')].map(r=>[...r.querySelectorAll('.tile')].map(t=>[t.dataset.label,t.dataset.action]))})`);
   assert.equal(after,before,'native game exit preserves communication draft and board');
   assert.equal(await readInputProfile(),inputProfile,'input preference preserved');
-  await writeFile(resolve(out,'result.json'),JSON.stringify({result:'PASS',device,pkg,apkSha,columns:ready.columns,speciesId:dropped.speciesId,ammoAfterOneDrop:2,canvas,boardAndDraftPreserved:true,inputProfile,physicalHardwareActivation:hardwareEnabled,physicalTouchActivation:!hardwareEnabled},null,2));
+  await writeFile(resolve(out,'result.json'),JSON.stringify({result:'PASS',device,pkg,apkSha,columns:ready.columns,speciesId:dropped.speciesId,ammoAfterOneDrop:2,canvas,boardAndDraftPreserved:true,inputProfile,physicalHardwareActivation:hardwareEnabled,physicalTouchActivation:!hardwareEnabled,physicalPauseHelperSoundResume:true},null,2));
   console.log('PASS physical integrated garden:',device,'columns='+ready.columns,hardwareEnabled?'hardware':'touch','start/drop, fullscreen and AAC return verified');
   console.log('Evidence:',out);
 } catch(error) {

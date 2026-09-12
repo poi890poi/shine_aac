@@ -97,7 +97,7 @@ Change them deliberately, retaining the rules above, and record material changes
 | Parameter | MVP baseline | Purpose |
 | --- | --- | --- |
 | Flower columns | AAC configuration, 3–8; standalone fallback 4 | One flower per AAC column |
-| Pass duration | 6 seconds | Standard timing; allow helper-selected 8/6/4 seconds |
+| Pass duration | 6 seconds at fastest standalone level | Three multipliers: 0.6 / 0.8 / 1; hosted timing also respects AAC scan and first-cell intervals |
 | Entry warning | 0.7 seconds | Predictable restart from the left |
 | Active droppings | 1 | Clear cause and effect |
 | Hit reaction | Approximately 0.8 seconds | Readable comic feedback |
@@ -116,7 +116,10 @@ wings are visual only. A flower's central upper area blocks; petal edges should
 not make near misses unfair.
 
 Repeated collisions use the same predictable recovery. Flight continues without
-a guided stop or automatic speed change. As in the requested Super Blitz rhythm,
+a guided stop. Each collision slows one level, at most once per flyby, with a slow
+floor. Only successful landing advances the next round one level, capped at three
+levels; passing, hitting and missing never increase speed in the current round.
+As in the requested Super Blitz rhythm,
 each completed pass still descends, including no-input and missed passes; the
 three-pass lift is the forgiving recovery. No lives, game-over loop, lost progress
 or automatic flower shortening may be introduced. Reduced motion suppresses
@@ -219,7 +222,7 @@ These are agreed product directions, not work to silently add to the one-bird MV
 - Bamboo/segmented stems or visible stacked hit blocks.
 - Brown solid cartoon poop in place of white liquid bird droppings.
 - Bombs, buildings, life counters, or collisions that erase flower progress.
-- Automatic speed increases that make the round harder without helper choice.
+- Automatic speed increases within a round or beyond the configured scan timing.
 
 ## Acceptance evidence
 

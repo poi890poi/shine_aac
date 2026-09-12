@@ -20,7 +20,7 @@ test("Super Blitz requirements: four fixed equally spaced flowers, automatic fli
   const first = advance(initial, 2).state;
   assert.ok(first.bird.x > initial.bird.x);
   assert.equal(first.bird.y, initial.bird.y);
-  const later = advance(initial, 7).state;
+  const later = advance(initial, initial.config.entrySeconds+initial.config.passSeconds/initial.speedScale+0.1).state;
   assert.equal(later.pass, 2);
   assert.ok(later.bird.y > initial.bird.y);
   assert.deepEqual(later.flowers.map(f => f.x), positions);

@@ -549,13 +549,15 @@ class AppInfoPreferenceFragment : PreferenceFragmentCompat() {
         val packageInfo = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0)
         val versionName = packageInfo.versionName.orEmpty()
         val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
-        findPreference<Preference>("appVersion")?.summary =
-            getString(R.string.settings_about_message, versionName, versionCode)
+        val versionSummary = getString(R.string.settings_about_message, versionName, versionCode)
+        findPreference<Preference>("appVersion")?.summary = versionSummary
         versionActivations = 0
         findPreference<Preference>("appVersion")?.setOnPreferenceClickListener {
             versionActivations += 1
             if (versionActivations == 7) {
                 (requireActivity() as SettingsActivity).finishWithAction(SettingsActivity.ActionBirdGarden)
+            } else {
+                it.summary = versionSummary + "\n" + getString(R.string.settings_garden_countdown, 7 - versionActivations)
             }
             true
         }

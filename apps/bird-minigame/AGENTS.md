@@ -1,5 +1,34 @@
 # Bird mini-game working rules
 
+## September 12 training and feedback
+
+- The approved arcade HUD is one transparent top row of borderless sprite icons.
+  Paint ammo, camera, speed and all visible controls into the shared native
+  framebuffer with one-pixel outlines and the cream/gold ramp. Start, Replay,
+  helper controls and the POC picker follow the same rule. Semantic DOM buttons
+  are transparent hit targets of at least 48 CSS pixels, with native-frame focus
+  feedback. No SVG overlays, smooth plates, visible text or second status row.
+  On exceptionally narrow windows, move Exit into the helper menu instead of
+  overlapping status or shrinking touch targets. Keep AAC replay status two-line.
+  Protect interactions, layout and physical pixel alignment with
+  `scripts/game-ui-test.mjs` and the physical garden integration gate.
+
+- Version 0.5.0 introduces three speed levels. Begin slow; only a completed landing
+  advances the next round by one level. Hits, misses and pass count never speed up
+  the current round. A collision reduces one level, at most once per flyby, with a
+  slow floor. Keep a simple three-chevron speed hint on the shared native pixel grid.
+- The fastest hosted level must allow at least the user's scan interval between
+  flower centres and first-cell pause from visible entry to the first centre.
+  Add approach space on the left only; divide the remaining width into equal flower
+  cells, preserving a normal half-cell right margin. Do not change stem or head art.
+- Show native-pixel camera status and relative gesture signal while camera input
+  is configured, including a distinct unavailable state for lost/stale detection.
+  Hardware-only play hides it. It is feedback, not a button or another detector.
+- About version taps show remaining taps to open the garden; seven opens it, and
+  leaving About resets the count. Keep the game absent from ordinary AAC controls.
+- These explicit user decisions supersede the older prohibition on automatic
+  speed progression, limited to post-landing increases and collision decreases.
+
 - September 8: respond to mountain-variety work with a substantial batch, minimum
   eight distinct source-backed mountain identities. Haze, recolors and alternate
   crops of one mountain do not count as additional identities. Review the whole

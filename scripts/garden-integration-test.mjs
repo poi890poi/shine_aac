@@ -30,22 +30,32 @@ try {
     assert.equal(await page.locator('.garden-button').count(),0,'game is absent from the main layout');
     await page.locator('.config-button').click();
     await page.locator('[data-action="app-info"]').click();
-    for(let i=0;i<6;i++)await page.locator('[data-action="app-version"]').click();
+    for(let i=0;i<6;i++) {
+      await page.locator('[data-action="app-version"]').click();
+      assert.equal(await page.locator('.garden-entry-feedback').innerText(),`${6-i} more taps to open Bird Garden.`);
+    }
     assert.equal(await page.locator('.garden-frame').count(),0,'six activations do not open the Easter egg');
     await page.locator('[data-action="back"]').click();
     await page.locator('[data-action="app-info"]').click();
+    assert.equal(await page.locator('.garden-entry-feedback').isVisible(),false,'countdown resets on leaving About');
     await page.locator('[data-action="app-version"]').click();
     assert.equal(await page.locator('.garden-frame').count(),0,'leaving About resets the counter');
     for(let i=0;i<6;i++)await page.locator('[data-action="app-version"]').click();
     await page.waitForFunction(()=>window.gardenMessages.some(m=>m.type==='ready'),null,{timeout:30000});
     const frame=page.frames().find(f=>f.url().includes('garden.html'));
     assert.ok(frame,'embedded game document');
+    const ready=await page.evaluate(()=>window.gardenMessages.find(m=>m.type==='ready'));
+    assert.equal(ready.speedLevel,0,'start slow');assert.ok(ready.passSeconds>6,'host scan timing reaches game');
+    await page.evaluate(()=>window.ShineAacInput.receive({intent:'cameraStatus',source:'android-camera-blink',state:'analysis',score:.3,threshold:.5}));
+    await frame.waitForSelector('.bird-game[data-camera-signal="live"]');
+    await page.evaluate(()=>window.ShineAacInput.receive({intent:'cameraStatus',source:'android-camera-blink',state:'detectorStale'}));
+    await frame.waitForSelector('.bird-game[data-camera-signal="unavailable"]');
     assert.equal(await frame.locator('.bird-picker').isVisible(),false,'hosted species are random');
     assert.equal(await page.evaluate(()=>window.gardenMessages.find(m=>m.type==='ready').columns),6,'one flower per AAC column');
     const aacRenderCount=await page.evaluate(()=>window.boardStates.length);
     await page.evaluate(()=>window.ShineAacInput.receive({intent:'activate',source:'android-hardware-key'}));
     await frame.waitForSelector('.bird-game[data-phase="running"]');
-    await delay(1200);
+    await delay(3500);
     await page.evaluate(()=>{for(let i=0;i<8;i++)window.ShineAacInput.receive({intent:'activate',source:'android-camera-blink'});});
     await page.waitForFunction(()=>window.gardenMessages.some(m=>m.event==='drop'));
     const drops=await page.evaluate(()=>window.gardenMessages.filter(m=>m.event==='drop'));
