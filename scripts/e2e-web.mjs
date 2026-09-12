@@ -15,6 +15,7 @@ const requestedDebugPort = Number(process.env.SHINE_AAC_CDP_PORT ?? 0);
 const edgePath = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const profileDir = join(process.env.TEMP ?? artifactDir, `shine-aac-edge-${Date.now()}`);
 const packagedWebViewMode = process.argv.includes("--packaged-webview");
+const suggestionResizeOnlyMode = process.argv.includes("--suggestion-resize-only");
 const timingOnlyMode = process.argv.includes("--timing-only");
 const cumulativeTimingMode = process.argv.includes("--cumulative-timing");
 const zhTwLayoutOnlyMode = process.argv.includes("--zh-tw-layout-only");
@@ -133,6 +134,14 @@ try {
     await scenarioInitialFirstRowHold(firstRunSnapshot);
   }
 
+  if (suggestionResizeOnlyMode) {
+    await scenarioRealSuggestionResize();
+    await scenarioAdaptiveHeader();
+    writeReport(true);
+    console.log("REAL SUGGESTION RESIZE PASS");
+    return;
+  }
+
   if (speechLockOnlyMode) {
     await scenarioSpeechLockReplayControls();
     await scenarioSpeechLockConversationDisplay();
@@ -246,7 +255,9 @@ try {
   await assertNoViewportOverflow("pixel-4a-5g-layout");
   await scenarioTabletViewportCompatibility();
   await scenarioLargeTextLabelCompatibility();
+  await scenarioRealSuggestionResize();
   await scenarioLongEnglishSuggestionSpans();
+  await scenarioAdaptiveHeader();
   await scenarioZhTwLayoutMigration();
   await scenarioAutoScanMorePages();
   await scenarioDeferredZhuyinFirstPass();
@@ -1459,6 +1470,95 @@ async function scenarioLargeTextLabelCompatibility() {
   await evaluate(`document.querySelector("#e2e-large-aac-text")?.remove(); window.dispatchEvent(new Event("resize"));`);
 }
 
+
+async function scenarioRealSuggestionResize() {
+  async function loadBoard(embedded, width = 393) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height: width === 393 ? 851 : 694, deviceScaleFactor: 2.75, mobile: true });
+    const profileId = embedded ? "zh-TW" : "en-US";
+    const config = { configVersion: 23, profileId, scanIntervalMs: 4000, firstCellPauseMs: 0, transitionPauseMs: 0, scanPassLimit: 0 };
+    const draft = { version: 1, profileId, message: "accessibil", activeCategory: embedded ? "english" : null, updatedAt: Date.now() };
+    const seed = await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source:
+      `localStorage.clear();localStorage.setItem('shine-aac-web-config-v1',${JSON.stringify(JSON.stringify(config))});localStorage.setItem('shine-aac-session-draft-v1',${JSON.stringify(JSON.stringify(draft))});` });
+    try { await reloadAndWaitForRenderedBoard("real-suggestion-" + Date.now()); await delay(300); }
+    finally { await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: seed.identifier }); }
+    const state = await getSnapshot();
+    if (state.message !== "accessibil" || state.rows.length < 13 || [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].some(letter => !state.rows.flat().some(tile => tile.label === letter))) throw new Error("Real dictionary resize must use the restored draft and complete 13-row board: " + JSON.stringify({embedded,width,message:state.message,rows:state.rows.length,phase:state.phase}));
+  }
+  const metrics = () => evaluate(`(() => {
+    const tile = document.querySelector('.dynamic-suggestion-row .tile[data-label="ACCESSIBILITY"]');
+    const label = tile?.querySelector('.tile-label');
+    if (!label) return null;
+    const range = document.createRange(); range.selectNodeContents(label);
+    const rects = [...range.getClientRects()].filter(r => r.width && r.height);
+    const target = document.querySelector('.scan-target-highlight:not([hidden])');
+    const fill = document.querySelector('.row .progress-fill');
+    const animation = fill?.getAnimations().find(a => a.transitionProperty === 'transform');
+    return { span: Number(tile.dataset.columnSpan), base: parseFloat(getComputedStyle(tile).fontSize), font: parseFloat(getComputedStyle(label).fontSize),
+      lines: new Set(rects.map(r => Math.round(r.top))).size, clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1,
+      phase: document.querySelector('.phase')?.dataset.scanPhase, target: target?.dataset.rowStart,
+      labels: [...document.querySelectorAll('.tile')].map(t => t.dataset.label),
+      end: animation ? animation.startTime + animation.effect.getComputedTiming().endTime : null };
+  })()`);
+  for (const embedded of [false, true]) {
+    await loadBoard(embedded);
+    const wide = await metrics();
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 694, deviceScaleFactor: 2.75, mobile: true });
+    await delay(350);
+    const paused = await metrics();
+    if (!paused || paused.font < 18 || paused.lines !== 1 || paused.clipped || paused.phase !== 'Review')
+      throw new Error(`Real ${embedded ? 'embedded ' : ''}English paused resize is unreadable: ${JSON.stringify(paused)}`);
+    await loadBoard(embedded, 320);
+    const fresh = await metrics();
+    if (fresh.span !== paused.span || Math.abs(fresh.font - paused.font) > 0.1)
+      throw new Error('Paused resize differs from fresh layout at the same width');
+    await loadBoard(embedded);
+    await evaluate(`ShineAacInput.receive({intent:'activate',source:'keyboard'})`);
+    await delay(200);
+    const active = await metrics();
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 694, deviceScaleFactor: 2.75, mobile: true });
+    await delay(200);
+    const resized = await metrics();
+    if (active.phase !== 'Rows' || resized.phase !== active.phase || resized.target !== active.target || resized.span !== wide.span || JSON.stringify(resized.labels) !== JSON.stringify(active.labels) || !Number.isFinite(active.end) || !Number.isFinite(resized.end) || Math.abs(resized.end - active.end) > 80)
+      throw new Error(`Active resize changed target, candidates or deadline: ${JSON.stringify({active,resized})}`);
+    await evaluate(`document.querySelector('.config-button').click();document.querySelector('[data-action="cancel"]').click();`);
+    await delay(300);
+    const returned = await metrics();
+    if (returned.phase !== 'Review' || returned.span !== fresh.span || returned.font < 18 || returned.lines !== 1 || returned.clipped || (await getSnapshot()).message !== 'accessibil')
+      throw new Error('Pending geometry was not applied when returning to review: '+JSON.stringify(returned));
+    steps.push(pass(`real-${embedded ? 'embedded-' : ''}English-resize`, 'full shipped board: paused long word matches fresh one-line layout; active target, candidates and deadline preserved; pending geometry applied on review return without changing draft'));
+  }
+}
+
+
+async function scenarioAdaptiveHeader() {
+  // A browser contract probe for header geometry, not an Android font-scale test.
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 360, height: 770, deviceScaleFactor: 3, mobile: true });
+  await evaluate(`(() => {
+    const style=document.createElement('style');style.id='header-contract-probe';
+    style.textContent='.phase {font-size:32px!important} .config-button {font-size:36px!important} .voice {font-size:30px!important}';
+    document.head.append(style);window.dispatchEvent(new Event('resize'));
+  })()`);
+  await delay(300);
+  const result = await evaluate(`(() => {
+    const button=document.querySelector('.config-button'),phase=document.querySelector('.phase'),voice=document.querySelector('.voice');
+    const b=button.getBoundingClientRect(),p=phase.getBoundingClientRect();
+    const text=phase.firstChild,words=[];
+    if(text?.nodeType===Node.TEXT_NODE) for(const m of text.textContent.matchAll(/\\S+/g)) {
+      const r=document.createRange();r.setStart(text,m.index);r.setEnd(text,m.index+m[0].length);
+      words.push({word:m[0],lines:new Set([...r.getClientRects()].filter(x=>x.width&&x.height).map(x=>Math.round(x.top))).size});
+    }
+    const range=document.createRange();range.selectNodeContents(voice);
+    return {name:button.getAttribute('aria-label'),button:[b.width,b.height],phase:[p.height,parseFloat(getComputedStyle(phase).lineHeight)],words,
+      voiceFits:range.getBoundingClientRect().width<=voice.clientWidth+1,phaseFits:phase.scrollWidth<=phase.clientWidth+1,
+      boardFits:document.querySelector('.board').getBoundingClientRect().bottom<=innerHeight+1};
+  })()`);
+  if (!result.name || result.button[0]<48 || result.button[1]<48 || result.button[1]>80 || !result.words.length || result.words.some(w=>w.lines!==1) || !result.voiceFits || !result.phaseFits || !result.boardFits)
+    throw new Error('Large header contract failed: '+JSON.stringify(result));
+  await evaluate(`document.querySelector('#header-contract-probe').remove();window.dispatchEvent(new Event('resize'));`);
+  await delay(200);
+  steps.push(pass('adaptive-header-contract','status words stay intact; voice readable; named Settings target >=48px without vertical stretching; board fits. Synthetic font probe, verified separately on Android.'));
+}
+
 async function scenarioLongEnglishSuggestionSpans() {
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 393,
@@ -1491,7 +1591,7 @@ async function scenarioLongEnglishSuggestionSpans() {
     localStorage.removeItem("shine-aac-session-draft-v1");
     location.reload();
   `);
-  await waitForUi();
+  await waitForRenderedBoard();
   await delay(300);
 
   const defaultLayout = await evaluate(`
@@ -1508,7 +1608,8 @@ async function scenarioLongEnglishSuggestionSpans() {
         firstSpan: Number(first?.dataset.columnSpan),
         tileFontSize: Number.parseFloat(getComputedStyle(first).fontSize),
         labelFontSize: Number.parseFloat(getComputedStyle(label).fontSize),
-        clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1
+        clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1,
+        oneLine: (() => { const r=document.createRange();r.selectNodeContents(label);return new Set([...r.getClientRects()].filter(x=>x.width&&x.height).map(x=>Math.round(x.top))).size===1; })()
       };
     })()
   `);
@@ -1546,21 +1647,23 @@ async function scenarioLongEnglishSuggestionSpans() {
         span: Number(first?.dataset.columnSpan),
         tileFontSize: Number.parseFloat(getComputedStyle(first).fontSize),
         labelFontSize: Number.parseFloat(getComputedStyle(label).fontSize),
-        clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1
+        clipped: label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1,
+        oneLine: (() => { const r=document.createRange();r.selectNodeContents(label);return new Set([...r.getClientRects()].filter(x=>x.width&&x.height).map(x=>Math.round(x.top))).size===1; })()
       };
     })()
   `);
   if (
     scaledLayout.span < defaultLayout.firstSpan ||
-    Math.abs(scaledLayout.tileFontSize - scaledLayout.labelFontSize) > 0.1 ||
+    (scaledLayout.span < 4 && Math.abs(scaledLayout.tileFontSize - scaledLayout.labelFontSize) > 0.1) ||
+    scaledLayout.labelFontSize < 18 || !scaledLayout.oneLine ||
     scaledLayout.clipped
   ) {
-    throw new Error(`Long English suggestion did not adapt at 200% text size: ${JSON.stringify(scaledLayout)}`);
+    throw new Error(`Custom 40px long-word fixture did not expand and fit within the one-line readability floor: ${JSON.stringify(scaledLayout)}`);
   }
   await assertNoViewportOverflow("long-English-suggestion-span-layout");
   steps.push(pass(
     "long-English-suggestion-spans",
-    `kept ACCESSIBILITY at the normal word size while expanding from ${defaultLayout.firstSpan} to ${scaledLayout.span} columns`
+    `synthetic 40px fixture expanded from ${defaultLayout.firstSpan} to ${scaledLayout.span} columns, fitting one line at ${scaledLayout.labelFontSize}px (18px floor)`
   ));
 
   await evaluate(`document.querySelector("#e2e-long-suggestion-scale")?.remove();`);
@@ -4713,13 +4816,14 @@ function writeReport(ok) {
     "",
     `Result: ${ok ? "PASS" : "FAIL"}`,
     "",
+    ...(suggestionResizeOnlyMode ? ["Scope: focused suggestion-resize and adaptive-header regressions.", ""] : []),
     "| Step | Status | Detail |",
     "| --- | --- | --- |",
     ...steps.map((step) => `| ${step.name} | ${step.status} | ${step.detail.replaceAll("|", "\\|").replaceAll("\n", "<br>")} |`),
     "",
     "Artifacts:",
     "",
-    "- `e2e-artifacts/web-e2e-final.png`"
+    suggestionResizeOnlyMode ? "No final screenshot is captured by this focused mode." : "- `e2e-artifacts/web-e2e-final.png`"
   ];
   writeFileSync(join(repoRoot, "docs/WEB_E2E_REPORT.md"), `${lines.join("\n")}\n`);
 }

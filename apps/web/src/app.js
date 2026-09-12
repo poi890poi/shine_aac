@@ -294,6 +294,8 @@ let renderedVoiceElement = null;
 let renderedCameraStatusElement = null;
 const boardSignatureCache = new WeakMap();
 let tileLabelFitFrame = 0;
+let headerFitFrame = 0;
+let measuredHeaderKey = null;
 let observedBoardElement = null;
 const tileLabelResizeObserver = typeof ResizeObserver === "function"
   ? new ResizeObserver(() => scheduleTileLabelFit())
@@ -1538,6 +1540,8 @@ function render() {
   if (canPatch) {
     updateScanPresentation(board);
     emitRenderState(board);
+    scheduleHeaderFit();
+    if (reviewHoldActive && pendingSuggestionGeometry) scheduleTileLabelFit();
     return;
   }
 
@@ -1623,7 +1627,17 @@ function renderFull(board, boardKey) {
   const configButton = document.createElement("button");
   configButton.className = "config-button";
   configButton.type = "button";
-  configButton.textContent = session.config.profileId === "zh-TW" ? "⚙ 設定" : "⚙ Settings";
+  const settingsLabel = uiText("Settings", "設定");
+  configButton.setAttribute("aria-label", settingsLabel);
+  configButton.title = settingsLabel;
+  const settingsIcon = document.createElement("span");
+  settingsIcon.className = "settings-icon";
+  settingsIcon.setAttribute("aria-hidden", "true");
+  settingsIcon.textContent = "⚙";
+  const settingsText = document.createElement("span");
+  settingsText.className = "settings-label";
+  settingsText.textContent = ` ${settingsLabel}`;
+  configButton.append(settingsIcon, settingsText);
   configButton.addEventListener("click", (event) => {
     event.stopPropagation();
     if (suppressNextConfigClick) {
@@ -2118,6 +2132,7 @@ function scheduleTileLabelFit() {
 
 function fitTileLabels() {
   tileLabelFitFrame = 0;
+  if (fitHeaderControls()) updateScanPresentation(boardForDisplay(session));
   if (updateDynamicSuggestionSpans()) return;
 
   const labels = observedBoardElement?.querySelectorAll(".tile-label") ?? [];
@@ -2143,7 +2158,50 @@ function fitTileLabels() {
   }
 }
 
+function scheduleHeaderFit() {
+  window.cancelAnimationFrame(headerFitFrame);
+  headerFitFrame = window.requestAnimationFrame(() => {
+    headerFitFrame = 0;
+    if (fitHeaderControls()) {
+      updateScanPresentation(boardForDisplay(session));
+      scheduleTileLabelFit();
+    }
+  });
+}
+
+function fitHeaderControls() {
+  const row = app.querySelector(".status-row");
+  const phase = row?.querySelector(".phase");
+  const button = row?.querySelector(".config-button");
+  if (!phase || !button || row.clientWidth <= 0) return false;
+  const key = JSON.stringify([row.clientWidth, innerWidth, phase.textContent,
+    button.textContent, getComputedStyle(phase).fontSize, getComputedStyle(button).fontSize]);
+  if (key === measuredHeaderKey && row.dataset.headerMeasured === key) return false;
+  measuredHeaderKey = key;
+  row.dataset.headerMeasured = key;
+  const naturalWidth = (element) => {
+    const probe = element.cloneNode(true);
+    probe.setAttribute("aria-hidden", "true");
+    probe.tabIndex = -1;
+    Object.assign(probe.style, { position: "fixed", visibility: "hidden",
+      width: "max-content", maxWidth: "none", height: "auto", whiteSpace: "pre",
+      pointerEvents: "none" });
+    document.body.append(probe);
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+    return width;
+  };
+  const gap = Number.parseFloat(getComputedStyle(row).columnGap) || 0;
+  const compact = innerWidth <= 480 &&
+    naturalWidth(phase) + naturalWidth(button) + gap > row.clientWidth;
+  const changed = row.classList.contains("compact-settings") !== compact;
+  row.classList.toggle("compact-settings", compact);
+  return changed;
+}
+
 let measuredSuggestionContentKey = null;
+let measuredSuggestionGeometryKey = null;
+let pendingSuggestionGeometry = false;
 function updateDynamicSuggestionSpans() {
   const rowElements = [...(observedBoardElement?.querySelectorAll(".dynamic-suggestion-row") ?? [])];
   const rowElement = rowElements[0];
@@ -2167,12 +2225,20 @@ function updateDynamicSuggestionSpans() {
     session.messageHistory.length > 0,
     isReplaySpeechLockActive(session) ? { ...session, speechLockMessage: null } : session
   ).slice(0, rowElements.length);
-  // A resize may fit labels, but must not move an existing scan target or
-  // restart its clock. Re-measure only when communication content changes.
+  // Geometry may regroup suggestions only at the existing review pause.
+  // Active scanning retains its candidates, target and original deadline.
   const contentKey = JSON.stringify([session.config.profileId, columns,
     session.message, session.activeCategory, sourceRows.map(row => row.map(tile => tile.label))]);
-  if (contentKey === measuredSuggestionContentKey) return false;
+  const tileStyle = getComputedStyle(sampleTile);
+  const geometryKey = JSON.stringify([rowElement.clientWidth, gapPx,
+    tileStyle.fontSize, tileStyle.fontFamily, tileStyle.fontWeight, tileStyle.letterSpacing]);
+  if (contentKey === measuredSuggestionContentKey) {
+    pendingSuggestionGeometry = geometryKey !== measuredSuggestionGeometryKey;
+    if (!pendingSuggestionGeometry || !reviewHoldActive) return false;
+  }
   measuredSuggestionContentKey = contentKey;
+  measuredSuggestionGeometryKey = geometryKey;
+  pendingSuggestionGeometry = false;
   const nextSpans = Object.create(null);
   const nextWrapLabels = Object.create(null);
 

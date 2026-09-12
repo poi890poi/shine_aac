@@ -8,6 +8,9 @@ SHINE Workspace remain a separate design task.
    split-screen. Expanded communication needs at least 840 by 600 CSS pixels.
    Resize must not change configured columns, tile order, scanner position,
    timing, draft, undo history or selected language.
+   Dynamic suggestion spans may be repacked at the existing review pause to
+   preserve readable labels. During active scanning, defer geometry-only
+   repacking until that pause; keep candidates, targets and deadlines stable.
 2. Board (design): retain about 68% of expanded width for communication; the
    remaining pane presents a multiline draft, two recent spoken messages,
    camera/scanning status and helper controls outside the AAC scan sequence.

@@ -53,6 +53,14 @@ positions. Therefore:
 This exception preserves access to the complete first-layer Zhuyin board while
 allowing short symbols and common words to benefit from larger text.
 
+Suggestion widths must be remeasured after viewport or font geometry changes.
+Geometry-only regrouping occurs at the existing review pause. During active
+scanning, preserve the current candidates, targets and deadline, then apply
+the pending geometry at the next review pause. Board labels remain one line.
+The status reserves two lines and must not split individual words. When the
+full Settings label crowds status on a narrow screen, use an accessibly named
+gear with a minimum 48 CSS-pixel target, preserving the requested text scale.
+
 ## Required release matrix
 
 Run the main board, Config, Input Test, and Camera setup at:

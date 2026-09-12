@@ -2,6 +2,7 @@
 setlocal
 if /I "%~1"=="--bird-poc" goto bird_poc
 if /I "%~1"=="--garden" goto garden
+if /I "%~1"=="--header-layout" goto header_layout
 python "%~dp0scripts\device-acceptance-test.py" %*
 set "acceptance_exit=%ERRORLEVEL%"
 
@@ -23,4 +24,9 @@ exit /b %ERRORLEVEL%
 :garden
 if not defined BIRD_NODE set "BIRD_NODE=node"
 "%BIRD_NODE%" "%~dp0scripts\device-garden-integration.mjs" "%~2"
+exit /b %ERRORLEVEL%
+
+:header_layout
+if not defined BIRD_NODE set "BIRD_NODE=node"
+"%BIRD_NODE%" "%~dp0scripts\device-header-layout.mjs" "%~2"
 exit /b %ERRORLEVEL%

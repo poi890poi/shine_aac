@@ -1922,3 +1922,14 @@ button:focus-visible, .board:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .cursor { animation: none; }
 }
+
+/* Large-text header: preserve readable status and an intrinsic-size helper. */
+.config-button { align-self: center; }
+.phase { overflow-wrap: normal; word-break: normal; }
+.voice { overflow: visible; text-overflow: clip; }
+.status-row.compact-settings {
+  grid-template-areas: "phase config" "secondary secondary";
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.compact-settings .config-button { align-self: start; justify-self: end; padding: 8px; line-height: 1; }
+.compact-settings .settings-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

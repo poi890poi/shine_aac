@@ -64,7 +64,7 @@ try {
       await run('shell','uiautomator','dump','/sdcard/shine-garden-window.xml');
       const xml=(await run('shell','cat','/sdcard/shine-garden-window.xml')).toString();
       await writeFile(resolve(out,`entry-${labels[0].replace(/\W/g,'')}-${attempt}.xml`),xml);
-      const node=[...xml.matchAll(/<node\b[^>]*>/g)].map(m=>m[0]).find(n=>labels.includes(n.match(/\btext="([^"]*)"/)?.[1]));
+      const node=[...xml.matchAll(/<node\b[^>]*>/g)].map(m=>m[0]).find(n=>labels.includes(n.match(/\btext="([^"]*)"/)?.[1])||labels.includes(n.match(/\bcontent-desc="([^"]*)"/)?.[1]));
       const bounds=node?.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
       if(bounds&&+bounds[3]>+bounds[1]&&+bounds[4]>+bounds[2]) {
         await run('shell','input','tap',String(Math.round((+bounds[1]+ +bounds[3])/2)),String(Math.round((+bounds[2]+ +bounds[4])/2)));return;
@@ -74,7 +74,7 @@ try {
     }
     throw new Error('Native entry label unavailable: '+labels.join('/'));
   }
-  await tapLabel(['⚙ Settings','⚙ 設定']);
+  await tapLabel(['⚙ Settings','⚙ 設定','Settings','設定']);
   await tapLabel(['Data and support','資料與支援'],{scroll:true});
   await tapLabel(['App information','App info','關於本程式','關於'],{scroll:true});
   for(let i=0;i<6;i++)await tapLabel(['Version','版本']);
