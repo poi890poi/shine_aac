@@ -114,6 +114,15 @@ alone do not establish correct browser display. Verify the public response's
 charset and rendered Chinese text before sharing the Play notes link. The
 download regression checks real HTTP headers/decoding and unchanged APK bytes.
 
+Prepare a Play handoff with `python scripts/prepare-play-downloads.py --release-dir
+<versioned-release-directory> --delivery-dir <public-delivery-directory>` after
+signature and bundle validation. It checks the current AAB's type/checksum and
+notes, then creates a Play-specific ZIP and page whose primary binary is the
+signed AAB. A request to release or provide files for Play must use this handoff;
+an APK-only test download page does not satisfy it. The public AAB must be
+downloaded and checked against its signed local artifact before handing it over.
+Label Play upload/acceptance as pending until actually verified in Play Console.
+
 1. Run `npm ci`.
 2. Update `version.properties`.
 3. Run `npm run test:core`.
