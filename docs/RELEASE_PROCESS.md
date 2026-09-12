@@ -107,6 +107,13 @@ artifacts. The APK ZIP includes it. Paste that file into Play Console;
 `RELEASE_NOTES.md` is the detailed changelog and is not a Play Console payload.
 Run `npm run test:release-notes` to verify the format/version regression cases.
 
+For temporary tunnel downloads, serve the explicit artifact directory with
+`python scripts/serve-release-downloads.py --directory <delivery-directory>`.
+Text responses must declare `charset=utf-8`; valid bytes and matching hashes
+alone do not establish correct browser display. Verify the public response's
+charset and rendered Chinese text before sharing the Play notes link. The
+download regression checks real HTTP headers/decoding and unchanged APK bytes.
+
 1. Run `npm ci`.
 2. Update `version.properties`.
 3. Run `npm run test:core`.
