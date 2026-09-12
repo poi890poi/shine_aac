@@ -94,12 +94,22 @@ Keep the real keystore properties file and `.jks` file out of Git. Use `keystore
 ## Minimal Release Checklist
 
 Google Play notes are generated from `config/play-release-notes.json`. Update
-its version name/code and the existing `zh-TW` and `en-IN` translations, then run
+its version name/code, `previousRelease` baseline, and the existing `zh-TW` and
+`en-IN` translations, then run
 `python scripts/play-release-notes.py --write`. The generated
 `docs/PLAY_RELEASE_NOTES.md` contains only the language-tagged copy/paste payload.
 Each language is limited to 500 Unicode characters; tags occupy separate lines.
 The locale choices come from this app's existing Play listing, not a universal
 Google requirement. [Google Play format requirements](https://support.google.com/googleplay/android-developer/answer/9859348).
+
+Review the complete change range from the previous released version to the
+candidate, not just the last development iteration or recent fixes. Record the
+baseline and user-visible change groups in the versioned changelog. Untagged
+development candidates do not reset the release-note baseline. Summarize the
+major user changes across that range within the Play limit; omit features
+already released, testing-only work, and unproven experimental improvements.
+The validator enforces a recorded earlier baseline; semantic completeness still
+requires reviewing the actual diff and release history.
 
 Both packaging commands fail on stale versions, missing locales, oversized text
 or a stale generated document, and export `PLAY_RELEASE_NOTES.txt` beside the

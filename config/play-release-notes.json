@@ -1,8 +1,9 @@
 {
   "versionName": "0.5.0",
   "versionCode": 63,
+  "previousRelease": "0.4.1",
   "notes": {
-    "zh-TW": "改善平板直向與橫向版面、訊息重播及設定操作。\n放大文字時，狀態文字更清楚；長英文建議詞會在暫停確認時調整寬度，保留掃描節奏。\n新增台灣鳥類像素花園彩蛋，支援相機動作與開關操作。\n花園加入三段漸進速度、補充次數提示、碰撞羽毛與平順降落動畫。\n改善注音掃描與語音選項。",
-    "en-IN": "Improved tablet layouts, message replay and Settings.\nClearer status at large text sizes. Long English suggestions resize during review pauses while preserving scan timing.\nAdded a Taiwan bird pixel-garden Easter egg with camera and switch input.\nIncludes three training speeds, refill indicators, feather collisions and smooth landings.\nImproved Zhuyin scanning and voice options."
+    "zh-TW": "自 0.4.1 以來的更新：\n・全新台灣鳥類像素花園迷你遊戲（彩蛋）：16 種鳥類，支援開關與相機動作、三段漸進練習速度，返回時保留原本對話。\n・重新設計平板直向、橫向與分割畫面版面，並顯示草稿及最近訊息。\n・設定頁與相機設定會隨視窗調整，保留操作及校正進度，改善預覽方向。\n・改善訊息重播、兩行狀態、放大文字與輔助按鈕；調整視窗時保留掃描節奏。\n・改善注音掃描分組與中英文語音選擇。",
+    "en-IN": "Changes since 0.4.1:\n- Entirely new Taiwan bird mini-game (Easter egg): 16 species, switch/camera input, training speeds and conversation preserved on return.\n- Redesigned tablet and split-screen layouts with drafts and recent messages.\n- Adaptive Settings and camera setup preserve progress; corrected preview orientation.\n- Clearer replay, two-line status, large text and helper controls; stable scan timing on resize.\n- Improved Zhuyin grouping and Chinese/English voice choices."
   }
 }

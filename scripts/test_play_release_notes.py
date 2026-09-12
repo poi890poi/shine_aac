@@ -10,7 +10,7 @@ spec.loader.exec_module(notes)
 
 class PlayNotesTest(unittest.TestCase):
     def setUp(self):
-        self.metadata = {'versionName': '0.5.0', 'versionCode': 63,
+        self.metadata = {'versionName': '0.5.0', 'versionCode': 63, 'previousRelease': '0.4.1',
                          'notes': {'zh-TW': '改善設定。', 'en-IN': 'Improved Settings.'}}
 
     def render(self):
@@ -32,6 +32,12 @@ class PlayNotesTest(unittest.TestCase):
         self.metadata['notes']['zh-TW'] += '。'
         with self.assertRaises(ValueError):
             self.render()
+
+    def test_requires_previous_release_not_current_iteration(self):
+        for previous in [None, '', '0.5.0', '0.6.0', 'latest iteration']:
+            self.metadata['previousRelease'] = previous
+            with self.assertRaisesRegex(ValueError, 'earlier release baseline'):
+                self.render()
 
     def test_missing_extra_or_wrong_locale(self):
         for locales in [{'zh-TW': '內容'}, {'zh-TW': '內容', 'en-US': 'Text'},

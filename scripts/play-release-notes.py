@@ -11,6 +11,9 @@ LOCALES = ('zh-TW', 'en-IN')
 def render_notes(metadata, version):
     if (metadata.get('versionName'), metadata.get('versionCode')) != version:
         raise ValueError('Play notes version must match version.properties')
+    previous = metadata.get('previousRelease', '')
+    if not isinstance(previous, str) or not re.fullmatch(r'\d+\.\d+\.\d+', previous) or tuple(map(int, previous.split('.'))) >= tuple(map(int, version[0].split('.'))):
+        raise ValueError('Play notes must record an earlier release baseline')
     notes = metadata.get('notes', {})
     if set(notes) != set(LOCALES):
         raise ValueError('Play notes require the configured zh-TW and en-IN locales')
@@ -51,7 +54,7 @@ def main():
     if args.output_dir:
         args.output_dir.mkdir(parents=True, exist_ok=True)
         (args.output_dir / 'PLAY_RELEASE_NOTES.txt').write_text(expected, encoding='utf-8')
-    print('PLAY NOTES PASS v{} code{}: {}'.format(metadata['versionName'], metadata['versionCode'],
+    print('PLAY NOTES PASS v{} code{} since {}: {}'.format(metadata['versionName'], metadata['versionCode'], metadata['previousRelease'],
           ', '.join('{} {}/500'.format(locale, len(metadata['notes'][locale])) for locale in LOCALES)))
 
 
