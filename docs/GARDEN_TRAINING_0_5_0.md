@@ -112,5 +112,8 @@ hidden-container resize fix; neither run enabled renderer timing benchmarks.
 
 Internal evidence: `.tmp/tablet-adaptation/garden-R9JT201YLJF-1789174742530/`.
 Internal APK: `.tmp/garden-v050/shine-aac-0.5.0-arcade-preview.apk`.
-These are workspace evidence paths, not public download URLs. The change remains
-uncommitted and unpublished.
+These are workspace evidence paths, not public download URLs. The installation
+above predates release preparation. The approved changes are now committed as
+84b860e on `codex/release-v0.5.0`; publication remains pending the
+[release candidate gates](reports/pre-release/v0.5.0.md). The broader release
+candidate has separate build and physical verification evidence.
