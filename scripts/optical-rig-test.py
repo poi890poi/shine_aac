@@ -5032,7 +5032,11 @@ class OpticalRig:
             "",
             "## Calibration",
             "",
-            "- Geometry/atlas result: %s" % ("PASS" if calibration else "FAIL"),
+            "- Geometry/atlas result: %s" % (
+                "REUSED (not verified this run)"
+                if calibration and calibration.get("discovery") == "reused-rig-session"
+                else ("PASS" if calibration else "FAIL")
+            ),
         ]
         if calibration:
             report += [

@@ -151,6 +151,10 @@ Each run writes `test-results/optical-*`, including:
 - per-case normal camera performance logs;
 - `thermal.csv` and `FINDINGS.md`.
 
+A cached fixture is reported as `REUSED (not verified this run)` for geometry,
+never as a fresh atlas PASS. A successful older calibration does not prove current
+physical framing after the rig or camera view changes.
+
 The report labels focused runs as a reused session fixture and records its
 calibration quality. One or two accepted slow blinks are weak calibration, not
 "quality good"; such a fixture may still be useful for targeted investigation

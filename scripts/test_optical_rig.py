@@ -26,6 +26,30 @@ RIG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RIG)
 
 
+class CalibrationReportProvenanceTest(unittest.TestCase):
+    def test_cached_geometry_is_not_reported_as_a_fresh_atlas_pass(self):
+        with tempfile.TemporaryDirectory() as folder:
+            rig = object.__new__(RIG.OpticalRig)
+            rig.outdir = Path(folder)
+            rig.args = SimpleNamespace(runtime_only=True, session_gesture='blink',
+                calibrate_cheek_session=False, geometry_only=False, calibration_only=False)
+            rig.results = []
+            rig.findings = []
+            calibration = dict(discovery='reused-rig-session', selected_camera_id='1',
+                estimated_visible_size=[900, 1500], desktop_stimulus_center=[450, 750])
+            rig.write_report(calibration)
+            cached = (rig.outdir / 'FINDINGS.md').read_text(encoding='utf-8')
+            self.assertIn('Geometry/atlas result: REUSED (not verified this run)', cached)
+            self.assertNotIn('Geometry/atlas result: PASS', cached)
+            calibration['discovery'] = 'camera-decoded-atlas'
+            rig.write_report(calibration)
+            self.assertIn('Geometry/atlas result: PASS',
+                (rig.outdir / 'FINDINGS.md').read_text(encoding='utf-8'))
+            rig.write_report(None)
+            self.assertIn('Geometry/atlas result: FAIL',
+                (rig.outdir / 'FINDINGS.md').read_text(encoding='utf-8'))
+
+
 class FocusedCheekOrientationTest(unittest.TestCase):
     def test_focused_calibration_saves_verified_orientation_for_runtime_reuse(self):
         with tempfile.TemporaryDirectory() as folder:
